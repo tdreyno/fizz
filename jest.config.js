@@ -15,7 +15,7 @@ module.exports = {
   // cacheDirectory: "/private/var/folders/vc/whbnb2sn65g8snn5h5skvxxw0000gn/T/jest_dx",
 
   // Automatically clear mock calls and instances between every test
-  clearMocks: true,
+  // clearMocks: true,
 
   // Indicates whether the coverage information should be collected while executing the test
   // collectCoverage: false,
@@ -31,7 +31,7 @@ module.exports = {
   //   "/node_modules/"
   // ],
 
-  // transformIgnorePatterns: ["node_modules/(?!@storytime/shared)"],
+  transformIgnorePatterns: ["node_modules/(?!@druyan/druyan)"],
 
   // A list of reporter names that Jest uses when writing coverage reports
   // coverageReporters: [
@@ -62,8 +62,8 @@ module.exports = {
   // A set of global variables that need to be available in all test environments
   globals: {
     "ts-jest": {
-      diagnostics: false,
-    },
+      diagnostics: false
+    }
   },
 
   // An array of directory names to be searched recursively up from the requiring module's location
@@ -97,7 +97,7 @@ module.exports = {
   preset: "ts-jest",
 
   // Run tests from one or more projects
-  projects: ["<rootDir>/packages/*/jest.config.js"],
+  // projects: null,
 
   // Use this configuration option to add custom reporters to Jest
   // reporters: undefined,
@@ -115,7 +115,7 @@ module.exports = {
   // restoreMocks: false,
 
   // The root directory that Jest should scan for tests and modules within
-  // rootDir: "src",
+  rootDir: "src",
 
   // A list of paths to directories that Jest should use to search for files in
   // roots: [
@@ -147,7 +147,9 @@ module.exports = {
   testMatch: ["**/__tests__/**/?(*.)+(spec|test|steps).ts?(x)"],
 
   // An array of regexp pattern strings that are matched against all test paths, matched tests are skipped
-  // testPathIgnorePatterns: ["/node_modules/"],
+  // testPathIgnorePatterns: [
+  //   "/node_modules/"
+  // ],
 
   // The regexp pattern or array of patterns that Jest uses to detect test files
   // testRegex: [],
@@ -162,7 +164,7 @@ module.exports = {
   // testURL: "http://localhost",
 
   // Setting this value to "fake" allows the use of fake timers for functions such as "setTimeout"
-  timers: "fake",
+  timers: "fake"
 
   // A map from regular expressions to paths to transformers
   // transform: null,

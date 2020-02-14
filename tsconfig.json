@@ -1,7 +1,8 @@
 {
   "compilerOptions": {
-    "target": "es2019",
+    "target": "es2020",
     "lib": ["dom", "dom.iterable", "esnext"],
+    "jsx": "react",
     "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
@@ -18,10 +19,9 @@
     "declaration": true,
     "declarationMap": true,
     "baseUrl": "./packages",
-    "paths": {
-      "@druyan/*": ["./*/src"]
-    }
+    "rootDir": "./src",
+    "outDir": "./pkg/dist-types"
   },
-  "include": [],
+  "include": ["./src"],
   "exclude": ["build", "pkg", "dist", "node_modules"]
 }
