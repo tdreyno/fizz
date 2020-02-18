@@ -50,7 +50,7 @@ interface Options {
   restartOnInitialStateChange?: boolean;
 }
 
-export function createDruyanContext<
+export function createFizzContext<
   SM extends { [key: string]: BoundStateFn<any, any, any> },
   AM extends { [key: string]: (...args: any[]) => Action<any> }
 >(

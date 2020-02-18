@@ -187,7 +187,7 @@ export class Runtime {
 
     if (!runCurrentState) {
       throw new Error(
-        `Druyan could not find current state to run action on. History: ${JSON.stringify(
+        `Fizz could not find current state to run action on. History: ${JSON.stringify(
           this.currentHistory()
             .map(({ name }) => name)
             .join(" -> "),

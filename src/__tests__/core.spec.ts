@@ -20,7 +20,7 @@ function createInitialContext(
   });
 }
 
-describe("Druyan core", () => {
+describe("Fizz core", () => {
   describe("States", () => {
     const Entry = state("Entry", (action: Enter) => {
       switch (action.type) {

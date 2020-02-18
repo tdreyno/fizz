@@ -31,7 +31,7 @@ module.exports = {
   //   "/node_modules/"
   // ],
 
-  transformIgnorePatterns: ["node_modules/(?!@druyan/druyan)"],
+  transformIgnorePatterns: [],
 
   // A list of reporter names that Jest uses when writing coverage reports
   // coverageReporters: [
@@ -62,8 +62,8 @@ module.exports = {
   // A set of global variables that need to be available in all test environments
   globals: {
     "ts-jest": {
-      diagnostics: false
-    }
+      diagnostics: false,
+    },
   },
 
   // An array of directory names to be searched recursively up from the requiring module's location
@@ -164,7 +164,7 @@ module.exports = {
   // testURL: "http://localhost",
 
   // Setting this value to "fake" allows the use of fake timers for functions such as "setTimeout"
-  timers: "fake"
+  timers: "fake",
 
   // A map from regular expressions to paths to transformers
   // transform: null,

@@ -1,5 +1,5 @@
 {
-  "name": "@tdreyno/druyan",
+  "name": "@tdreyno/fizz",
   "version": "0.0.0",
   "scripts": {
     "lint": "eslint -c .eslintrc.js --ext .ts src",

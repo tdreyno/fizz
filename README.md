@@ -1,19 +1,19 @@
-# Druyan
+# Fizz
 
-[![Test Coverage](https://api.codeclimate.com/v1/badges/bade509a61c126d7f488/test_coverage)](https://codeclimate.com/github/tdreyno/druyan2/test_coverage)
-[![npm latest version](https://img.shields.io/npm/v/@tdreyno/druyan/latest.svg)](https://www.npmjs.com/package/@tdreyno/druyan)
+[![Test Coverage](https://api.codeclimate.com/v1/badges/bade509a61c126d7f488/test_coverage)](https://codeclimate.com/github/tdreyno/fizz/test_coverage)
+[![npm latest version](https://img.shields.io/npm/v/@tdreyno/fizz/latest.svg)](https://www.npmjs.com/package/@tdreyno/fizz)
 
-Druyan is a small library for building state machines that can effectively manage complex sequences of events. [Learn more about state machines (and charts).](https://statecharts.github.io)
+Fizz is a small library for building state machines that can effectively manage complex sequences of events. [Learn more about state machines (and charts).](https://statecharts.github.io)
 
 ## Install
 
 ```bash
-yarn add @tdreyno/druyan
+yarn add @tdreyno/fizz
 ```
 
 ## Design
 
-Druyan attempts to provide an API that is "Just Javascript" and operates in a pure and functional manner[^1].
+Fizz attempts to provide an API that is "Just Javascript" and operates in a pure and functional manner[^1].
 
 States are simply functions which accept an `action` which is the event we want to apply to the current state. The action is an object which provides a `type` key to differentiate itself from other action types. It is very similar to a Redux action in format.
 
@@ -145,6 +145,6 @@ Our renderer can now check the current state each frame and decide whether to re
 
 ## Technical details
 
-Druyan is implemented in TypeScript and is distributed with `.d.ts` files.
+Fizz is implemented in TypeScript and is distributed with `.d.ts` files.
 
 [^1]: Internally there is some data mutation, but this can be replaced by a more immutable approach if necessary without modifying the external API.
