@@ -125,30 +125,32 @@ export class Runtime {
     }
   }
 
-  private chainResults_([effects, tasks]: ExecuteResult): Task<any, Effect[]> {
-    runEffects(this.context, effects);
+  private chainResults_(result: ExecuteResult): Task<any, Effect[]> {
+    return Task.sequence(result[1])
+      .chain(results => {
+        const joinedResults = results.reduce(
+          (sum, item) => {
+            if (isAction(item)) {
+              sum[1].push(this.run(item));
+              return sum;
+            } else {
+              return processStateReturn(this.context, sum, item);
+            }
+          },
+          [result[0], []] as ExecuteResult,
+        );
 
-    effects.forEach(this.handleSubscriptionEffect_);
+        if (joinedResults[1].length > 0) {
+          return this.chainResults_(joinedResults);
+        }
 
-    return Task.sequence(tasks).chain(results => {
-      const joinedResults = results.reduce(
-        (sum, item) => {
-          if (isAction(item)) {
-            sum[1].push(this.run(item));
-            return sum;
-          } else {
-            return processStateReturn(this.context, sum, item);
-          }
-        },
-        [effects, []] as ExecuteResult,
-      );
+        return Task.of(joinedResults[0]);
+      })
+      .tap(effects => {
+        runEffects(this.context, effects);
 
-      if (joinedResults[1].length > 0) {
-        return this.chainResults_(joinedResults);
-      }
-
-      return Task.of(joinedResults[0]);
-    });
+        effects.forEach(this.handleSubscriptionEffect_);
+      });
   }
 
   private flushPendingActions_() {
@@ -171,6 +173,8 @@ export class Runtime {
         },
         results => {
           task.resolve(results);
+
+          this.contextChangeSubscribers_.forEach(sub => sub(this.context));
 
           this.flushPendingActions_();
         },

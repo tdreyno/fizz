@@ -519,13 +519,11 @@ describe("onContextChange", () => {
 
     runtime.onContextChange(onChange);
 
-    expect.hasAssertions();
-
-    runtime.run(enter()).fork(jest.fn(), () => {
-      expect(onChange).toHaveBeenCalledTimes(1);
-    });
+    runtime.run(enter()).fork(jest.fn(), jest.fn());
 
     jest.runAllTimers();
+
+    expect(onChange).toHaveBeenCalledTimes(1);
   });
 
   test("should run callback once on update", () => {
@@ -551,13 +549,11 @@ describe("onContextChange", () => {
 
     runtime.onContextChange(onChange);
 
-    expect.hasAssertions();
-
-    runtime.run({ type: "Trigger" }).fork(jest.fn(), () => {
-      expect(onChange).toHaveBeenCalledTimes(1);
-    });
+    runtime.run({ type: "Trigger" }).fork(jest.fn(), jest.fn());
 
     jest.runAllTimers();
+
+    expect(onChange).toHaveBeenCalledTimes(1);
   });
 });
 
