@@ -68,7 +68,7 @@
     "prettier": "^1.19.1",
     "semantic-release": "^17.0.4",
     "serialize-javascript": "^3.0.0",
-    "terser": "^4.1.4",
+    "terser": "^4.6.4",
     "ts-jest": "^25.2.1",
     "typescript": "^3.8.2"
   },
