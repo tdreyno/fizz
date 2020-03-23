@@ -18,5 +18,7 @@ module.exports = {
   rules: {
     "@typescript-eslint/explicit-function-return-type": 0,
     "@typescript-eslint/require-await": 0,
+    semi: ["error", "never"],
+    "@typescript-eslint/member-delimiter-style": 0,
   },
-};
+}

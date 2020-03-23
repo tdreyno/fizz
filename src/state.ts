@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Task } from "@tdreyno/pretty-please";
-import isPlainObject from "lodash.isplainobject";
-import mapValues from "lodash.mapvalues";
-import { Action } from "./action";
-import { Effect } from "./effect";
+import { Task } from "@tdreyno/pretty-please"
+import isPlainObject from "lodash.isplainobject"
+import mapValues from "lodash.mapvalues"
+import { Action } from "./action"
+import { Effect } from "./effect"
 
 /**
  * States can return either:
@@ -17,7 +17,7 @@ export type StateReturn =
   | Action<any>
   | StateTransition<any, any, any>
   | Promise<any>
-  | Task<any, any>;
+  | Task<any, any>
 
 /**
  * State handlers are objects which contain a serializable list of bound
@@ -30,18 +30,18 @@ export interface StateTransition<
   A extends Action<any>,
   Data extends any[]
 > {
-  name: Name;
-  data: Data;
-  isStateTransition: true;
-  mode: "append" | "update";
-  reenter: (...args: Data) => StateTransition<Name, A, Data>;
-  executor: (action: A) => void | StateReturn | StateReturn[];
+  name: Name
+  data: Data
+  isStateTransition: true
+  mode: "append" | "update"
+  reenter: (...args: Data) => StateTransition<Name, A, Data>
+  executor: (action: A) => void | StateReturn | StateReturn[]
 }
 
 export function isStateTransition(
   a: StateTransition<any, any, any> | unknown,
 ): a is StateTransition<any, any, any> {
-  return a && (a as any).isStateTransition;
+  return a && (a as any).isStateTransition
 }
 
 /**
@@ -52,41 +52,41 @@ export function isStateTransition(
 export type State<A extends Action<any>, Data extends any[]> = (
   action: A,
   ...data: Data
-) => StateReturn | StateReturn[];
+) => StateReturn | StateReturn[]
 
 export interface BoundStateFn<
   Name extends string,
   A extends Action<any>,
   Data extends any[]
 > {
-  (...data: Data): StateTransition<Name, A, Data>;
-  name: Name;
-  update(...data: Data): StateTransition<Name, A, Data>;
-  reenter(...data: Data): StateTransition<Name, A, Data>;
+  (...data: Data): StateTransition<Name, A, Data>
+  name: Name
+  update(...data: Data): StateTransition<Name, A, Data>
+  reenter(...data: Data): StateTransition<Name, A, Data>
 }
 
 interface Options {
-  mutable: boolean;
+  mutable: boolean
 }
 
 function cloneDeep(value: any): any {
   if (Array.isArray(value)) {
-    return value.map(cloneDeep);
+    return value.map(cloneDeep)
   }
 
   if (isPlainObject(value)) {
-    return mapValues(value, cloneDeep);
+    return mapValues(value, cloneDeep)
   }
 
   if (value instanceof Set) {
-    return new Set(cloneDeep(Array.from(value)));
+    return new Set(cloneDeep(Array.from(value)))
   }
 
   if (value instanceof Map) {
-    return new Map(cloneDeep(Array.from(value)));
+    return new Map(cloneDeep(Array.from(value)))
   }
 
-  return value;
+  return value
 }
 
 export class TriggerAction {
@@ -102,7 +102,7 @@ export function state<
   executor: State<A, Data>,
   options?: Partial<Options>,
 ): BoundStateFn<Name, A, Data> {
-  const immutable = !options || !options.mutable;
+  const immutable = !options || !options.mutable
 
   const fn = (...data: Data) => {
     return {
@@ -111,33 +111,33 @@ export function state<
       isStateTransition: true,
       mode: "append",
       reenter: (...reenterArgs: Data) => {
-        const bound = fn(...reenterArgs);
-        bound.mode = "append";
-        return bound;
+        const bound = fn(...reenterArgs)
+        bound.mode = "append"
+        return bound
       },
       executor: (action: A) => {
         // Clones arguments
-        const clonedArgs = immutable ? (data.map(cloneDeep) as Data) : data;
+        const clonedArgs = immutable ? (data.map(cloneDeep) as Data) : data
 
         // Run state execturoe
-        return executor(action, ...clonedArgs);
+        return executor(action, ...clonedArgs)
       },
-    };
-  };
+    }
+  }
 
-  Object.defineProperty(fn, "name", { value: name });
+  Object.defineProperty(fn, "name", { value: name })
 
   fn.reenter = (...args: Data) => {
-    const bound = fn(...args);
-    bound.mode = "append";
-    return bound;
-  };
+    const bound = fn(...args)
+    bound.mode = "append"
+    return bound
+  }
 
   fn.update = (...args: Data) => {
-    const bound = fn(...args);
-    bound.mode = "update";
-    return bound;
-  };
+    const bound = fn(...args)
+    bound.mode = "update"
+    return bound
+  }
 
-  return fn as BoundStateFn<Name, A, Data>;
+  return fn as BoundStateFn<Name, A, Data>
 }

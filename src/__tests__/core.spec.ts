@@ -1,14 +1,14 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-use-before-define */
-import serializeJavascript from "serialize-javascript";
-import { Enter, enter, Exit } from "../action";
+import serializeJavascript from "serialize-javascript"
+import { Enter, enter, Exit } from "../action"
 import {
   Context,
   createInitialContext as originalCreateInitialContext,
-} from "../context";
-import { execute } from "../core";
-import { goBack, log, noop } from "../effect";
-import { StateDidNotRespondToAction, UnknownStateReturnType } from "../errors";
-import { state, StateReturn, StateTransition } from "../state";
+} from "../context"
+import { execute } from "../core"
+import { goBack, log, noop } from "../effect"
+import { StateDidNotRespondToAction, UnknownStateReturnType } from "../errors"
+import { state, StateReturn, StateTransition } from "../state"
 
 function createInitialContext(
   history: StateTransition<any, any, any>[],
@@ -17,7 +17,7 @@ function createInitialContext(
   return originalCreateInitialContext(history, {
     disableLogging: true,
     ...options,
-  });
+  })
 }
 
 describe("Fizz core", () => {
@@ -25,17 +25,17 @@ describe("Fizz core", () => {
     const Entry = state("Entry", (action: Enter) => {
       switch (action.type) {
         case "Enter":
-          return noop();
+          return noop()
       }
-    });
+    })
 
     test("should allow custom state name", () => {
-      expect(Entry.name).toBe("Entry");
-    });
+      expect(Entry.name).toBe("Entry")
+    })
 
     test("should start in the state last in the history list", () => {
-      expect(createInitialContext([Entry()]).currentState.name).toBe("Entry");
-    });
+      expect(createInitialContext([Entry()]).currentState.name).toBe("Entry")
+    })
 
     test("should throw exception when getting invalid action", () => {
       expect(() =>
@@ -45,8 +45,8 @@ describe("Fizz core", () => {
             allowUnhandled: false,
           }),
         ),
-      ).toThrowError(StateDidNotRespondToAction);
-    });
+      ).toThrowError(StateDidNotRespondToAction)
+    })
 
     test("should not throw exception when allowing invalid actions", () => {
       expect(() =>
@@ -56,109 +56,109 @@ describe("Fizz core", () => {
             allowUnhandled: true,
           }),
         ),
-      ).not.toThrowError(StateDidNotRespondToAction);
-    });
-  });
+      ).not.toThrowError(StateDidNotRespondToAction)
+    })
+  })
 
   describe("Transitions", () => {
     test("should flatten nested state transitions", () => {
       const A = state("A", (action: Enter) => {
         switch (action.type) {
           case "Enter":
-            return [log("Enter A"), B()];
+            return [log("Enter A"), B()]
         }
-      });
+      })
 
       const B = state("B", (action: Enter) => {
         switch (action.type) {
           case "Enter":
-            return [log("Enter B"), C()];
+            return [log("Enter B"), C()]
         }
-      });
+      })
 
       const C = state("C", (action: Enter) => {
         switch (action.type) {
           case "Enter":
-            return log("Entered C");
+            return log("Entered C")
         }
-      });
+      })
 
-      const [results] = execute(enter(), createInitialContext([A()]));
+      const [results] = execute(enter(), createInitialContext([A()]))
 
-      expect(results).toBeInstanceOf(Array);
+      expect(results).toBeInstanceOf(Array)
 
-      const gotos = results.filter(r => r.label === "entered");
-      expect(gotos).toHaveLength(3);
+      const gotos = results.filter(r => r.label === "entered")
+      expect(gotos).toHaveLength(3)
 
       const gotoLogs = results.filter(
         r => r.label === "log" && r.data[0].match(/^Enter:/),
-      );
-      expect(gotoLogs).toHaveLength(3);
+      )
+      expect(gotoLogs).toHaveLength(3)
 
       const normalLogs = results.filter(
         r => r.label === "log" && r.data[0].match(/^Enter /),
-      );
-      expect(normalLogs).toHaveLength(2);
-    });
-  });
+      )
+      expect(normalLogs).toHaveLength(2)
+    })
+  })
 
   describe("Exit events", () => {
     test("should fire exit events", () => {
       const A = state("A", (action: Enter | Exit) => {
         switch (action.type) {
           case "Enter":
-            return [log("Enter A"), B()];
+            return [log("Enter A"), B()]
 
           case "Exit":
-            return log("Exit A");
+            return log("Exit A")
         }
-      });
+      })
 
       const B = state("B", (action: Enter | Exit) => {
         switch (action.type) {
           case "Enter":
-            return noop();
+            return noop()
 
           case "Exit":
-            return log("Exit B");
+            return log("Exit B")
         }
-      });
+      })
 
       const [results] = execute(
         enter(),
         createInitialContext([A()], {
           allowUnhandled: true,
         }),
-      );
+      )
 
-      expect(results).toBeInstanceOf(Array);
+      expect(results).toBeInstanceOf(Array)
 
       const events = results.filter(r =>
         ["entered", "exited"].includes(r.label),
-      );
+      )
 
       expect(events[0]).toMatchObject({
         label: "entered",
         data: { name: "A" },
-      });
+      })
       expect(events[1]).toMatchObject({
         label: "exited",
         data: { name: "A" },
-      });
+      })
       expect(events[2]).toMatchObject({
         label: "entered",
         data: { name: "B" },
-      });
-    });
-  });
+      })
+    })
+  })
 
   describe("Reenter", () => {
     interface ReEnterReplace {
-      type: "ReEnterReplace";
+      type: "ReEnterReplace"
     }
 
     interface ReEnterAppend {
-      type: "ReEnterAppend";
+      type: "ReEnterAppend"
     }
 
     const A = state(
@@ -169,89 +169,89 @@ describe("Fizz core", () => {
       ): StateReturn => {
         switch (action.type) {
           case "Enter":
-            return noop();
+            return noop()
 
           case "Exit":
-            return noop();
+            return noop()
 
           case "ReEnterReplace":
-            return A.update(bool);
+            return A.update(bool)
 
           case "ReEnterAppend":
-            return A.reenter(bool);
+            return A.reenter(bool)
         }
       },
-    );
+    )
 
     test("should exit and re-enter the current state, replacing itself in history", () => {
-      const context = createInitialContext([A(true)]);
+      const context = createInitialContext([A(true)])
 
-      const [results] = execute({ type: "ReEnterReplace" }, context);
+      const [results] = execute({ type: "ReEnterReplace" }, context)
 
-      expect(results).toBeInstanceOf(Array);
-      expect(context.history).toHaveLength(1);
-    });
+      expect(results).toBeInstanceOf(Array)
+      expect(context.history).toHaveLength(1)
+    })
 
     test("should exit and re-enter the current state, appending itself to history", () => {
-      const context = createInitialContext([A(true)]);
+      const context = createInitialContext([A(true)])
 
-      const [results] = execute({ type: "ReEnterAppend" }, context);
+      const [results] = execute({ type: "ReEnterAppend" }, context)
 
-      expect(results).toBeInstanceOf(Array);
-      expect(context.history).toHaveLength(2);
-    });
-  });
+      expect(results).toBeInstanceOf(Array)
+      expect(context.history).toHaveLength(2)
+    })
+  })
 
   describe("goBack", () => {
     interface GoBack {
-      type: "GoBack";
+      type: "GoBack"
     }
 
     const A = state("A", (action: Enter, _name: string) => {
       switch (action.type) {
         case "Enter":
-          return noop();
+          return noop()
       }
-    });
+    })
 
     const B = state("B", (action: Enter | GoBack) => {
       switch (action.type) {
         case "Enter":
-          return noop();
+          return noop()
 
         case "GoBack":
-          return goBack();
+          return goBack()
       }
-    });
+    })
 
     test("should return to previous state", () => {
-      const context = createInitialContext([B(), A("Test")]);
+      const context = createInitialContext([B(), A("Test")])
 
-      const [results] = execute({ type: "GoBack" }, context);
-      expect(results).toBeInstanceOf(Array);
+      const [results] = execute({ type: "GoBack" }, context)
+      expect(results).toBeInstanceOf(Array)
 
       const events = results.filter(r =>
         ["entered", "exited"].includes(r.label),
-      );
+      )
 
       expect(events[0]).toMatchObject({
         label: "exited",
         data: { name: "B" },
-      });
+      })
       expect(events[1]).toMatchObject({
         label: "entered",
         data: { name: "A" },
-      });
+      })
 
-      expect(context.currentState.name).toBe("A");
-      expect(context.currentState.data[0]).toBe("Test");
-    });
-  });
+      expect(context.currentState.name).toBe("A")
+      expect(context.currentState.data[0]).toBe("Test")
+    })
+  })
 
   describe("update", () => {
     interface Update {
-      type: "Update";
-      updater: (...args: Parameters<typeof A>) => ReturnType<typeof update>;
+      type: "Update"
+      updater: (...args: Parameters<typeof A>) => ReturnType<typeof update>
     }
 
     const A = state(
@@ -265,20 +265,20 @@ describe("Fizz core", () => {
       ): StateReturn | StateReturn[] => {
         switch (action.type) {
           case "Enter":
-            return noop();
+            return noop()
 
           case "Update":
-            return action.updater(str, bool, num, fn);
+            return action.updater(str, bool, num, fn)
         }
       },
-    );
+    )
 
-    const { update } = A;
+    const { update } = A
 
     test("should pass through original values", () => {
       const context = createInitialContext([
         A("Test", false, 5, () => "Inside"),
-      ]);
+      ])
 
       const action: Update = {
         type: "Update",
@@ -288,51 +288,51 @@ describe("Fizz core", () => {
           num: number,
           fn: () => string,
         ) => {
-          return update(str, bool, num, fn);
+          return update(str, bool, num, fn)
         },
-      };
+      }
 
-      execute(action, context);
+      execute(action, context)
 
-      expect(context.currentState.data[0]).toBe("Test");
-      expect(context.currentState.data[1]).toBe(false);
-      expect(context.currentState.data[2]).toBe(5);
-      expect(context.currentState.data[3]()).toBe("Inside");
-    });
-  });
+      expect(context.currentState.data[0]).toBe("Test")
+      expect(context.currentState.data[1]).toBe(false)
+      expect(context.currentState.data[2]).toBe(5)
+      expect(context.currentState.data[3]()).toBe("Inside")
+    })
+  })
 
   describe("Serialization", () => {
     test("should be able to serialize and deserialize state", () => {
       interface Next {
-        type: "Next";
+        type: "Next"
       }
 
       const A = state("A", (action: Enter) => {
         switch (action.type) {
           case "Enter":
-            return B({ name: "Test" });
+            return B({ name: "Test" })
         }
-      });
+      })
 
       const B = state(
         "B",
         (action: Enter | Next, { name }: { name: string }) => {
           switch (action.type) {
             case "Enter":
-              return noop();
+              return noop()
 
             case "Next":
-              return C(name);
+              return C(name)
           }
         },
-      );
+      )
 
       const C = state("C", (action: Enter, _name: string) => {
         switch (action.type) {
           case "Enter":
-            return noop();
+            return noop()
         }
-      });
+      })
 
       function serializeContext(c: Context) {
         return serializeJavascript(
@@ -340,115 +340,115 @@ describe("Fizz core", () => {
             return {
               data,
               name,
-            };
+            }
           }),
-        );
+        )
       }
 
-      const STATES = { A, B, C };
+      const STATES = { A, B, C }
 
       function deserializeContext(s: string) {
         const unboundHistory: { data: any[]; name: string }[] = eval(
           "(" + s + ")",
-        );
+        )
 
         return createInitialContext(
           unboundHistory.map(({ data, name }) => {
-            return (STATES as any)[name](...data);
+            return (STATES as any)[name](...data)
           }),
-        );
+        )
       }
 
       const context = createInitialContext([A()], {
         allowUnhandled: false,
-      });
+      })
 
-      execute(enter(), context);
+      execute(enter(), context)
 
-      expect(context.currentState.name).toBe("B");
-      const serialized = serializeContext(context);
+      expect(context.currentState.name).toBe("B")
+      const serialized = serializeContext(context)
 
-      const newContext = deserializeContext(serialized);
+      const newContext = deserializeContext(serialized)
 
-      execute({ type: "Next" }, newContext);
+      execute({ type: "Next" }, newContext)
 
-      expect(newContext.currentState.name).toBe("C");
-      expect(newContext.currentState.data[0]).toBe("Test");
-    });
-  });
+      expect(newContext.currentState.name).toBe("C")
+      expect(newContext.currentState.data[0]).toBe("Test")
+    })
+  })
 
   describe("Type narrowing", () => {
     const A = state("A", (action: Enter, _bool: boolean) => {
       switch (action.type) {
         case "Enter":
-          return noop();
+          return noop()
       }
-    });
+    })
 
     const B = state("B", (action: Enter, _str: string) => {
       switch (action.type) {
         case "Enter":
-          return noop();
+          return noop()
       }
-    });
+    })
 
     const C = state("C", (action: Enter) => {
       switch (action.type) {
         case "Enter":
-          return noop();
+          return noop()
       }
-    });
+    })
 
-    const States = { A, B, C };
+    const States = { A, B, C }
 
-    const testBool = (_b: boolean) => void 0;
-    const testStr = (_s: string) => void 0;
-    const testEmptyTuple = (_t: []) => void 0;
+    const testBool = (_b: boolean) => void 0
+    const testStr = (_s: string) => void 0
+    const testEmptyTuple = (_t: []) => void 0
 
     test("should use type narrowing to select correct data type", () => {
-      const currentState: ReturnType<typeof States[keyof typeof States]> = createInitialContext(
-        [A(true)],
-      ).currentState;
+      const currentState: ReturnType<
+        typeof States[keyof typeof States]
+      > = createInitialContext([A(true)]).currentState
 
       switch (currentState.name) {
         case "A":
           // Type test
-          testBool(currentState.data[0]);
+          testBool(currentState.data[0])
 
-          expect(currentState.data[0]).toBe(true);
+          expect(currentState.data[0]).toBe(true)
 
-          break;
+          break
       }
 
-      const currentState2: ReturnType<typeof States[keyof typeof States]> = createInitialContext(
-        [B("test")],
-      ).currentState;
+      const currentState2: ReturnType<
+        typeof States[keyof typeof States]
+      > = createInitialContext([B("test")]).currentState
 
       switch (currentState2.name) {
         case "B":
           // Type test
-          testStr(currentState2.data[0]);
+          testStr(currentState2.data[0])
 
-          expect(currentState2.data[0]).toBe("test");
+          expect(currentState2.data[0]).toBe("test")
 
-          break;
+          break
       }
 
-      const currentState3: ReturnType<typeof States[keyof typeof States]> = createInitialContext(
-        [C()],
-      ).currentState;
+      const currentState3: ReturnType<
+        typeof States[keyof typeof States]
+      > = createInitialContext([C()]).currentState
 
       switch (currentState3.name) {
         case "C":
           // Type test
-          testEmptyTuple(currentState3.data);
+          testEmptyTuple(currentState3.data)
 
-          expect(currentState3.data).toHaveLength(0);
+          expect(currentState3.data).toHaveLength(0)
 
-          break;
+          break
       }
-    });
-  });
+    })
+  })
 
   describe("Unknown effect", () => {
     test("should throw error on unknown effect", () => {
@@ -457,46 +457,46 @@ describe("Fizz core", () => {
           case "Enter":
             return (() => {
               // fake effect
-            }) as any;
+            }) as any
         }
-      });
+      })
 
-      const context = createInitialContext([A()]);
+      const context = createInitialContext([A()])
 
       expect(() => execute(enter(), context)).toThrowError(
         UnknownStateReturnType,
-      );
-    });
-  });
+      )
+    })
+  })
 
   describe("State Args are immutable", () => {
     test("should not mutate original data when transitioning", () => {
       const A = state("A", (action: Enter, data: number[]) => {
         switch (action.type) {
           case "Enter":
-            data.push(4);
+            data.push(4)
 
-            return B(data);
+            return B(data)
         }
-      });
+      })
 
       const B = state("B", (action: Enter, _data: number[]) => {
         switch (action.type) {
           case "Enter":
-            return noop();
+            return noop()
         }
-      });
+      })
 
-      const originalData = [1, 2, 3];
+      const originalData = [1, 2, 3]
 
-      const context = createInitialContext([A(originalData)]);
+      const context = createInitialContext([A(originalData)])
 
-      execute(enter(), context);
+      execute(enter(), context)
 
-      expect(context.currentState.name).toBe("B");
-      expect(originalData).toEqual([1, 2, 3]);
-      expect(context.currentState.data[0]).toEqual([1, 2, 3, 4]);
-    });
+      expect(context.currentState.name).toBe("B")
+      expect(originalData).toEqual([1, 2, 3])
+      expect(context.currentState.data[0]).toEqual([1, 2, 3, 4])
+    })
 
     test("should not mutate original data when updating", () => {
       const A = state(
@@ -504,39 +504,39 @@ describe("Fizz core", () => {
         (action: Enter, data: number[]): StateReturn => {
           switch (action.type) {
             case "Enter":
-              data.push(4);
+              data.push(4)
 
-              return A.update(data);
+              return A.update(data)
           }
         },
-      );
+      )
 
-      const originalData = [1, 2, 3];
+      const originalData = [1, 2, 3]
 
-      const context = createInitialContext([A(originalData)]);
+      const context = createInitialContext([A(originalData)])
 
-      execute(enter(), context);
+      execute(enter(), context)
 
-      expect(originalData).toEqual([1, 2, 3]);
-      expect(context.currentState.data[0]).toEqual([1, 2, 3, 4]);
-    });
+      expect(originalData).toEqual([1, 2, 3])
+      expect(context.currentState.data[0]).toEqual([1, 2, 3, 4])
+    })
 
     test("should not break functions or instances when making immutable", () => {
-      const fnChecker = jest.fn();
+      const fnChecker = jest.fn()
       const testFn = () => {
-        fnChecker();
-      };
+        fnChecker()
+      }
 
-      const classChecker = jest.fn();
+      const classChecker = jest.fn()
       class TestClass {
         run() {
-          classChecker();
+          classChecker()
         }
       }
 
       interface Shared {
-        fn: () => void;
-        klass: TestClass;
+        fn: () => void
+        klass: TestClass
       }
 
       const A = state(
@@ -544,30 +544,30 @@ describe("Fizz core", () => {
         (action: Enter, shared: Shared): StateReturn => {
           switch (action.type) {
             case "Enter":
-              shared.fn();
-              shared.klass.run();
+              shared.fn()
+              shared.klass.run()
 
-              return A.update(shared);
+              return A.update(shared)
           }
         },
-      );
+      )
 
-      const instance = new TestClass();
+      const instance = new TestClass()
       const originalData = {
         fn: testFn,
         klass: instance,
-      };
+      }
 
-      const context = createInitialContext([A(originalData)]);
+      const context = createInitialContext([A(originalData)])
 
-      execute(enter(), context);
+      execute(enter(), context)
 
-      expect(fnChecker).toHaveBeenCalledTimes(1);
-      expect(classChecker).toHaveBeenCalledTimes(1);
+      expect(fnChecker).toHaveBeenCalledTimes(1)
+      expect(classChecker).toHaveBeenCalledTimes(1)
 
-      expect(context.currentState.data[0].fn).toBe(testFn);
-      expect(context.currentState.data[0].klass).toBe(instance);
-    });
+      expect(context.currentState.data[0].fn).toBe(testFn)
+      expect(context.currentState.data[0].klass).toBe(instance)
+    })
 
     test("should mutate original data when enabling mutability", () => {
       const A = state(
@@ -575,23 +575,23 @@ describe("Fizz core", () => {
         (action: Enter, data: number[]): StateReturn => {
           switch (action.type) {
             case "Enter":
-              data.push(4);
+              data.push(4)
 
-              return A.update(data);
+              return A.update(data)
           }
         },
         { mutable: true },
-      );
+      )
 
-      const originalData = [1, 2, 3];
+      const originalData = [1, 2, 3]
 
-      const context = createInitialContext([A(originalData)]);
+      const context = createInitialContext([A(originalData)])
 
-      execute(enter(), context);
+      execute(enter(), context)
 
-      expect(originalData).toEqual([1, 2, 3, 4]);
+      expect(originalData).toEqual([1, 2, 3, 4])
 
-      expect(context.currentState.data[0]).toEqual([1, 2, 3, 4]);
-    });
-  });
-});
+      expect(context.currentState.data[0]).toEqual([1, 2, 3, 4])
+    })
+  })
+})

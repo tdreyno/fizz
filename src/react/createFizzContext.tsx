@@ -9,45 +9,45 @@ import {
   Runtime,
   state,
   StateTransition,
-} from "../index";
-import isFunction from "lodash.isfunction";
+} from "../index"
+import isFunction from "lodash.isfunction"
 import React, {
   ReactNode,
   useContext,
   useEffect,
   useMemo,
   useState,
-} from "react";
+} from "react"
 
 export interface CreateProps<
   SM extends { [key: string]: BoundStateFn<any, any, any> },
   AM extends { [key: string]: (...args: any[]) => Action<any> }
 > {
-  initialState: StateTransition<any, any, any>;
+  initialState: StateTransition<any, any, any>
   children:
     | ReactNode
     | ((api: {
-        actions: AM;
-        context: Context;
-        currentState: ReturnType<SM[keyof SM]>;
-      }) => ReactNode);
+        actions: AM
+        context: Context
+        currentState: ReturnType<SM[keyof SM]>
+      }) => ReactNode)
 }
 
 export interface ContextValue<
   SM extends { [key: string]: BoundStateFn<any, any, any> },
   AM extends { [key: string]: (...args: any[]) => Action<any> }
 > {
-  currentState: ReturnType<SM[keyof SM]>;
-  context: Context;
-  actions: AM;
-  runtime?: Runtime;
+  currentState: ReturnType<SM[keyof SM]>
+  context: Context
+  actions: AM
+  runtime?: Runtime
 }
 
 interface Options {
-  parent: { Context: React.Context<any> };
-  fallback: BoundStateFn<any, any, any>;
-  maxHistory: number;
-  restartOnInitialStateChange?: boolean;
+  parent: { Context: React.Context<any> }
+  fallback: BoundStateFn<any, any, any>
+  maxHistory: number
+  restartOnInitialStateChange?: boolean
 }
 
 export function createFizzContext<
@@ -60,39 +60,39 @@ export function createFizzContext<
     maxHistory: 5,
   },
 ) {
-  const { restartOnInitialStateChange, maxHistory, fallback } = options;
+  const { restartOnInitialStateChange, maxHistory, fallback } = options
 
   const parentContext = options.parent
     ? options.parent.Context
-    : React.createContext<any>({});
+    : React.createContext<any>({})
 
   const defaultContext = createInitialContext(
     [state("Placeholder", () => noop())()],
     { maxHistory },
-  );
+  )
 
   const StateContext = React.createContext<ContextValue<SM, AM>>({
     context: defaultContext,
     currentState: defaultContext.currentState as ReturnType<SM[keyof SM]>,
     actions,
-  });
+  })
 
   function Create({
     initialState: initialStateProp,
     children,
   }: CreateProps<SM, AM>) {
-    const [initialState, resetState] = useState(initialStateProp);
+    const [initialState, resetState] = useState(initialStateProp)
 
     useEffect(() => {
       if (restartOnInitialStateChange) {
-        resetState(initialStateProp);
+        resetState(initialStateProp)
       }
-    }, [initialStateProp]);
+    }, [initialStateProp])
 
-    const possibleParentContext = useContext(parentContext);
+    const possibleParentContext = useContext(parentContext)
     const parentRuntime = possibleParentContext
       ? possibleParentContext.runtime
-      : undefined;
+      : undefined
 
     const runtime = useMemo(
       () =>
@@ -103,16 +103,16 @@ export function createFizzContext<
           parentRuntime,
         ),
       [initialState],
-    );
+    )
 
-    const boundActions = useMemo(() => runtime.bindActions(actions), [runtime]);
+    const boundActions = useMemo(() => runtime.bindActions(actions), [runtime])
 
     const [value, setValue] = useState<ContextValue<SM, AM>>({
       context: runtime.context,
       currentState: runtime.context.currentState as ReturnType<SM[keyof SM]>,
       actions: boundActions,
       runtime,
-    });
+    })
 
     useEffect(() => {
       const unsub = runtime.onContextChange(context =>
@@ -122,12 +122,12 @@ export function createFizzContext<
           actions: boundActions,
           runtime,
         }),
-      );
+      )
 
-      runtime.run(enter());
+      runtime.run(enter())
 
-      return unsub;
-    }, []);
+      return unsub
+    }, [])
 
     return (
       <StateContext.Provider value={value}>
@@ -147,11 +147,11 @@ export function createFizzContext<
           children
         )}
       </StateContext.Provider>
-    );
+    )
   }
 
   return {
     Context: StateContext,
     Create,
-  };
+  }
 }
