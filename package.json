@@ -70,7 +70,7 @@
     "serialize-javascript": "^4.0.0",
     "terser": "^4.8.0",
     "ts-jest": "^26.1.1",
-    "typescript": "^3.9.5"
+    "typescript": "^3.9.6"
   },
   "dependencies": {
     "@tdreyno/pretty-please": "^1.8.1",
