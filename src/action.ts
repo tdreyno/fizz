@@ -10,7 +10,7 @@ export type ActionCreator<A extends Action<any>, Args extends any[]> = (
 export function isAction<T extends string>(
   a: Action<T> | unknown,
 ): a is Action<T> {
-  return a && (a as any).type !== undefined
+  return !!a && (a as any).type !== undefined
 }
 
 export function isActions(actions: unknown): actions is Array<Action<any>> {

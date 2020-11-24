@@ -55,7 +55,7 @@
     "@types/react": "^17.0.0",
     "@types/serialize-javascript": "^4.0.0",
     "@typescript-eslint/eslint-plugin": "^4.0.0",
-    "@typescript-eslint/parser": "^3.10.1",
+    "@typescript-eslint/parser": "^4.8.2",
     "commitizen": "^4.2.2",
     "cz-conventional-changelog": "3.3.0",
     "eslint": "^7.14.0",
@@ -70,7 +70,7 @@
     "serialize-javascript": "^5.0.1",
     "terser": "^5.5.0",
     "ts-jest": "^26.4.4",
-    "typescript": "^4.0.5"
+    "typescript": "^4.1.2"
   },
   "dependencies": {
     "@tdreyno/pretty-please": "^1.8.1",

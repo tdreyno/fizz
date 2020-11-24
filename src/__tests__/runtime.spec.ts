@@ -366,7 +366,7 @@ describe("Tasks", () => {
 
     expect.hasAssertions()
 
-    return new Promise(resolve => {
+    return new Promise<void>(resolve => {
       runtime.run(enter()).fork(jest.fn(), async () => {
         await promise
 
