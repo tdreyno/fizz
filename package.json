@@ -53,7 +53,7 @@
     "@types/lodash.mapvalues": "^4.6.6",
     "@types/node": "^14.14.10",
     "@types/react": "^17.0.0",
-    "@types/serialize-javascript": "^4.0.0",
+    "@types/serialize-javascript": "^5.0.0",
     "@typescript-eslint/eslint-plugin": "^4.9.0",
     "@typescript-eslint/parser": "^4.9.0",
     "commitizen": "^4.2.2",
