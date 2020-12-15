@@ -41,6 +41,7 @@ export interface StateTransition<
 export function isStateTransition(
   a: StateTransition<any, any, any> | unknown,
 ): a is StateTransition<any, any, any> {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
   return a && (a as any).isStateTransition
 }
 
@@ -71,6 +72,7 @@ interface Options {
 
 function cloneDeep(value: any): any {
   if (Array.isArray(value)) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return value.map(cloneDeep)
   }
 
@@ -86,6 +88,7 @@ function cloneDeep(value: any): any {
     return new Map(cloneDeep(Array.from(value)))
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return value
 }
 

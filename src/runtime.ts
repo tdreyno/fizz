@@ -66,7 +66,7 @@ export class Runtime {
   }
 
   canHandle(action: Action<any>): boolean {
-    return this.validActions_.has(action.type.toLowerCase())
+    return this.validActions_.has((action.type as string).toLowerCase())
   }
 
   run(action: Action<any>): Task<any, Effect[]> {
@@ -106,14 +106,17 @@ export class Runtime {
       }
 
       return sum
-    }, {} as any) as AM
+    }, {} as Record<string, any>) as AM
   }
 
   private handleSubscriptionEffect_(effect: Effect) {
     switch (effect.label) {
       case "subscribe":
         this.subscriptions_.set(
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           effect.data[0],
+
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
           effect.data[1].subscribe((a: Action<any>) => this.run(a)),
         )
 
@@ -193,7 +196,7 @@ export class Runtime {
       throw new Error(
         `Fizz could not find current state to run action on. History: ${JSON.stringify(
           this.currentHistory()
-            .map(({ name }) => name)
+            .map(({ name }) => name as string)
             .join(" -> "),
         )}`,
       )
@@ -225,7 +228,7 @@ export class Runtime {
           if (this.parent) {
             try {
               // Run on parent and throw away effects.
-              this.parent.run(e.action)
+              void this.parent.run(e.action)
 
               return [[], []]
             } catch (e3) {

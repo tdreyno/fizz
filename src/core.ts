@@ -38,7 +38,7 @@ function enterState(
       ...exitEffects,
 
       // Add a log effect.
-      log(`Enter: ${targetState.name}`, targetState.data),
+      log(`Enter: ${targetState.name as string}`, targetState.data),
 
       // Add a goto effect for testing.
       __internalEffect("entered", targetState, Task.empty),
@@ -77,7 +77,7 @@ export function execute<A extends Action<any>>(
     return [
       [
         // Add a log effect.
-        log(`Update: ${targetState.name}`, targetState.data),
+        log(`Update: ${targetState.name as string}`, targetState.data),
 
         // Add a goto effect for testing.
         __internalEffect("update", targetState, Task.empty),
@@ -140,6 +140,7 @@ function processIndividualStateReturn(
 
   if (isEffect(item)) {
     if (item.label === "reenter") {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       if (!item.data.replaceHistory) {
         // Insert onto front of history array.
         context.history.push(targetState)

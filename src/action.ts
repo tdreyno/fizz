@@ -10,6 +10,7 @@ export type ActionCreator<A extends Action<any>, Args extends any[]> = (
 export function isAction<T extends string>(
   a: Action<T> | unknown,
 ): a is Action<T> {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   return !!a && (a as any).type !== undefined
 }
 

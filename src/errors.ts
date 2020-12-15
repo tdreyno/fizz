@@ -11,7 +11,9 @@ export class StateDidNotRespondToAction extends Error {
   }
 
   toString() {
-    return `State "${this.state.name}" could not respond to action: ${this.action.type}`
+    return `State "${this.state.name as string}" could not respond to action: ${
+      this.action.type as string
+    }`
   }
 }
 
@@ -25,8 +27,10 @@ export class NoStatesRespondToAction extends Error {
 
   toString() {
     return `The states ${this.states
-      .map(s => s.name)
-      .join(", ")} were unable to respond to action: ${this.action.type}`
+      .map(s => s.name as string)
+      .join(", ")} were unable to respond to action: ${
+      this.action.type as string
+    }`
   }
 }
 
@@ -36,8 +40,10 @@ export class MissingCurrentState extends Error {}
 
 export class EnterExitMustBeSynchronous extends Error {}
 
-export class UnknownStateReturnType extends Error {
-  constructor(public item: any) {
+export class UnknownStateReturnType<
+  T extends { toString(): string }
+> extends Error {
+  constructor(public item: T) {
     super(`Returned an known effect type: ${item.toString()}`)
   }
 }

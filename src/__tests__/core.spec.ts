@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-use-before-define */
+/* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-use-before-define */
 import serializeJavascript from "serialize-javascript"
 import { Enter, enter, Exit } from "../action"
 import {
@@ -273,6 +273,7 @@ describe("Fizz core", () => {
       },
     )
 
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     const { update } = A
 
     test("should pass through original values", () => {

@@ -14,7 +14,7 @@ export function onFrameSubscription<A extends Action<any>>(
       return
     }
 
-    sub.emit(actionCreator(ts))
+    void sub.emit(actionCreator(ts))
 
     requestAnimationFrame(tick)
   }
@@ -47,7 +47,7 @@ export function onDOMEventSubscription<A extends Action<any>>(
     const result = actionCreator(e)
 
     if (result !== undefined) {
-      sub.emit(result)
+      void sub.emit(result)
     }
   }
 

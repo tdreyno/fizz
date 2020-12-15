@@ -11,6 +11,7 @@ export interface Effect {
 }
 
 export function isEffect(e: Effect | unknown): e is Effect {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
   return e && (e as any).isEffect
 }
 

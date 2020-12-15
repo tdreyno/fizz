@@ -89,9 +89,13 @@ export function createFizzContext<
       }
     }, [initialStateProp])
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const possibleParentContext = useContext(parentContext)
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const parentRuntime = possibleParentContext
-      ? possibleParentContext.runtime
+      ? // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        possibleParentContext.runtime
       : undefined
 
     const runtime = useMemo(
@@ -124,7 +128,7 @@ export function createFizzContext<
         }),
       )
 
-      runtime.run(enter())
+      void runtime.run(enter())
 
       return unsub
     }, [])
