@@ -51,7 +51,7 @@
     "@types/lodash.isfunction": "^3.0.6",
     "@types/lodash.isplainobject": "^4.0.6",
     "@types/lodash.mapvalues": "^4.6.6",
-    "@types/node": "^14.14.22",
+    "@types/node": "^14.14.25",
     "@types/react": "^17.0.1",
     "@types/serialize-javascript": "^5.0.0",
     "@typescript-eslint/eslint-plugin": "^4.14.2",
