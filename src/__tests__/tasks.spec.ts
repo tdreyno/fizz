@@ -3,7 +3,7 @@
 import { Task } from "@tdreyno/pretty-please"
 import { Enter, enter, typedAction } from "../action"
 import { effect, noop } from "../effect"
-import { Runtime } from "../runtime"
+import { createRuntime } from "../runtime"
 import { state, StateReturn } from "../state"
 import { createInitialContext } from "./createInitialContext"
 
@@ -31,7 +31,7 @@ describe("Tasks", () => {
 
     const context = createInitialContext([A()])
 
-    const runtime = Runtime.create(context, ["Trigger"])
+    const runtime = createRuntime(context, ["Trigger"])
 
     expect.hasAssertions()
 
@@ -57,7 +57,7 @@ describe("Tasks", () => {
 
     const context = createInitialContext([A()])
 
-    const runtime = Runtime.create(context, ["Trigger"])
+    const runtime = createRuntime(context, ["Trigger"])
 
     expect.hasAssertions()
 
@@ -82,7 +82,7 @@ describe("Tasks", () => {
 
     const context = createInitialContext([A()])
 
-    const runtime = Runtime.create(context)
+    const runtime = createRuntime(context)
 
     expect.hasAssertions()
 
@@ -106,7 +106,7 @@ describe("Tasks", () => {
 
     const context = createInitialContext([A()])
 
-    const runtime = Runtime.create(context)
+    const runtime = createRuntime(context)
 
     expect.hasAssertions()
 
@@ -133,7 +133,7 @@ describe("Tasks", () => {
 
     const context = createInitialContext([A()])
 
-    const runtime = Runtime.create(context)
+    const runtime = createRuntime(context)
 
     expect.hasAssertions()
 
@@ -158,7 +158,7 @@ describe("Tasks", () => {
 
     const context = createInitialContext([A("Test")])
 
-    const runtime = Runtime.create(context)
+    const runtime = createRuntime(context)
 
     expect(context.currentState.data[0]).toBe("Test")
 
@@ -185,7 +185,7 @@ describe("Tasks", () => {
 
     const context = createInitialContext([A("Test")])
 
-    const runtime = Runtime.create(context)
+    const runtime = createRuntime(context)
 
     expect.hasAssertions()
 

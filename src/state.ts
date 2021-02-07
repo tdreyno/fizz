@@ -91,10 +91,6 @@ const cloneDeep = (value: any): any => {
   return value
 }
 
-export class TriggerAction {
-  constructor(public action: Action<any>) {}
-}
-
 export const state = <
   Name extends string,
   A extends Action<any>,

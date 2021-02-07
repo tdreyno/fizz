@@ -3,7 +3,7 @@
 import { Enter, enter, typedAction } from "../action"
 import { noop } from "../effect"
 import { NoStatesRespondToAction } from "../errors"
-import { Runtime } from "../runtime"
+import { createRuntime } from "../runtime"
 import { state } from "../state"
 import { createInitialContext } from "./createInitialContext"
 
@@ -37,10 +37,10 @@ describe("Nested runtimes", () => {
     })
 
     const parentContext = createInitialContext([Parent()])
-    const parentRuntime = Runtime.create(parentContext)
+    const parentRuntime = createRuntime(parentContext)
 
     const childContext = createInitialContext([Child()])
-    const childRuntime = Runtime.create(
+    const childRuntime = createRuntime(
       childContext,
       [],
       undefined,
@@ -73,10 +73,10 @@ describe("Nested runtimes", () => {
     })
 
     const parentContext = createInitialContext([Parent()])
-    const parentRuntime = Runtime.create(parentContext)
+    const parentRuntime = createRuntime(parentContext)
 
     const childContext = createInitialContext([Child()])
-    const childRuntime = Runtime.create(
+    const childRuntime = createRuntime(
       childContext,
       [],
       undefined,
@@ -128,10 +128,10 @@ describe("Nested runtimes", () => {
     })
 
     const parentContext = createInitialContext([ParentA()])
-    const parentRuntime = Runtime.create(parentContext, ["Trigger"])
+    const parentRuntime = createRuntime(parentContext, ["Trigger"])
 
     const childContext = createInitialContext([ChildA()])
-    const childRuntime = Runtime.create(
+    const childRuntime = createRuntime(
       childContext,
       [],
       undefined,

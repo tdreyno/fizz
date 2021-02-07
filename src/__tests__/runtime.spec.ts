@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-misused-promises , @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-unused-vars, @typescript-eslint/no-use-before-define, @typescript-eslint/no-explicit-any */
 import { Enter, enter, typedAction } from "../action"
 import { noop } from "../effect"
-import { Runtime } from "../runtime"
+import { createRuntime } from "../runtime"
 import { state } from "../state"
 import { createInitialContext } from "./createInitialContext"
 
@@ -24,7 +24,7 @@ describe("Runtime", () => {
 
     const context = createInitialContext([A()])
 
-    const runtime = Runtime.create(context)
+    const runtime = createRuntime(context)
 
     expect(runtime.currentState().name).toBe("A")
 
@@ -60,7 +60,7 @@ describe("Runtime", () => {
 
     const context = createInitialContext([A()])
 
-    const runtime = Runtime.create(context, ["Trigger"])
+    const runtime = createRuntime(context, ["Trigger"])
 
     expect.hasAssertions()
 

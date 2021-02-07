@@ -1,100 +1,250 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/unbound-method */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { ExternalTask, Task } from "@tdreyno/pretty-please"
 import { Action, isAction } from "./action"
 import { Context } from "./context"
 import { execute, ExecuteResult, processStateReturn, runEffects } from "./core"
 import { Effect } from "./effect"
 import { NoStatesRespondToAction, StateDidNotRespondToAction } from "./errors"
-import { BoundStateFn } from "./state"
+import { BoundStateFn, StateTransition } from "./state"
 
 type ContextChangeSubscriber = (context: Context) => void
 
-export class Runtime {
-  static create(
-    context: Context,
-    validActionNames: string[] = [],
-    fallback?: BoundStateFn<any, any, any>,
-    parent?: Runtime,
-  ) {
-    return new Runtime(context, validActionNames, fallback, parent)
+export interface Runtime {
+  currentState: () => StateTransition<any, any, any>
+  onContextChange: (fn: ContextChangeSubscriber) => void
+  bindActions: <AM extends { [key: string]: (...args: any[]) => Action<any> }>(
+    actions: AM,
+  ) => AM
+  disconnect: () => void
+  run: (action: Action<any>) => Task<any, Effect[]>
+  canHandle: (action: Action<any>) => boolean
+  context: Context
+}
+
+export const createRuntime = (
+  context: Context,
+  validActionNames: string[] = [],
+  fallback?: BoundStateFn<any, any, any>,
+  parent?: Runtime,
+): Runtime => {
+  const subscriptions_ = new Map<string, () => void>()
+
+  const pendingActions_: [Action<any>, ExternalTask<any, any>][] = []
+
+  const contextChangeSubscribers_: Set<ContextChangeSubscriber> = new Set()
+
+  let immediateId_: NodeJS.Immediate | undefined
+
+  const validActions_ = validActionNames.reduce(
+    (sum, action) => sum.add(action.toLowerCase()),
+    new Set<string>(),
+  )
+
+  const handleSubscriptionEffect_ = (effect: Effect) => {
+    switch (effect.label) {
+      case "subscribe":
+        subscriptions_.set(
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          effect.data[0],
+
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+          effect.data[1].subscribe((a: Action<any>) => run(a)),
+        )
+
+      case "unsubscribe":
+        if (subscriptions_.has(effect.data)) {
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+          subscriptions_.get(effect.data)!()
+        }
+    }
   }
 
-  private validActions_: Set<string>
-  private subscriptions_ = new Map<string, () => void>()
-  private pendingActions_: [Action<any>, ExternalTask<any, any>][] = []
-  private contextChangeSubscribers_: ContextChangeSubscriber[] = []
-  private immediateId_?: NodeJS.Immediate
+  const chainResults_ = (result: ExecuteResult): Task<any, Effect[]> =>
+    Task.sequence(result[1])
+      .chain(results => {
+        const joinedResults = results.reduce(
+          (sum, item) => {
+            if (isAction(item)) {
+              sum[1].push(run(item))
+              return sum
+            } else {
+              return processStateReturn(context, sum, item)
+            }
+          },
+          [result[0], []] as ExecuteResult,
+        )
 
-  constructor(
-    public context: Context,
-    validActionNames: string[] = [],
-    public fallback?: BoundStateFn<any, any, any>,
-    public parent?: Runtime,
-  ) {
-    this.run = this.run.bind(this)
-    this.canHandle = this.canHandle.bind(this)
-    this.chainResults_ = this.chainResults_.bind(this)
-    this.flushPendingActions_ = this.flushPendingActions_.bind(this)
-    this.handleSubscriptionEffect_ = this.handleSubscriptionEffect_.bind(this)
+        if (joinedResults[1].length > 0) {
+          return chainResults_(joinedResults)
+        }
 
-    this.validActions_ = validActionNames.reduce(
-      (sum, action) => sum.add(action.toLowerCase()),
-      new Set<string>(),
-    )
+        return Task.of(joinedResults[0])
+      })
+      .tap(effects => {
+        runEffects(context, effects)
+
+        effects.forEach(handleSubscriptionEffect_)
+      })
+
+  const flushPendingActions_ = () => {
+    if (pendingActions_.length <= 0) {
+      return
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const [action, task] = pendingActions_.shift()!
+
+    // Make sure we're in a valid state.
+    validateCurrentState_()
+
+    try {
+      return chainResults_(executeAction_(action)).fork(
+        error => {
+          task.reject(error)
+
+          pendingActions_.length = 0
+        },
+        results => {
+          task.resolve(results)
+
+          contextChangeSubscribers_.forEach(sub => sub(context))
+
+          flushPendingActions_()
+        },
+      )
+    } catch (e) {
+      task.reject(e)
+
+      pendingActions_.length = 0
+    }
   }
 
-  onContextChange(fn: ContextChangeSubscriber) {
-    this.contextChangeSubscribers_.push(fn)
+  const validateCurrentState_ = () => {
+    const runCurrentState = currentState()
 
-    return () => {
-      this.contextChangeSubscribers_ = this.contextChangeSubscribers_.filter(
-        sub => sub !== fn,
+    if (!runCurrentState) {
+      throw new Error(
+        `Fizz could not find current state to run action on. History: ${JSON.stringify(
+          currentHistory()
+            .map(({ name }) => name as string)
+            .join(" -> "),
+        )}`,
       )
     }
   }
 
-  disconnect() {
-    this.contextChangeSubscribers_ = []
+  const executeAction_ = (action: Action<any>): ExecuteResult => {
+    // Try this runtime.
+    try {
+      return execute(action, context)
+    } catch (e) {
+      // If it failed to handle optional actions like OnFrame, continue.
+      if (!(e instanceof StateDidNotRespondToAction)) {
+        throw e
+      }
+
+      // If we failed the last step by not responding, and we have
+      // a fallback, try it.
+      if (fallback) {
+        const fallbackState = fallback(currentState())
+
+        try {
+          return execute(e.action, context, fallbackState)
+        } catch (e2) {
+          if (!(e2 instanceof StateDidNotRespondToAction)) {
+            throw e2
+          }
+
+          if (parent) {
+            try {
+              // Run on parent and throw away effects.
+              void parent.run(e.action)
+
+              return [[], []]
+            } catch (e3) {
+              if (!(e3 instanceof StateDidNotRespondToAction)) {
+                throw e3
+              }
+
+              throw new NoStatesRespondToAction(
+                [currentState(), fallbackState, parent.currentState()],
+                e.action,
+              )
+            }
+          } else {
+            throw new NoStatesRespondToAction(
+              [currentState(), fallbackState],
+              e.action,
+            )
+          }
+        }
+      }
+
+      if (parent) {
+        // If we failed either previous step without responding,
+        // and we have a parent runtime. Try running that.
+        try {
+          // Run on parent
+          return [[], [parent.run(e.action)]]
+        } catch (e3) {
+          if (!(e3 instanceof StateDidNotRespondToAction)) {
+            throw e3
+          }
+
+          throw new NoStatesRespondToAction(
+            [currentState(), parent.currentState()],
+            e.action,
+          )
+        }
+      }
+
+      throw new NoStatesRespondToAction([currentState()], e.action)
+    }
   }
 
-  currentState() {
-    return this.context.currentState
+  const onContextChange = (fn: ContextChangeSubscriber) => {
+    contextChangeSubscribers_.add(fn)
+
+    return () => contextChangeSubscribers_.delete(fn)
   }
 
-  currentHistory() {
-    return this.context.history
-  }
+  const disconnect = () => contextChangeSubscribers_.clear()
 
-  canHandle(action: Action<any>): boolean {
-    return this.validActions_.has((action.type as string).toLowerCase())
-  }
+  const currentState = () => context.currentState
 
-  run(action: Action<any>): Task<any, Effect[]> {
+  const currentHistory = () => context.history
+
+  const canHandle = (action: Action<any>): boolean =>
+    validActions_.has((action.type as string).toLowerCase())
+
+  const run = (action: Action<any>): Task<any, Effect[]> => {
     const task = Task.external<any, Effect[]>()
 
-    this.pendingActions_.push([action, task])
+    pendingActions_.push([action, task])
 
-    if (this.immediateId_) {
-      clearImmediate(this.immediateId_)
+    if (immediateId_) {
+      clearImmediate(immediateId_)
     }
 
-    this.immediateId_ = setImmediate(this.flushPendingActions_)
+    immediateId_ = setImmediate(flushPendingActions_)
 
     return task
   }
 
-  bindActions<AM extends { [key: string]: (...args: any[]) => Action<any> }>(
+  const bindActions = <
+    AM extends { [key: string]: (...args: any[]) => Action<any> }
+  >(
     actions: AM,
-  ): AM {
-    return Object.keys(actions).reduce((sum, key) => {
+  ): AM =>
+    Object.keys(actions).reduce((sum, key) => {
       sum[key] = (...args: any[]) => {
         try {
-          return this.run(actions[key](...args))
+          return run(actions[key](...args))
         } catch (e) {
           if (e instanceof NoStatesRespondToAction) {
-            if (this.context.customLogger) {
-              this.context.customLogger([e.toString()], "error")
-            } else if (!this.context.disableLogging) {
+            if (context.customLogger) {
+              context.customLogger([e.toString()], "error")
+            } else if (!context.disableLogging) {
               console.error(e.toString())
             }
 
@@ -107,172 +257,14 @@ export class Runtime {
 
       return sum
     }, {} as Record<string, any>) as AM
-  }
 
-  private handleSubscriptionEffect_(effect: Effect) {
-    switch (effect.label) {
-      case "subscribe":
-        this.subscriptions_.set(
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          effect.data[0],
-
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-          effect.data[1].subscribe((a: Action<any>) => this.run(a)),
-        )
-
-      case "unsubscribe":
-        if (this.subscriptions_.has(effect.data)) {
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-          this.subscriptions_.get(effect.data)!()
-        }
-    }
-  }
-
-  private chainResults_(result: ExecuteResult): Task<any, Effect[]> {
-    return Task.sequence(result[1])
-      .chain(results => {
-        const joinedResults = results.reduce(
-          (sum, item) => {
-            if (isAction(item)) {
-              sum[1].push(this.run(item))
-              return sum
-            } else {
-              return processStateReturn(this.context, sum, item)
-            }
-          },
-          [result[0], []] as ExecuteResult,
-        )
-
-        if (joinedResults[1].length > 0) {
-          return this.chainResults_(joinedResults)
-        }
-
-        return Task.of(joinedResults[0])
-      })
-      .tap(effects => {
-        runEffects(this.context, effects)
-
-        effects.forEach(this.handleSubscriptionEffect_)
-      })
-  }
-
-  private flushPendingActions_() {
-    if (this.pendingActions_.length <= 0) {
-      return
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const [action, task] = this.pendingActions_.shift()!
-
-    // Make sure we're in a valid state.
-    this.validateCurrentState_()
-
-    try {
-      return this.chainResults_(this.executeAction_(action)).fork(
-        error => {
-          task.reject(error)
-
-          this.pendingActions_.length = 0
-        },
-        results => {
-          task.resolve(results)
-
-          this.contextChangeSubscribers_.forEach(sub => sub(this.context))
-
-          this.flushPendingActions_()
-        },
-      )
-    } catch (e) {
-      task.reject(e)
-
-      this.pendingActions_.length = 0
-    }
-  }
-
-  private validateCurrentState_() {
-    const runCurrentState = this.currentState()
-
-    if (!runCurrentState) {
-      throw new Error(
-        `Fizz could not find current state to run action on. History: ${JSON.stringify(
-          this.currentHistory()
-            .map(({ name }) => name as string)
-            .join(" -> "),
-        )}`,
-      )
-    }
-  }
-
-  private executeAction_(action: Action<any>): ExecuteResult {
-    // Try this runtime.
-    try {
-      return execute(action, this.context)
-    } catch (e) {
-      // If it failed to handle optional actions like OnFrame, continue.
-      if (!(e instanceof StateDidNotRespondToAction)) {
-        throw e
-      }
-
-      // If we failed the last step by not responding, and we have
-      // a fallback, try it.
-      if (this.fallback) {
-        const fallbackState = this.fallback(this.currentState())
-
-        try {
-          return execute(e.action, this.context, fallbackState)
-        } catch (e2) {
-          if (!(e2 instanceof StateDidNotRespondToAction)) {
-            throw e2
-          }
-
-          if (this.parent) {
-            try {
-              // Run on parent and throw away effects.
-              void this.parent.run(e.action)
-
-              return [[], []]
-            } catch (e3) {
-              if (!(e3 instanceof StateDidNotRespondToAction)) {
-                throw e3
-              }
-
-              throw new NoStatesRespondToAction(
-                [
-                  this.currentState(),
-                  fallbackState,
-                  this.parent.currentState(),
-                ],
-                e.action,
-              )
-            }
-          } else {
-            throw new NoStatesRespondToAction(
-              [this.currentState(), fallbackState],
-              e.action,
-            )
-          }
-        }
-      }
-
-      if (this.parent) {
-        // If we failed either previous step without responding,
-        // and we have a parent runtime. Try running that.
-        try {
-          // Run on parent
-          return [[], [this.parent.run(e.action)]]
-        } catch (e3) {
-          if (!(e3 instanceof StateDidNotRespondToAction)) {
-            throw e3
-          }
-
-          throw new NoStatesRespondToAction(
-            [this.currentState(), this.parent.currentState()],
-            e.action,
-          )
-        }
-      }
-
-      throw new NoStatesRespondToAction([this.currentState()], e.action)
-    }
+  return {
+    currentState,
+    onContextChange,
+    bindActions,
+    disconnect,
+    run,
+    canHandle,
+    context,
   }
 }

@@ -10,7 +10,7 @@ import React, {
 import { Action, enter } from "../action"
 import { Context, createInitialContext } from "../context"
 import { noop } from "../effect"
-import { Runtime } from "../runtime"
+import { createRuntime, Runtime } from "../runtime"
 import { BoundStateFn, state, StateTransition } from "../state"
 
 export interface CreateProps<
@@ -94,7 +94,7 @@ export function createFizzContext<
 
     const runtime = useMemo(
       () =>
-        Runtime.create(
+        createRuntime(
           createInitialContext([initialState], { maxHistory }),
           Object.keys(actions),
           fallback,

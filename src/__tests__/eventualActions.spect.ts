@@ -3,7 +3,7 @@
 import { Subscription } from "@tdreyno/pretty-please"
 import { Enter, enter, Exit } from "../action"
 import { noop, subscribe, unsubscribe } from "../effect"
-import { Runtime } from "../runtime"
+import { createRuntime } from "../runtime"
 import { state } from "../state"
 import { createInitialContext } from "./createInitialContext"
 
@@ -34,7 +34,7 @@ describe("Eventual actions", () => {
 
     const context = createInitialContext([A()])
 
-    const runtime = Runtime.create(context, ["Trigger"])
+    const runtime = createRuntime(context, ["Trigger"])
 
     expect.assertions(2)
 
@@ -79,7 +79,7 @@ describe("Eventual actions", () => {
 
     const context = createInitialContext([A()])
 
-    const runtime = Runtime.create(context, ["Trigger"])
+    const runtime = createRuntime(context, ["Trigger"])
 
     expect.assertions(3)
 

@@ -3,7 +3,7 @@
 import { Task } from "@tdreyno/pretty-please"
 import { Enter } from "../action"
 import { noop } from "../effect"
-import { Runtime } from "../runtime"
+import { createRuntime } from "../runtime"
 import { state, StateReturn } from "../state"
 import { createInitialContext } from "./createInitialContext"
 
@@ -37,7 +37,7 @@ describe("Bound actions", () => {
 
     const context = createInitialContext([A(0)])
 
-    const runtime = Runtime.create(context, ["Add", "Multiply"])
+    const runtime = createRuntime(context, ["Add", "Multiply"])
 
     const onChange = jest.fn()
     runtime.onContextChange(onChange)
