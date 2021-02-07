@@ -1,5 +1,6 @@
 import { Subscription } from "@tdreyno/pretty-please"
 import { Action, onFrame } from "./action"
+export { Subscription }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const onFrameSubscription = <A extends Action<any>>(

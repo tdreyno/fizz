@@ -42,6 +42,7 @@ interface Options {
   fallback: BoundStateFn<any, any, any>
   maxHistory: number
   restartOnInitialStateChange?: boolean
+  disableLogging?: boolean
 }
 
 export function createFizzContext<
@@ -54,7 +55,12 @@ export function createFizzContext<
     maxHistory: 5,
   },
 ) {
-  const { restartOnInitialStateChange, maxHistory, fallback } = options
+  const {
+    restartOnInitialStateChange,
+    maxHistory,
+    fallback,
+    disableLogging,
+  } = options
 
   const parentContext = options.parent
     ? options.parent.Context
@@ -62,7 +68,7 @@ export function createFizzContext<
 
   const defaultContext = createInitialContext(
     [state("Placeholder", () => noop())()],
-    { maxHistory },
+    { maxHistory, disableLogging },
   )
 
   const StateContext = React.createContext<ContextValue<SM, AM>>({
@@ -95,7 +101,7 @@ export function createFizzContext<
     const runtime = useMemo(
       () =>
         createRuntime(
-          createInitialContext([initialState], { maxHistory }),
+          createInitialContext([initialState], { maxHistory, disableLogging }),
           Object.keys(actions),
           fallback,
           parentRuntime,
