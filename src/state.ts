@@ -38,12 +38,11 @@ export interface StateTransition<
   executor: (action: A) => void | StateReturn | StateReturn[]
 }
 
-export function isStateTransition(
+export const isStateTransition = (
   a: StateTransition<any, any, any> | unknown,
-): a is StateTransition<any, any, any> {
+): a is StateTransition<any, any, any> =>
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
-  return a && (a as any).isStateTransition
-}
+  a && (a as any).isStateTransition
 
 /**
  * A State function as written by the user. It accepts
@@ -70,7 +69,7 @@ interface Options {
   mutable: boolean
 }
 
-function cloneDeep(value: any): any {
+const cloneDeep = (value: any): any => {
   if (Array.isArray(value)) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return value.map(cloneDeep)
@@ -96,7 +95,7 @@ export class TriggerAction {
   constructor(public action: Action<any>) {}
 }
 
-export function state<
+export const state = <
   Name extends string,
   A extends Action<any>,
   Data extends any[]
@@ -104,29 +103,27 @@ export function state<
   name: Name,
   executor: State<A, Data>,
   options?: Partial<Options>,
-): BoundStateFn<Name, A, Data> {
+): BoundStateFn<Name, A, Data> => {
   const immutable = !options || !options.mutable
 
-  const fn = (...data: Data) => {
-    return {
-      name,
-      data,
-      isStateTransition: true,
-      mode: "append",
-      reenter: (...reenterArgs: Data) => {
-        const bound = fn(...reenterArgs)
-        bound.mode = "append"
-        return bound
-      },
-      executor: (action: A) => {
-        // Clones arguments
-        const clonedArgs = immutable ? (data.map(cloneDeep) as Data) : data
+  const fn = (...data: Data) => ({
+    name,
+    data,
+    isStateTransition: true,
+    mode: "append",
+    reenter: (...reenterArgs: Data) => {
+      const bound = fn(...reenterArgs)
+      bound.mode = "append"
+      return bound
+    },
+    executor: (action: A) => {
+      // Clones arguments
+      const clonedArgs = immutable ? (data.map(cloneDeep) as Data) : data
 
-        // Run state execturoe
-        return executor(action, ...clonedArgs)
-      },
-    }
-  }
+      // Run state execturoe
+      return executor(action, ...clonedArgs)
+    },
+  })
 
   Object.defineProperty(fn, "name", { value: name })
 

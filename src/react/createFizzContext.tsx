@@ -1,15 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import {
-  Action,
-  BoundStateFn,
-  Context,
-  createInitialContext,
-  enter,
-  noop,
-  Runtime,
-  state,
-  StateTransition,
-} from "../index"
 import isFunction from "lodash.isfunction"
 import React, {
   ReactNode,
@@ -18,6 +7,11 @@ import React, {
   useMemo,
   useState,
 } from "react"
+import { Action, enter } from "../action"
+import { Context, createInitialContext } from "../context"
+import { noop } from "../effect"
+import { Runtime } from "../runtime"
+import { BoundStateFn, state, StateTransition } from "../state"
 
 export interface CreateProps<
   SM extends { [key: string]: BoundStateFn<any, any, any> },

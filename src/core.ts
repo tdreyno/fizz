@@ -10,11 +10,11 @@ import {
 } from "./errors"
 import { isStateTransition, StateReturn, StateTransition } from "./state"
 
-function enterState(
+const enterState = (
   context: Context,
   targetState: StateTransition<any, any, any>,
   exitState?: StateTransition<any, any, any>,
-): ExecuteResult {
+): ExecuteResult => {
   let exitEffects: Effect[] = []
   let exitTasks: Task<any, void | StateReturn | StateReturn[]>[] = []
 
@@ -54,12 +54,12 @@ export interface ExecuteResult extends Array<any> {
   length: 2
 }
 
-export function execute<A extends Action<any>>(
+export const execute = <A extends Action<any>>(
   action: A,
   context: Context,
   targetState = context.currentState,
   exitState = context.history.previous,
-): ExecuteResult {
+): ExecuteResult => {
   if (!targetState) {
     throw new MissingCurrentState("Must provide a current state")
   }
@@ -114,11 +114,11 @@ export function execute<A extends Action<any>>(
   return processStateReturn(context, prefix, result)
 }
 
-export function processStateReturn(
+export const processStateReturn = (
   context: Context,
   prefix: ExecuteResult,
   result: void | StateReturn | StateReturn[],
-): ExecuteResult {
+): ExecuteResult => {
   // Transion can return 1 side-effect, or an array of them.
   const results = result ? (Array.isArray(result) ? result : [result]) : []
 
@@ -132,10 +132,10 @@ export function processStateReturn(
   }, prefix)
 }
 
-function processIndividualStateReturn(
+const processIndividualStateReturn = (
   context: Context,
   item: StateReturn,
-): ExecuteResult {
+): ExecuteResult => {
   const targetState = context.currentState
 
   if (isEffect(item)) {
@@ -193,6 +193,5 @@ function processIndividualStateReturn(
   throw new UnknownStateReturnType(item)
 }
 
-export function runEffects(context: Context, effects: Effect[]): void {
+export const runEffects = (context: Context, effects: Effect[]): void =>
   effects.forEach(e => e.executor(context))
-}

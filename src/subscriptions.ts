@@ -2,14 +2,14 @@ import { Subscription } from "@tdreyno/pretty-please"
 import { Action, onFrame } from "./action"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function onFrameSubscription<A extends Action<any>>(
+export const onFrameSubscription = <A extends Action<any>>(
   actionCreator: (ts: number) => A = ts => (onFrame(ts) as unknown) as A,
-): Subscription<A> {
+): Subscription<A> => {
   const sub = new Subscription<A>()
 
   let shouldContinue = false
 
-  function tick(ts: number) {
+  const tick = (ts: number) => {
     if (!shouldContinue) {
       return
     }
@@ -36,11 +36,11 @@ export function onFrameSubscription<A extends Action<any>>(
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function onDOMEventSubscription<A extends Action<any>>(
+export const onDOMEventSubscription = <A extends Action<any>>(
   element: Window | Element,
   eventName: string,
   actionCreator: (e: Event) => A | void,
-): Subscription<A> {
+): Subscription<A> => {
   const sub = new Subscription<A>()
 
   function onEvent(e: Event) {

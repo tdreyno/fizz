@@ -10,14 +10,12 @@ export interface Effect {
   executor: (context: Context) => void
 }
 
-export function isEffect(e: Effect | unknown): e is Effect {
+export const isEffect = (e: Effect | unknown): e is Effect =>
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
-  return e && (e as any).isEffect
-}
+  e && (e as any).isEffect
 
-export function isEffects(effects: unknown): effects is Effect[] {
-  return Array.isArray(effects) && effects.every(isEffect)
-}
+export const isEffects = (effects: unknown): effects is Effect[] =>
+  Array.isArray(effects) && effects.every(isEffect)
 
 const RESERVED_EFFECTS = [
   "exited",
@@ -33,23 +31,25 @@ const RESERVED_EFFECTS = [
   "unsubscribe",
 ]
 
-export function __internalEffect<
+export const __internalEffect = <
   D extends any,
   F extends (context: Context) => void
->(label: string, data: D, executor: F): Effect {
-  return {
-    label,
-    data,
-    executor,
-    isEffect: true,
-  }
-}
+>(
+  label: string,
+  data: D,
+  executor: F,
+): Effect => ({
+  label,
+  data,
+  executor,
+  isEffect: true,
+})
 
-export function effect<D extends any, F extends (context: Context) => void>(
+export const effect = <D extends any, F extends (context: Context) => void>(
   label: string,
   data: D,
   executor?: F,
-): Effect {
+): Effect => {
   if (RESERVED_EFFECTS.includes(label)) {
     throw new Error(
       `${label} is a reserved effect label, please change the label of your custom effect`,
@@ -59,23 +59,19 @@ export function effect<D extends any, F extends (context: Context) => void>(
   return __internalEffect(label, data, executor || (() => void 0))
 }
 
-export function subscribe(
+export const subscribe = (
   key: string,
   subscription: Subscription<Action<any>>,
-): Effect {
-  return __internalEffect("subscribe", [key, subscription], Task.empty)
-}
+): Effect => __internalEffect("subscribe", [key, subscription], Task.empty)
 
-export function unsubscribe(key: string): Effect {
-  return __internalEffect("unsubscribe", key, Task.empty)
-}
+export const unsubscribe = (key: string): Effect =>
+  __internalEffect("unsubscribe", key, Task.empty)
 
-export function goBack(): Effect {
-  return __internalEffect("goBack", undefined, Task.empty)
-}
+export const goBack = (): Effect =>
+  __internalEffect("goBack", undefined, Task.empty)
 
-export function log(...msgs: any[]) {
-  return __internalEffect("log", msgs, context => {
+export const log = (...msgs: any[]) =>
+  __internalEffect("log", msgs, context => {
     if (context.customLogger) {
       context.customLogger(msgs, "log")
     } else if (!context.disableLogging) {
@@ -84,10 +80,9 @@ export function log(...msgs: any[]) {
 
     return Task.empty()
   })
-}
 
-export function error(...msgs: any[]) {
-  return __internalEffect("error", msgs, context => {
+export const error = (...msgs: any[]) =>
+  __internalEffect("error", msgs, context => {
     if (context.customLogger) {
       context.customLogger(msgs, "error")
     } else if (!context.disableLogging) {
@@ -96,10 +91,9 @@ export function error(...msgs: any[]) {
 
     return Task.empty()
   })
-}
 
-export function warn(...msgs: any[]) {
-  return __internalEffect("warn", msgs, context => {
+export const warn = (...msgs: any[]) =>
+  __internalEffect("warn", msgs, context => {
     if (context.customLogger) {
       context.customLogger(msgs, "warn")
     } else if (!context.disableLogging) {
@@ -108,15 +102,10 @@ export function warn(...msgs: any[]) {
 
     return Task.empty()
   })
-}
 
-export function noop() {
-  return __internalEffect("noop", undefined, Task.empty)
-}
+export const noop = () => __internalEffect("noop", undefined, Task.empty)
 
-export function timeout<A extends Action<any>>(
+export const timeout = <A extends Action<any>>(
   ms: number,
   action: A,
-): Task<any, A> {
-  return Task.of(action).wait(ms)
-}
+): Task<any, A> => Task.of(action).wait(ms)

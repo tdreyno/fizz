@@ -91,11 +91,11 @@ export class Context {
   }
 }
 
-export function createInitialContext(
+export const createInitialContext = (
   history: StateTransition<any, any, any>[] = [],
   options?: Partial<Options>,
-): Context {
-  return new Context(
+) =>
+  new Context(
     new History(history, (options && options.maxHistory) || Infinity),
     {
       allowUnhandled: (options && options.allowUnhandled) || false,
@@ -104,4 +104,3 @@ export function createInitialContext(
       customLogger: (options && options.customLogger) || undefined,
     },
   )
-}
