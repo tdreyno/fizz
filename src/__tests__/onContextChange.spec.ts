@@ -1,6 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-misused-promises , @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-unused-vars, @typescript-eslint/no-use-before-define, @typescript-eslint/no-explicit-any */
-import { Enter, enter } from "../action"
+import { Action, Enter, enter } from "../action"
 import { noop } from "../effect"
 import { createRuntime } from "../runtime"
 import { state, StateReturn } from "../state"
@@ -8,6 +6,7 @@ import { createInitialContext } from "./createInitialContext"
 
 describe("onContextChange", () => {
   test("should run callback once after changes", () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const A = state("A", (action: Enter, _name: string) => {
       switch (action.type) {
         case "Enter":
@@ -53,7 +52,9 @@ describe("onContextChange", () => {
 
     runtime.onContextChange(onChange)
 
-    runtime.run({ type: "Trigger" }).fork(jest.fn(), jest.fn())
+    runtime
+      .run({ type: "Trigger" } as Action<"Trigger", undefined>)
+      .fork(jest.fn(), jest.fn())
 
     jest.runAllTimers()
 

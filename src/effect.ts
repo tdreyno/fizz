@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-misused-promises, @typescript-eslint/no-explicit-any */
 import { Subscription, Task } from "@tdreyno/pretty-please"
 import { Action } from "./action"
 import { Context } from "./context"
@@ -9,7 +10,8 @@ export interface Effect<T = any> {
   executor: (context: Context) => void
 }
 
-export const isEffect = (e: Effect | unknown): e is Effect =>
+export const isEffect = (e: unknown): e is Effect =>
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
   e && (e as any).isEffect
 
 export const isEffects = (effects: unknown): effects is Effect[] =>
@@ -59,8 +61,8 @@ export const effect = <D extends any, F extends (context: Context) => void>(
 
 export const subscribe = <T extends string>(
   key: T,
-  subscription: Subscription<Action<any>>,
-): Effect<[T, Subscription<Action<any>>]> =>
+  subscription: Subscription<Action<any, any>>,
+): Effect<[T, Subscription<Action<any, any>>]> =>
   __internalEffect("subscribe", [key, subscription], Task.empty)
 
 export const unsubscribe = <T extends string>(key: T): Effect<T> =>
@@ -95,7 +97,7 @@ export const warn = <T extends any[]>(...msgs: T): Effect<T> =>
 export const noop = (): Effect<void> =>
   __internalEffect("noop", undefined, Task.empty)
 
-export const timeout = <A extends Action<any>>(
+export const timeout = <A extends Action<any, any>>(
   ms: number,
   action: A,
 ): Task<never, A> => Task.of(action).wait(ms)

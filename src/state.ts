@@ -14,7 +14,7 @@ import { Effect } from "./effect"
  */
 export type StateReturn =
   | Effect
-  | Action<any>
+  | Action<any, any>
   | StateTransition<any, any, any>
   | Promise<any>
   | Task<any, any>
@@ -27,7 +27,7 @@ export type StateReturn =
  */
 export interface StateTransition<
   Name extends string,
-  A extends Action<any>,
+  A extends Action<any, any>,
   Data extends any[]
 > {
   name: Name
@@ -49,14 +49,14 @@ export const isStateTransition = (
  * the action to run and an arbitrary number of serializable
  * arguments.
  */
-export type State<A extends Action<any>, Data extends any[]> = (
+export type State<A extends Action<any, any>, Data extends any[]> = (
   action: A,
   ...data: Data
 ) => StateReturn | StateReturn[]
 
 export interface BoundStateFn<
   Name extends string,
-  A extends Action<any>,
+  A extends Action<any, any>,
   Data extends any[]
 > {
   (...data: Data): StateTransition<Name, A, Data>
@@ -93,7 +93,7 @@ const cloneDeep = (value: any): any => {
 
 export const state = <
   Name extends string,
-  A extends Action<any>,
+  A extends Action<any, any>,
   Data extends any[]
 >(
   name: Name,

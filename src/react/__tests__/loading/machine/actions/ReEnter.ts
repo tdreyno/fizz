@@ -1,12 +1,4 @@
-import { Action } from "../../../../../action"
+import { ActionCreatorType, createAction } from "../../../../../action"
 
-export interface ReEnter extends Action<"ReEnter"> {
-  result: string
-}
-
-export function reEnter(result: string): ReEnter {
-  return {
-    type: "ReEnter",
-    result,
-  }
-}
+export const reEnter = createAction<"ReEnter", string>("ReEnter")
+export type ReEnter = ActionCreatorType<typeof reEnter>

@@ -5,7 +5,7 @@ import { StateTransition } from "./state"
 export class StateDidNotRespondToAction extends Error {
   constructor(
     public state: StateTransition<any, any, any>,
-    public action: Action<any>,
+    public action: Action<any, any>,
   ) {
     super()
   }
@@ -20,7 +20,7 @@ export class StateDidNotRespondToAction extends Error {
 export class NoStatesRespondToAction extends Error {
   constructor(
     public states: Array<StateTransition<any, any, any>>,
-    public action: Action<any>,
+    public action: Action<any, any>,
   ) {
     super()
   }

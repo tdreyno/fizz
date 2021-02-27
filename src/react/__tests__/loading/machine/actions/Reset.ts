@@ -1,10 +1,4 @@
-import { Action } from "../../../../../action"
+import { ActionCreatorType, createAction } from "../../../../../action"
 
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
-export interface Reset extends Action<"Reset"> {}
-
-export function reset(): Reset {
-  return {
-    type: "Reset",
-  }
-}
+export const reset = createAction("Reset")
+export type Reset = ActionCreatorType<typeof reset>

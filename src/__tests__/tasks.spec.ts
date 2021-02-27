@@ -1,15 +1,13 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-misused-promises , @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-unused-vars, @typescript-eslint/no-use-before-define, @typescript-eslint/no-explicit-any */
 import { Task } from "@tdreyno/pretty-please"
-import { Enter, enter, typedAction } from "../action"
+import { Enter, enter, createAction, ActionCreatorType } from "../action"
 import { effect, noop } from "../effect"
 import { createRuntime } from "../runtime"
 import { state, StateReturn } from "../state"
 import { createInitialContext } from "./createInitialContext"
 
 describe("Tasks", () => {
-  const trigger = typedAction("Trigger")
-  type Trigger = ReturnType<typeof trigger>
+  const trigger = createAction("Trigger")
+  type Trigger = ActionCreatorType<typeof trigger>
 
   const B = state("B", (action: Enter) => {
     switch (action.type) {
@@ -62,6 +60,7 @@ describe("Tasks", () => {
     expect.hasAssertions()
 
     return new Promise<void>(resolve => {
+      // eslint-disable-next-line @typescript-eslint/no-misused-promises
       runtime.run(enter()).fork(jest.fn(), async () => {
         await promise
 
@@ -160,12 +159,14 @@ describe("Tasks", () => {
 
     const runtime = createRuntime(context)
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     expect(context.currentState.data[0]).toBe("Test")
 
     runtime.run(enter()).fork(jest.fn(), jest.fn())
 
     jest.runAllTimers()
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     expect(context.currentState.data[0]).toBe("TestTest")
   })
 

@@ -12,12 +12,14 @@ type ContextChangeSubscriber = (context: Context) => void
 export interface Runtime {
   currentState: () => StateTransition<any, any, any>
   onContextChange: (fn: ContextChangeSubscriber) => void
-  bindActions: <AM extends { [key: string]: (...args: any[]) => Action<any> }>(
+  bindActions: <
+    AM extends { [key: string]: (...args: any[]) => Action<any, any> }
+  >(
     actions: AM,
   ) => AM
   disconnect: () => void
-  run: (action: Action<any>) => Task<any, Effect[]>
-  canHandle: (action: Action<any>) => boolean
+  run: (action: Action<any, any>) => Task<any, Effect[]>
+  canHandle: (action: Action<any, any>) => boolean
   context: Context
 }
 
@@ -29,7 +31,7 @@ export const createRuntime = (
 ): Runtime => {
   const subscriptions_ = new Map<string, () => void>()
 
-  const pendingActions_: [Action<any>, ExternalTask<any, any>][] = []
+  const pendingActions_: [Action<any, any>, ExternalTask<any, any>][] = []
 
   const contextChangeSubscribers_: Set<ContextChangeSubscriber> = new Set()
 
@@ -48,7 +50,7 @@ export const createRuntime = (
           effect.data[0],
 
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-          effect.data[1].subscribe((a: Action<any>) => run(a)),
+          effect.data[1].subscribe((a: Action<any, any>) => run(a)),
         )
 
       case "unsubscribe":
@@ -133,7 +135,7 @@ export const createRuntime = (
     }
   }
 
-  const executeAction_ = (action: Action<any>): ExecuteResult => {
+  const executeAction_ = (action: Action<any, any>): ExecuteResult => {
     // Try this runtime.
     try {
       return execute(action, context)
@@ -214,10 +216,10 @@ export const createRuntime = (
 
   const currentHistory = () => context.history
 
-  const canHandle = (action: Action<any>): boolean =>
+  const canHandle = (action: Action<any, any>): boolean =>
     validActions_.has((action.type as string).toLowerCase())
 
-  const run = (action: Action<any>): Task<any, Effect[]> => {
+  const run = (action: Action<any, any>): Task<any, Effect[]> => {
     const task = Task.external<any, Effect[]>()
 
     pendingActions_.push([action, task])
@@ -232,7 +234,7 @@ export const createRuntime = (
   }
 
   const bindActions = <
-    AM extends { [key: string]: (...args: any[]) => Action<any> }
+    AM extends { [key: string]: (...args: any[]) => Action<any, any> }
   >(
     actions: AM,
   ): AM =>

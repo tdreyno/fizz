@@ -54,7 +54,7 @@ export interface ExecuteResult extends Array<any> {
   length: 2
 }
 
-export const execute = <A extends Action<any>>(
+export const execute = <A extends Action<any, any>>(
   action: A,
   context: Context,
   targetState = context.currentState,

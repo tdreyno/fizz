@@ -15,7 +15,7 @@ async function Loading(
       return loadData()
 
     case "FinishedLoading":
-      return Ready({ ...shared, message: `Hi, ${action.result}` })
+      return Ready({ ...shared, message: `Hi, ${action.payload}` })
 
     case "Update":
       shared.message = shared.message + " " + shared.message

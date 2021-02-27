@@ -1,7 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-misused-promises , @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-unused-vars, @typescript-eslint/no-use-before-define, @typescript-eslint/no-explicit-any */
 import { Subscription } from "@tdreyno/pretty-please"
-import { Enter, enter, Exit } from "../action"
+import { Action, Enter, enter, Exit } from "../action"
 import { noop, subscribe, unsubscribe } from "../effect"
 import { createRuntime } from "../runtime"
 import { state } from "../state"
@@ -20,7 +18,7 @@ describe("Eventual actions", () => {
   })
 
   test("should listen for eventual actions", () => {
-    const sub = new Subscription<{ type: "Trigger" }>()
+    const sub = new Subscription<Action<"Trigger", undefined>>()
 
     const A = state("A", (action: Enter | Trigger) => {
       switch (action.type) {
@@ -39,11 +37,15 @@ describe("Eventual actions", () => {
     expect.assertions(2)
 
     runtime.run(enter()).fork(jest.fn(), () => {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       expect(runtime.currentState()!.name).toBe("A")
 
-      sub.emit({ type: "Trigger" }).fork(jest.fn(), () => {
-        expect(runtime.currentState()!.name).toBe("B")
-      })
+      sub
+        .emit({ type: "Trigger" } as Action<"Trigger", undefined>)
+        .fork(jest.fn(), () => {
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+          expect(runtime.currentState()!.name).toBe("B")
+        })
 
       jest.runAllTimers()
     })
@@ -52,7 +54,7 @@ describe("Eventual actions", () => {
   })
 
   test("should unsubscribe", () => {
-    const sub = new Subscription<{ type: "Trigger" }>()
+    const sub = new Subscription<Action<"Trigger", undefined>>()
 
     const A = state("A", (action: Enter | Trigger | Exit) => {
       switch (action.type) {
@@ -84,17 +86,24 @@ describe("Eventual actions", () => {
     expect.assertions(3)
 
     runtime.run(enter()).fork(jest.fn(), () => {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       expect(runtime.currentState()!.name).toBe("A")
 
-      sub.emit({ type: "Trigger" }).fork(jest.fn(), () => {
-        expect(runtime.currentState()!.name).toBe("C")
-
-        sub.emit({ type: "Trigger" }).fork(jest.fn(), () => {
+      sub
+        .emit({ type: "Trigger" } as Action<"Trigger", undefined>)
+        .fork(jest.fn(), () => {
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
           expect(runtime.currentState()!.name).toBe("C")
-        })
 
-        jest.runAllTimers()
-      })
+          sub
+            .emit({ type: "Trigger" } as Action<"Trigger", undefined>)
+            .fork(jest.fn(), () => {
+              // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+              expect(runtime.currentState()!.name).toBe("C")
+            })
+
+          jest.runAllTimers()
+        })
 
       jest.runAllTimers()
     })

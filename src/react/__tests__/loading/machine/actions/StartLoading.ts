@@ -1,10 +1,4 @@
-import { Action } from "../../../../../action"
+import { ActionCreatorType, createAction } from "../../../../../action"
 
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
-export interface StartLoading extends Action<"StartLoading"> {}
-
-export function startLoading(): StartLoading {
-  return {
-    type: "StartLoading",
-  }
-}
+export const startLoading = createAction("StartLoading")
+export type StartLoading = ActionCreatorType<typeof startLoading>

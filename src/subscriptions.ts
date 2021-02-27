@@ -3,7 +3,7 @@ import { Action, onFrame } from "./action"
 export { Subscription }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const onFrameSubscription = <A extends Action<any>>(
+export const onFrameSubscription = <A extends Action<any, any>>(
   actionCreator: (ts: number) => A = ts => (onFrame(ts) as unknown) as A,
 ): Subscription<A> => {
   const sub = new Subscription<A>()
@@ -37,7 +37,7 @@ export const onFrameSubscription = <A extends Action<any>>(
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const onDOMEventSubscription = <A extends Action<any>>(
+export const onDOMEventSubscription = <A extends Action<any, any>>(
   element: Window | Element,
   eventName: string,
   actionCreator: (e: Event) => A | void,

@@ -1,7 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-misused-promises , @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-unused-vars, @typescript-eslint/no-use-before-define, @typescript-eslint/no-explicit-any */
 import { Task } from "@tdreyno/pretty-please"
-import { Enter } from "../action"
+import { ActionCreatorType, createAction, Enter } from "../action"
 import { noop } from "../effect"
 import { createRuntime } from "../runtime"
 import { state, StateReturn } from "../state"
@@ -9,15 +7,11 @@ import { createInitialContext } from "./createInitialContext"
 
 describe("Bound actions", () => {
   test("should run sequentially when called at the same time", () => {
-    interface Add {
-      type: "Add"
-      amount: number
-    }
+    const add = createAction<"Add", number>("Add")
+    type Add = ActionCreatorType<typeof add>
 
-    interface Multiply {
-      type: "Multiply"
-      amount: number
-    }
+    const multiply = createAction<"Multiply", number>("Multiply")
+    type Multiply = ActionCreatorType<typeof multiply>
 
     const A = state(
       "A",
@@ -27,10 +21,10 @@ describe("Bound actions", () => {
             return noop()
 
           case "Add":
-            return A.update(count + action.amount)
+            return A.update(count + action.payload)
 
           case "Multiply":
-            return A.update(count * action.amount)
+            return A.update(count * action.payload)
         }
       },
     )
@@ -45,12 +39,13 @@ describe("Bound actions", () => {
     expect.hasAssertions()
 
     Task.all([
-      runtime.run({ type: "Add", amount: 2 } as Add),
-      runtime.run({ type: "Multiply", amount: 2 } as Multiply),
-      runtime.run({ type: "Add", amount: 3 } as Add),
-      runtime.run({ type: "Multiply", amount: 5 } as Multiply),
-      runtime.run({ type: "Add", amount: 1 } as Add),
+      runtime.run(add(2)),
+      runtime.run(multiply(2)),
+      runtime.run(add(3)),
+      runtime.run(multiply(5)),
+      runtime.run(add(1)),
     ]).fork(jest.fn(), () => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       expect(runtime.currentState().data[0]).toBe(36)
       expect(onChange).toHaveBeenCalledTimes(1)
     })

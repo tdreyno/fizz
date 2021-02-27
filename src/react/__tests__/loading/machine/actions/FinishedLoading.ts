@@ -1,12 +1,6 @@
-import { Action } from "../../../../../action"
+import { ActionCreatorType, createAction } from "../../../../../action"
 
-export interface FinishedLoading extends Action<"FinishedLoading"> {
-  result: string
-}
-
-export function finishedLoading(result: string): FinishedLoading {
-  return {
-    type: "FinishedLoading",
-    result,
-  }
-}
+export const finishedLoading = createAction<"FinishedLoading", string>(
+  "FinishedLoading",
+)
+export type FinishedLoading = ActionCreatorType<typeof finishedLoading>

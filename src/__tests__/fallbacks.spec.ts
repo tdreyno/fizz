@@ -1,15 +1,14 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-misused-promises , @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-unused-vars, @typescript-eslint/no-use-before-define, @typescript-eslint/no-explicit-any */
-import { Enter, enter, typedAction } from "../action"
+import { Enter, enter, createAction, ActionCreatorType } from "../action"
 import { noop } from "../effect"
 import { createRuntime } from "../runtime"
 import { state, StateReturn } from "../state"
 import { createInitialContext } from "./createInitialContext"
 
 describe("Fallbacks", () => {
-  const trigger = typedAction("Trigger")
-  type Trigger = ReturnType<typeof trigger>
+  const trigger = createAction("Trigger")
+  type Trigger = ActionCreatorType<typeof trigger>
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const A = state("A", (action: Enter, _name: string) => {
     switch (action.type) {
       case "Enter":
@@ -17,6 +16,7 @@ describe("Fallbacks", () => {
     }
   })
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const B = state("B", (action: Enter, _name: string) => {
     switch (action.type) {
       case "Enter":
@@ -51,6 +51,7 @@ describe("Fallbacks", () => {
 
       runtime.run(trigger()).fork(jest.fn(), () => {
         expect(runtime.currentState().name).toBe("B")
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         expect(runtime.currentState().data[0]).toBe("TestTest")
       })
     })
@@ -85,6 +86,7 @@ describe("Fallbacks", () => {
 
       runtime.run(trigger()).fork(jest.fn(), () => {
         expect(runtime.currentState().name).toBe("A")
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         expect(runtime.currentState().data[0]).toBe("TestTest")
       })
     })

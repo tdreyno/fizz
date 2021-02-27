@@ -1,6 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-misused-promises , @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-unused-vars, @typescript-eslint/no-use-before-define, @typescript-eslint/no-explicit-any */
-import { Enter, enter, typedAction } from "../action"
+import { Enter, enter, createAction, ActionCreatorType } from "../action"
 import { noop } from "../effect"
 import { NoStatesRespondToAction } from "../errors"
 import { createRuntime } from "../runtime"
@@ -8,8 +6,8 @@ import { state } from "../state"
 import { createInitialContext } from "./createInitialContext"
 
 describe("Nested runtimes", () => {
-  const trigger = typedAction("Trigger")
-  type Trigger = ReturnType<typeof trigger>
+  const trigger = createAction("Trigger")
+  type Trigger = ActionCreatorType<typeof trigger>
 
   test("should send action to parents if child cannot handle it", () => {
     const Child = state("Child", (action: Enter) => {

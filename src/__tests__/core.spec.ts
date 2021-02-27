@@ -1,6 +1,10 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-use-before-define */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import serializeJavascript from "serialize-javascript"
-import { Enter, enter, Exit } from "../action"
+import { Action, Enter, enter, Exit } from "../action"
 import {
   Context,
   createInitialContext as originalCreateInitialContext,
@@ -40,7 +44,7 @@ describe("Fizz core", () => {
     test("should throw exception when getting invalid action", () => {
       expect(() =>
         execute(
-          { type: "Fake" },
+          { type: "Fake" } as Action<"Fake", undefined>,
           createInitialContext([Entry()], {
             allowUnhandled: false,
           }),
@@ -51,7 +55,7 @@ describe("Fizz core", () => {
     test("should not throw exception when allowing invalid actions", () => {
       expect(() =>
         execute(
-          { type: "Fake" },
+          { type: "Fake" } as Action<"Fake", undefined>,
           createInitialContext([Entry()], {
             allowUnhandled: true,
           }),
@@ -186,7 +190,10 @@ describe("Fizz core", () => {
     test("should exit and re-enter the current state, replacing itself in history", () => {
       const context = createInitialContext([A(true)])
 
-      const [results] = execute({ type: "ReEnterReplace" }, context)
+      const [results] = execute(
+        { type: "ReEnterReplace" } as Action<"ReEnterReplace", undefined>,
+        context,
+      )
 
       expect(results).toBeInstanceOf(Array)
       expect(context.history).toHaveLength(1)
@@ -195,7 +202,10 @@ describe("Fizz core", () => {
     test("should exit and re-enter the current state, appending itself to history", () => {
       const context = createInitialContext([A(true)])
 
-      const [results] = execute({ type: "ReEnterAppend" }, context)
+      const [results] = execute(
+        { type: "ReEnterAppend" } as Action<"ReEnterAppend", undefined>,
+        context,
+      )
 
       expect(results).toBeInstanceOf(Array)
       expect(context.history).toHaveLength(2)
@@ -227,7 +237,10 @@ describe("Fizz core", () => {
     test("should return to previous state", () => {
       const context = createInitialContext([B(), A("Test")])
 
-      const [results] = execute({ type: "GoBack" }, context)
+      const [results] = execute(
+        { type: "GoBack" } as Action<"GoBack", undefined>,
+        context,
+      )
       expect(results).toBeInstanceOf(Array)
 
       const events = results.filter(r =>
@@ -249,10 +262,10 @@ describe("Fizz core", () => {
   })
 
   describe("update", () => {
-    interface Update {
-      type: "Update"
-      updater: (...args: Parameters<typeof A>) => ReturnType<typeof update>
-    }
+    type Update = Action<
+      "Update",
+      (...args: Parameters<typeof A>) => ReturnType<typeof update>
+    >
 
     const A = state(
       "A",
@@ -268,7 +281,7 @@ describe("Fizz core", () => {
             return noop()
 
           case "Update":
-            return action.updater(str, bool, num, fn)
+            return action.payload(str, bool, num, fn)
         }
       },
     )
@@ -281,16 +294,10 @@ describe("Fizz core", () => {
         A("Test", false, 5, () => "Inside"),
       ])
 
-      const action: Update = {
+      const action: Action<"Update", any> = {
         type: "Update",
-        updater: (
-          str: string,
-          bool: boolean,
-          num: number,
-          fn: () => string,
-        ) => {
-          return update(str, bool, num, fn)
-        },
+        payload: (str: string, bool: boolean, num: number, fn: () => string) =>
+          update(str, bool, num, fn),
       }
 
       execute(action, context)
@@ -337,12 +344,10 @@ describe("Fizz core", () => {
 
       function serializeContext(c: Context) {
         return serializeJavascript(
-          c.history.map(({ data, name }) => {
-            return {
-              data,
-              name,
-            }
-          }),
+          c.history.map(({ data, name }) => ({
+            data,
+            name,
+          })),
         )
       }
 
@@ -354,9 +359,10 @@ describe("Fizz core", () => {
         )
 
         return createInitialContext(
-          unboundHistory.map(({ data, name }) => {
-            return (STATES as any)[name](...data)
-          }),
+          unboundHistory.map(({ data, name }) =>
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+            (STATES as any)[name](...data),
+          ),
         )
       }
 
@@ -371,7 +377,7 @@ describe("Fizz core", () => {
 
       const newContext = deserializeContext(serialized)
 
-      execute({ type: "Next" }, newContext)
+      execute({ type: "Next" } as Action<"Next", undefined>, newContext)
 
       expect(newContext.currentState.name).toBe("C")
       expect(newContext.currentState.data[0]).toBe("Test")
@@ -456,6 +462,7 @@ describe("Fizz core", () => {
       const A = state("A", (action: Enter) => {
         switch (action.type) {
           case "Enter":
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
             return (() => {
               // fake effect
             }) as any
