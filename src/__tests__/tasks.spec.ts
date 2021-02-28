@@ -2,14 +2,14 @@ import { Task } from "@tdreyno/pretty-please"
 import { Enter, enter, createAction, ActionCreatorType } from "../action"
 import { effect, noop } from "../effect"
 import { createRuntime } from "../runtime"
-import { state, StateReturn } from "../state"
+import { stateWrapper, StateReturn } from "../state"
 import { createInitialContext } from "./createInitialContext"
 
 describe("Tasks", () => {
   const trigger = createAction("Trigger")
   type Trigger = ActionCreatorType<typeof trigger>
 
-  const B = state("B", (action: Enter) => {
+  const B = stateWrapper("B", (action: Enter) => {
     switch (action.type) {
       case "Enter":
         return noop()
@@ -17,7 +17,7 @@ describe("Tasks", () => {
   })
 
   test("should run an action with a task", () => {
-    const A = state("A", (action: Enter | Trigger) => {
+    const A = stateWrapper("A", (action: Enter | Trigger) => {
       switch (action.type) {
         case "Enter":
           return Task.of(trigger())
@@ -43,7 +43,7 @@ describe("Tasks", () => {
   test("should run an action with a promise", () => {
     const promise = Promise.resolve(trigger())
 
-    const A = state("A", (action: Enter | Trigger) => {
+    const A = stateWrapper("A", (action: Enter | Trigger) => {
       switch (action.type) {
         case "Enter":
           return promise
@@ -72,7 +72,7 @@ describe("Tasks", () => {
   })
 
   test("should run transition handler result from a task", () => {
-    const A = state("A", (action: Enter) => {
+    const A = stateWrapper("A", (action: Enter) => {
       switch (action.type) {
         case "Enter":
           return Task.of(B())
@@ -96,7 +96,7 @@ describe("Tasks", () => {
     const myEffectExecutor = jest.fn()
     const myEffect = effect("myEffect", undefined, myEffectExecutor)
 
-    const A = state("A", (action: Enter) => {
+    const A = stateWrapper("A", (action: Enter) => {
       switch (action.type) {
         case "Enter":
           return Task.of(myEffect)
@@ -123,7 +123,7 @@ describe("Tasks", () => {
     const myEffectExecutor2 = jest.fn()
     const myEffect2 = effect("myEffect", undefined, myEffectExecutor2)
 
-    const A = state("A", (action: Enter) => {
+    const A = stateWrapper("A", (action: Enter) => {
       switch (action.type) {
         case "Enter":
           return Task.of([myEffect1, myEffect2])
@@ -145,12 +145,12 @@ describe("Tasks", () => {
   })
 
   test("should run update functions", () => {
-    const A = state(
+    const A = stateWrapper(
       "A",
-      (action: Enter, name: string): StateReturn => {
+      (action: Enter, name: string, { update }): StateReturn => {
         switch (action.type) {
           case "Enter":
-            return Task.of(A.update(name + name))
+            return Task.of(update(name + name))
         }
       },
     )
@@ -174,12 +174,12 @@ describe("Tasks", () => {
     const myEffectExecutor1 = jest.fn()
     const myEffect1 = effect("myEffect", undefined, myEffectExecutor1)
 
-    const A = state(
+    const A = stateWrapper(
       "A",
-      (action: Enter, name: string): StateReturn => {
+      (action: Enter, name: string, { update }): StateReturn => {
         switch (action.type) {
           case "Enter":
-            return Task.of([A.update(name + name), myEffect1])
+            return Task.of([update(name + name), myEffect1])
         }
       },
     )

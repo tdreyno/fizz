@@ -2,8 +2,8 @@
 import { Task } from "@tdreyno/pretty-please"
 import isPlainObject from "lodash.isplainobject"
 import mapValues from "lodash.mapvalues"
-import { Action } from "./action"
-import { Effect } from "./effect"
+import { Action, ActionName, ActionPayload } from "./action"
+import { Effect, noop } from "./effect"
 
 /**
  * States can return either:
@@ -28,13 +28,12 @@ export type StateReturn =
 export interface StateTransition<
   Name extends string,
   A extends Action<any, any>,
-  Data extends any[]
+  Data extends any
 > {
   name: Name
   data: Data
   isStateTransition: true
   mode: "append" | "update"
-  reenter: (...args: Data) => StateTransition<Name, A, Data>
   executor: (action: A) => void | StateReturn | StateReturn[]
 }
 
@@ -49,20 +48,26 @@ export const isStateTransition = (
  * the action to run and an arbitrary number of serializable
  * arguments.
  */
-export type State<A extends Action<any, any>, Data extends any[]> = (
+export type State<
+  Name extends string,
+  A extends Action<any, any>,
+  Data extends any
+> = (
   action: A,
-  ...data: Data
+  data: Data,
+  utils: {
+    update: (data: Data) => StateTransition<Name, A, Data>
+    reenter: (data: Data) => StateTransition<Name, A, Data>
+  },
 ) => StateReturn | StateReturn[]
 
 export interface BoundStateFn<
   Name extends string,
   A extends Action<any, any>,
-  Data extends any[]
+  Data extends any
 > {
-  (...data: Data): StateTransition<Name, A, Data>
+  (data: Data): StateTransition<Name, A, Data>
   name: Name
-  update(...data: Data): StateTransition<Name, A, Data>
-  reenter(...data: Data): StateTransition<Name, A, Data>
 }
 
 interface Options {
@@ -91,49 +96,115 @@ const cloneDeep = (value: any): any => {
   return value
 }
 
-export const state = <
+export const stateWrapper = <
   Name extends string,
   A extends Action<any, any>,
-  Data extends any[]
+  Data extends any
 >(
   name: Name,
-  executor: State<A, Data>,
+  executor: State<Name, A, Data>,
   options?: Partial<Options>,
 ): BoundStateFn<Name, A, Data> => {
   const immutable = !options || !options.mutable
 
-  const fn = (...data: Data) => ({
+  const fn = (data: Data) => ({
     name,
     data,
     isStateTransition: true,
     mode: "append",
-    reenter: (...reenterArgs: Data) => {
-      const bound = fn(...reenterArgs)
-      bound.mode = "append"
-      return bound
-    },
+
     executor: (action: A) => {
       // Clones arguments
-      const clonedArgs = immutable ? (data.map(cloneDeep) as Data) : data
+      const clonedData = immutable ? (cloneDeep(data) as Data) : data
 
       // Run state execturoe
-      return executor(action, ...clonedArgs)
+      return executor(action, clonedData, { reenter, update })
     },
   })
 
   Object.defineProperty(fn, "name", { value: name })
 
-  fn.reenter = (...args: Data) => {
-    const bound = fn(...args)
+  const reenter = (data: Data): StateTransition<Name, A, Data> => {
+    const bound = fn(data)
     bound.mode = "append"
-    return bound
+    return bound as StateTransition<Name, A, Data>
   }
 
-  fn.update = (...args: Data) => {
-    const bound = fn(...args)
+  const update = (data: Data): StateTransition<Name, A, Data> => {
+    const bound = fn(data)
     bound.mode = "update"
-    return bound
+    return bound as StateTransition<Name, A, Data>
   }
 
   return fn as BoundStateFn<Name, A, Data>
 }
+
+export const match = <Actions extends Action<string, any>, Data>(
+  handlers: {
+    [A in Actions as ActionName<A>]: (
+      data: Data,
+      payload: ActionPayload<A>,
+      utils: {
+        update: (data: Data) => StateTransition<string, Actions, Data>
+        reenter: (data: Data) => StateTransition<string, Actions, Data>
+      },
+    ) => StateReturn | StateReturn[]
+  },
+  fallback: (
+    data: Data,
+    utils: {
+      update: (data: Data) => StateTransition<string, Actions, Data>
+      reenter: (data: Data) => StateTransition<string, Actions, Data>
+    },
+  ) => StateReturn | StateReturn[] = () => noop(),
+) => (
+  action: Actions,
+  data: Data,
+  utils: {
+    update: (data: Data) => StateTransition<string, Actions, Data>
+    reenter: (data: Data) => StateTransition<string, Actions, Data>
+  },
+): StateReturn | StateReturn[] => {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  const handler = (handlers as never)[action.type] as (
+    data: Data,
+    payload: ActionPayload<Actions>,
+    utils: {
+      update: (data: Data) => StateTransition<string, Actions, Data>
+      reenter: (data: Data) => StateTransition<string, Actions, Data>
+    },
+  ) => StateReturn | StateReturn[]
+
+  if (!handler) {
+    return fallback(data, utils)
+  }
+
+  return handler(data, action.payload, utils)
+}
+
+export const state = <Actions extends Action<string, any>, Data extends any>(
+  handlers: {
+    [A in Actions as ActionName<A>]: (
+      data: Data,
+      payload: ActionPayload<A>,
+      utils: {
+        update: (data: Data) => StateTransition<string, Actions, Data>
+        reenter: (data: Data) => StateTransition<string, Actions, Data>
+      },
+    ) => StateReturn | StateReturn[]
+  } & {
+    fallback?: (
+      data: Data,
+      utils: {
+        update: (data: Data) => StateTransition<string, Actions, Data>
+        reenter: (data: Data) => StateTransition<string, Actions, Data>
+      },
+    ) => StateReturn | StateReturn[]
+  },
+  options?: Partial<Options> & { debugName?: string },
+): BoundStateFn<string, Actions, Data> =>
+  stateWrapper(
+    options?.debugName ?? "UnnamedState",
+    match(handlers, handlers.fallback || noop),
+    options,
+  )

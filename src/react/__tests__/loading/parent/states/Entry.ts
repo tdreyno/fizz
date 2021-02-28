@@ -1,6 +1,6 @@
 import { Enter } from "../../../../../action"
 import { noop } from "../../../../../effect"
-import { state, StateReturn } from "../../../../../state"
+import { stateWrapper, StateReturn } from "../../../../../state"
 import { Say } from "../actions"
 
 async function Entry(
@@ -15,4 +15,4 @@ async function Entry(
   }
 }
 
-export default state("Entry", Entry)
+export default stateWrapper("Entry", Entry)

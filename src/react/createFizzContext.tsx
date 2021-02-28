@@ -11,7 +11,7 @@ import { Action, enter } from "../action"
 import { Context, createInitialContext } from "../context"
 import { noop } from "../effect"
 import { createRuntime, Runtime } from "../runtime"
-import { BoundStateFn, state, StateTransition } from "../state"
+import { BoundStateFn, stateWrapper, StateTransition } from "../state"
 
 export interface CreateProps<
   SM extends { [key: string]: BoundStateFn<any, any, any> },
@@ -67,7 +67,7 @@ export function createFizzContext<
     : React.createContext<any>({})
 
   const defaultContext = createInitialContext(
-    [state("Placeholder", () => noop())()],
+    [stateWrapper("Placeholder", () => noop())()],
     { maxHistory, disableLogging },
   )
 

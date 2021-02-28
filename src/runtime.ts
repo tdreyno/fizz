@@ -44,20 +44,27 @@ export const createRuntime = (
 
   const handleSubscriptionEffect_ = (effect: Effect) => {
     switch (effect.label) {
-      case "subscribe":
-        subscriptions_.set(
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          effect.data[0],
+      case "subscribe": {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call,  @typescript-eslint/no-unsafe-assignment
+        const name = effect.data[0]
 
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-          effect.data[1].subscribe((a: Action<any, any>) => run(a)),
-        )
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call,  @typescript-eslint/no-unsafe-assignment
+        const unsub = effect.data[1].subscribe((a: Action<any, any>) => run(a))
 
-      case "unsubscribe":
-        if (subscriptions_.has(effect.data)) {
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-          subscriptions_.get(effect.data)!()
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call,  @typescript-eslint/no-unsafe-assignment
+        const callback = effect.data[2]
+
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+        subscriptions_.set(name, () => unsub() && callback())
+      }
+
+      case "unsubscribe": {
+        const unsub = subscriptions_.get(effect.data)
+
+        if (unsub) {
+          unsub()
         }
+      }
     }
   }
 

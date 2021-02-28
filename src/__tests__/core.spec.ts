@@ -12,7 +12,7 @@ import {
 import { execute } from "../core"
 import { goBack, log, noop } from "../effect"
 import { StateDidNotRespondToAction, UnknownStateReturnType } from "../errors"
-import { state, StateReturn, StateTransition } from "../state"
+import { stateWrapper, StateReturn, StateTransition } from "../state"
 
 function createInitialContext(
   history: StateTransition<any, any, any>[],
@@ -26,7 +26,7 @@ function createInitialContext(
 
 describe("Fizz core", () => {
   describe("States", () => {
-    const Entry = state("Entry", (action: Enter) => {
+    const Entry = stateWrapper("Entry", (action: Enter) => {
       switch (action.type) {
         case "Enter":
           return noop()
@@ -66,21 +66,21 @@ describe("Fizz core", () => {
 
   describe("Transitions", () => {
     test("should flatten nested state transitions", () => {
-      const A = state("A", (action: Enter) => {
+      const A = stateWrapper("A", (action: Enter) => {
         switch (action.type) {
           case "Enter":
             return [log("Enter A"), B()]
         }
       })
 
-      const B = state("B", (action: Enter) => {
+      const B = stateWrapper("B", (action: Enter) => {
         switch (action.type) {
           case "Enter":
             return [log("Enter B"), C()]
         }
       })
 
-      const C = state("C", (action: Enter) => {
+      const C = stateWrapper("C", (action: Enter) => {
         switch (action.type) {
           case "Enter":
             return log("Entered C")
@@ -108,7 +108,7 @@ describe("Fizz core", () => {
 
   describe("Exit events", () => {
     test("should fire exit events", () => {
-      const A = state("A", (action: Enter | Exit) => {
+      const A = stateWrapper("A", (action: Enter | Exit) => {
         switch (action.type) {
           case "Enter":
             return [log("Enter A"), B()]
@@ -118,7 +118,7 @@ describe("Fizz core", () => {
         }
       })
 
-      const B = state("B", (action: Enter | Exit) => {
+      const B = stateWrapper("B", (action: Enter | Exit) => {
         switch (action.type) {
           case "Enter":
             return noop()
@@ -165,11 +165,12 @@ describe("Fizz core", () => {
       type: "ReEnterAppend"
     }
 
-    const A = state(
+    const A = stateWrapper(
       "A",
       (
         action: Enter | Exit | ReEnterReplace | ReEnterAppend,
         bool: boolean,
+        { update, reenter },
       ): StateReturn => {
         switch (action.type) {
           case "Enter":
@@ -179,10 +180,10 @@ describe("Fizz core", () => {
             return noop()
 
           case "ReEnterReplace":
-            return A.update(bool)
+            return update(bool)
 
           case "ReEnterAppend":
-            return A.reenter(bool)
+            return reenter(bool)
         }
       },
     )
@@ -217,14 +218,14 @@ describe("Fizz core", () => {
       type: "GoBack"
     }
 
-    const A = state("A", (action: Enter, _name: string) => {
+    const A = stateWrapper("A", (action: Enter, _name: string) => {
       switch (action.type) {
         case "Enter":
           return noop()
       }
     })
 
-    const B = state("B", (action: Enter | GoBack) => {
+    const B = stateWrapper("B", (action: Enter | GoBack) => {
       switch (action.type) {
         case "Enter":
           return noop()
@@ -267,7 +268,7 @@ describe("Fizz core", () => {
       (...args: Parameters<typeof A>) => ReturnType<typeof update>
     >
 
-    const A = state(
+    const A = stateWrapper(
       "A",
       (
         action: Enter | Update,
@@ -315,14 +316,14 @@ describe("Fizz core", () => {
         type: "Next"
       }
 
-      const A = state("A", (action: Enter) => {
+      const A = stateWrapper("A", (action: Enter) => {
         switch (action.type) {
           case "Enter":
             return B({ name: "Test" })
         }
       })
 
-      const B = state(
+      const B = stateWrapper(
         "B",
         (action: Enter | Next, { name }: { name: string }) => {
           switch (action.type) {
@@ -335,7 +336,7 @@ describe("Fizz core", () => {
         },
       )
 
-      const C = state("C", (action: Enter, _name: string) => {
+      const C = stateWrapper("C", (action: Enter, _name: string) => {
         switch (action.type) {
           case "Enter":
             return noop()
@@ -385,21 +386,21 @@ describe("Fizz core", () => {
   })
 
   describe("Type narrowing", () => {
-    const A = state("A", (action: Enter, _bool: boolean) => {
+    const A = stateWrapper("A", (action: Enter, _bool: boolean) => {
       switch (action.type) {
         case "Enter":
           return noop()
       }
     })
 
-    const B = state("B", (action: Enter, _str: string) => {
+    const B = stateWrapper("B", (action: Enter, _str: string) => {
       switch (action.type) {
         case "Enter":
           return noop()
       }
     })
 
-    const C = state("C", (action: Enter) => {
+    const C = stateWrapper("C", (action: Enter) => {
       switch (action.type) {
         case "Enter":
           return noop()
@@ -459,7 +460,7 @@ describe("Fizz core", () => {
 
   describe("Unknown effect", () => {
     test("should throw error on unknown effect", () => {
-      const A = state("A", (action: Enter) => {
+      const A = stateWrapper("A", (action: Enter) => {
         switch (action.type) {
           case "Enter":
             // eslint-disable-next-line @typescript-eslint/no-unsafe-return
@@ -479,7 +480,7 @@ describe("Fizz core", () => {
 
   describe("State Args are immutable", () => {
     test("should not mutate original data when transitioning", () => {
-      const A = state("A", (action: Enter, data: number[]) => {
+      const A = stateWrapper("A", (action: Enter, data: number[]) => {
         switch (action.type) {
           case "Enter":
             data.push(4)
@@ -488,7 +489,7 @@ describe("Fizz core", () => {
         }
       })
 
-      const B = state("B", (action: Enter, _data: number[]) => {
+      const B = stateWrapper("B", (action: Enter, _data: number[]) => {
         switch (action.type) {
           case "Enter":
             return noop()
@@ -507,14 +508,14 @@ describe("Fizz core", () => {
     })
 
     test("should not mutate original data when updating", () => {
-      const A = state(
+      const A = stateWrapper(
         "A",
-        (action: Enter, data: number[]): StateReturn => {
+        (action: Enter, data: number[], { update }): StateReturn => {
           switch (action.type) {
             case "Enter":
               data.push(4)
 
-              return A.update(data)
+              return update(data)
           }
         },
       )
@@ -547,15 +548,15 @@ describe("Fizz core", () => {
         klass: TestClass
       }
 
-      const A = state(
+      const A = stateWrapper(
         "A",
-        (action: Enter, shared: Shared): StateReturn => {
+        (action: Enter, shared: Shared, { update }): StateReturn => {
           switch (action.type) {
             case "Enter":
               shared.fn()
               shared.klass.run()
 
-              return A.update(shared)
+              return update(shared)
           }
         },
       )
@@ -578,14 +579,14 @@ describe("Fizz core", () => {
     })
 
     test("should mutate original data when enabling mutability", () => {
-      const A = state(
+      const A = stateWrapper(
         "A",
-        (action: Enter, data: number[]): StateReturn => {
+        (action: Enter, data: number[], { update }): StateReturn => {
           switch (action.type) {
             case "Enter":
               data.push(4)
 
-              return A.update(data)
+              return update(data)
           }
         },
         { mutable: true },

@@ -2,7 +2,7 @@ import { Subscription } from "@tdreyno/pretty-please"
 import { Action, Enter, enter, Exit } from "../action"
 import { noop, subscribe, unsubscribe } from "../effect"
 import { createRuntime } from "../runtime"
-import { state } from "../state"
+import { stateWrapper } from "../state"
 import { createInitialContext } from "./createInitialContext"
 
 describe("Eventual actions", () => {
@@ -10,7 +10,7 @@ describe("Eventual actions", () => {
     type: "Trigger"
   }
 
-  const B = state("B", (action: Enter) => {
+  const B = stateWrapper("B", (action: Enter) => {
     switch (action.type) {
       case "Enter":
         return noop()
@@ -20,7 +20,7 @@ describe("Eventual actions", () => {
   test("should listen for eventual actions", () => {
     const sub = new Subscription<Action<"Trigger", undefined>>()
 
-    const A = state("A", (action: Enter | Trigger) => {
+    const A = stateWrapper("A", (action: Enter | Trigger) => {
       switch (action.type) {
         case "Enter":
           return subscribe("trigger", sub)
@@ -56,7 +56,7 @@ describe("Eventual actions", () => {
   test("should unsubscribe", () => {
     const sub = new Subscription<Action<"Trigger", undefined>>()
 
-    const A = state("A", (action: Enter | Trigger | Exit) => {
+    const A = stateWrapper("A", (action: Enter | Trigger | Exit) => {
       switch (action.type) {
         case "Enter":
           return subscribe("trigger", sub)
@@ -69,7 +69,7 @@ describe("Eventual actions", () => {
       }
     })
 
-    const C = state("C", (action: Enter | Trigger) => {
+    const C = stateWrapper("C", (action: Enter | Trigger) => {
       switch (action.type) {
         case "Enter":
           return noop()

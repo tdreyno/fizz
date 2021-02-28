@@ -1,4 +1,4 @@
-import { StateReturn, state } from "../../../../../state"
+import { state } from "../../../../../state"
 import { Enter, Exit } from "../../../../../action"
 import { ReEnter, Reset, reset } from "../actions"
 import { goBack } from "../effects"
@@ -6,38 +6,35 @@ import { Shared } from "../types"
 import { Subscription } from "../../../../../subscriptions"
 import { subscribe, unsubscribe } from "../../../../../effect"
 
-async function Ready(
-  action: Enter | Reset | ReEnter | Exit,
-  shared: Shared,
-): Promise<StateReturn> {
-  const sub = new Subscription<Reset>()
+const SUB_NAME = "reset"
 
-  const onResize = () => {
-    if (window.innerWidth < 500) {
-      void sub.emit(reset())
-    }
-  }
+type ValidActions = Enter | Reset | ReEnter | Exit
+type Data = Shared
 
-  switch (action.type) {
-    case "Enter":
+export default state<ValidActions, Data>(
+  {
+    Enter: () => {
+      const sub = new Subscription<Reset>()
+
+      const onResize = () => {
+        if (window.innerWidth < 500) {
+          void sub.emit(reset())
+        }
+      }
+
       window.addEventListener("resize", onResize)
 
-      return subscribe("reset", sub)
+      return subscribe(SUB_NAME, sub, () =>
+        window.removeEventListener("resize", onResize),
+      )
+    },
 
-    case "Reset":
-      return goBack()
+    Reset: () => goBack(),
 
-    case "ReEnter":
-      return reenter(shared)
+    ReEnter: (shared, _, { reenter }) => reenter(shared),
 
-    case "Exit":
-      window.removeEventListener("resize", onResize)
+    Exit: () => unsubscribe(SUB_NAME),
+  },
 
-      return unsubscribe("reset")
-  }
-}
-
-const ReadyState = state("Ready", Ready)
-// eslint-disable-next-line @typescript-eslint/unbound-method
-const { reenter } = ReadyState
-export default ReadyState
+  { debugName: "Ready" },
+)

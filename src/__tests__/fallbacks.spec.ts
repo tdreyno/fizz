@@ -1,7 +1,7 @@
 import { Enter, enter, createAction, ActionCreatorType } from "../action"
 import { noop } from "../effect"
 import { createRuntime } from "../runtime"
-import { state, StateReturn } from "../state"
+import { stateWrapper, StateReturn } from "../state"
 import { createInitialContext } from "./createInitialContext"
 
 describe("Fallbacks", () => {
@@ -9,7 +9,7 @@ describe("Fallbacks", () => {
   type Trigger = ActionCreatorType<typeof trigger>
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const A = state("A", (action: Enter, _name: string) => {
+  const A = stateWrapper("A", (action: Enter, _name: string) => {
     switch (action.type) {
       case "Enter":
         return noop()
@@ -17,7 +17,7 @@ describe("Fallbacks", () => {
   })
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const B = state("B", (action: Enter, _name: string) => {
+  const B = stateWrapper("B", (action: Enter, _name: string) => {
     switch (action.type) {
       case "Enter":
         return noop()
@@ -25,7 +25,7 @@ describe("Fallbacks", () => {
   })
 
   test("should run fallback", () => {
-    const Fallback = state(
+    const Fallback = stateWrapper(
       "Fallback",
       (
         action: Trigger,
@@ -60,7 +60,7 @@ describe("Fallbacks", () => {
   })
 
   test("should run fallback which reenters current state", () => {
-    const Fallback = state(
+    const Fallback = stateWrapper(
       "Fallback",
       (
         action: Trigger,

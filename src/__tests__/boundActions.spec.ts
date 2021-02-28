@@ -2,7 +2,7 @@ import { Task } from "@tdreyno/pretty-please"
 import { ActionCreatorType, createAction, Enter } from "../action"
 import { noop } from "../effect"
 import { createRuntime } from "../runtime"
-import { state, StateReturn } from "../state"
+import { stateWrapper, StateReturn } from "../state"
 import { createInitialContext } from "./createInitialContext"
 
 describe("Bound actions", () => {
@@ -13,18 +13,22 @@ describe("Bound actions", () => {
     const multiply = createAction<"Multiply", number>("Multiply")
     type Multiply = ActionCreatorType<typeof multiply>
 
-    const A = state(
+    const A = stateWrapper(
       "A",
-      (action: Enter | Add | Multiply, count: number): StateReturn => {
+      (
+        action: Enter | Add | Multiply,
+        count: number,
+        { update },
+      ): StateReturn => {
         switch (action.type) {
           case "Enter":
             return noop()
 
           case "Add":
-            return A.update(count + action.payload)
+            return update(count + action.payload)
 
           case "Multiply":
-            return A.update(count * action.payload)
+            return update(count * action.payload)
         }
       },
     )

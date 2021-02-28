@@ -1,22 +1,18 @@
 import { Enter } from "../../../../../action"
-import { state, StateReturn } from "../../../../../state"
+import { state } from "../../../../../state"
 import { StartLoading, startLoading } from "../actions"
 import { Shared } from "../types"
 import Loading from "./Loading"
 
-async function Initializing(
-  action: Enter | StartLoading,
-  shared: Shared,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _bool: boolean,
-): Promise<StateReturn | StateReturn[]> {
-  switch (action.type) {
-    case "Enter":
-      return startLoading()
+type ValidActions = Enter | StartLoading
+type Data = [Shared, boolean]
 
-    case "StartLoading":
-      return Loading(shared, "test")
-  }
-}
+export default state<ValidActions, Data>(
+  {
+    Enter: () => startLoading(),
 
-export default state("Initializing", Initializing)
+    StartLoading: ([shared]) => Loading([shared, "test"]),
+  },
+
+  { debugName: "Initializing" },
+)

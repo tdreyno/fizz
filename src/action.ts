@@ -4,6 +4,13 @@ export interface Action<T extends string, P> {
   payload: P
 }
 
+export type ActionName<
+  A extends Action<any, any>,
+  T = A["type"]
+> = T extends string ? T : never
+
+export type ActionPayload<A extends Action<any, any>> = A["payload"]
+
 export const isAction = <T extends string>(a: unknown): a is Action<T, any> =>
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   !!a && (a as any).type !== undefined

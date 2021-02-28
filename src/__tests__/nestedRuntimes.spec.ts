@@ -2,7 +2,7 @@ import { Enter, enter, createAction, ActionCreatorType } from "../action"
 import { noop } from "../effect"
 import { NoStatesRespondToAction } from "../errors"
 import { createRuntime } from "../runtime"
-import { state } from "../state"
+import { stateWrapper } from "../state"
 import { createInitialContext } from "./createInitialContext"
 
 describe("Nested runtimes", () => {
@@ -10,14 +10,14 @@ describe("Nested runtimes", () => {
   type Trigger = ActionCreatorType<typeof trigger>
 
   test("should send action to parents if child cannot handle it", () => {
-    const Child = state("Child", (action: Enter) => {
+    const Child = stateWrapper("Child", (action: Enter) => {
       switch (action.type) {
         case "Enter":
           return noop()
       }
     })
 
-    const Parent = state("Parent", (action: Enter | Trigger) => {
+    const Parent = stateWrapper("Parent", (action: Enter | Trigger) => {
       switch (action.type) {
         case "Enter":
           return noop()
@@ -27,7 +27,7 @@ describe("Nested runtimes", () => {
       }
     })
 
-    const ParentB = state("ParentB", (action: Enter) => {
+    const ParentB = stateWrapper("ParentB", (action: Enter) => {
       switch (action.type) {
         case "Enter":
           return noop()
@@ -56,14 +56,14 @@ describe("Nested runtimes", () => {
   })
 
   test("should error if parent and child cannot handle action", () => {
-    const Child = state("Child", (action: Enter) => {
+    const Child = stateWrapper("Child", (action: Enter) => {
       switch (action.type) {
         case "Enter":
           return noop()
       }
     })
 
-    const Parent = state("Parent", (action: Enter) => {
+    const Parent = stateWrapper("Parent", (action: Enter) => {
       switch (action.type) {
         case "Enter":
           return noop()
@@ -94,21 +94,21 @@ describe("Nested runtimes", () => {
   })
 
   test("should allow parent actions to fire along with local transition", () => {
-    const ChildA = state("ChildA", (action: Enter) => {
+    const ChildA = stateWrapper("ChildA", (action: Enter) => {
       switch (action.type) {
         case "Enter":
           return [trigger(), ChildB()]
       }
     })
 
-    const ChildB = state("ChildB", (action: Enter) => {
+    const ChildB = stateWrapper("ChildB", (action: Enter) => {
       switch (action.type) {
         case "Enter":
           return noop()
       }
     })
 
-    const ParentA = state("ParentA", (action: Enter | Trigger) => {
+    const ParentA = stateWrapper("ParentA", (action: Enter | Trigger) => {
       switch (action.type) {
         case "Enter":
           return noop()
@@ -118,7 +118,7 @@ describe("Nested runtimes", () => {
       }
     })
 
-    const ParentB = state("ParentB", (action: Enter) => {
+    const ParentB = stateWrapper("ParentB", (action: Enter) => {
       switch (action.type) {
         case "Enter":
           return noop()

@@ -62,8 +62,9 @@ export const effect = <D extends any, F extends (context: Context) => void>(
 export const subscribe = <T extends string>(
   key: T,
   subscription: Subscription<Action<any, any>>,
-): Effect<[T, Subscription<Action<any, any>>]> =>
-  __internalEffect("subscribe", [key, subscription], Task.empty)
+  unsubscribe: () => void = () => void 0,
+): Effect<[T, Subscription<Action<any, any>>, () => void]> =>
+  __internalEffect("subscribe", [key, subscription, unsubscribe], Task.empty)
 
 export const unsubscribe = <T extends string>(key: T): Effect<T> =>
   __internalEffect("unsubscribe", key, Task.empty)

@@ -1,13 +1,13 @@
 import { Action, Enter, enter } from "../action"
 import { noop } from "../effect"
 import { createRuntime } from "../runtime"
-import { state, StateReturn } from "../state"
+import { stateWrapper, StateReturn } from "../state"
 import { createInitialContext } from "./createInitialContext"
 
 describe("onContextChange", () => {
   test("should run callback once after changes", () => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const A = state("A", (action: Enter, _name: string) => {
+    const A = stateWrapper("A", (action: Enter, _name: string) => {
       switch (action.type) {
         case "Enter":
           return noop()
@@ -34,12 +34,12 @@ describe("onContextChange", () => {
       type: "Trigger"
     }
 
-    const A = state(
+    const A = stateWrapper(
       "A",
-      (action: Trigger, name: string): StateReturn => {
+      (action: Trigger, name: string, { update }): StateReturn => {
         switch (action.type) {
           case "Trigger":
-            return A.update(name + name)
+            return update(name + name)
         }
       },
     )

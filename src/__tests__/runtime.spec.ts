@@ -1,19 +1,19 @@
 import { Enter, enter, createAction, ActionCreatorType } from "../action"
 import { noop } from "../effect"
 import { createRuntime } from "../runtime"
-import { state } from "../state"
+import { stateWrapper } from "../state"
 import { createInitialContext } from "./createInitialContext"
 
 describe("Runtime", () => {
   test("should transition through multiple states", () => {
-    const A = state("A", (action: Enter) => {
+    const A = stateWrapper("A", (action: Enter) => {
       switch (action.type) {
         case "Enter":
           return B()
       }
     })
 
-    const B = state("B", (action: Enter) => {
+    const B = stateWrapper("B", (action: Enter) => {
       switch (action.type) {
         case "Enter":
           return noop()
@@ -39,7 +39,7 @@ describe("Runtime", () => {
     const trigger = createAction("Trigger")
     type Trigger = ActionCreatorType<typeof trigger>
 
-    const A = state("A", (action: Enter | Trigger) => {
+    const A = stateWrapper("A", (action: Enter | Trigger) => {
       switch (action.type) {
         case "Enter":
           return trigger()
@@ -49,7 +49,7 @@ describe("Runtime", () => {
       }
     })
 
-    const B = state("B", (action: Enter) => {
+    const B = stateWrapper("B", (action: Enter) => {
       switch (action.type) {
         case "Enter":
           return noop()
