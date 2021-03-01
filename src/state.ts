@@ -237,7 +237,9 @@ export const state = <
   options?: Partial<Options> & { debugName?: string },
 ): BoundStateFn<string, Actions, Data> =>
   stateWrapper(
-    options?.debugName ?? `AnonymousState${counter++}`,
+    options && options.debugName
+      ? options.debugName
+      : `AnonymousState${counter++}`,
     matchAction(handlers, handlers.fallback),
     options,
   )
