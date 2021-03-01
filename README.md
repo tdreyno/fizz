@@ -15,24 +15,23 @@ yarn add @tdreyno/fizz
 
 Fizz attempts to provide an API that is "Just Javascript" and operates in a pure and functional manner[^1].
 
-States are simply functions which accept an `action` which is the event we want to apply to the current state. The action is an object which provides a `type` key to differentiate itself from other action types. It is very similar to a Redux action in format.
+States are mappings of actions to future states. The action type is the same format as a Redux action.
 
 States return one or more side-effects (or a Task of one or more side-effects), which are simply functions which will be called in the order they were generated at the end of the state transition.
 
 States can be `enter`ed by sending the `Enter` action. Here is an example of a simple state which logs a message upon entering.
 
-```javascript
-function MyState(action) {
-  switch (action.type) {
-    case "Enter":
-      return log("Entered state MyState.");
-  }
-}
+```typescript
+import { state, Enter } from "@tdreyno/fizz"
+
+const MyState = state<Enter>({
+  Enter: () => log("Entered state MyState."),
+})
 ```
 
 In this case, `log` is a side-effect which will log to the console. It is implemented like so:
 
-```
+```javascript
 // The side-effect generating function.
 function log(msg) {
   // A representation of the effect, but not the execution.
@@ -44,8 +43,8 @@ function log(msg) {
     msg,
 
     // Finally, the method which will execute the effect
-    () => console.log(msg)
-  );
+    () => console.log(msg),
+  )
 }
 ```
 
@@ -57,89 +56,81 @@ Second, external middleware can see the requested side-effects and modify them i
 
 It is the opinion of this library that "original Redux was right." Simple functions, reducers and switch statements make reasoning about code easy. In the years since Redux was released, folks have many to DRY-up the boilerplate and have only complicated what was a very simple system. We are not interesting in replacing `switch` statements with more complex alternatives. If this causes an additional level of nesting, so be it.
 
-## Examples
-
-See the `packages/examples` folder for larger examples.
-
 ### Let's play pong.
 
 This example shows how we would model something like a game of Pong.
 
-```javascript
-state("Welcome", action => {
-  switch (action.type) {
-    case "Start":
-      return Playing({
-        ballPosition: [0, 0],
-        ballVector: [1, 1],
-        leftPaddle: 0,
-        leftRight: 0,
-      });
-  }
-});
+```typescript
+import {
+  state,
+  createAction,
+  ActionCreatorType,
+  onFrame,
+  OnFrame,
+  Enter,
+} from "@tdreyno/fizz"
 
-state("Playing", (action, sharedState) => {
-  switch (action.type) {
-    case "Enter":
-      return onFrame();
+export const start = createAction("Start")
+export type Start = ActionCreatorType<typeof start>
 
-    case "OnPaddleInput":
-      return movePaddle(action, sharedState);
+export const onPaddleInput = createAction("OnPaddleInput")
+export type OnPaddleInput = ActionCreatorType<typeof onPaddleInput>
 
-    case "OnFrame":
-      // Handle bouncing off things.
-      if (doesIntersectPaddle(sharedState) || doesTopOrBottom(sharedState)) {
-        return [reflectBall(sharedState), onFrame()];
-      }
+type Data = {
+  ballPosition: [x: number, y: number]
+  ballVector: [x: number, y: number]
+  leftPaddle: number
+  rightPaddle: number
+}
 
-      // Handle scoring
-      if (isOffscreen(sharedState)) {
-        return Victory(winningSide(sharedState));
-      }
+const Welcome = state<Start, Data>({
+  Start: () =>
+    Playing({
+      ballPosition: [0, 0],
+      ballVector: [1, 1],
+      leftPaddle: 0,
+      rightPaddle: 0,
+    }),
+})
 
-      // Otherwise run physics
-      return [stepPhysics(sharedState), onFrame()];
-  }
-});
+const Playing = state<Enter | OnPaddleInput | OnFrame, Data>({
+  Enter: onFrame,
 
-state("Victory", (action, winner: string) => {
-  switch (action.type) {
-    case "Enter":
-      return log(`Winner is ${winner}`);
-  }
-});
+  OnPaddleInput: (data, { whichPaddle, direction }, { update }) => {
+    data[whichPaddle] = data[whichPaddle] + direction
+
+    return update(data)
+  },
+
+  OnFrame: (data, _, { update }) => {
+    // Handle bouncing off things.
+    if (doesIntersectPaddle(data) || doesTopOrBottom(data)) {
+      data.ballVector = [data.ballVector[0] * -1, data.ballVector[1] * -1]
+
+      return [update(data), onFrame()]
+    }
+
+    // Handle scoring
+    if (isOffscreen(data)) {
+      return Victory(ballPosition < 0 ? "Left" : "Right")
+    }
+
+    // Otherwise run physics
+    data.ballPosition = [
+      data.ballPosition[0] + data.ballVector[0],
+      data.ballPosition[1] + data.ballVector[1],
+    ]
+
+    return [update(data), onFrame()]
+  },
+})
+
+const Victory = state<Enter, string>({
+  Enter: (data, winner) => log(`Winner is ${winner}`),
+})
 ```
 
-#### Helper functions
-
-```javascript
-function movePaddle(action, state) {
-  state[action.whichPaddle] = state[action.whichPaddle] + action.direction;
-
-  return update(state);
-}
-
-function reflectBall(state) {
-  state.ballVector = [state.ballVector[0] * -1, state.ballVector[1] * -1];
-
-  return update(state);
-}
-
-function winningSide(state) {
-  return state.ballPosition < 0 ? "Left" : "Right";
-}
-
-function stepPhysics(state) {
-  state.ballPosition = [
-    state.ballPosition[0] + state.ballVector[0],
-    state.ballPosition[1] + state.ballVector[1],
-  ];
-
-  return update(state);
-}
-```
-
-`onFrame` is an action that is called via `requestAnimationFrame`
+`onFrame` is an action that is called via `requestAnimationFrame`. Assume `doesIntersectPaddle`, `doesTopOrBottom` and `isOffscreen` are doing bounding boxes checks.
 
 Our renderer can now check the current state each frame and decide whether to render the Welcome screen, the Victory screen or the game of Pong.
 
