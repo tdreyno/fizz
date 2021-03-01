@@ -3,7 +3,7 @@ import { Task } from "@tdreyno/pretty-please"
 import isPlainObject from "lodash.isplainobject"
 import mapValues from "lodash.mapvalues"
 import { Action, ActionName, ActionPayload } from "./action"
-import { Effect, noop } from "./effect"
+import { Effect } from "./effect"
 
 /**
  * States can return either:
@@ -34,8 +34,18 @@ export interface StateTransition<
   data: Data
   isStateTransition: true
   mode: "append" | "update"
+  reenter: (data: Data) => StateTransition<Name, A, Data>
   executor: (action: A) => void | StateReturn | StateReturn[]
+  state: BoundStateFn<Name, A, Data>
+  is(state: BoundStateFn<any, any, any>): boolean
 }
+
+export type StateTransitionToBoundStateFn<
+  S extends StateTransition<string, any, any>,
+  // N = S extends StateTransition<infer N, any, any> ? N : never,
+  // A = S extends StateTransition<any, infer A, any> ? A : never,
+  D = S extends StateTransition<any, any, infer D> ? D : never
+> = BoundStateFn<any, any, D>
 
 export const isStateTransition = (
   a: StateTransition<any, any, any> | unknown,
@@ -59,16 +69,25 @@ export type State<
     update: (data: Data) => StateTransition<Name, A, Data>
     reenter: (data: Data) => StateTransition<Name, A, Data>
   },
-) => StateReturn | StateReturn[]
+) => StateReturn | StateReturn[] | undefined
 
 export interface BoundStateFn<
   Name extends string,
   A extends Action<any, any>,
-  Data extends any
+  Data extends any = undefined
 > {
-  (data: Data): StateTransition<Name, A, Data>
+  (...data: Data extends undefined ? [] : [Data]): StateTransition<
+    Name,
+    A,
+    Data
+  >
   name: Name
 }
+
+export type GetStateData<
+  S extends BoundStateFn<any, any, any>,
+  D = S extends BoundStateFn<any, any, infer D> ? D : never
+> = D
 
 interface Options {
   mutable: boolean
@@ -99,7 +118,7 @@ const cloneDeep = (value: any): any => {
 export const stateWrapper = <
   Name extends string,
   A extends Action<any, any>,
-  Data extends any
+  Data extends any = undefined
 >(
   name: Name,
   executor: State<Name, A, Data>,
@@ -113,6 +132,12 @@ export const stateWrapper = <
     isStateTransition: true,
     mode: "append",
 
+    reenter: (reenterData: Data) => {
+      const bound = fn(reenterData)
+      bound.mode = "append"
+      return bound
+    },
+
     executor: (action: A) => {
       // Clones arguments
       const clonedData = immutable ? (cloneDeep(data) as Data) : data
@@ -120,6 +145,9 @@ export const stateWrapper = <
       // Run state execturoe
       return executor(action, clonedData, { reenter, update })
     },
+
+    state: fn,
+    is: (state: BoundStateFn<any, any, any>): boolean => state === fn,
   })
 
   Object.defineProperty(fn, "name", { value: name })
@@ -127,19 +155,19 @@ export const stateWrapper = <
   const reenter = (data: Data): StateTransition<Name, A, Data> => {
     const bound = fn(data)
     bound.mode = "append"
-    return bound as StateTransition<Name, A, Data>
+    return (bound as unknown) as StateTransition<Name, A, Data>
   }
 
   const update = (data: Data): StateTransition<Name, A, Data> => {
     const bound = fn(data)
     bound.mode = "update"
-    return bound as StateTransition<Name, A, Data>
+    return (bound as unknown) as StateTransition<Name, A, Data>
   }
 
-  return fn as BoundStateFn<Name, A, Data>
+  return (fn as unknown) as BoundStateFn<Name, A, Data>
 }
 
-export const match = <Actions extends Action<string, any>, Data>(
+export const matchAction = <Actions extends Action<string, any>, Data>(
   handlers: {
     [A in Actions as ActionName<A>]: (
       data: Data,
@@ -150,13 +178,13 @@ export const match = <Actions extends Action<string, any>, Data>(
       },
     ) => StateReturn | StateReturn[]
   },
-  fallback: (
+  fallback?: (
     data: Data,
     utils: {
       update: (data: Data) => StateTransition<string, Actions, Data>
       reenter: (data: Data) => StateTransition<string, Actions, Data>
     },
-  ) => StateReturn | StateReturn[] = () => noop(),
+  ) => StateReturn | StateReturn[],
 ) => (
   action: Actions,
   data: Data,
@@ -164,7 +192,7 @@ export const match = <Actions extends Action<string, any>, Data>(
     update: (data: Data) => StateTransition<string, Actions, Data>
     reenter: (data: Data) => StateTransition<string, Actions, Data>
   },
-): StateReturn | StateReturn[] => {
+): StateReturn | StateReturn[] | undefined => {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   const handler = (handlers as never)[action.type] as (
     data: Data,
@@ -176,13 +204,18 @@ export const match = <Actions extends Action<string, any>, Data>(
   ) => StateReturn | StateReturn[]
 
   if (!handler) {
-    return fallback(data, utils)
+    return fallback ? fallback(data, utils) : undefined
   }
 
   return handler(data, action.payload, utils)
 }
 
-export const state = <Actions extends Action<string, any>, Data extends any>(
+let counter = 1
+
+export const state = <
+  Actions extends Action<string, any>,
+  Data extends any = undefined
+>(
   handlers: {
     [A in Actions as ActionName<A>]: (
       data: Data,
@@ -204,7 +237,37 @@ export const state = <Actions extends Action<string, any>, Data extends any>(
   options?: Partial<Options> & { debugName?: string },
 ): BoundStateFn<string, Actions, Data> =>
   stateWrapper(
-    options?.debugName ?? "UnnamedState",
-    match(handlers, handlers.fallback || noop),
+    options?.debugName ?? `AnonymousState${counter++}`,
+    matchAction(handlers, handlers.fallback),
     options,
   )
+
+class Matcher<S extends StateTransition<string, any, any>, T> {
+  private handlers = new Map<
+    StateTransitionToBoundStateFn<S>,
+    (data: any) => T
+  >()
+
+  constructor(private state: S) {}
+
+  match<S2 extends StateTransitionToBoundStateFn<S>>(
+    state: S2,
+    handler: (data: GetStateData<S2>) => T,
+  ) {
+    this.handlers.set(state, handler)
+    return this
+  }
+
+  run(): T | undefined {
+    const handler = this.handlers.get(this.state.state)
+
+    if (!handler) {
+      return
+    }
+
+    return handler(this.state.data)
+  }
+}
+
+export const matchState = <T>(state: StateTransition<string, any, any>) =>
+  new Matcher<typeof state, T>(state)

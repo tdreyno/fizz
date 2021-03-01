@@ -7,8 +7,11 @@ import Loading from "./Loading"
 type Actions = Enter | StartLoading
 type Data = [Shared, boolean]
 
-export default state<Actions, Data>({
-  Enter: startLoading,
+export default state<Actions, Data>(
+  {
+    Enter: startLoading,
 
-  StartLoading: ([shared]) => Loading([shared, "test"]),
-})
+    StartLoading: ([shared]) => Loading([shared, "test"]),
+  },
+  { debugName: "Initializing" },
+)

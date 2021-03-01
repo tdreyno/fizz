@@ -2,29 +2,22 @@ import { Task } from "@tdreyno/pretty-please"
 import { Enter, enter, createAction, ActionCreatorType } from "../action"
 import { effect, noop } from "../effect"
 import { createRuntime } from "../runtime"
-import { stateWrapper, StateReturn } from "../state"
+import { state } from "../state"
 import { createInitialContext } from "./createInitialContext"
 
 describe("Tasks", () => {
   const trigger = createAction("Trigger")
   type Trigger = ActionCreatorType<typeof trigger>
 
-  const B = stateWrapper("B", (action: Enter) => {
-    switch (action.type) {
-      case "Enter":
-        return noop()
-    }
+  const B = state<Enter>({
+    Enter: noop,
   })
 
   test("should run an action with a task", () => {
-    const A = stateWrapper("A", (action: Enter | Trigger) => {
-      switch (action.type) {
-        case "Enter":
-          return Task.of(trigger())
+    const A = state<Enter | Trigger>({
+      Enter: () => Task.of(trigger()),
 
-        case "Trigger":
-          return B()
-      }
+      Trigger: B,
     })
 
     const context = createInitialContext([A()])
@@ -34,7 +27,7 @@ describe("Tasks", () => {
     expect.hasAssertions()
 
     runtime.run(enter()).fork(jest.fn(), () => {
-      expect(runtime.currentState().name).toBe("B")
+      expect(runtime.currentState().is(B)).toBeTruthy()
     })
 
     jest.runAllTimers()
@@ -43,14 +36,10 @@ describe("Tasks", () => {
   test("should run an action with a promise", () => {
     const promise = Promise.resolve(trigger())
 
-    const A = stateWrapper("A", (action: Enter | Trigger) => {
-      switch (action.type) {
-        case "Enter":
-          return promise
+    const A = state<Enter | Trigger>({
+      Enter: () => promise,
 
-        case "Trigger":
-          return B()
-      }
+      Trigger: B,
     })
 
     const context = createInitialContext([A()])
@@ -64,7 +53,7 @@ describe("Tasks", () => {
       runtime.run(enter()).fork(jest.fn(), async () => {
         await promise
 
-        expect(runtime.currentState().name).toBe("B")
+        expect(runtime.currentState().is(B)).toBeTruthy()
 
         resolve()
       })
@@ -72,11 +61,8 @@ describe("Tasks", () => {
   })
 
   test("should run transition handler result from a task", () => {
-    const A = stateWrapper("A", (action: Enter) => {
-      switch (action.type) {
-        case "Enter":
-          return Task.of(B())
-      }
+    const A = state<Enter>({
+      Enter: () => Task.of(B()),
     })
 
     const context = createInitialContext([A()])
@@ -86,7 +72,7 @@ describe("Tasks", () => {
     expect.hasAssertions()
 
     runtime.run(enter()).fork(jest.fn(), () => {
-      expect(runtime.currentState().name).toBe("B")
+      expect(runtime.currentState().is(B)).toBeTruthy()
     })
 
     jest.runAllTimers()
@@ -96,11 +82,8 @@ describe("Tasks", () => {
     const myEffectExecutor = jest.fn()
     const myEffect = effect("myEffect", undefined, myEffectExecutor)
 
-    const A = stateWrapper("A", (action: Enter) => {
-      switch (action.type) {
-        case "Enter":
-          return Task.of(myEffect)
-      }
+    const A = state<Enter>({
+      Enter: () => Task.of(myEffect),
     })
 
     const context = createInitialContext([A()])
@@ -123,11 +106,8 @@ describe("Tasks", () => {
     const myEffectExecutor2 = jest.fn()
     const myEffect2 = effect("myEffect", undefined, myEffectExecutor2)
 
-    const A = stateWrapper("A", (action: Enter) => {
-      switch (action.type) {
-        case "Enter":
-          return Task.of([myEffect1, myEffect2])
-      }
+    const A = state<Enter>({
+      Enter: () => Task.of([myEffect1, myEffect2]),
     })
 
     const context = createInitialContext([A()])
@@ -145,44 +125,32 @@ describe("Tasks", () => {
   })
 
   test("should run update functions", () => {
-    const A = stateWrapper(
-      "A",
-      (action: Enter, name: string, { update }): StateReturn => {
-        switch (action.type) {
-          case "Enter":
-            return Task.of(update(name + name))
-        }
-      },
-    )
+    const A = state<Enter, string>({
+      Enter: (name, _, { update }) => Task.of(update(name + name)),
+    })
 
     const context = createInitialContext([A("Test")])
 
     const runtime = createRuntime(context)
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    expect(context.currentState.data[0]).toBe("Test")
+    expect(context.currentState.data).toBe("Test")
 
     runtime.run(enter()).fork(jest.fn(), jest.fn())
 
     jest.runAllTimers()
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    expect(context.currentState.data[0]).toBe("TestTest")
+    expect(context.currentState.data).toBe("TestTest")
   })
 
   test("should run effects after an update", () => {
     const myEffectExecutor1 = jest.fn()
     const myEffect1 = effect("myEffect", undefined, myEffectExecutor1)
 
-    const A = stateWrapper(
-      "A",
-      (action: Enter, name: string, { update }): StateReturn => {
-        switch (action.type) {
-          case "Enter":
-            return Task.of([update(name + name), myEffect1])
-        }
-      },
-    )
+    const A = state<Enter, string>({
+      Enter: (name, _, { update }) => Task.of([update(name + name), myEffect1]),
+    })
 
     const context = createInitialContext([A("Test")])
 

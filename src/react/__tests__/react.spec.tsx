@@ -3,7 +3,6 @@
  */
 
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
-
 import React from "react"
 import { render, screen, act, waitFor } from "@testing-library/react"
 import "@testing-library/jest-dom/extend-expect"
@@ -28,7 +27,7 @@ describe("React integration", () => {
   test("inital render", async () => {
     render(
       <StateContext.Create
-        initialState={States.Initializing({ message: "Loading" }, true)}
+        initialState={States.Initializing([{ message: "Loading" }, true])}
       >
         {() => <ShowState />}
       </StateContext.Create>,
@@ -40,7 +39,7 @@ describe("React integration", () => {
   test("load on next frame", async () => {
     render(
       <StateContext.Create
-        initialState={States.Initializing({ message: "Loading" }, true)}
+        initialState={States.Initializing([{ message: "Loading" }, true])}
       >
         {() => <ShowState />}
       </StateContext.Create>,

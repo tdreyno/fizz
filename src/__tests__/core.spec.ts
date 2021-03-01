@@ -1,8 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
 import serializeJavascript from "serialize-javascript"
 import { Action, Enter, enter, Exit } from "../action"
 import {
@@ -12,7 +8,7 @@ import {
 import { execute } from "../core"
 import { goBack, log, noop } from "../effect"
 import { StateDidNotRespondToAction, UnknownStateReturnType } from "../errors"
-import { stateWrapper, StateReturn, StateTransition } from "../state"
+import { state, StateTransition } from "../state"
 
 function createInitialContext(
   history: StateTransition<any, any, any>[],
@@ -26,19 +22,21 @@ function createInitialContext(
 
 describe("Fizz core", () => {
   describe("States", () => {
-    const Entry = stateWrapper("Entry", (action: Enter) => {
-      switch (action.type) {
-        case "Enter":
-          return noop()
-      }
-    })
+    const Entry = state<Enter>(
+      {
+        Enter: noop,
+      },
+      { debugName: "Entry" },
+    )
 
     test("should allow custom state name", () => {
       expect(Entry.name).toBe("Entry")
     })
 
     test("should start in the state last in the history list", () => {
-      expect(createInitialContext([Entry()]).currentState.name).toBe("Entry")
+      expect(
+        createInitialContext([Entry()]).currentState.is(Entry),
+      ).toBeTruthy()
     })
 
     test("should throw exception when getting invalid action", () => {
@@ -66,26 +64,26 @@ describe("Fizz core", () => {
 
   describe("Transitions", () => {
     test("should flatten nested state transitions", () => {
-      const A = stateWrapper("A", (action: Enter) => {
-        switch (action.type) {
-          case "Enter":
-            return [log("Enter A"), B()]
-        }
-      })
+      const A = state<Enter>(
+        {
+          Enter: () => [log("Enter A"), B()],
+        },
+        { debugName: "A" },
+      )
 
-      const B = stateWrapper("B", (action: Enter) => {
-        switch (action.type) {
-          case "Enter":
-            return [log("Enter B"), C()]
-        }
-      })
+      const B = state<Enter>(
+        {
+          Enter: () => [log("Enter B"), C()],
+        },
+        { debugName: "B" },
+      )
 
-      const C = stateWrapper("C", (action: Enter) => {
-        switch (action.type) {
-          case "Enter":
-            return log("Entered C")
-        }
-      })
+      const C = state<Enter>(
+        {
+          Enter: () => log("Entered C"),
+        },
+        { debugName: "C" },
+      )
 
       const [results] = execute(enter(), createInitialContext([A()]))
 
@@ -108,25 +106,21 @@ describe("Fizz core", () => {
 
   describe("Exit events", () => {
     test("should fire exit events", () => {
-      const A = stateWrapper("A", (action: Enter | Exit) => {
-        switch (action.type) {
-          case "Enter":
-            return [log("Enter A"), B()]
+      const A = state<Enter | Exit>(
+        {
+          Enter: () => [log("Enter A"), B()],
+          Exit: () => log("Exit A"),
+        },
+        { debugName: "A" },
+      )
 
-          case "Exit":
-            return log("Exit A")
-        }
-      })
-
-      const B = stateWrapper("B", (action: Enter | Exit) => {
-        switch (action.type) {
-          case "Enter":
-            return noop()
-
-          case "Exit":
-            return log("Exit B")
-        }
-      })
+      const B = state<Enter | Exit>(
+        {
+          Enter: noop,
+          Exit: () => log("Exit B"),
+        },
+        { debugName: "B" },
+      )
 
       const [results] = execute(
         enter(),
@@ -159,34 +153,20 @@ describe("Fizz core", () => {
   describe("Reenter", () => {
     interface ReEnterReplace {
       type: "ReEnterReplace"
+      payload: undefined
     }
 
     interface ReEnterAppend {
       type: "ReEnterAppend"
+      payload: undefined
     }
 
-    const A = stateWrapper(
-      "A",
-      (
-        action: Enter | Exit | ReEnterReplace | ReEnterAppend,
-        bool: boolean,
-        { update, reenter },
-      ): StateReturn => {
-        switch (action.type) {
-          case "Enter":
-            return noop()
-
-          case "Exit":
-            return noop()
-
-          case "ReEnterReplace":
-            return update(bool)
-
-          case "ReEnterAppend":
-            return reenter(bool)
-        }
-      },
-    )
+    const A = state<Enter | Exit | ReEnterReplace | ReEnterAppend, boolean>({
+      Enter: noop,
+      Exit: noop,
+      ReEnterReplace: (bool, _, { update }) => update(bool),
+      ReEnterAppend: (bool, _, { reenter }) => reenter(bool),
+    })
 
     test("should exit and re-enter the current state, replacing itself in history", () => {
       const context = createInitialContext([A(true)])
@@ -216,24 +196,23 @@ describe("Fizz core", () => {
   describe("goBack", () => {
     interface GoBack {
       type: "GoBack"
+      payload: undefined
     }
 
-    const A = stateWrapper("A", (action: Enter, _name: string) => {
-      switch (action.type) {
-        case "Enter":
-          return noop()
-      }
-    })
+    const A = state<Enter, string>(
+      {
+        Enter: noop,
+      },
+      { debugName: "A" },
+    )
 
-    const B = stateWrapper("B", (action: Enter | GoBack) => {
-      switch (action.type) {
-        case "Enter":
-          return noop()
-
-        case "GoBack":
-          return goBack()
-      }
-    })
+    const B = state<Enter | GoBack>(
+      {
+        Enter: noop,
+        GoBack: () => goBack(),
+      },
+      { debugName: "B" },
+    )
 
     test("should return to previous state", () => {
       const context = createInitialContext([B(), A("Test")])
@@ -257,48 +236,29 @@ describe("Fizz core", () => {
         data: { name: "A" },
       })
 
-      expect(context.currentState.name).toBe("A")
-      expect(context.currentState.data[0]).toBe("Test")
+      expect(context.currentState.is(A)).toBeTruthy()
+      expect(context.currentState.data).toBe("Test")
     })
   })
 
   describe("update", () => {
-    type Update = Action<
-      "Update",
-      (...args: Parameters<typeof A>) => ReturnType<typeof update>
-    >
+    type Data = [str: string, bool: boolean, num: number, fn: () => string]
 
-    const A = stateWrapper(
-      "A",
-      (
-        action: Enter | Update,
-        str: string,
-        bool: boolean,
-        num: number,
-        fn: () => string,
-      ): StateReturn | StateReturn[] => {
-        switch (action.type) {
-          case "Enter":
-            return noop()
+    type Update = Action<"Update", undefined>
 
-          case "Update":
-            return action.payload(str, bool, num, fn)
-        }
-      },
-    )
-
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    const { update } = A
+    const A = state<Enter | Update, Data>({
+      Enter: noop,
+      Update: (data, _, { update }) => update(data),
+    })
 
     test("should pass through original values", () => {
       const context = createInitialContext([
-        A("Test", false, 5, () => "Inside"),
+        A(["Test", false, 5, () => "Inside"]),
       ])
 
-      const action: Action<"Update", any> = {
+      const action: Update = {
         type: "Update",
-        payload: (str: string, bool: boolean, num: number, fn: () => string) =>
-          update(str, bool, num, fn),
+        payload: undefined,
       }
 
       execute(action, context)
@@ -314,34 +274,30 @@ describe("Fizz core", () => {
     test("should be able to serialize and deserialize state", () => {
       interface Next {
         type: "Next"
+        payload: undefined
       }
 
-      const A = stateWrapper("A", (action: Enter) => {
-        switch (action.type) {
-          case "Enter":
-            return B({ name: "Test" })
-        }
-      })
-
-      const B = stateWrapper(
-        "B",
-        (action: Enter | Next, { name }: { name: string }) => {
-          switch (action.type) {
-            case "Enter":
-              return noop()
-
-            case "Next":
-              return C(name)
-          }
+      const A = state<Enter>(
+        {
+          Enter: () => B({ name: "Test" }),
         },
+        { debugName: "A" },
       )
 
-      const C = stateWrapper("C", (action: Enter, _name: string) => {
-        switch (action.type) {
-          case "Enter":
-            return noop()
-        }
-      })
+      const B = state<Enter | Next, { name: string }>(
+        {
+          Enter: noop,
+          Next: ({ name }) => C(name),
+        },
+        { debugName: "B" },
+      )
+
+      const C = state<Enter, string>(
+        {
+          Enter: noop,
+        },
+        { debugName: "C" },
+      )
 
       function serializeContext(c: Context) {
         return serializeJavascript(
@@ -362,7 +318,7 @@ describe("Fizz core", () => {
         return createInitialContext(
           unboundHistory.map(({ data, name }) =>
             // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-            (STATES as any)[name](...data),
+            (STATES as any)[name](data),
           ),
         )
       }
@@ -373,101 +329,26 @@ describe("Fizz core", () => {
 
       execute(enter(), context)
 
-      expect(context.currentState.name).toBe("B")
+      expect(context.currentState.is(B)).toBeTruthy()
       const serialized = serializeContext(context)
 
       const newContext = deserializeContext(serialized)
 
       execute({ type: "Next" } as Action<"Next", undefined>, newContext)
 
-      expect(newContext.currentState.name).toBe("C")
-      expect(newContext.currentState.data[0]).toBe("Test")
-    })
-  })
-
-  describe("Type narrowing", () => {
-    const A = stateWrapper("A", (action: Enter, _bool: boolean) => {
-      switch (action.type) {
-        case "Enter":
-          return noop()
-      }
-    })
-
-    const B = stateWrapper("B", (action: Enter, _str: string) => {
-      switch (action.type) {
-        case "Enter":
-          return noop()
-      }
-    })
-
-    const C = stateWrapper("C", (action: Enter) => {
-      switch (action.type) {
-        case "Enter":
-          return noop()
-      }
-    })
-
-    const States = { A, B, C }
-
-    const testBool = (_b: boolean) => void 0
-    const testStr = (_s: string) => void 0
-    const testEmptyTuple = (_t: []) => void 0
-
-    test("should use type narrowing to select correct data type", () => {
-      const currentState: ReturnType<
-        typeof States[keyof typeof States]
-      > = createInitialContext([A(true)]).currentState
-
-      switch (currentState.name) {
-        case "A":
-          // Type test
-          testBool(currentState.data[0])
-
-          expect(currentState.data[0]).toBe(true)
-
-          break
-      }
-
-      const currentState2: ReturnType<
-        typeof States[keyof typeof States]
-      > = createInitialContext([B("test")]).currentState
-
-      switch (currentState2.name) {
-        case "B":
-          // Type test
-          testStr(currentState2.data[0])
-
-          expect(currentState2.data[0]).toBe("test")
-
-          break
-      }
-
-      const currentState3: ReturnType<
-        typeof States[keyof typeof States]
-      > = createInitialContext([C()]).currentState
-
-      switch (currentState3.name) {
-        case "C":
-          // Type test
-          testEmptyTuple(currentState3.data)
-
-          expect(currentState3.data).toHaveLength(0)
-
-          break
-      }
+      expect(newContext.currentState.is(C)).toBeTruthy()
+      expect(newContext.currentState.data).toBe("Test")
     })
   })
 
   describe("Unknown effect", () => {
     test("should throw error on unknown effect", () => {
-      const A = stateWrapper("A", (action: Enter) => {
-        switch (action.type) {
-          case "Enter":
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-            return (() => {
-              // fake effect
-            }) as any
-        }
+      const A = state<Enter>({
+        Enter: () =>
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+          (() => {
+            // fake effect
+          }) as any,
       })
 
       const context = createInitialContext([A()])
@@ -480,20 +361,16 @@ describe("Fizz core", () => {
 
   describe("State Args are immutable", () => {
     test("should not mutate original data when transitioning", () => {
-      const A = stateWrapper("A", (action: Enter, data: number[]) => {
-        switch (action.type) {
-          case "Enter":
-            data.push(4)
+      const A = state<Enter, number[]>({
+        Enter: data => {
+          data.push(4)
 
-            return B(data)
-        }
+          return B(data)
+        },
       })
 
-      const B = stateWrapper("B", (action: Enter, _data: number[]) => {
-        switch (action.type) {
-          case "Enter":
-            return noop()
-        }
+      const B = state<Enter, number[]>({
+        Enter: noop,
       })
 
       const originalData = [1, 2, 3]
@@ -502,23 +379,19 @@ describe("Fizz core", () => {
 
       execute(enter(), context)
 
-      expect(context.currentState.name).toBe("B")
+      expect(context.currentState.is(B)).toBeTruthy()
       expect(originalData).toEqual([1, 2, 3])
-      expect(context.currentState.data[0]).toEqual([1, 2, 3, 4])
+      expect(context.currentState.data).toEqual([1, 2, 3, 4])
     })
 
     test("should not mutate original data when updating", () => {
-      const A = stateWrapper(
-        "A",
-        (action: Enter, data: number[], { update }): StateReturn => {
-          switch (action.type) {
-            case "Enter":
-              data.push(4)
+      const A = state<Enter, number[]>({
+        Enter: (data, _, { update }) => {
+          data.push(4)
 
-              return update(data)
-          }
+          return update(data)
         },
-      )
+      })
 
       const originalData = [1, 2, 3]
 
@@ -527,7 +400,7 @@ describe("Fizz core", () => {
       execute(enter(), context)
 
       expect(originalData).toEqual([1, 2, 3])
-      expect(context.currentState.data[0]).toEqual([1, 2, 3, 4])
+      expect(context.currentState.data).toEqual([1, 2, 3, 4])
     })
 
     test("should not break functions or instances when making immutable", () => {
@@ -548,18 +421,14 @@ describe("Fizz core", () => {
         klass: TestClass
       }
 
-      const A = stateWrapper(
-        "A",
-        (action: Enter, shared: Shared, { update }): StateReturn => {
-          switch (action.type) {
-            case "Enter":
-              shared.fn()
-              shared.klass.run()
+      const A = state<Enter, Shared>({
+        Enter: (shared, _, { update }) => {
+          shared.fn()
+          shared.klass.run()
 
-              return update(shared)
-          }
+          return update(shared)
         },
-      )
+      })
 
       const instance = new TestClass()
       const originalData = {
@@ -574,20 +443,18 @@ describe("Fizz core", () => {
       expect(fnChecker).toHaveBeenCalledTimes(1)
       expect(classChecker).toHaveBeenCalledTimes(1)
 
-      expect(context.currentState.data[0].fn).toBe(testFn)
-      expect(context.currentState.data[0].klass).toBe(instance)
+      expect(context.currentState.data.fn).toBe(testFn)
+      expect(context.currentState.data.klass).toBe(instance)
     })
 
     test("should mutate original data when enabling mutability", () => {
-      const A = stateWrapper(
-        "A",
-        (action: Enter, data: number[], { update }): StateReturn => {
-          switch (action.type) {
-            case "Enter":
-              data.push(4)
+      const A = state<Enter, number[]>(
+        {
+          Enter: (data, _, { update }) => {
+            data.push(4)
 
-              return update(data)
-          }
+            return update(data)
+          },
         },
         { mutable: true },
       )
@@ -600,7 +467,7 @@ describe("Fizz core", () => {
 
       expect(originalData).toEqual([1, 2, 3, 4])
 
-      expect(context.currentState.data[0]).toEqual([1, 2, 3, 4])
+      expect(context.currentState.data).toEqual([1, 2, 3, 4])
     })
   })
 })

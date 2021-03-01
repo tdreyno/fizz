@@ -12,7 +12,7 @@ export default state<Actions, Data>({
   Enter: loadData,
 
   FinishedLoading: ([shared], name) =>
-    Ready({ ...shared, message: `Hi, ${name}` }),
+    Ready([{ ...shared, message: `Hi, ${name}` }]),
 
   Update: ([shared, str], _, { update }) =>
     update([

@@ -1,58 +1,49 @@
 import { Enter, enter, createAction, ActionCreatorType } from "../action"
 import { noop } from "../effect"
 import { createRuntime } from "../runtime"
-import { stateWrapper, StateReturn } from "../state"
+import { state } from "../state"
 import { createInitialContext } from "./createInitialContext"
 
 describe("Fallbacks", () => {
   const trigger = createAction("Trigger")
   type Trigger = ActionCreatorType<typeof trigger>
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const A = stateWrapper("A", (action: Enter, _name: string) => {
-    switch (action.type) {
-      case "Enter":
-        return noop()
-    }
-  })
+  const A = state<Enter, string>(
+    {
+      Enter: noop,
+    },
+    { debugName: "A" },
+  )
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const B = stateWrapper("B", (action: Enter, _name: string) => {
-    switch (action.type) {
-      case "Enter":
-        return noop()
-    }
-  })
+  const B = state<Enter, string>(
+    {
+      Enter: noop,
+    },
+    { debugName: "B" },
+  )
 
   test("should run fallback", () => {
-    const Fallback = stateWrapper(
-      "Fallback",
-      (
-        action: Trigger,
-        currentState: ReturnType<typeof A | typeof B>,
-      ): StateReturn => {
-        switch (action.type) {
-          case "Trigger":
-            const [name] = currentState.data
-            return B(name + name)
-        }
+    const Fallback = state<Trigger, ReturnType<typeof A | typeof B>>({
+      Trigger: currentState => {
+        const [name] = currentState.data
+        return B(name + name)
       },
-    )
+    })
 
     const context = createInitialContext([A("Test")])
 
     const runtime = createRuntime(context, ["Trigger"], Fallback)
 
     expect.assertions(4)
-    expect(runtime.currentState().name).toBe("A")
+    expect(runtime.currentState().is(A)).toBeTruthy()
 
     runtime.run(enter()).fork(jest.fn(), () => {
-      expect(runtime.currentState().name).toBe("A")
+      expect(runtime.currentState().is(A)).toBeTruthy()
 
       runtime.run(trigger()).fork(jest.fn(), () => {
-        expect(runtime.currentState().name).toBe("B")
+        expect(runtime.currentState().is(B)).toBeTruthy()
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        expect(runtime.currentState().data[0]).toBe("TestTest")
+        expect(runtime.currentState().data).toBe("TestTest")
       })
     })
 
@@ -60,34 +51,27 @@ describe("Fallbacks", () => {
   })
 
   test("should run fallback which reenters current state", () => {
-    const Fallback = stateWrapper(
-      "Fallback",
-      (
-        action: Trigger,
-        currentState: ReturnType<typeof A | typeof B>,
-      ): StateReturn => {
-        switch (action.type) {
-          case "Trigger":
-            const [name] = currentState.data
-            return currentState.reenter(name + name)
-        }
+    const Fallback = state<Trigger, ReturnType<typeof A | typeof B>>({
+      Trigger: currentState => {
+        const [name] = currentState.data
+        return currentState.reenter(name + name)
       },
-    )
+    })
 
     const context = createInitialContext([A("Test")])
 
     const runtime = createRuntime(context, [], Fallback)
 
     expect.assertions(4)
-    expect(runtime.currentState().name).toBe("A")
+    expect(runtime.currentState().is(A)).toBeTruthy()
 
     runtime.run(enter()).fork(jest.fn(), () => {
-      expect(runtime.currentState().name).toBe("A")
+      expect(runtime.currentState().is(A)).toBeTruthy()
 
       runtime.run(trigger()).fork(jest.fn(), () => {
-        expect(runtime.currentState().name).toBe("A")
+        expect(runtime.currentState().is(A)).toBeTruthy()
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        expect(runtime.currentState().data[0]).toBe("TestTest")
+        expect(runtime.currentState().data).toBe("TestTest")
       })
     })
 
