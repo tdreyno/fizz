@@ -1591,9 +1591,9 @@
     defer-to-connect "^1.0.1"
 
 "@tdreyno/pretty-please@^1.14.0":
-  version "1.14.0"
-  resolved "https://registry.yarnpkg.com/@tdreyno/pretty-please/-/pretty-please-1.14.0.tgz#06b43a408fc13fda49dff05db10aaebaee1605f0"
-  integrity sha512-8mTDjvpM2whO+Jtngkvwip58Ix7z3y5t/4uV4XeSfz66nOIe5mPxrKyu3kMNnp3VjTR1YfAwzaLKkjJisKeEZA==
+  version "1.15.0"
+  resolved "https://registry.yarnpkg.com/@tdreyno/pretty-please/-/pretty-please-1.15.0.tgz#01180abb6bdccc1a7f3141873098f14c2e0856f1"
+  integrity sha512-NrmYOqIBr/z/A+XWX0IaR/UjGTy+U1bMCMoNxIxSsNbQXlog/xqAqLkUowLPUTHFmEgUbeyoETiNeWn0+atoqA==
 
 "@testing-library/dom@^7.28.1":
   version "7.29.6"
