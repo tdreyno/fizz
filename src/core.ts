@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-use-before-define, @typescript-eslint/no-explicit-any, @typescript-eslint/no-misused-promises */
+/* eslint-disable @typescript-eslint/no-use-before-define, @typescript-eslint/no-misused-promises */
 import { Task } from "@tdreyno/pretty-please"
 import { Action, enter, exit, isAction } from "./action"
 import { Context } from "./context"

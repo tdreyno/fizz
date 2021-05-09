@@ -21,5 +21,6 @@ module.exports = {
     semi: ["error", "never"],
     "@typescript-eslint/member-delimiter-style": 0,
     "@typescript-eslint/explicit-module-boundary-types": 0,
+    "@typescript-eslint/no-explicit-any": 0,
   },
 }

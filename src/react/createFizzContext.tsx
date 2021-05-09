@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import isFunction from "lodash.isfunction"
 import React, {
   ReactNode,
