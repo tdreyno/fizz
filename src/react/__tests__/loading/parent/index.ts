@@ -4,6 +4,6 @@ import States from "./states"
 
 export { States }
 
-export const StateContext = createFizzContext(States, Actions, {
+export const ParentMachine = createFizzContext(States, Actions, {
   disableLogging: true,
 })

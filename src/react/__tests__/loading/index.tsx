@@ -1,29 +1,29 @@
 // tslint:disable: jsx-no-multiline-js jsx-wrap-multiline
 import React from "react"
-import { matchState } from "../../../state"
-import { StateContext, States } from "./machine"
+import { switch_ } from "../../../state"
+import { LoadingMachine, States } from "./machine"
 
 const { Initializing, Loading, Ready } = States
 
 export default () => (
-  <StateContext.Create
+  <LoadingMachine.Provider
     initialState={Initializing([{ message: "Loading" }, true])}
   >
     {({ currentState }) =>
-      matchState<JSX.Element>(currentState)
-        .match(Initializing, ([{ message }, bool]) => (
+      switch_<JSX.Element>(currentState)
+        .case_(Initializing, ([{ message }, bool]) => (
           <>
             <h1>Hello. {message}</h1>
             <p>{bool === true ? "true" : "false"}</p>
           </>
         ))
-        .match(Loading, ([{ message }, str]) => (
+        .case_(Loading, ([{ message }, str]) => (
           <>
             <h1>Hello. {message}</h1>
             <p>{str}</p>
           </>
         ))
-        .match(Ready, ([{ message }]) => (
+        .case_(Ready, ([{ message }]) => (
           <>
             <h1>Hello. {message}</h1>
             <p>Ready</p>
@@ -31,5 +31,5 @@ export default () => (
         ))
         .run()
     }
-  </StateContext.Create>
+  </LoadingMachine.Provider>
 )

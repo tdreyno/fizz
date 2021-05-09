@@ -3,8 +3,8 @@ import { StateTransition } from "./state"
 export class History<
   T extends StateTransition<any, any, any> = StateTransition<any, any, any>
 > {
-  constructor(private items_: Array<T>, private maxHistory = Infinity) {
-    if (items_.length <= 0) {
+  constructor(private items: Array<T>, private maxHistory = Infinity) {
+    if (items.length <= 0) {
       throw new Error(
         "History must contain atleast one previous (or initial) state",
       )
@@ -12,42 +12,44 @@ export class History<
   }
 
   get current(): T {
-    return this.items_[0]
+    return this.items[0]
   }
 
   get previous(): T | undefined {
-    return this.items_[1]
+    return this.items[1]
   }
 
   get length(): number {
-    return this.items_.length
+    return this.items.length
   }
 
   push(item: T): void {
-    this.items_.unshift(item)
+    this.items.unshift(item)
 
-    if (this.items_.length > this.maxHistory) {
-      this.items_ = this.items_.slice(0, this.maxHistory)
+    if (this.items.length > this.maxHistory) {
+      this.items = this.items.slice(0, this.maxHistory)
     }
   }
 
   pop(): T | undefined {
-    return this.items_.shift()
+    return this.items.shift()
   }
 
   removePrevious(): void {
-    if (this.length > 1) {
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      const head = this.pop()!
-
-      this.pop()
-
-      this.push(head)
+    if (this.length <= 1) {
+      return
     }
+
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const head = this.pop()!
+
+    this.pop()
+
+    this.push(head)
   }
 
   toArray(): Array<T> {
-    return [...this.items_]
+    return [...this.items]
   }
 
   map<B>(fn: (item: T) => B): Array<B> {

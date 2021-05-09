@@ -6,6 +6,7 @@ import { Effect } from "./effect"
 import { NoStatesRespondToAction, StateDidNotRespondToAction } from "./errors"
 import { ExecuteResult, executeResultfromTask } from "./execute-result"
 import { BoundStateFn, StateTransition } from "./state"
+import { isNotEmpty } from "./util"
 
 type ContextChangeSubscriber = (context: Context) => void
 
@@ -93,12 +94,11 @@ export const createRuntime = (
       })
 
   const flushPendingActions_ = () => {
-    if (pendingActions_.length <= 0) {
+    if (!isNotEmpty(pendingActions_)) {
       return
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const [action, task] = pendingActions_.shift()!
+    const [action, task] = pendingActions_.shift()
 
     // Make sure we're in a valid state.
     validateCurrentState_()

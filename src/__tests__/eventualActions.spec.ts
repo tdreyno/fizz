@@ -37,14 +37,12 @@ describe("Eventual actions", () => {
     expect.assertions(2)
 
     runtime.run(enter()).fork(jest.fn(), () => {
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      expect(runtime.currentState()!.name).toBe("A")
+      expect(runtime.currentState().name).toBe("A")
 
       sub
         .emit({ type: "Trigger" } as Action<"Trigger", undefined>)
         .fork(jest.fn(), () => {
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-          expect(runtime.currentState()!.name).toBe("B")
+          expect(runtime.currentState().name).toBe("B")
         })
 
       jest.runAllTimers()
@@ -86,20 +84,17 @@ describe("Eventual actions", () => {
     expect.assertions(3)
 
     runtime.run(enter()).fork(jest.fn(), () => {
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      expect(runtime.currentState()!.name).toBe("A")
+      expect(runtime.currentState().name).toBe("A")
 
       sub
         .emit({ type: "Trigger" } as Action<"Trigger", undefined>)
         .fork(jest.fn(), () => {
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-          expect(runtime.currentState()!.name).toBe("C")
+          expect(runtime.currentState().name).toBe("C")
 
           sub
             .emit({ type: "Trigger" } as Action<"Trigger", undefined>)
             .fork(jest.fn(), () => {
-              // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-              expect(runtime.currentState()!.name).toBe("C")
+              expect(runtime.currentState().name).toBe("C")
             })
 
           jest.runAllTimers()

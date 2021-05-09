@@ -6,7 +6,8 @@
 import React from "react"
 import { render, screen, act, waitFor } from "@testing-library/react"
 import "@testing-library/jest-dom/extend-expect"
-import { StateContext, States, useLoadingMachine } from "./loading/machine"
+import { LoadingMachine, States } from "./loading/machine"
+import { useMachine } from "../createFizzContext"
 
 describe("React integration", () => {
   beforeEach(() => {
@@ -19,18 +20,18 @@ describe("React integration", () => {
   })
 
   const ShowState = () => {
-    const { currentState } = useLoadingMachine()
+    const { currentState } = useMachine(LoadingMachine)
 
     return <div role="name">{currentState.name}</div>
   }
 
   test("inital render", async () => {
     render(
-      <StateContext.Create
+      <LoadingMachine.Provider
         initialState={States.Initializing([{ message: "Loading" }, true])}
       >
         {() => <ShowState />}
-      </StateContext.Create>,
+      </LoadingMachine.Provider>,
     )
 
     expect(screen.getByRole("name")).toHaveTextContent("Initializing")
@@ -38,11 +39,11 @@ describe("React integration", () => {
 
   test("load on next frame", async () => {
     render(
-      <StateContext.Create
+      <LoadingMachine.Provider
         initialState={States.Initializing([{ message: "Loading" }, true])}
       >
         {() => <ShowState />}
-      </StateContext.Create>,
+      </LoadingMachine.Provider>,
     )
 
     act(() => {

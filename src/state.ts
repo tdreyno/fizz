@@ -166,7 +166,7 @@ export const stateWrapper = <
   return (fn as unknown) as BoundStateFn<Name, A, Data>
 }
 
-export const matchAction = <Actions extends Action<string, any>, Data>(
+const matchAction = <Actions extends Action<string, any>, Data>(
   handlers: {
     [A in Actions as ActionName<A>]: (
       data: Data,
@@ -251,7 +251,7 @@ class Matcher<S extends StateTransition<string, any, any>, T> {
 
   constructor(private state: S) {}
 
-  match<S2 extends StateTransitionToBoundStateFn<S>>(
+  case_<S2 extends StateTransitionToBoundStateFn<S>>(
     state: S2,
     handler: (data: GetStateData<S2>) => T,
   ) {
@@ -270,5 +270,5 @@ class Matcher<S extends StateTransition<string, any, any>, T> {
   }
 }
 
-export const matchState = <T>(state: StateTransition<string, any, any>) =>
+export const switch_ = <T>(state: StateTransition<string, any, any>) =>
   new Matcher<typeof state, T>(state)

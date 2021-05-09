@@ -1,18 +1,11 @@
-import { useContext } from "react"
 import { createFizzContext } from "../../../createFizzContext"
-import { StateContext as ParentStateContext } from "../parent"
+import { ParentMachine } from "../parent"
 import * as Actions from "./actions"
 import States from "./states"
 
 export { States }
 
-export const StateContext = createFizzContext(States, Actions, {
-  parent: ParentStateContext,
+export const LoadingMachine = createFizzContext(States, Actions, {
+  parent: ParentMachine,
   disableLogging: true,
 })
-
-export const useLoadingMachine = () => {
-  const { currentState, actions } = useContext(StateContext.Context)
-
-  return { currentState, actions }
-}

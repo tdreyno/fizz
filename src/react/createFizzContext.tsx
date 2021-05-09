@@ -70,13 +70,13 @@ export function createFizzContext<
     { maxHistory, disableLogging },
   )
 
-  const StateContext = React.createContext<ContextValue<SM, AM>>({
+  const MachineContext = React.createContext<ContextValue<SM, AM>>({
     context: defaultContext,
     currentState: defaultContext.currentState as ReturnType<SM[keyof SM]>,
     actions,
   })
 
-  function Create({
+  function Provider({
     initialState: initialStateProp,
     children,
   }: CreateProps<SM, AM>) {
@@ -133,9 +133,9 @@ export function createFizzContext<
     }, [])
 
     return (
-      <StateContext.Provider value={value}>
+      <MachineContext.Provider value={value}>
         {isFunction(children) ? (
-          <StateContext.Consumer>
+          <MachineContext.Consumer>
             {currentValue =>
               children({
                 actions: currentValue.actions,
@@ -145,16 +145,26 @@ export function createFizzContext<
                 >,
               })
             }
-          </StateContext.Consumer>
+          </MachineContext.Consumer>
         ) : (
           children
         )}
-      </StateContext.Provider>
+      </MachineContext.Provider>
     )
   }
 
   return {
-    Context: StateContext,
-    Create,
+    Context: MachineContext,
+    Provider,
   }
+}
+
+export const useMachine = <
+  SM extends { [key: string]: BoundStateFn<any, any, any> },
+  AM extends { [key: string]: (...args: Array<any>) => Action<any, any> }
+>(machine: {
+  Context: React.Context<ContextValue<SM, AM>>
+}) => {
+  const { currentState, actions } = useContext(machine.Context)
+  return { currentState, actions }
 }
