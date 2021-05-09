@@ -4,7 +4,7 @@ import { StateTransition } from "./state"
 export class History<
   T extends StateTransition<any, any, any> = StateTransition<any, any, any>
 > {
-  constructor(private items_: T[], private maxHistory = Infinity) {
+  constructor(private items_: Array<T>, private maxHistory = Infinity) {
     if (items_.length <= 0) {
       throw new Error(
         "History must contain atleast one previous (or initial) state",
@@ -47,11 +47,11 @@ export class History<
     }
   }
 
-  toArray(): T[] {
+  toArray(): Array<T> {
     return [...this.items_]
   }
 
-  map<B>(fn: (item: T) => B): B[] {
+  map<B>(fn: (item: T) => B): Array<B> {
     return this.toArray().map(fn)
   }
 }
@@ -61,7 +61,7 @@ interface Options {
   allowUnhandled: boolean
   onAsyncEnterExit: "throw" | "warn" | "silent"
   disableLogging: boolean
-  customLogger?: (msgs: any[], level: "error" | "warn" | "log") => void
+  customLogger?: (msgs: Array<any>, level: "error" | "warn" | "log") => void
 }
 
 export class Context {
@@ -92,7 +92,7 @@ export class Context {
 }
 
 export const createInitialContext = (
-  history: StateTransition<any, any, any>[] = [],
+  history: Array<StateTransition<any, any, any>> = [],
   options?: Partial<Options>,
 ) =>
   new Context(

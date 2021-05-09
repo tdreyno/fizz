@@ -1,10 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { ExternalTask, Task } from "@tdreyno/pretty-please"
+import { ExternalTask, Subscription, Task } from "@tdreyno/pretty-please"
 import { Action, isAction } from "./action"
 import { Context } from "./context"
-import { execute, ExecuteResult, processStateReturn, runEffects } from "./core"
+import { execute, processStateReturn, runEffects } from "./core"
 import { Effect } from "./effect"
 import { NoStatesRespondToAction, StateDidNotRespondToAction } from "./errors"
+import { ExecuteResult, executeResultfromTask } from "./execute-result"
 import { BoundStateFn, StateTransition } from "./state"
 
 type ContextChangeSubscriber = (context: Context) => void
@@ -13,25 +13,25 @@ export interface Runtime {
   currentState: () => StateTransition<any, any, any>
   onContextChange: (fn: ContextChangeSubscriber) => void
   bindActions: <
-    AM extends { [key: string]: (...args: any[]) => Action<any, any> }
+    AM extends { [key: string]: (...args: Array<any>) => Action<any, any> }
   >(
     actions: AM,
   ) => AM
   disconnect: () => void
-  run: (action: Action<any, any>) => Task<any, Effect[]>
+  run: (action: Action<any, any>) => Task<any, Array<Effect>>
   canHandle: (action: Action<any, any>) => boolean
   context: Context
 }
 
 export const createRuntime = (
   context: Context,
-  validActionNames: string[] = [],
+  validActionNames: Array<string> = [],
   fallback?: BoundStateFn<any, any, any>,
   parent?: Runtime,
 ): Runtime => {
   const subscriptions_ = new Map<string, () => void>()
 
-  const pendingActions_: [Action<any, any>, ExternalTask<any, any>][] = []
+  const pendingActions_: Array<[Action<any, any>, ExternalTask<any, any>]> = []
 
   const contextChangeSubscribers_: Set<ContextChangeSubscriber> = new Set()
 
@@ -45,17 +45,15 @@ export const createRuntime = (
   const handleSubscriptionEffect_ = (effect: Effect) => {
     switch (effect.label) {
       case "subscribe": {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call,  @typescript-eslint/no-unsafe-assignment
-        const name = effect.data[0]
+        const [name, sub, callback] = effect.data as [
+          string,
+          Subscription<any>,
+          () => void,
+        ]
 
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call,  @typescript-eslint/no-unsafe-assignment
-        const unsub = effect.data[1].subscribe((a: Action<any, any>) => run(a))
+        const unsub = sub.subscribe((a: Action<any, any>) => run(a))
 
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call,  @typescript-eslint/no-unsafe-assignment
-        const callback = effect.data[2]
-
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
-        subscriptions_.set(name, () => unsub() && callback())
+        subscriptions_.set(name, () => (unsub(), callback()))
       }
 
       case "unsubscribe": {
@@ -68,26 +66,25 @@ export const createRuntime = (
     }
   }
 
-  const chainResults_ = (result: ExecuteResult): Task<any, Effect[]> =>
-    Task.sequence(result[1])
+  const chainResults_ = ({
+    effects,
+    tasks,
+  }: ExecuteResult): Task<any, Array<Effect>> =>
+    Task.sequence(tasks)
       .chain(results => {
         const joinedResults = results.reduce(
-          (sum, item) => {
-            if (isAction(item)) {
-              sum[1].push(run(item))
-              return sum
-            } else {
-              return processStateReturn(context, sum, item)
-            }
-          },
-          [result[0], []] as ExecuteResult,
+          (sum, item) =>
+            isAction(item)
+              ? sum.pushTask(run(item))
+              : processStateReturn(context, sum, item),
+          ExecuteResult(effects),
         )
 
-        if (joinedResults[1].length > 0) {
+        if (joinedResults.tasks.length > 0) {
           return chainResults_(joinedResults)
         }
 
-        return Task.of(joinedResults[0])
+        return Task.of(joinedResults.effects)
       })
       .tap(effects => {
         runEffects(context, effects)
@@ -169,7 +166,7 @@ export const createRuntime = (
               // Run on parent and throw away effects.
               void parent.run(e.action)
 
-              return [[], []]
+              return ExecuteResult()
             } catch (e3) {
               if (!(e3 instanceof StateDidNotRespondToAction)) {
                 throw e3
@@ -194,7 +191,7 @@ export const createRuntime = (
         // and we have a parent runtime. Try running that.
         try {
           // Run on parent
-          return [[], [parent.run(e.action)]]
+          return executeResultfromTask(parent.run(e.action))
         } catch (e3) {
           if (!(e3 instanceof StateDidNotRespondToAction)) {
             throw e3
@@ -226,8 +223,8 @@ export const createRuntime = (
   const canHandle = (action: Action<any, any>): boolean =>
     validActions_.has((action.type as string).toLowerCase())
 
-  const run = (action: Action<any, any>): Task<any, Effect[]> => {
-    const task = Task.external<any, Effect[]>()
+  const run = (action: Action<any, any>): Task<any, Array<Effect>> => {
+    const task = Task.external<any, Array<Effect>>()
 
     pendingActions_.push([action, task])
 
@@ -241,12 +238,12 @@ export const createRuntime = (
   }
 
   const bindActions = <
-    AM extends { [key: string]: (...args: any[]) => Action<any, any> }
+    AM extends { [key: string]: (...args: Array<any>) => Action<any, any> }
   >(
     actions: AM,
   ): AM =>
     Object.keys(actions).reduce((sum, key) => {
-      sum[key] = (...args: any[]) => {
+      sum[key] = (...args: Array<any>) => {
         try {
           return run(actions[key](...args))
         } catch (e) {

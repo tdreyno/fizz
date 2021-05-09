@@ -15,7 +15,7 @@ import { BoundStateFn, stateWrapper, StateTransition } from "../state"
 
 export interface CreateProps<
   SM extends { [key: string]: BoundStateFn<any, any, any> },
-  AM extends { [key: string]: (...args: any[]) => Action<any, any> }
+  AM extends { [key: string]: (...args: Array<any>) => Action<any, any> }
 > {
   initialState: StateTransition<any, any, any>
   children:
@@ -29,7 +29,7 @@ export interface CreateProps<
 
 export interface ContextValue<
   SM extends { [key: string]: BoundStateFn<any, any, any> },
-  AM extends { [key: string]: (...args: any[]) => Action<any, any> }
+  AM extends { [key: string]: (...args: Array<any>) => Action<any, any> }
 > {
   currentState: ReturnType<SM[keyof SM]>
   context: Context
@@ -47,7 +47,7 @@ interface Options {
 
 export function createFizzContext<
   SM extends { [key: string]: BoundStateFn<any, any, any> },
-  AM extends { [key: string]: (...args: any[]) => Action<any, any> }
+  AM extends { [key: string]: (...args: Array<any>) => Action<any, any> }
 >(
   _states: SM,
   actions: AM,

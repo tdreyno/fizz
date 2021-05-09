@@ -9,14 +9,16 @@ import {
   UnknownStateReturnType,
 } from "./errors"
 import { isStateTransition, StateReturn, StateTransition } from "./state"
+import { ExecuteResult, executeResultfromTask } from "./execute-result"
+import { arraySingleton } from "./util"
 
 const enterState = (
   context: Context,
   targetState: StateTransition<any, any, any>,
   exitState?: StateTransition<any, any, any>,
 ): ExecuteResult => {
-  let exitEffects: Effect[] = []
-  let exitTasks: Task<any, void | StateReturn | StateReturn[]>[] = []
+  let exitEffects: Array<Effect> = []
+  let exitTasks: Array<Task<any, void | StateReturn | Array<StateReturn>>> = []
 
   if (exitState) {
     exitEffects.push(__internalEffect("exited", exitState, Task.empty))
@@ -24,8 +26,8 @@ const enterState = (
     try {
       const result = execute(exit(), context, exitState)
 
-      exitEffects = exitEffects.concat(result[0])
-      exitTasks = result[1]
+      exitEffects = exitEffects.concat(result.effects)
+      exitTasks = result.tasks
     } catch (e) {
       if (!(e instanceof StateDidNotRespondToAction)) {
         throw e
@@ -33,7 +35,7 @@ const enterState = (
     }
   }
 
-  return [
+  return ExecuteResult(
     [
       ...exitEffects,
 
@@ -45,13 +47,7 @@ const enterState = (
     ],
 
     exitTasks,
-  ]
-}
-
-export interface ExecuteResult extends Array<any> {
-  0: Effect[]
-  1: Task<any, void | StateReturn | StateReturn[]>[]
-  length: 2
+  )
 }
 
 export const execute = <A extends Action<any, any>>(
@@ -74,17 +70,13 @@ export const execute = <A extends Action<any, any>>(
     // TODO: Needs to be lazy
     context.history.removePrevious()
 
-    return [
-      [
-        // Add a log effect.
-        log(`Update: ${targetState.name as string}`, targetState.data),
+    return ExecuteResult([
+      // Add a log effect.
+      log(`Update: ${targetState.name as string}`, targetState.data),
 
-        // Add a goto effect for testing.
-        __internalEffect("update", targetState, Task.empty),
-      ],
-
-      [],
-    ]
+      // Add a goto effect for testing.
+      __internalEffect("update", targetState, Task.empty),
+    ])
   }
 
   const isReentering =
@@ -96,16 +88,16 @@ export const execute = <A extends Action<any, any>>(
   const isEnteringNewState =
     !isUpdating && !isReentering && action.type === "Enter"
 
-  const prefix: ExecuteResult = isEnteringNewState
+  const prefix = isEnteringNewState
     ? enterState(context, targetState, exitState)
-    : [[], []]
+    : ExecuteResult()
 
   const result = targetState.executor(action)
 
   // State transition produced no side-effects
   if (!result) {
     if (context.allowUnhandled) {
-      return [[], []]
+      return ExecuteResult()
     }
 
     throw new StateDidNotRespondToAction(targetState, action)
@@ -117,20 +109,12 @@ export const execute = <A extends Action<any, any>>(
 export const processStateReturn = (
   context: Context,
   prefix: ExecuteResult,
-  result: void | StateReturn | StateReturn[],
-): ExecuteResult => {
-  // Transion can return 1 side-effect, or an array of them.
-  const results = result ? (Array.isArray(result) ? result : [result]) : []
-
-  return results.reduce((sum, item) => {
-    const individualResult = processIndividualStateReturn(context, item)
-
-    return [
-      sum[0].concat(individualResult[0]),
-      sum[1].concat(individualResult[1]),
-    ]
-  }, prefix)
-}
+  result: void | StateReturn | Array<StateReturn>,
+): ExecuteResult =>
+  arraySingleton<StateReturn>(result).reduce(
+    (sum, item) => sum.concat(processIndividualStateReturn(context, item)),
+    prefix,
+  )
 
 const processIndividualStateReturn = (
   context: Context,
@@ -146,8 +130,9 @@ const processIndividualStateReturn = (
         context.history.push(targetState)
       }
 
-      const reenter = execute(enter(), context, targetState, targetState)
-      return [[item, ...reenter[0]], reenter[1]]
+      return execute(enter(), context, targetState, targetState).prependEffect(
+        item,
+      )
     }
 
     if (item.label === "goBack") {
@@ -157,11 +142,10 @@ const processIndividualStateReturn = (
       // Insert onto front of history array.
       context.history.push(previousState)
 
-      const goBack = execute(enter(), context, previousState)
-      return [[item, ...goBack[0]], goBack[1]]
+      return execute(enter(), context, previousState).prependEffect(item)
     }
 
-    return [[item], []]
+    return ExecuteResult(item)
   }
 
   // If we get a state handler, transition to it.
@@ -175,17 +159,17 @@ const processIndividualStateReturn = (
 
   // If we get an action, convert to task.
   if (isAction(item)) {
-    return [[], [Task.of(item)]]
+    return executeResultfromTask(Task.of(item))
   }
 
   // If we get a promise, convert it to a Task
   if (item instanceof Promise) {
-    return [[], [Task.fromPromise(item)]]
+    return executeResultfromTask(Task.fromPromise(item))
   }
 
   // If we get a task, hold on to it.
   if (item instanceof Task) {
-    return [[], [item]]
+    return executeResultfromTask(item)
   }
 
   // Should be impossible to get here with TypeScript,

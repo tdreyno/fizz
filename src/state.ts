@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Task } from "@tdreyno/pretty-please"
 import isPlainObject from "lodash.isplainobject"
 import mapValues from "lodash.mapvalues"
@@ -35,7 +34,7 @@ export interface StateTransition<
   isStateTransition: true
   mode: "append" | "update"
   reenter: (data: Data) => StateTransition<Name, A, Data>
-  executor: (action: A) => void | StateReturn | StateReturn[]
+  executor: (action: A) => void | StateReturn | Array<StateReturn>
   state: BoundStateFn<Name, A, Data>
   is(state: BoundStateFn<any, any, any>): boolean
 }
@@ -69,7 +68,7 @@ export type State<
     update: (data: Data) => StateTransition<Name, A, Data>
     reenter: (data: Data) => StateTransition<Name, A, Data>
   },
-) => StateReturn | StateReturn[] | undefined
+) => StateReturn | Array<StateReturn> | undefined
 
 export interface BoundStateFn<
   Name extends string,
@@ -176,7 +175,7 @@ export const matchAction = <Actions extends Action<string, any>, Data>(
         update: (data: Data) => StateTransition<string, Actions, Data>
         reenter: (data: Data) => StateTransition<string, Actions, Data>
       },
-    ) => StateReturn | StateReturn[]
+    ) => StateReturn | Array<StateReturn>
   },
   fallback?: (
     data: Data,
@@ -184,7 +183,7 @@ export const matchAction = <Actions extends Action<string, any>, Data>(
       update: (data: Data) => StateTransition<string, Actions, Data>
       reenter: (data: Data) => StateTransition<string, Actions, Data>
     },
-  ) => StateReturn | StateReturn[],
+  ) => StateReturn | Array<StateReturn>,
 ) => (
   action: Actions,
   data: Data,
@@ -192,7 +191,7 @@ export const matchAction = <Actions extends Action<string, any>, Data>(
     update: (data: Data) => StateTransition<string, Actions, Data>
     reenter: (data: Data) => StateTransition<string, Actions, Data>
   },
-): StateReturn | StateReturn[] | undefined => {
+): StateReturn | Array<StateReturn> | undefined => {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   const handler = (handlers as never)[action.type] as (
     data: Data,
@@ -201,7 +200,7 @@ export const matchAction = <Actions extends Action<string, any>, Data>(
       update: (data: Data) => StateTransition<string, Actions, Data>
       reenter: (data: Data) => StateTransition<string, Actions, Data>
     },
-  ) => StateReturn | StateReturn[]
+  ) => StateReturn | Array<StateReturn>
 
   if (!handler) {
     return fallback ? fallback(data, utils) : undefined
@@ -224,7 +223,7 @@ export const state = <
         update: (data: Data) => StateTransition<string, Actions, Data>
         reenter: (data: Data) => StateTransition<string, Actions, Data>
       },
-    ) => StateReturn | StateReturn[]
+    ) => StateReturn | Array<StateReturn>
   } & {
     fallback?: (
       data: Data,
@@ -232,7 +231,7 @@ export const state = <
         update: (data: Data) => StateTransition<string, Actions, Data>
         reenter: (data: Data) => StateTransition<string, Actions, Data>
       },
-    ) => StateReturn | StateReturn[]
+    ) => StateReturn | Array<StateReturn>
   },
   options?: Partial<Options> & { debugName?: string },
 ): BoundStateFn<string, Actions, Data> =>

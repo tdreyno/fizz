@@ -14,7 +14,7 @@ export const isEffect = (e: unknown): e is Effect =>
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
   e && (e as any).isEffect
 
-export const isEffects = (effects: unknown): effects is Effect[] =>
+export const isEffects = (effects: unknown): effects is Array<Effect> =>
   Array.isArray(effects) && effects.every(isEffect)
 
 const RESERVED_EFFECTS = [
@@ -72,7 +72,7 @@ export const unsubscribe = <T extends string>(key: T): Effect<T> =>
 export const goBack = (): Effect<void> =>
   __internalEffect("goBack", undefined, Task.empty)
 
-const handleLog = <T extends any[]>(
+const handleLog = <T extends Array<any>>(
   msgs: T,
   type: "log" | "error" | "warn",
   logger: (...args: T) => void,
@@ -86,13 +86,13 @@ const handleLog = <T extends any[]>(
   return Task.empty()
 }
 
-export const log = <T extends any[]>(...msgs: T): Effect<T> =>
+export const log = <T extends Array<any>>(...msgs: T): Effect<T> =>
   __internalEffect("log", msgs, handleLog(msgs, "log", console.log))
 
-export const error = <T extends any[]>(...msgs: T): Effect<T> =>
+export const error = <T extends Array<any>>(...msgs: T): Effect<T> =>
   __internalEffect("error", msgs, handleLog(msgs, "error", console.error))
 
-export const warn = <T extends any[]>(...msgs: T): Effect<T> =>
+export const warn = <T extends Array<any>>(...msgs: T): Effect<T> =>
   __internalEffect("warn", msgs, handleLog(msgs, "warn", console.warn))
 
 export const noop = (): Effect<void> =>

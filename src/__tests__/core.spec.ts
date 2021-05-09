@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
 import serializeJavascript from "serialize-javascript"
 import { Action, Enter, enter, Exit } from "../action"
 import {
@@ -11,7 +11,7 @@ import { StateDidNotRespondToAction, UnknownStateReturnType } from "../errors"
 import { state, StateTransition } from "../state"
 
 function createInitialContext(
-  history: StateTransition<any, any, any>[],
+  history: Array<StateTransition<any, any, any>>,
   options = {},
 ) {
   return originalCreateInitialContext(history, {
@@ -85,19 +85,19 @@ describe("Fizz core", () => {
         { debugName: "C" },
       )
 
-      const [results] = execute(enter(), createInitialContext([A()]))
+      const { effects } = execute(enter(), createInitialContext([A()]))
 
-      expect(results).toBeInstanceOf(Array)
+      expect(effects).toBeInstanceOf(Array)
 
-      const gotos = results.filter(r => r.label === "entered")
+      const gotos = effects.filter(r => r.label === "entered")
       expect(gotos).toHaveLength(3)
 
-      const gotoLogs = results.filter(
+      const gotoLogs = effects.filter(
         r => r.label === "log" && r.data[0].match(/^Enter:/),
       )
       expect(gotoLogs).toHaveLength(3)
 
-      const normalLogs = results.filter(
+      const normalLogs = effects.filter(
         r => r.label === "log" && r.data[0].match(/^Enter /),
       )
       expect(normalLogs).toHaveLength(2)
@@ -122,16 +122,16 @@ describe("Fizz core", () => {
         { debugName: "B" },
       )
 
-      const [results] = execute(
+      const { effects } = execute(
         enter(),
         createInitialContext([A()], {
           allowUnhandled: true,
         }),
       )
 
-      expect(results).toBeInstanceOf(Array)
+      expect(effects).toBeInstanceOf(Array)
 
-      const events = results.filter(r =>
+      const events = effects.filter(r =>
         ["entered", "exited"].includes(r.label),
       )
 
@@ -171,24 +171,24 @@ describe("Fizz core", () => {
     test("should exit and re-enter the current state, replacing itself in history", () => {
       const context = createInitialContext([A(true)])
 
-      const [results] = execute(
+      const { effects } = execute(
         { type: "ReEnterReplace" } as Action<"ReEnterReplace", undefined>,
         context,
       )
 
-      expect(results).toBeInstanceOf(Array)
+      expect(effects).toBeInstanceOf(Array)
       expect(context.history).toHaveLength(1)
     })
 
     test("should exit and re-enter the current state, appending itself to history", () => {
       const context = createInitialContext([A(true)])
 
-      const [results] = execute(
+      const { effects } = execute(
         { type: "ReEnterAppend" } as Action<"ReEnterAppend", undefined>,
         context,
       )
 
-      expect(results).toBeInstanceOf(Array)
+      expect(effects).toBeInstanceOf(Array)
       expect(context.history).toHaveLength(2)
     })
   })
@@ -217,13 +217,13 @@ describe("Fizz core", () => {
     test("should return to previous state", () => {
       const context = createInitialContext([B(), A("Test")])
 
-      const [results] = execute(
+      const { effects } = execute(
         { type: "GoBack" } as Action<"GoBack", undefined>,
         context,
       )
-      expect(results).toBeInstanceOf(Array)
+      expect(effects).toBeInstanceOf(Array)
 
-      const events = results.filter(r =>
+      const events = effects.filter(r =>
         ["entered", "exited"].includes(r.label),
       )
 
@@ -311,7 +311,7 @@ describe("Fizz core", () => {
       const STATES = { A, B, C }
 
       function deserializeContext(s: string) {
-        const unboundHistory: { data: any[]; name: string }[] = eval(
+        const unboundHistory: Array<{ data: Array<any>; name: string }> = eval(
           "(" + s + ")",
         )
 
@@ -361,7 +361,7 @@ describe("Fizz core", () => {
 
   describe("State Args are immutable", () => {
     test("should not mutate original data when transitioning", () => {
-      const A = state<Enter, number[]>({
+      const A = state<Enter, Array<number>>({
         Enter: data => {
           data.push(4)
 
@@ -369,7 +369,7 @@ describe("Fizz core", () => {
         },
       })
 
-      const B = state<Enter, number[]>({
+      const B = state<Enter, Array<number>>({
         Enter: noop,
       })
 
@@ -385,7 +385,7 @@ describe("Fizz core", () => {
     })
 
     test("should not mutate original data when updating", () => {
-      const A = state<Enter, number[]>({
+      const A = state<Enter, Array<number>>({
         Enter: (data, _, { update }) => {
           data.push(4)
 
@@ -448,7 +448,7 @@ describe("Fizz core", () => {
     })
 
     test("should mutate original data when enabling mutability", () => {
-      const A = state<Enter, number[]>(
+      const A = state<Enter, Array<number>>(
         {
           Enter: (data, _, { update }) => {
             data.push(4)
