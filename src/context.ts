@@ -1,7 +1,7 @@
 import { StateTransition } from "./state"
 
 export class History<
-  T extends StateTransition<any, any, any> = StateTransition<any, any, any>
+  T extends StateTransition<any, any, any> = StateTransition<any, any, any>,
 > {
   constructor(private items: Array<T>, private maxHistory = Infinity) {
     if (items.length <= 0) {

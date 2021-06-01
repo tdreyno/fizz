@@ -3,7 +3,7 @@ import { Action, onFrame } from "./action"
 export { Subscription }
 
 export const onFrameSubscription = <A extends Action<any, any>>(
-  actionCreator: (ts: number) => A = ts => (onFrame(ts) as unknown) as A,
+  actionCreator: (ts: number) => A = ts => onFrame(ts) as unknown as A,
 ): Subscription<A> => {
   const sub = new Subscription<A>()
 

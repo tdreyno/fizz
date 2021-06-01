@@ -27,7 +27,7 @@ export type StateReturn =
 export interface StateTransition<
   Name extends string,
   A extends Action<any, any>,
-  Data extends any
+  Data extends any,
 > {
   name: Name
   data: Data
@@ -43,7 +43,7 @@ export type StateTransitionToBoundStateFn<
   S extends StateTransition<string, any, any>,
   // N = S extends StateTransition<infer N, any, any> ? N : never,
   // A = S extends StateTransition<any, infer A, any> ? A : never,
-  D = S extends StateTransition<any, any, infer D> ? D : never
+  D = S extends StateTransition<any, any, infer D> ? D : never,
 > = BoundStateFn<any, any, D>
 
 export const isStateTransition = (
@@ -60,7 +60,7 @@ export const isStateTransition = (
 export type State<
   Name extends string,
   A extends Action<any, any>,
-  Data extends any
+  Data extends any,
 > = (
   action: A,
   data: Data,
@@ -73,7 +73,7 @@ export type State<
 export interface BoundStateFn<
   Name extends string,
   A extends Action<any, any>,
-  Data extends any = undefined
+  Data extends any = undefined,
 > {
   (...data: Data extends undefined ? [] : [Data]): StateTransition<
     Name,
@@ -85,7 +85,7 @@ export interface BoundStateFn<
 
 export type GetStateData<
   S extends BoundStateFn<any, any, any>,
-  D = S extends BoundStateFn<any, any, infer D> ? D : never
+  D = S extends BoundStateFn<any, any, infer D> ? D : never,
 > = D
 
 interface Options {
@@ -117,7 +117,7 @@ const cloneDeep = (value: any): any => {
 export const stateWrapper = <
   Name extends string,
   A extends Action<any, any>,
-  Data extends any = undefined
+  Data extends any = undefined,
 >(
   name: Name,
   executor: State<Name, A, Data>,
@@ -154,66 +154,68 @@ export const stateWrapper = <
   const reenter = (data: Data): StateTransition<Name, A, Data> => {
     const bound = fn(data)
     bound.mode = "append"
-    return (bound as unknown) as StateTransition<Name, A, Data>
+    return bound as unknown as StateTransition<Name, A, Data>
   }
 
   const update = (data: Data): StateTransition<Name, A, Data> => {
     const bound = fn(data)
     bound.mode = "update"
-    return (bound as unknown) as StateTransition<Name, A, Data>
+    return bound as unknown as StateTransition<Name, A, Data>
   }
 
-  return (fn as unknown) as BoundStateFn<Name, A, Data>
+  return fn as unknown as BoundStateFn<Name, A, Data>
 }
 
-const matchAction = <Actions extends Action<string, any>, Data>(
-  handlers: {
-    [A in Actions as ActionName<A>]: (
+const matchAction =
+  <Actions extends Action<string, any>, Data>(
+    handlers: {
+      [A in Actions as ActionName<A>]: (
+        data: Data,
+        payload: ActionPayload<A>,
+        utils: {
+          update: (data: Data) => StateTransition<string, Actions, Data>
+          reenter: (data: Data) => StateTransition<string, Actions, Data>
+        },
+      ) => StateReturn | Array<StateReturn>
+    },
+    fallback?: (
       data: Data,
-      payload: ActionPayload<A>,
+      utils: {
+        update: (data: Data) => StateTransition<string, Actions, Data>
+        reenter: (data: Data) => StateTransition<string, Actions, Data>
+      },
+    ) => StateReturn | Array<StateReturn>,
+  ) =>
+  (
+    action: Actions,
+    data: Data,
+    utils: {
+      update: (data: Data) => StateTransition<string, Actions, Data>
+      reenter: (data: Data) => StateTransition<string, Actions, Data>
+    },
+  ): StateReturn | Array<StateReturn> | undefined => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const handler = (handlers as never)[action.type] as (
+      data: Data,
+      payload: ActionPayload<Actions>,
       utils: {
         update: (data: Data) => StateTransition<string, Actions, Data>
         reenter: (data: Data) => StateTransition<string, Actions, Data>
       },
     ) => StateReturn | Array<StateReturn>
-  },
-  fallback?: (
-    data: Data,
-    utils: {
-      update: (data: Data) => StateTransition<string, Actions, Data>
-      reenter: (data: Data) => StateTransition<string, Actions, Data>
-    },
-  ) => StateReturn | Array<StateReturn>,
-) => (
-  action: Actions,
-  data: Data,
-  utils: {
-    update: (data: Data) => StateTransition<string, Actions, Data>
-    reenter: (data: Data) => StateTransition<string, Actions, Data>
-  },
-): StateReturn | Array<StateReturn> | undefined => {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  const handler = (handlers as never)[action.type] as (
-    data: Data,
-    payload: ActionPayload<Actions>,
-    utils: {
-      update: (data: Data) => StateTransition<string, Actions, Data>
-      reenter: (data: Data) => StateTransition<string, Actions, Data>
-    },
-  ) => StateReturn | Array<StateReturn>
 
-  if (!handler) {
-    return fallback ? fallback(data, utils) : undefined
+    if (!handler) {
+      return fallback ? fallback(data, utils) : undefined
+    }
+
+    return handler(data, action.payload, utils)
   }
-
-  return handler(data, action.payload, utils)
-}
 
 let counter = 1
 
 export const state = <
   Actions extends Action<string, any>,
-  Data extends any = undefined
+  Data extends any = undefined,
 >(
   handlers: {
     [A in Actions as ActionName<A>]: (

@@ -33,7 +33,7 @@ const RESERVED_EFFECTS = [
 
 export const __internalEffect = <
   D extends any,
-  F extends (context: Context) => void
+  F extends (context: Context) => void,
 >(
   label: string,
   data: D,
@@ -72,19 +72,21 @@ export const unsubscribe = <T extends string>(key: T): Effect<T> =>
 export const goBack = (): Effect<void> =>
   __internalEffect("goBack", undefined, Task.empty)
 
-const handleLog = <T extends Array<any>>(
-  msgs: T,
-  type: "log" | "error" | "warn",
-  logger: (...args: T) => void,
-) => (context: Context) => {
-  if (context.customLogger) {
-    context.customLogger(msgs, type)
-  } else if (!context.disableLogging) {
-    logger(...msgs)
-  }
+const handleLog =
+  <T extends Array<any>>(
+    msgs: T,
+    type: "log" | "error" | "warn",
+    logger: (...args: T) => void,
+  ) =>
+  (context: Context) => {
+    if (context.customLogger) {
+      context.customLogger(msgs, type)
+    } else if (!context.disableLogging) {
+      logger(...msgs)
+    }
 
-  return Task.empty()
-}
+    return Task.empty()
+  }
 
 export const log = <T extends Array<any>>(...msgs: T): Effect<T> =>
   __internalEffect("log", msgs, handleLog(msgs, "log", console.log))

@@ -14,7 +14,7 @@ import { BoundStateFn, stateWrapper, StateTransition } from "../state"
 
 export interface CreateProps<
   SM extends { [key: string]: BoundStateFn<any, any, any> },
-  AM extends { [key: string]: (...args: Array<any>) => Action<any, any> }
+  AM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
 > {
   initialState: StateTransition<any, any, any>
   children:
@@ -28,7 +28,7 @@ export interface CreateProps<
 
 export interface ContextValue<
   SM extends { [key: string]: BoundStateFn<any, any, any> },
-  AM extends { [key: string]: (...args: Array<any>) => Action<any, any> }
+  AM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
 > {
   currentState: ReturnType<SM[keyof SM]>
   context: Context
@@ -46,7 +46,7 @@ interface Options {
 
 export function createFizzContext<
   SM extends { [key: string]: BoundStateFn<any, any, any> },
-  AM extends { [key: string]: (...args: Array<any>) => Action<any, any> }
+  AM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
 >(
   _states: SM,
   actions: AM,
@@ -54,12 +54,8 @@ export function createFizzContext<
     maxHistory: 5,
   },
 ) {
-  const {
-    restartOnInitialStateChange,
-    maxHistory,
-    fallback,
-    disableLogging,
-  } = options
+  const { restartOnInitialStateChange, maxHistory, fallback, disableLogging } =
+    options
 
   const parentContext = options.parent
     ? options.parent.Context
@@ -161,7 +157,7 @@ export function createFizzContext<
 
 export const useMachine = <
   SM extends { [key: string]: BoundStateFn<any, any, any> },
-  AM extends { [key: string]: (...args: Array<any>) => Action<any, any> }
+  AM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
 >(machine: {
   Context: React.Context<ContextValue<SM, AM>>
 }) => {
