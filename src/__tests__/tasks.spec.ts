@@ -57,6 +57,8 @@ describe("Tasks", () => {
 
         resolve()
       })
+
+      jest.runAllTimers()
     })
   })
 
