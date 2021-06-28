@@ -11,52 +11,7 @@ Fizz is a small library for building state machines that can effectively manage 
 yarn add @tdreyno/fizz
 ```
 
-## Design
-
-Fizz attempts to provide an API that is "Just Javascript" and operates in a pure and functional manner[^1].
-
-States are mappings of actions to future states. The action type is the same format as a Redux action.
-
-States return one or more side-effects (or a Task of one or more side-effects), which are simply functions which will be called in the order they were generated at the end of the state transition.
-
-States can be `enter`ed by sending the `Enter` action. Here is an example of a simple state which logs a message upon entering.
-
-```typescript
-import { state, Enter } from "@tdreyno/fizz"
-
-const MyState = state<Enter>({
-  Enter: () => log("Entered state MyState."),
-})
-```
-
-In this case, `log` is a side-effect which will log to the console. It is implemented like so:
-
-```javascript
-// The side-effect generating function.
-function log(msg) {
-  // A representation of the effect, but not the execution.
-  return internalEffect(
-    // An effect name. Helps when writing tests and middleware.
-    "log",
-
-    // The data associated with the effect. Also good for tests and middleware.
-    msg,
-
-    // Finally, the method which will execute the effect
-    () => console.log(msg),
-  )
-}
-```
-
-This level of indirection, returning a function that will cause an action, rather than immediately executing the action, gives us some interesting abilities.
-
-First, all of our states are pure functions, even if they will eventually communicate with external systems. This allows for very easy testing of state logic.
-
-Second, external middleware can see the requested side-effects and modify them if necessary. Say you can one side-effect to update a user's first name via an HTTP POST to the server and you had a second side-effect to update their last name. Because we can modify the list (and implementations) of the effects before they run, we could write middleware to combine those two effects into 1-single HTTP POST.
-
-It is the opinion of this library that "original Redux was right." Simple functions, reducers and switch statements make reasoning about code easy. In the years since Redux was released, folks have many to DRY-up the boilerplate and have only complicated what was a very simple system. We are not interesting in replacing `switch` statements with more complex alternatives. If this causes an additional level of nesting, so be it.
-
-### Let's play pong.
+## Let's play pong.
 
 This example shows how we would model something like a game of Pong.
 
@@ -133,6 +88,51 @@ const Victory = state<Enter, string>({
 `onFrame` is an action that is called via `requestAnimationFrame`. Assume `doesIntersectPaddle`, `doesTopOrBottom` and `isOffscreen` are doing bounding boxes checks.
 
 Our renderer can now check the current state each frame and decide whether to render the Welcome screen, the Victory screen or the game of Pong.
+
+## Design
+
+Fizz attempts to provide an API that is "Just Javascript" and operates in a pure and functional manner[^1].
+
+States are mappings of actions to future states. The action type is the same format as a Redux action.
+
+States return one or more side-effects (or a Task of one or more side-effects), which are simply functions which will be called in the order they were generated at the end of the state transition.
+
+States can be `enter`ed by sending the `Enter` action. Here is an example of a simple state which logs a message upon entering.
+
+```typescript
+import { state, Enter } from "@tdreyno/fizz"
+
+const MyState = state<Enter>({
+  Enter: () => log("Entered state MyState."),
+})
+```
+
+In this case, `log` is a side-effect which will log to the console. It is implemented like so:
+
+```javascript
+// The side-effect generating function.
+function log(msg) {
+  // A representation of the effect, but not the execution.
+  return internalEffect(
+    // An effect name. Helps when writing tests and middleware.
+    "log",
+
+    // The data associated with the effect. Also good for tests and middleware.
+    msg,
+
+    // Finally, the method which will execute the effect
+    () => console.log(msg),
+  )
+}
+```
+
+This level of indirection, returning a function that will cause an action, rather than immediately executing the action, gives us some interesting abilities.
+
+First, all of our states are pure functions, even if they will eventually communicate with external systems. This allows for very easy testing of state logic.
+
+Second, external middleware can see the requested side-effects and modify them if necessary. Say you can one side-effect to update a user's first name via an HTTP POST to the server and you had a second side-effect to update their last name. Because we can modify the list (and implementations) of the effects before they run, we could write middleware to combine those two effects into 1-single HTTP POST.
+
+It is the opinion of this library that "original Redux was right." Simple functions, reducers and switch statements make reasoning about code easy. In the years since Redux was released, folks have many to DRY-up the boilerplate and have only complicated what was a very simple system. We are not interesting in replacing `switch` statements with more complex alternatives. If this causes an additional level of nesting, so be it.
 
 ## Technical details
 
