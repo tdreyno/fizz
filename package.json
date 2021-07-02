@@ -67,7 +67,7 @@
     "gzip-size-cli": "^5.0.0",
     "husky": "^7.0.0",
     "jest": "^26.6.3",
-    "jest-environment-jsdom": "^26.6.2",
+    "jest-environment-jsdom": "^27.0.6",
     "lint-staged": "^11.0.0",
     "prettier": "^2.2.1",
     "react": "^17.0.2",
