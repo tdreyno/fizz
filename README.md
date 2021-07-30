@@ -89,6 +89,81 @@ const Victory = state<Enter, string>({
 
 Our renderer can now check the current state each frame and decide whether to render the Welcome screen, the Victory screen or the game of Pong.
 
+## Pure Javascript Runtime
+
+The `Runtime` is what connects the states together, runs actions and allows state change over time.
+
+Runtimes use a Context to hold historical information about states. To setup a Runtime, first create a context with the initial state as the only item in the first parameter (history).
+
+```typescript
+import {
+  createInitialContext,
+  createRuntime,
+  noop,
+  Enter,
+  enter,
+} from "@tdreyno/fizz"
+
+const Start = state<Enter>({
+  Enter: noop,
+})
+
+const context = createInitialContext([Start()])
+
+const runtime = createRuntime(context)
+```
+
+You can now send actions to the runtime. To kick things off, let's enter the initial state:
+
+```typescript
+const result = await runtime.run(enter())
+
+assert(runtime.currentState().is(Start))
+```
+
+You can continue to run actions on the runtime and await their resulting new state.
+
+## React Runtime
+
+If you are using React, you can create a machine provider and access the current state with hooks.
+
+````typescript
+import { createFizzContext, useMachine, Enter, ActionCreatorType, createAction } from "@tdreyno/fizz"
+
+const finished = createAction<"Finished", string>("Finished")
+type Finished = ActionCreatorType<typeof finished>
+
+const Start = state<Enter | Finished>({
+  Enter: noop,
+  Finished: () => End()
+})
+
+const End = state<Enter>({
+  Enter: noop,
+})
+
+const Machine = createFizzContext({
+  Start,
+  End,
+}, {
+  finish
+})
+
+const ShowState = () => {
+  const { currentState, actions: { finished } } = useMachine(Machine)
+  return <div role="name">
+    <h1>{currentState.name}</h1>
+    <button onClick={() => finished()}>
+  </div>
+}
+
+const App = () => (
+  <Machine.Provider initialState={States.Start()}>
+    {({ currentState, actions }) => <ShowState />}
+  </Machine.Provider>
+)
+```
+
 ## Design
 
 Fizz attempts to provide an API that is "Just Javascript" and operates in a pure and functional manner[^1].
@@ -105,7 +180,7 @@ import { state, Enter } from "@tdreyno/fizz"
 const MyState = state<Enter>({
   Enter: () => log("Entered state MyState."),
 })
-```
+````
 
 In this case, `log` is a side-effect which will log to the console. It is implemented like so:
 
