@@ -1802,10 +1802,10 @@
   dependencies:
     defer-to-connect "^1.0.1"
 
-"@tdreyno/pretty-please@^1.14.0":
-  version "1.16.0"
-  resolved "https://registry.yarnpkg.com/@tdreyno/pretty-please/-/pretty-please-1.16.0.tgz#76b84ce132c26411ad06c764568845a0fbef7c2b"
-  integrity sha512-m63L6EOIuWB8SyiZwdRVhkjLvGCeWv696qp0N22d+5YQEYrTSjLSQEnL84a2MQkXY6GnePBHpGfk9JbPT5XQgA==
+"@tdreyno/pretty-please@^1.16.1":
+  version "1.16.1"
+  resolved "https://registry.yarnpkg.com/@tdreyno/pretty-please/-/pretty-please-1.16.1.tgz#2c92f8405fd993a2365706c13cb1c1b97064dce3"
+  integrity sha512-T3ln66BtoMF2LSG+2Xir4s1P2MmnFX/OziUlXkRFCdrTRq+8omMkia+gRPGpTCb3Wn2aO4zh2IBoNuyEzjZBDw==
 
 "@testing-library/dom@^7.28.1":
   version "7.31.2"
