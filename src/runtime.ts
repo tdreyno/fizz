@@ -58,6 +58,7 @@ export const createRuntime = (
       }
 
       case "unsubscribe": {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         const unsub = subscriptions_.get(effect.data)
 
         if (unsub) {
@@ -229,6 +230,7 @@ export const createRuntime = (
     pendingActions_.push([action, task])
 
     if (immediateId_) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       clearTimeout(immediateId_ as any)
     }
 
@@ -245,6 +247,7 @@ export const createRuntime = (
     Object.keys(actions).reduce((sum, key) => {
       sum[key] = (...args: Array<any>) => {
         try {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
           return run(actions[key](...args))
         } catch (e) {
           if (e instanceof NoStatesRespondToAction) {

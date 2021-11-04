@@ -31,10 +31,7 @@ const RESERVED_EFFECTS = [
   "unsubscribe",
 ]
 
-export const __internalEffect = <
-  D extends any,
-  F extends (context: Context) => void,
->(
+export const __internalEffect = <D, F extends (context: Context) => void>(
   label: string,
   data: D,
   executor: F,
@@ -45,7 +42,7 @@ export const __internalEffect = <
   isEffect: true,
 })
 
-export const effect = <D extends any, F extends (context: Context) => void>(
+export const effect = <D, F extends (context: Context) => void>(
   label: string,
   data: D,
   executor?: F,

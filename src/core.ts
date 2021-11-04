@@ -164,11 +164,13 @@ const processIndividualStateReturn = (
 
   // If we get a promise, convert it to a Task
   if (item instanceof Promise) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     return executeResultfromTask(Task.fromPromise(item))
   }
 
   // If we get a task, hold on to it.
   if (item instanceof Task) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     return executeResultfromTask(item)
   }
 

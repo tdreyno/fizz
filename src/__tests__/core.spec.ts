@@ -316,10 +316,8 @@ describe("Fizz core", () => {
         )
 
         return createInitialContext(
-          unboundHistory.map(({ data, name }) =>
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-            (STATES as any)[name](data),
-          ),
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return
+          unboundHistory.map(({ data, name }) => (STATES as any)[name](data)),
         )
       }
 

@@ -27,7 +27,7 @@ export type StateReturn =
 export interface StateTransition<
   Name extends string,
   A extends Action<any, any>,
-  Data extends any,
+  Data,
 > {
   name: Name
   data: Data
@@ -57,11 +57,7 @@ export const isStateTransition = (
  * the action to run and an arbitrary number of serializable
  * arguments.
  */
-export type State<
-  Name extends string,
-  A extends Action<any, any>,
-  Data extends any,
-> = (
+export type State<Name extends string, A extends Action<any, any>, Data> = (
   action: A,
   data: Data,
   utils: {
@@ -73,7 +69,7 @@ export type State<
 export interface BoundStateFn<
   Name extends string,
   A extends Action<any, any>,
-  Data extends any = undefined,
+  Data = undefined,
 > {
   (...data: Data extends undefined ? [] : [Data]): StateTransition<
     Name,
@@ -103,10 +99,12 @@ const cloneDeep = (value: any): any => {
   }
 
   if (value instanceof Set) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     return new Set(cloneDeep(Array.from(value)))
   }
 
   if (value instanceof Map) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     return new Map(cloneDeep(Array.from(value)))
   }
 
@@ -117,7 +115,7 @@ const cloneDeep = (value: any): any => {
 export const stateWrapper = <
   Name extends string,
   A extends Action<any, any>,
-  Data extends any = undefined,
+  Data = undefined,
 >(
   name: Name,
   executor: State<Name, A, Data>,
@@ -208,15 +206,13 @@ const matchAction =
       return fallback ? fallback(data, utils) : undefined
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     return handler(data, action.payload, utils)
   }
 
 let counter = 1
 
-export const state = <
-  Actions extends Action<string, any>,
-  Data extends any = undefined,
->(
+export const state = <Actions extends Action<string, any>, Data = undefined>(
   handlers: {
     [A in Actions as ActionName<A>]: (
       data: Data,
@@ -262,6 +258,7 @@ class Matcher<S extends StateTransition<string, any, any>, T> {
   }
 
   run(): T | undefined {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     const handler = this.handlers.get(this.state.state)
 
     if (!handler) {

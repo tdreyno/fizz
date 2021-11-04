@@ -6,8 +6,10 @@ export const Action = <T extends string, P>(type: T, payload: P) =>
   new Action_(type, payload)
 export type Action<T extends string, P> = Action_<T, P>
 
-export type ActionName<A extends Action<any, any>, T = A["type"]> =
-  T extends string ? T : never
+export type ActionName<
+  A extends Action<any, any>,
+  T = A["type"],
+> = T extends string ? T : never
 
 export type ActionPayload<A extends Action<any, any>> = A["payload"]
 

@@ -99,6 +99,7 @@ export function createFizzContext<
           createInitialContext([initialState], { maxHistory, disableLogging }),
           Object.keys(actions),
           fallback,
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
           parentRuntime,
         ),
       [initialState],
