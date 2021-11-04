@@ -34,6 +34,8 @@ describe("Tasks", () => {
   })
 
   test("should run an action with a promise", () => {
+    jest.useRealTimers()
+
     const promise = Promise.resolve(trigger())
 
     const A = state<Enter | Trigger>({
@@ -46,7 +48,7 @@ describe("Tasks", () => {
 
     const runtime = createRuntime(context, ["Trigger"])
 
-    expect.hasAssertions()
+    expect.assertions(1)
 
     return new Promise<void>(resolve => {
       // eslint-disable-next-line @typescript-eslint/no-misused-promises
@@ -57,8 +59,8 @@ describe("Tasks", () => {
 
         resolve()
       })
-
-      jest.runAllTimers()
+    }).then(() => {
+      jest.useFakeTimers("modern")
     })
   })
 

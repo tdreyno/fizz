@@ -11,7 +11,7 @@ import { useMachine } from "../createFizzContext"
 
 describe("React integration", () => {
   beforeEach(() => {
-    jest.useFakeTimers()
+    jest.useFakeTimers("modern")
   })
 
   afterEach(() => {

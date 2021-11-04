@@ -36,7 +36,7 @@ export const createRuntime = (
 
   const contextChangeSubscribers_: Set<ContextChangeSubscriber> = new Set()
 
-  let immediateId_: NodeJS.Immediate | undefined
+  let immediateId_: number | NodeJS.Timeout | undefined
 
   const validActions_ = validActionNames.reduce(
     (sum, action) => sum.add(action.toLowerCase()),
@@ -229,10 +229,10 @@ export const createRuntime = (
     pendingActions_.push([action, task])
 
     if (immediateId_) {
-      clearImmediate(immediateId_)
+      clearTimeout(immediateId_ as any)
     }
 
-    immediateId_ = setImmediate(flushPendingActions_)
+    immediateId_ = setTimeout(flushPendingActions_, 0)
 
     return task
   }
