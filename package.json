@@ -7,6 +7,9 @@
   "publishConfig": {
     "access": "public"
   },
+  "engines": {
+    "node": ">= 14"
+  },
   "scripts": {
     "lint": "eslint -c .eslintrc.js --ext .ts --ext .tsx src",
     "build": "pika build && yarn compress",
@@ -98,8 +101,8 @@
     ]
   },
   "volta": {
-    "node": "14.11.0",
-    "yarn": "1.22.4"
+    "node": "16.13.1",
+    "yarn": "1.22.17"
   },
   "config": {
     "commitizen": {
