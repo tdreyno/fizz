@@ -2,7 +2,6 @@
   "compilerOptions": {
     "target": "es2020",
     "lib": ["dom", "dom.iterable", "esnext"],
-    "jsx": "react",
     "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
@@ -19,9 +18,9 @@
     "declaration": true,
     "declarationMap": true,
     "rootDir": "./src",
-    "outDir": "./dist/esm",
+    "outDir": "./dist",
     "resolveJsonModule": true
   },
   "include": ["./src"],
-  "exclude": ["build", "pkg", "dist", "node_modules"]
+  "exclude": ["dist", "node_modules"]
 }

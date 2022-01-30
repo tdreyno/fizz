@@ -1,0 +1,13 @@
+{
+  "name": "test-fizz",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "rm -rf dist && tsc --project tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "^4.3.5"
+  },
+  "dependencies": {
+    "@tdreyno/fizz": "^2.0.0"
+  }
+}

@@ -1,15 +1,19 @@
 name: Release
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
 jobs:
   release:
     name: Release
     runs-on: ubuntu-18.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
       - name: Setup Node.js
         uses: actions/setup-node@v2.5.1
         with:
@@ -18,8 +22,13 @@ jobs:
         run: yarn install
       - name: Build
         run: yarn build
+      - name: Test
+        run: yarn test
+      - name: Test NPM
+        run: yarn test:npm
       - name: Release
         env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: yarn semantic-release

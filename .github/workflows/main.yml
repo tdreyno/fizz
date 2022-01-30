@@ -15,7 +15,7 @@ jobs:
         uses: actions/setup-node@v2.5.1
         with:
           node-version: ${{ matrix.node }}
-      - run: yarn install --ignore-engines
+      - run: yarn install
       - run: yarn test
       - run: yarn build
       - name: Code Climate Coverage Action
@@ -24,3 +24,4 @@ jobs:
           CC_TEST_REPORTER_ID: 3c9c36dc44d794c8a3f398889936100a4df2b6913e5388ab824effed6cefcc31
         with:
           coverageCommand: yarn coverage
+      - run: yarn test:npm
