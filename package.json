@@ -21,7 +21,7 @@
   ],
   "scripts": {
     "lint": "eslint -c .eslintrc.js --ext .ts --ext .tsx src",
-    "build": "rm -rf dist && tsc --project tsconfig.json && tsc --project tsconfig.cjs.json && ./bin/fixup",
+    "build": "rm -rf dist && tsc --project tsconfig.json && tsc --project tsconfig.cjs.json && bash bin/fixup",
     "build:incremental": "tsc --incremental --project tsconfig.json | tsc --incremental --project tsconfig.cjs.json",
     "test": "jest --runInBand",
     "test:npm": "./bin/test-npm-version",
