@@ -81,7 +81,7 @@
       "eslint -c .eslintrc.js --ext .ts --ext .tsx src --fix",
       "prettier --write"
     ],
-    "*.{css,md}": [
+    "*.{css,md,json}": [
       "prettier --write"
     ]
   },
