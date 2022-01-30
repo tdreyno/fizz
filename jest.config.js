@@ -72,14 +72,7 @@ module.exports = {
   // ],
 
   // An array of file extensions your modules use
-  // moduleFileExtensions: [
-  //   "js",
-  //   "json",
-  //   "jsx",
-  //   "ts",
-  //   "tsx",
-  //   "node"
-  // ],
+  moduleFileExtensions: ["js", "json", "jsx", "ts", "tsx", "node", "svelte"],
 
   // A map from regular expressions to module names that allow to stub out resources with a single module
   // moduleNameMapper: {},
@@ -167,7 +160,16 @@ module.exports = {
   timers: "modern",
 
   // A map from regular expressions to paths to transformers
-  // transform: null,
+  transform: {
+    "^.+\\.ts$": "ts-jest",
+    "^.+\\.tsx$": "ts-jest",
+    "^.+\\.svelte$": [
+      "svelte-jester",
+      {
+        // preprocess: true,
+      },
+    ],
+  },
 
   // An array of regexp pattern strings that are matched against all source file paths, matched files will skip transformation
   // transformIgnorePatterns: [

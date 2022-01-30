@@ -1,5 +1,5 @@
-import { Enter } from "../../../../../action"
-import { state } from "../../../../../state"
+import { Enter } from "../../../../action"
+import { state } from "../../../../state"
 import { StartLoading, startLoading } from "../actions"
 import { Shared } from "../types"
 import Loading from "./Loading"

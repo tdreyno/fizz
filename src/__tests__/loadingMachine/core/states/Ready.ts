@@ -1,10 +1,10 @@
-import { state } from "../../../../../state"
-import { Enter, Exit } from "../../../../../action"
+import { state } from "../../../../state"
+import { Enter, Exit } from "../../../../action"
 import { ReEnter, Reset, reset } from "../actions"
 import { goBack } from "../effects"
 import { Shared } from "../types"
-import { Subscription } from "../../../../../subscriptions"
-import { subscribe, unsubscribe } from "../../../../../effect"
+import { Subscription } from "../../../../subscriptions"
+import { subscribe, unsubscribe } from "../../../../effect"
 
 const SUB_NAME = "reset"
 
