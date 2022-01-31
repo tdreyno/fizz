@@ -12,7 +12,7 @@ type ContextChangeSubscriber = (context: Context) => void
 
 export interface Runtime {
   currentState: () => StateTransition<any, any, any>
-  onContextChange: (fn: ContextChangeSubscriber) => void
+  onContextChange: (fn: ContextChangeSubscriber) => () => void
   bindActions: <
     AM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
   >(

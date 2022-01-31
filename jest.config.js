@@ -166,7 +166,7 @@ module.exports = {
     "^.+\\.svelte$": [
       "svelte-jester",
       {
-        // preprocess: true,
+        preprocess: true,
       },
     ],
   },

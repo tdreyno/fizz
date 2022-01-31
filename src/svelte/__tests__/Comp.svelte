@@ -1,13 +1,6 @@
-<script>
-  export let name
-
-  let buttonText = 'Button'
-
-  function handleClick() {
-    buttonText = 'Button Clicked'
-  }
+<script lang="ts">
+	import { machine } from './machine';
 </script>
 
-<h1>Hello {name}!</h1>
-
-<button on:click="{handleClick}">{buttonText}</button>
+<!-- svelte-ignore a11y-unknown-role -->
+<div role="name">{$machine.currentState.name}</div>
