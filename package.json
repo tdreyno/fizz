@@ -58,7 +58,7 @@
     "@types/react": "^17.0.39",
     "@types/serialize-javascript": "^5.0.1",
     "@typescript-eslint/eslint-plugin": "^5.10.2",
-    "@typescript-eslint/parser": "^5.10.2",
+    "@typescript-eslint/parser": "^5.13.0",
     "commitizen": "^4.2.3",
     "cz-conventional-changelog": "3.3.0",
     "eslint": "^8.6.0",
