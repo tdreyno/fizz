@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-use-before-define, @typescript-eslint/no-misused-promises */
+
 import { Action, enter, exit, isAction } from "./action.js"
 import { Effect, __internalEffect, isEffect, log } from "./effect.js"
 import { ExecuteResult, executeResultfromTask } from "./execute-result.js"
@@ -6,7 +7,7 @@ import {
   MissingCurrentState,
   StateDidNotRespondToAction,
   UnknownStateReturnType,
-} from "./errors"
+} from "./errors.js"
 import { StateReturn, StateTransition, isStateTransition } from "./state.js"
 
 import { Context } from "./context.js"
