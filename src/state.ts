@@ -38,6 +38,7 @@ export interface StateTransition<
   executor: (action: A) => void | StateReturn | Array<StateReturn>
   state: BoundStateFn<Name, A, Data>
   is(state: BoundStateFn<any, any, any>): boolean
+  isNamed(name: string): boolean
 }
 
 export type StateTransitionToBoundStateFn<
@@ -146,6 +147,7 @@ export const stateWrapper = <
 
     state: fn,
     is: (state: BoundStateFn<any, any, any>): boolean => state === fn,
+    isNamed: (testName: string): boolean => testName === name,
   })
 
   Object.defineProperty(fn, "name", { value: name })

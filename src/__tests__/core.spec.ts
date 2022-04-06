@@ -1,14 +1,15 @@
-/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
-import serializeJavascript from "serialize-javascript"
-import { Action, Enter, enter, Exit } from "../action"
+import { Action, Enter, Exit, enter } from "../action"
 import {
   Context,
   createInitialContext as originalCreateInitialContext,
 } from "../context"
-import { execute } from "../core"
-import { goBack, log, noop } from "../effect"
 import { StateDidNotRespondToAction, UnknownStateReturnType } from "../errors"
-import { state, StateTransition } from "../state"
+import { StateTransition, state } from "../state"
+import { goBack, log, noop } from "../effect"
+
+import { execute } from "../core"
+/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
+import serializeJavascript from "serialize-javascript"
 
 function createInitialContext(
   history: Array<StateTransition<any, any, any>>,
@@ -34,9 +35,10 @@ describe("Fizz core", () => {
     })
 
     test("should start in the state last in the history list", () => {
-      expect(
-        createInitialContext([Entry()]).currentState.is(Entry),
-      ).toBeTruthy()
+      const result = createInitialContext([Entry()]).currentState
+
+      expect(result.is(Entry)).toBeTruthy()
+      expect(result.isNamed("Entry")).toBeTruthy()
     })
 
     test("should throw exception when getting invalid action", () => {
