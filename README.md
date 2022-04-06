@@ -127,7 +127,7 @@ You can continue to run actions on the runtime and await their resulting new sta
 
 If you are using React, you can create a machine provider and access the current state with hooks.
 
-````typescript
+`````typescript
 import { createFizzContext, useMachine, Enter, ActionCreatorType, createAction } from "@tdreyno/fizz"
 
 const finished = createAction<"Finished", string>("Finished")
@@ -164,6 +164,21 @@ const App = () => (
 )
 ```
 
+## Svelte Runtime
+
+If you are using Svelte, you can create a machine provider and access the current state with a store.
+
+````typescript
+import { createMachine } from "@tdreyno/fizz/svelte"
+
+const machine = createMachine(states, actions, initialState)
+
+$: {
+  console.log($machine.currentState);
+}
+
+```
+
 ## Design
 
 Fizz attempts to provide an API that is "Just Javascript" and operates in a pure and functional manner[^1].
@@ -180,7 +195,7 @@ import { state, Enter } from "@tdreyno/fizz"
 const MyState = state<Enter>({
   Enter: () => log("Entered state MyState."),
 })
-````
+`````
 
 In this case, `log` is a side-effect which will log to the console. It is implemented like so:
 
