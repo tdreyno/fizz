@@ -23,5 +23,5 @@
     "resolveJsonModule": true
   },
   "include": ["./src"],
-  "exclude": ["build", "pkg", "dist", "node_modules"]
+  "exclude": ["build", "dist", "node_modules"]
 }

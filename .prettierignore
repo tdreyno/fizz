@@ -1,6 +1,5 @@
 package-lock.json
 yarn.lock
 build
-pkg
 dist
 coverage

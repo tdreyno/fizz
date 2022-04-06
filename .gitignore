@@ -6,4 +6,3 @@ build
 .cache
 yarn-error.log
 /coverage
-/pkg
