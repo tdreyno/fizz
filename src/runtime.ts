@@ -1,12 +1,16 @@
+import { Action, isAction } from "./action.js"
+import { BoundStateFn, StateTransition } from "./state.js"
+import { ExecuteResult, executeResultfromTask } from "./execute-result.js"
 import { ExternalTask, Subscription, Task } from "@tdreyno/pretty-please"
-import { Action, isAction } from "./action"
-import { Context } from "./context"
-import { execute, processStateReturn, runEffects } from "./core"
-import { Effect } from "./effect"
-import { NoStatesRespondToAction, StateDidNotRespondToAction } from "./errors"
-import { ExecuteResult, executeResultfromTask } from "./execute-result"
-import { BoundStateFn, StateTransition } from "./state"
-import { isNotEmpty } from "./util"
+import {
+  NoStatesRespondToAction,
+  StateDidNotRespondToAction,
+} from "./errors.js"
+import { execute, processStateReturn, runEffects } from "./core.js"
+
+import { Context } from "./context.js"
+import { Effect } from "./effect.js"
+import { isNotEmpty } from "./util.js"
 
 type ContextChangeSubscriber = (context: Context) => void
 

@@ -1,7 +1,7 @@
+import { Effect } from "./effect.js"
+import { StateReturn } from "./state.js"
 import { Task } from "@tdreyno/pretty-please"
-import { Effect } from "./effect"
-import { StateReturn } from "./state"
-import { arraySingleton } from "./util"
+import { arraySingleton } from "./util.js"
 
 class ExecuteResult_ {
   constructor(

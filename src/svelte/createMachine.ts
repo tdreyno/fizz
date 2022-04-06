@@ -1,8 +1,8 @@
+import { Action, enter } from "../action.js"
+import { BoundStateFn, StateTransition } from "../state.js"
+import { Context, createInitialContext } from "../context.js"
 import { Readable, readable } from "svelte/store"
-import { Action, enter } from "../action"
-import { Context, createInitialContext } from "../context"
-import { createRuntime, Runtime } from "../runtime"
-import { BoundStateFn, StateTransition } from "../state"
+import { Runtime, createRuntime } from "../runtime.js"
 
 export interface ContextValue<
   SM extends { [key: string]: BoundStateFn<any, any, any> },

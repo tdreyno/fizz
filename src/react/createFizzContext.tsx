@@ -1,4 +1,6 @@
-import isFunction from "lodash.isfunction"
+import { Action, enter } from "../action.js"
+import { BoundStateFn, StateTransition, stateWrapper } from "../state.js"
+import { Context, createInitialContext } from "../context.js"
 import React, {
   ReactNode,
   useContext,
@@ -6,11 +8,10 @@ import React, {
   useMemo,
   useState,
 } from "react"
-import { Action, enter } from "../action"
-import { Context, createInitialContext } from "../context"
-import { noop } from "../effect"
-import { createRuntime, Runtime } from "../runtime"
-import { BoundStateFn, stateWrapper, StateTransition } from "../state"
+import { Runtime, createRuntime } from "../runtime.js"
+
+import isFunction from "lodash.isfunction"
+import { noop } from "../effect.js"
 
 export interface CreateProps<
   SM extends { [key: string]: BoundStateFn<any, any, any> },

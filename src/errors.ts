@@ -1,5 +1,5 @@
-import { Action } from "./action"
-import { StateTransition } from "./state"
+import { Action } from "./action.js"
+import { StateTransition } from "./state.js"
 
 export class StateDidNotRespondToAction extends Error {
   constructor(

@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
 import { Subscription, Task } from "@tdreyno/pretty-please"
-import { Action } from "./action"
-import { Context } from "./context"
+
+import { Action } from "./action.js"
+import { Context } from "./context.js"
 
 export interface Effect<T = any> {
   label: string

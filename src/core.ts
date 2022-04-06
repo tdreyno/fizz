@@ -1,16 +1,17 @@
 /* eslint-disable @typescript-eslint/no-use-before-define, @typescript-eslint/no-misused-promises */
-import { Task } from "@tdreyno/pretty-please"
-import { Action, enter, exit, isAction } from "./action"
-import { Context } from "./context"
-import { __internalEffect, Effect, isEffect, log } from "./effect"
+import { Action, enter, exit, isAction } from "./action.js"
+import { Effect, __internalEffect, isEffect, log } from "./effect.js"
+import { ExecuteResult, executeResultfromTask } from "./execute-result.js"
 import {
   MissingCurrentState,
   StateDidNotRespondToAction,
   UnknownStateReturnType,
 } from "./errors"
-import { isStateTransition, StateReturn, StateTransition } from "./state"
-import { ExecuteResult, executeResultfromTask } from "./execute-result"
-import { arraySingleton } from "./util"
+import { StateReturn, StateTransition, isStateTransition } from "./state.js"
+
+import { Context } from "./context.js"
+import { Task } from "@tdreyno/pretty-please"
+import { arraySingleton } from "./util.js"
 
 const enterState = (
   context: Context,

@@ -1,5 +1,7 @@
+import { Action, onFrame } from "./action.js"
+
 import { Subscription } from "@tdreyno/pretty-please"
-import { Action, onFrame } from "./action"
+
 export { Subscription }
 
 export const onFrameSubscription = <A extends Action<any, any>>(

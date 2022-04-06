@@ -1,4 +1,4 @@
-import { StateTransition } from "./state"
+import { StateTransition } from "./state.js"
 
 export class History<
   T extends StateTransition<any, any, any> = StateTransition<any, any, any>,

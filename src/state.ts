@@ -1,8 +1,9 @@
+import { Action, ActionName, ActionPayload } from "./action.js"
+
+import { Effect } from "./effect.js"
 import { Task } from "@tdreyno/pretty-please"
 import isPlainObject from "lodash.isplainobject"
 import mapValues from "lodash.mapvalues"
-import { Action, ActionName, ActionPayload } from "./action"
-import { Effect } from "./effect"
 
 /**
  * States can return either:
