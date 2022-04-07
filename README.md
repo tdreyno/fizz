@@ -127,7 +127,7 @@ You can continue to run actions on the runtime and await their resulting new sta
 
 If you are using React, you can create a machine provider and access the current state with hooks.
 
-`````typescript
+```typescript
 import { createFizzContext, useMachine, Enter, ActionCreatorType, createAction } from "@tdreyno/fizz"
 
 const finished = createAction<"Finished", string>("Finished")
