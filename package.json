@@ -13,9 +13,18 @@
   "main": "./dist/index.js",
   "types": "./dist/index.js",
   "exports": {
-    ".": "./dist/index.js",
-    "./react": "./dist/react/index.js",
-    "./svelte": "./dist/svelte/index.js"
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./react": {
+      "import": "./dist/react/index.js",
+      "types": "./dist/react/index.d.ts"
+    },
+    "./svelte": {
+      "import": "./dist/svelte/index.js",
+      "types": "./dist/svelte/index.d.ts"
+    }
   },
   "files": [
     "src",
