@@ -151,6 +151,7 @@ const Machine = createFizzContext({
 
 const ShowState = () => {
   const { currentState, actions: { finished } } = useMachine(Machine)
+
   return <div role="name">
     <h1>{currentState.name}</h1>
     <button onClick={() => finished()}>
@@ -195,7 +196,7 @@ import { state, Enter } from "@tdreyno/fizz"
 const MyState = state<Enter>({
   Enter: () => log("Entered state MyState."),
 })
-`````
+````
 
 In this case, `log` is a side-effect which will log to the console. It is implemented like so:
 
