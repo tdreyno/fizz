@@ -8,30 +8,23 @@
   "engines": {
     "node": ">= 14"
   },
-  "main": "./dist/cjs/index.js",
-  "module": "./dist/esm/index.js",
+  "sideEffects": false,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.js",
   "exports": {
-    ".": {
-      "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.js"
-    },
-    "./react": {
-      "import": "./dist/esm/react/index.js",
-      "require": "./dist/cjs/react/index.js"
-    },
-    "./svelte": {
-      "import": "./dist/esm/svelte/index.js",
-      "require": "./dist/cjs/svelte/index.js"
-    }
+    ".": "./dist/index.js",
+    "./react": "./dist/react/index.js",
+    "./svelte": "./dist/svelte/index.js"
   },
   "files": [
     "src",
     "dist"
   ],
   "scripts": {
-    "lint": "eslint -c .eslintrc.js --ext .ts --ext .tsx src",
-    "build": "rm -rf dist && tsc --project tsconfig.json && tsc --project tsconfig.cjs.json && bash bin/fixup",
-    "build:incremental": "tsc --incremental --project tsconfig.json | tsc --incremental --project tsconfig.cjs.json",
+    "lint": "eslint -c .eslintrc.cjs --ext .ts --ext .tsx src",
+    "build": "rm -rf dist && tsc --project tsconfig.json",
+    "build:incremental": "tsc --incremental --project tsconfig.json",
     "test": "jest --runInBand",
     "test:npm": "bash bin/test-npm-version",
     "version": "yarn run build",
@@ -80,11 +73,7 @@
     "svelte": "^3.46"
   },
   "dependencies": {
-    "@tdreyno/pretty-please": "^1.16.1",
-    "lodash.flatten": "^4.4.0",
-    "lodash.isfunction": "^3.0.9",
-    "lodash.isplainobject": "^4.0.6",
-    "lodash.mapvalues": "^4.6.0"
+    "lodash.isfunction": "^3.0.9"
   },
   "peerDependencies": {
     "react": ">=16.0.0",
@@ -92,7 +81,7 @@
   },
   "lint-staged": {
     "*.{ts,tsx}": [
-      "eslint -c .eslintrc.js --ext .ts --ext .tsx src --fix",
+      "eslint -c .eslintrc.cjs --ext .ts --ext .tsx src --fix",
       "prettier --write"
     ],
     "*.{css,md,json}": [

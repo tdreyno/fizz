@@ -1,16 +1,18 @@
 import { Effect } from "./effect.js"
 import { StateReturn } from "./state.js"
-import { Task } from "@tdreyno/pretty-please"
 import { arraySingleton } from "./util.js"
 
 class ExecuteResult_ {
   constructor(
     public effects: Array<Effect>,
-    public tasks: Array<Task<any, void | StateReturn | Array<StateReturn>>>,
+    public promises: Array<Promise<void | StateReturn | Array<StateReturn>>>,
   ) {}
 
-  concat({ effects, tasks }: ExecuteResult) {
-    return ExecuteResult(this.effects.concat(effects), this.tasks.concat(tasks))
+  concat({ effects, promises }: ExecuteResult) {
+    return ExecuteResult(
+      this.effects.concat(effects),
+      this.promises.concat(promises),
+    )
   }
 
   pushEffect(effect: Effect) {
@@ -23,21 +25,21 @@ class ExecuteResult_ {
     return this
   }
 
-  pushTask(task: Task<any, void | StateReturn | Array<StateReturn>>) {
-    this.tasks.push(task)
+  pushPromise(promise: Promise<void | StateReturn | Array<StateReturn>>) {
+    this.promises.push(promise)
     return this
   }
 }
 
 export const ExecuteResult = (
   effects: Effect | Array<Effect> = [],
-  tasks: Array<Task<any, void | StateReturn | Array<StateReturn>>> = [],
-) => new ExecuteResult_(arraySingleton(effects), tasks)
+  promises: Array<Promise<void | StateReturn | Array<StateReturn>>> = [],
+) => new ExecuteResult_(arraySingleton(effects), promises)
 export type ExecuteResult = ExecuteResult_
 
 export const isExecuteResult = (value: unknown): value is ExecuteResult =>
   value instanceof ExecuteResult_
 
-export const executeResultfromTask = (
-  task: Task<any, void | StateReturn | Array<StateReturn>>,
-) => ExecuteResult([], [task])
+export const executeResultfromPromise = (
+  promise: Promise<void | StateReturn | Array<StateReturn>>,
+) => ExecuteResult([], [promise])

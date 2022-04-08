@@ -1,39 +1,20 @@
-import { state } from "../../../../state"
-import { Enter, Exit } from "../../../../action"
-import { ReEnter, Reset, reset } from "../actions"
-import { goBack } from "../effects"
+import { ReEnter, Reset } from "../actions"
+import { goBack, noop } from "../effects"
+
+import { Enter } from "../../../../action"
 import { Shared } from "../types"
-import { Subscription } from "../../../../subscriptions"
-import { subscribe, unsubscribe } from "../../../../effect"
+import { state } from "../../../../state"
 
-const SUB_NAME = "reset"
-
-type Actions = Enter | Reset | ReEnter | Exit
+type Actions = Enter | Reset | ReEnter
 type Data = [Shared]
 
 export default state<Actions, Data>(
   {
-    Enter: () => {
-      const sub = new Subscription<Reset>()
-
-      const onResize = () => {
-        if (window.innerWidth < 500) {
-          void sub.emit(reset())
-        }
-      }
-
-      window.addEventListener("resize", onResize)
-
-      return subscribe(SUB_NAME, sub, () =>
-        window.removeEventListener("resize", onResize),
-      )
-    },
+    Enter: () => noop(),
 
     Reset: goBack,
 
     ReEnter: (data, _, { reenter }) => reenter(data),
-
-    Exit: () => unsubscribe(SUB_NAME),
   },
-  { debugName: "Ready" },
+  { name: "Ready" },
 )

@@ -1,8 +1,9 @@
-import { Enter, enter, createAction, ActionCreatorType } from "../action"
-import { noop } from "../effect"
-import { createRuntime } from "../runtime"
-import { state } from "../state"
+import { ActionCreatorType, Enter, createAction, enter } from "../action"
+
 import { createInitialContext } from "./createInitialContext"
+import { createRuntime } from "../runtime"
+import { noop } from "../effect"
+import { state } from "../state"
 
 describe("Fallbacks", () => {
   const trigger = createAction("Trigger")
@@ -12,20 +13,20 @@ describe("Fallbacks", () => {
     {
       Enter: noop,
     },
-    { debugName: "A" },
+    { name: "A" },
   )
 
   const B = state<Enter, string>(
     {
       Enter: noop,
     },
-    { debugName: "B" },
+    { name: "B" },
   )
 
-  test("should run fallback", () => {
+  test("should run fallback", async () => {
     const Fallback = state<Trigger, ReturnType<typeof A | typeof B>>({
       Trigger: currentState => {
-        const [name] = currentState.data
+        const name = currentState.data
         return B(name + name)
       },
     })
@@ -34,26 +35,22 @@ describe("Fallbacks", () => {
 
     const runtime = createRuntime(context, ["Trigger"], Fallback)
 
-    expect.assertions(4)
     expect(runtime.currentState().is(A)).toBeTruthy()
 
-    runtime.run(enter()).fork(jest.fn(), () => {
-      expect(runtime.currentState().is(A)).toBeTruthy()
+    await runtime.run(enter())
 
-      runtime.run(trigger()).fork(jest.fn(), () => {
-        expect(runtime.currentState().is(B)).toBeTruthy()
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        expect(runtime.currentState().data).toBe("TestTest")
-      })
-    })
+    expect(runtime.currentState().is(A)).toBeTruthy()
 
-    jest.runAllTimers()
+    await runtime.run(trigger())
+
+    expect(runtime.currentState().is(B)).toBeTruthy()
+    expect(runtime.currentState().data).toBe("TestTest")
   })
 
-  test("should run fallback which reenters current state", () => {
+  test("should run fallback which reenters current state", async () => {
     const Fallback = state<Trigger, ReturnType<typeof A | typeof B>>({
       Trigger: currentState => {
-        const [name] = currentState.data
+        const name = currentState.data
         return currentState.reenter(name + name)
       },
     })
@@ -62,19 +59,15 @@ describe("Fallbacks", () => {
 
     const runtime = createRuntime(context, [], Fallback)
 
-    expect.assertions(4)
     expect(runtime.currentState().is(A)).toBeTruthy()
 
-    runtime.run(enter()).fork(jest.fn(), () => {
-      expect(runtime.currentState().is(A)).toBeTruthy()
+    await runtime.run(enter())
 
-      runtime.run(trigger()).fork(jest.fn(), () => {
-        expect(runtime.currentState().is(A)).toBeTruthy()
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        expect(runtime.currentState().data).toBe("TestTest")
-      })
-    })
+    expect(runtime.currentState().is(A)).toBeTruthy()
 
-    jest.runAllTimers()
+    await runtime.run(trigger())
+
+    expect(runtime.currentState().is(A)).toBeTruthy()
+    expect(runtime.currentState().data).toBe("TestTest")
   })
 })

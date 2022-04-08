@@ -2,7 +2,7 @@
 
 import { Action, enter, exit, isAction } from "./action.js"
 import { Effect, __internalEffect, isEffect, log } from "./effect.js"
-import { ExecuteResult, executeResultfromTask } from "./execute-result.js"
+import { ExecuteResult, executeResultfromPromise } from "./execute-result.js"
 import {
   MissingCurrentState,
   StateDidNotRespondToAction,
@@ -11,7 +11,6 @@ import {
 import { StateReturn, StateTransition, isStateTransition } from "./state.js"
 
 import { Context } from "./context.js"
-import { Task } from "@tdreyno/pretty-please"
 import { arraySingleton } from "./util.js"
 
 const enterState = (
@@ -20,16 +19,16 @@ const enterState = (
   exitState?: StateTransition<any, any, any>,
 ): ExecuteResult => {
   let exitEffects: Array<Effect> = []
-  let exitTasks: Array<Task<any, void | StateReturn | Array<StateReturn>>> = []
+  let exitPromises: Array<Promise<void | StateReturn | Array<StateReturn>>> = []
 
   if (exitState) {
-    exitEffects.push(__internalEffect("exited", exitState, Task.empty))
+    exitEffects.push(__internalEffect("exited", exitState, () => void 0))
 
     try {
       const result = execute(exit(), context, exitState)
 
       exitEffects = exitEffects.concat(result.effects)
-      exitTasks = result.tasks
+      exitPromises = result.promises
     } catch (e) {
       if (!(e instanceof StateDidNotRespondToAction)) {
         throw e
@@ -45,10 +44,10 @@ const enterState = (
       log(`Enter: ${targetState.name as string}`, targetState.data),
 
       // Add a goto effect for testing.
-      __internalEffect("entered", targetState, Task.empty),
+      __internalEffect("entered", targetState, () => void 0),
     ],
 
-    exitTasks,
+    exitPromises,
   )
 }
 
@@ -77,7 +76,7 @@ export const execute = <A extends Action<any, any>>(
       log(`Update: ${targetState.name as string}`, targetState.data),
 
       // Add a goto effect for testing.
-      __internalEffect("update", targetState, Task.empty),
+      __internalEffect("update", targetState, () => void 0),
     ])
   }
 
@@ -159,21 +158,14 @@ const processIndividualStateReturn = (
     return execute(enter(), context)
   }
 
-  // If we get an action, convert to task.
+  // If we get an action, convert to promise.
   if (isAction(item)) {
-    return executeResultfromTask(Task.of(item))
+    return executeResultfromPromise(Promise.resolve(item))
   }
 
-  // If we get a promise, convert it to a Task
   if (item instanceof Promise) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-    return executeResultfromTask(Task.fromPromise(item))
-  }
-
-  // If we get a task, hold on to it.
-  if (item instanceof Task) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-    return executeResultfromTask(item)
+    return executeResultfromPromise(item)
   }
 
   // Should be impossible to get here with TypeScript,

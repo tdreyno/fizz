@@ -1,11 +1,12 @@
 import { Action, Enter, enter } from "../action"
-import { noop } from "../effect"
-import { createRuntime } from "../runtime"
-import { stateWrapper, StateReturn } from "../state"
+import { StateReturn, stateWrapper } from "../state"
+
 import { createInitialContext } from "./createInitialContext"
+import { createRuntime } from "../runtime"
+import { noop } from "../effect"
 
 describe("onContextChange", () => {
-  test("should run callback once after changes", () => {
+  test("should run callback once after changes", async () => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const A = stateWrapper("A", (action: Enter, _name: string) => {
       switch (action.type) {
@@ -22,14 +23,12 @@ describe("onContextChange", () => {
 
     runtime.onContextChange(onChange)
 
-    runtime.run(enter()).fork(jest.fn(), jest.fn())
-
-    jest.runAllTimers()
+    await runtime.run(enter())
 
     expect(onChange).toHaveBeenCalledTimes(1)
   })
 
-  test("should run callback once on update", () => {
+  test("should run callback once on update", async () => {
     interface Trigger {
       type: "Trigger"
     }
@@ -52,11 +51,7 @@ describe("onContextChange", () => {
 
     runtime.onContextChange(onChange)
 
-    runtime
-      .run({ type: "Trigger" } as Action<"Trigger", undefined>)
-      .fork(jest.fn(), jest.fn())
-
-    jest.runAllTimers()
+    await runtime.run({ type: "Trigger" } as Action<"Trigger", undefined>)
 
     expect(onChange).toHaveBeenCalledTimes(1)
   })

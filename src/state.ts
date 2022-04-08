@@ -1,9 +1,6 @@
 import { Action, ActionName, ActionPayload } from "./action.js"
 
 import { Effect } from "./effect.js"
-import { Task } from "@tdreyno/pretty-please"
-import isPlainObject from "lodash.isplainobject"
-import mapValues from "lodash.mapvalues"
 
 /**
  * States can return either:
@@ -17,7 +14,6 @@ export type StateReturn =
   | Action<any, any>
   | StateTransition<any, any, any>
   | Promise<any>
-  | Task<any, any>
 
 /**
  * State handlers are objects which contain a serializable list of bound
@@ -52,7 +48,7 @@ export const isStateTransition = (
   a: StateTransition<any, any, any> | unknown,
 ): a is StateTransition<any, any, any> =>
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
-  a && (a as any).isStateTransition
+  (a as any)?.isStateTransition
 
 /**
  * A State function as written by the user. It accepts
@@ -86,34 +82,6 @@ export type GetStateData<
   D = S extends BoundStateFn<any, any, infer D> ? D : never,
 > = D
 
-interface Options {
-  mutable: boolean
-}
-
-const cloneDeep = (value: any): any => {
-  if (Array.isArray(value)) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return value.map(cloneDeep)
-  }
-
-  if (isPlainObject(value)) {
-    return mapValues(value, cloneDeep)
-  }
-
-  if (value instanceof Set) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-    return new Set(cloneDeep(Array.from(value)))
-  }
-
-  if (value instanceof Map) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-    return new Map(cloneDeep(Array.from(value)))
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-  return value
-}
-
 export const stateWrapper = <
   Name extends string,
   A extends Action<any, any>,
@@ -121,10 +89,7 @@ export const stateWrapper = <
 >(
   name: Name,
   executor: State<Name, A, Data>,
-  options?: Partial<Options>,
 ): BoundStateFn<Name, A, Data> => {
-  const immutable = !options || !options.mutable
-
   const fn = (data: Data) => ({
     name,
     data,
@@ -138,11 +103,8 @@ export const stateWrapper = <
     },
 
     executor: (action: A) => {
-      // Clones arguments
-      const clonedData = immutable ? (cloneDeep(data) as Data) : data
-
-      // Run state execturoe
-      return executor(action, clonedData, { reenter, update })
+      // Run state executor
+      return executor(action, data, { reenter, update })
     },
 
     state: fn,
@@ -234,14 +196,11 @@ export const state = <Actions extends Action<string, any>, Data = undefined>(
       },
     ) => StateReturn | Array<StateReturn>
   },
-  options?: Partial<Options> & { debugName?: string },
+  options?: { name?: string },
 ): BoundStateFn<string, Actions, Data> =>
   stateWrapper(
-    options && options.debugName
-      ? options.debugName
-      : `AnonymousState${counter++}`,
+    options?.name ?? `AnonymousState${counter++}`,
     matchAction(handlers, handlers.fallback),
-    options,
   )
 
 class Matcher<S extends StateTransition<string, any, any>, T> {
