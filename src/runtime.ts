@@ -1,7 +1,6 @@
 import { Action, isAction } from "./action.js"
-import { BoundStateFn, StateTransition } from "./state.js"
-import { ExecuteResult, executeResultfromTask } from "./execute-result.js"
-import { ExternalTask, Subscription, Task } from "@tdreyno/pretty-please"
+import { BoundStateFn, StateReturn, StateTransition } from "./state.js"
+import { ExternalPromise, externalPromise, isNotEmpty } from "./util.js"
 import {
   NoStatesRespondToAction,
   StateDidNotRespondToAction,
@@ -10,7 +9,7 @@ import { execute, processStateReturn, runEffects } from "./core.js"
 
 import { Context } from "./context.js"
 import { Effect } from "./effect.js"
-import { isNotEmpty } from "./util.js"
+import { ExecuteResult } from "./execute-result.js"
 
 type ContextChangeSubscriber = (context: Context) => void
 
@@ -23,7 +22,7 @@ export interface Runtime {
     actions: AM,
   ) => AM
   disconnect: () => void
-  run: (action: Action<any, any>) => Task<any, Array<Effect>>
+  run: (action: Action<any, any>) => Promise<Array<Effect>>
   canHandle: (action: Action<any, any>) => boolean
   context: Context
 }
@@ -32,102 +31,72 @@ export const createRuntime = (
   context: Context,
   validActionNames: Array<string> = [],
   fallback?: BoundStateFn<any, any, any>,
-  parent?: Runtime,
 ): Runtime => {
-  const subscriptions_ = new Map<string, () => void>()
-
-  const pendingActions_: Array<[Action<any, any>, ExternalTask<any, any>]> = []
+  const pendingActions_: Array<[Action<any, any>, ExternalPromise<any>]> = []
 
   const contextChangeSubscribers_: Set<ContextChangeSubscriber> = new Set()
 
-  let immediateId_: number | NodeJS.Timeout | undefined
+  let timeoutId_: number | NodeJS.Timeout | undefined
 
   const validActions_ = validActionNames.reduce(
     (sum, action) => sum.add(action.toLowerCase()),
     new Set<string>(),
   )
 
-  const handleSubscriptionEffect_ = (effect: Effect) => {
-    switch (effect.label) {
-      case "subscribe": {
-        const [name, sub, callback] = effect.data as [
-          string,
-          Subscription<any>,
-          () => void,
-        ]
-
-        const unsub = sub.subscribe((a: Action<any, any>) => run(a))
-
-        subscriptions_.set(name, () => (unsub(), callback()))
-      }
-
-      case "unsubscribe": {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        const unsub = subscriptions_.get(effect.data)
-
-        if (unsub) {
-          unsub()
-        }
-      }
-    }
-  }
-
-  const chainResults_ = ({
+  const chainResults_ = async ({
     effects,
-    tasks,
-  }: ExecuteResult): Task<any, Array<Effect>> =>
-    Task.sequence(tasks)
-      .chain(results => {
-        const joinedResults = results.reduce(
-          (sum, item) =>
-            isAction(item)
-              ? sum.pushTask(run(item))
-              : processStateReturn(context, sum, item),
-          ExecuteResult(effects),
-        )
+    promises,
+  }: ExecuteResult): Promise<Array<Effect>> => {
+    const results: void | StateReturn | StateReturn[] = await Promise.all(
+      promises,
+    )
 
-        if (joinedResults.tasks.length > 0) {
-          return chainResults_(joinedResults)
-        }
+    const joinedResults = results.reduce(
+      (sum, item) =>
+        isAction(item)
+          ? sum.pushPromise(run(item))
+          : processStateReturn(context, sum, item),
+      ExecuteResult(effects),
+    )
 
-        return Task.of(joinedResults.effects)
-      })
-      .tap(effects => {
-        runEffects(context, effects)
+    let effectsToRun: Promise<Array<Effect>>
 
-        effects.forEach(handleSubscriptionEffect_)
-      })
+    if (joinedResults.promises.length > 0) {
+      effectsToRun = chainResults_(joinedResults)
+    } else {
+      effectsToRun = Promise.resolve(joinedResults.effects)
+    }
+
+    const effectResults = await effectsToRun
+
+    runEffects(context, effectResults)
+
+    return effectResults
+  }
 
   const flushPendingActions_ = () => {
     if (!isNotEmpty(pendingActions_)) {
       return
     }
 
-    const [action, task] = pendingActions_.shift()
+    const [action, extPromise] = pendingActions_.shift()
 
     // Make sure we're in a valid state.
     validateCurrentState_()
 
-    try {
-      return chainResults_(executeAction_(action)).fork(
-        error => {
-          task.reject(error)
+    void chainResults_(executeAction_(action))
+      .then(results => {
+        extPromise.resolve(results)
 
-          pendingActions_.length = 0
-        },
-        results => {
-          task.resolve(results)
+        contextChangeSubscribers_.forEach(sub => sub(context))
 
-          contextChangeSubscribers_.forEach(sub => sub(context))
+        flushPendingActions_()
+      })
+      .catch(e => {
+        extPromise.reject(e)
 
-          flushPendingActions_()
-        },
-      )
-    } catch (e) {
-      task.reject(e)
-
-      pendingActions_.length = 0
-    }
+        pendingActions_.length = 0
+      })
   }
 
   const validateCurrentState_ = () => {
@@ -166,44 +135,8 @@ export const createRuntime = (
             throw e2
           }
 
-          if (parent) {
-            try {
-              // Run on parent and throw away effects.
-              void parent.run(e.action)
-
-              return ExecuteResult()
-            } catch (e3) {
-              if (!(e3 instanceof StateDidNotRespondToAction)) {
-                throw e3
-              }
-
-              throw new NoStatesRespondToAction(
-                [currentState(), fallbackState, parent.currentState()],
-                e.action,
-              )
-            }
-          } else {
-            throw new NoStatesRespondToAction(
-              [currentState(), fallbackState],
-              e.action,
-            )
-          }
-        }
-      }
-
-      if (parent) {
-        // If we failed either previous step without responding,
-        // and we have a parent runtime. Try running that.
-        try {
-          // Run on parent
-          return executeResultfromTask(parent.run(e.action))
-        } catch (e3) {
-          if (!(e3 instanceof StateDidNotRespondToAction)) {
-            throw e3
-          }
-
           throw new NoStatesRespondToAction(
-            [currentState(), parent.currentState()],
+            [currentState(), fallbackState],
             e.action,
           )
         }
@@ -228,19 +161,19 @@ export const createRuntime = (
   const canHandle = (action: Action<any, any>): boolean =>
     validActions_.has((action.type as string).toLowerCase())
 
-  const run = (action: Action<any, any>): Task<any, Array<Effect>> => {
-    const task = Task.external<any, Array<Effect>>()
+  const run = (action: Action<any, any>): Promise<Array<Effect>> => {
+    const extPromise = externalPromise<Array<Effect>>()
 
-    pendingActions_.push([action, task])
+    pendingActions_.push([action, extPromise])
 
-    if (immediateId_) {
+    if (timeoutId_) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      clearTimeout(immediateId_ as any)
+      clearTimeout(timeoutId_ as any)
     }
 
-    immediateId_ = setTimeout(flushPendingActions_, 0)
+    timeoutId_ = setTimeout(flushPendingActions_, 0)
 
-    return task
+    return extPromise.promise
   }
 
   const bindActions = <

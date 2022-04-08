@@ -185,7 +185,7 @@ Fizz attempts to provide an API that is "Just Javascript" and operates in a pure
 
 States are mappings of actions to future states. The action type is the same format as a Redux action.
 
-States return one or more side-effects (or a Task of one or more side-effects), which are simply functions which will be called in the order they were generated at the end of the state transition.
+States return one or more side-effects (or a Promise of one or more side-effects), which are simply functions which will be called in the order they were generated at the end of the state transition.
 
 States can be `enter`ed by sending the `Enter` action. Here is an example of a simple state which logs a message upon entering.
 

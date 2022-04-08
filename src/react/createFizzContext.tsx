@@ -38,7 +38,6 @@ export interface ContextValue<
 }
 
 interface Options {
-  parent: { Context: React.Context<any> }
   fallback: BoundStateFn<any, any, any>
   maxHistory: number
   restartOnInitialStateChange?: boolean
@@ -57,10 +56,6 @@ export function createFizzContext<
 ) {
   const { restartOnInitialStateChange, maxHistory, fallback, disableLogging } =
     options
-
-  const parentContext = options.parent
-    ? options.parent.Context
-    : React.createContext<any>({})
 
   const defaultContext = createInitialContext(
     [stateWrapper("Placeholder", () => noop())()],
@@ -85,23 +80,12 @@ export function createFizzContext<
       }
     }, [initialStateProp])
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const possibleParentContext = useContext(parentContext)
-
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const parentRuntime = possibleParentContext
-      ? // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        possibleParentContext.runtime
-      : undefined
-
     const runtime = useMemo(
       () =>
         createRuntime(
           createInitialContext([initialState], { maxHistory, disableLogging }),
           Object.keys(actions),
           fallback,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-          parentRuntime,
         ),
       [initialState],
     )

@@ -1,23 +1,24 @@
-import { Enter, enter, createAction, ActionCreatorType } from "../action"
-import { noop } from "../effect"
-import { createRuntime } from "../runtime"
-import { state } from "../state"
+import { ActionCreatorType, Enter, createAction, enter } from "../action"
+
 import { createInitialContext } from "./createInitialContext"
+import { createRuntime } from "../runtime"
+import { noop } from "../effect"
+import { state } from "../state"
 
 describe("Runtime", () => {
-  test("should transition through multiple states", () => {
+  test("should transition through multiple states", async () => {
     const A = state<Enter>(
       {
         Enter: () => B(),
       },
-      { debugName: "A" },
+      { name: "A" },
     )
 
     const B = state<Enter>(
       {
         Enter: noop,
       },
-      { debugName: "B" },
+      { name: "B" },
     )
 
     const context = createInitialContext([A()])
@@ -26,16 +27,11 @@ describe("Runtime", () => {
 
     expect(runtime.currentState().is(A)).toBeTruthy()
 
-    expect.hasAssertions()
-
-    runtime.run(enter()).fork(jest.fn(), () => {
-      expect(runtime.currentState().is(B)).toBeTruthy()
-    })
-
-    jest.runAllTimers()
+    await runtime.run(enter())
+    expect(runtime.currentState().is(B)).toBeTruthy()
   })
 
-  test("should run the action returned", () => {
+  test("should run the action returned", async () => {
     const trigger = createAction("Trigger")
     type Trigger = ActionCreatorType<typeof trigger>
 
@@ -52,12 +48,8 @@ describe("Runtime", () => {
 
     const runtime = createRuntime(context, ["Trigger"])
 
-    expect.hasAssertions()
+    await runtime.run(enter())
 
-    runtime.run(enter()).fork(jest.fn(), () => {
-      expect(runtime.currentState().is(B)).toBeTruthy()
-    })
-
-    jest.runAllTimers()
+    expect(runtime.currentState().is(B)).toBeTruthy()
   })
 })

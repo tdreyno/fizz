@@ -27,7 +27,7 @@ describe("Fizz core", () => {
       {
         Enter: noop,
       },
-      { debugName: "Entry" },
+      { name: "Entry" },
     )
 
     test("should allow custom state name", () => {
@@ -70,21 +70,21 @@ describe("Fizz core", () => {
         {
           Enter: () => [log("Enter A"), B()],
         },
-        { debugName: "A" },
+        { name: "A" },
       )
 
       const B = state<Enter>(
         {
           Enter: () => [log("Enter B"), C()],
         },
-        { debugName: "B" },
+        { name: "B" },
       )
 
       const C = state<Enter>(
         {
           Enter: () => log("Entered C"),
         },
-        { debugName: "C" },
+        { name: "C" },
       )
 
       const { effects } = execute(enter(), createInitialContext([A()]))
@@ -113,7 +113,7 @@ describe("Fizz core", () => {
           Enter: () => [log("Enter A"), B()],
           Exit: () => log("Exit A"),
         },
-        { debugName: "A" },
+        { name: "A" },
       )
 
       const B = state<Enter | Exit>(
@@ -121,7 +121,7 @@ describe("Fizz core", () => {
           Enter: noop,
           Exit: () => log("Exit B"),
         },
-        { debugName: "B" },
+        { name: "B" },
       )
 
       const { effects } = execute(
@@ -205,7 +205,7 @@ describe("Fizz core", () => {
       {
         Enter: noop,
       },
-      { debugName: "A" },
+      { name: "A" },
     )
 
     const B = state<Enter | GoBack>(
@@ -213,7 +213,7 @@ describe("Fizz core", () => {
         Enter: noop,
         GoBack: () => goBack(),
       },
-      { debugName: "B" },
+      { name: "B" },
     )
 
     test("should return to previous state", () => {
@@ -283,7 +283,7 @@ describe("Fizz core", () => {
         {
           Enter: () => B({ name: "Test" }),
         },
-        { debugName: "A" },
+        { name: "A" },
       )
 
       const B = state<Enter | Next, { name: string }>(
@@ -291,14 +291,14 @@ describe("Fizz core", () => {
           Enter: noop,
           Next: ({ name }) => C(name),
         },
-        { debugName: "B" },
+        { name: "B" },
       )
 
       const C = state<Enter, string>(
         {
           Enter: noop,
         },
-        { debugName: "C" },
+        { name: "C" },
       )
 
       function serializeContext(c: Context) {
@@ -356,118 +356,6 @@ describe("Fizz core", () => {
       expect(() => execute(enter(), context)).toThrowError(
         UnknownStateReturnType,
       )
-    })
-  })
-
-  describe("State Args are immutable", () => {
-    test("should not mutate original data when transitioning", () => {
-      const A = state<Enter, Array<number>>({
-        Enter: data => {
-          data.push(4)
-
-          return B(data)
-        },
-      })
-
-      const B = state<Enter, Array<number>>({
-        Enter: noop,
-      })
-
-      const originalData = [1, 2, 3]
-
-      const context = createInitialContext([A(originalData)])
-
-      execute(enter(), context)
-
-      expect(context.currentState.is(B)).toBeTruthy()
-      expect(originalData).toEqual([1, 2, 3])
-      expect(context.currentState.data).toEqual([1, 2, 3, 4])
-    })
-
-    test("should not mutate original data when updating", () => {
-      const A = state<Enter, Array<number>>({
-        Enter: (data, _, { update }) => {
-          data.push(4)
-
-          return update(data)
-        },
-      })
-
-      const originalData = [1, 2, 3]
-
-      const context = createInitialContext([A(originalData)])
-
-      execute(enter(), context)
-
-      expect(originalData).toEqual([1, 2, 3])
-      expect(context.currentState.data).toEqual([1, 2, 3, 4])
-    })
-
-    test("should not break functions or instances when making immutable", () => {
-      const fnChecker = jest.fn()
-      const testFn = () => {
-        fnChecker()
-      }
-
-      const classChecker = jest.fn()
-      class TestClass {
-        run() {
-          classChecker()
-        }
-      }
-
-      interface Shared {
-        fn: () => void
-        klass: TestClass
-      }
-
-      const A = state<Enter, Shared>({
-        Enter: (shared, _, { update }) => {
-          shared.fn()
-          shared.klass.run()
-
-          return update(shared)
-        },
-      })
-
-      const instance = new TestClass()
-      const originalData = {
-        fn: testFn,
-        klass: instance,
-      }
-
-      const context = createInitialContext([A(originalData)])
-
-      execute(enter(), context)
-
-      expect(fnChecker).toHaveBeenCalledTimes(1)
-      expect(classChecker).toHaveBeenCalledTimes(1)
-
-      expect(context.currentState.data.fn).toBe(testFn)
-      expect(context.currentState.data.klass).toBe(instance)
-    })
-
-    test("should mutate original data when enabling mutability", () => {
-      const A = state<Enter, Array<number>>(
-        {
-          Enter: (data, _, { update }) => {
-            data.push(4)
-
-            return update(data)
-          },
-        },
-        { mutable: true },
-      )
-
-      const originalData = [1, 2, 3]
-
-      const context = createInitialContext([A(originalData)])
-
-      execute(enter(), context)
-
-      expect(originalData).toEqual([1, 2, 3, 4])
-
-      expect(context.currentState.data).toEqual([1, 2, 3, 4])
     })
   })
 })

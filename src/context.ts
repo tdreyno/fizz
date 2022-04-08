@@ -96,12 +96,9 @@ export const createInitialContext = (
   history: Array<StateTransition<any, any, any>> = [],
   options?: Partial<Options>,
 ) =>
-  new Context(
-    new History(history, (options && options.maxHistory) || Infinity),
-    {
-      allowUnhandled: (options && options.allowUnhandled) || false,
-      onAsyncEnterExit: (options && options.onAsyncEnterExit) || "warn",
-      disableLogging: (options && options.disableLogging) || false,
-      customLogger: (options && options.customLogger) || undefined,
-    },
-  )
+  new Context(new History(history, options?.maxHistory ?? Infinity), {
+    allowUnhandled: options?.allowUnhandled ?? false,
+    onAsyncEnterExit: options?.onAsyncEnterExit ?? "warn",
+    disableLogging: options?.disableLogging ?? false,
+    customLogger: options?.customLogger ?? undefined,
+  })

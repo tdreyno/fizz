@@ -18,7 +18,7 @@
     "sourceMap": true,
     "declaration": true,
     "rootDir": "./src",
-    "outDir": "./dist/esm"
+    "outDir": "./dist"
   },
   "include": ["./src"],
   "exclude": ["build", "dist", "node_modules"]
