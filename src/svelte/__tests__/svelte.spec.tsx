@@ -10,7 +10,7 @@ import { render } from "@testing-library/svelte"
 
 describe("Svelte integration", () => {
   test("inital render", async () => {
-    const { getByRole } = render(Comp)
-    expect(getByRole("name")).toHaveTextContent("Initializing")
+    const { getByTestId } = render(Comp)
+    expect(getByTestId("name")).toHaveTextContent("Initializing")
   })
 })

@@ -1,5 +1,5 @@
-import { Action } from "./action.js"
-import { StateTransition } from "./state.js"
+import type { Action } from "./action.js"
+import type { StateTransition } from "./state.js"
 
 export class StateDidNotRespondToAction extends Error {
   constructor(
@@ -9,7 +9,7 @@ export class StateDidNotRespondToAction extends Error {
     super()
   }
 
-  toString() {
+  override toString() {
     return `State "${this.state.name as string}" could not respond to action: ${
       this.action.type as string
     }`
@@ -24,7 +24,7 @@ export class NoStatesRespondToAction extends Error {
     super()
   }
 
-  toString() {
+  override toString() {
     return `The states ${this.states
       .map(s => s.name as string)
       .join(", ")} were unable to respond to action: ${

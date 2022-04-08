@@ -1,5 +1,5 @@
 import { Action, isAction } from "./action.js"
-import { BoundStateFn, StateReturn, StateTransition } from "./state.js"
+import type { BoundStateFn, StateReturn, StateTransition } from "./state.js"
 import { ExternalPromise, externalPromise, isNotEmpty } from "./util.js"
 import {
   NoStatesRespondToAction,
@@ -7,8 +7,8 @@ import {
 } from "./errors.js"
 import { execute, processStateReturn, runEffects } from "./core.js"
 
-import { Context } from "./context.js"
-import { Effect } from "./effect.js"
+import type { Context } from "./context.js"
+import type { Effect } from "./effect.js"
 import { ExecuteResult } from "./execute-result.js"
 
 type ContextChangeSubscriber = (context: Context) => void
@@ -184,8 +184,8 @@ export const createRuntime = (
     Object.keys(actions).reduce((sum, key) => {
       sum[key] = (...args: Array<any>) => {
         try {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-          return run(actions[key](...args))
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-non-null-assertion
+          return run(actions[key]!(...args))
         } catch (e) {
           if (e instanceof NoStatesRespondToAction) {
             if (context.customLogger) {

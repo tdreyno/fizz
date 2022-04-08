@@ -10,7 +10,7 @@ import {
 } from "./errors.js"
 import { StateReturn, StateTransition, isStateTransition } from "./state.js"
 
-import { Context } from "./context.js"
+import type { Context } from "./context.js"
 import { arraySingleton } from "./util.js"
 
 const enterState = (

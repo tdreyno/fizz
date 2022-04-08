@@ -1,5 +1,5 @@
 import { Action, enter } from "../action.js"
-import { BoundStateFn, StateTransition } from "../state.js"
+import type { BoundStateFn, StateTransition } from "../state.js"
 import { Context, createInitialContext } from "../context.js"
 import { Readable, readable } from "svelte/store"
 import { Runtime, createRuntime } from "../runtime.js"
@@ -29,11 +29,9 @@ export const createMachine = <
   _states: SM,
   actions: AM,
   initialState: StateTransition<any, any, any>,
-  options: Partial<Options> = {
-    maxHistory: 5,
-  },
+  options: Partial<Options> = {},
 ): R => {
-  const { maxHistory, disableLogging, fallback } = options
+  const { maxHistory = 5, disableLogging = false, fallback } = options
 
   const defaultContext = createInitialContext([initialState], {
     maxHistory,

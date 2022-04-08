@@ -1,9 +1,10 @@
-import { Enter } from "../../../../action"
-import { state } from "../../../../state"
-import { FinishedLoading, Update } from "../actions"
-import { loadData } from "../effects"
-import { Shared } from "../types"
+import type { FinishedLoading, Update } from "../actions"
+
+import type { Enter } from "../../../../action"
 import Ready from "./Ready"
+import type { Shared } from "../types"
+import { loadData } from "../effects"
+import { state } from "../../../../state"
 
 type Actions = Enter | FinishedLoading | Update
 type Data = [Shared, string]

@@ -1,8 +1,8 @@
 import { StartLoading, startLoading } from "../actions"
 
-import { Enter } from "../../../../action"
+import type { Enter } from "../../../../action"
 import Loading from "./Loading"
-import { Shared } from "../types"
+import type { Shared } from "../types"
 import { state } from "../../../../state"
 
 type Actions = Enter | StartLoading

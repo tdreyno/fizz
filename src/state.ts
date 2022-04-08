@@ -1,6 +1,6 @@
-import { Action, ActionName, ActionPayload } from "./action.js"
+import type { Action, ActionName, ActionPayload } from "./action.js"
 
-import { Effect } from "./effect.js"
+import type { Effect } from "./effect.js"
 
 /**
  * States can return either:

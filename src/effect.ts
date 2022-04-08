@@ -1,5 +1,5 @@
-import { Action } from "./action.js"
-import { Context } from "./context.js"
+import type { Action } from "./action.js"
+import type { Context } from "./context.js"
 
 export interface Effect<T = any> {
   label: string

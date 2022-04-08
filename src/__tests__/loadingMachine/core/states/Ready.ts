@@ -1,8 +1,8 @@
-import { ReEnter, Reset } from "../actions"
+import type { ReEnter, Reset } from "../actions"
 import { goBack, noop } from "../effects"
 
-import { Enter } from "../../../../action"
-import { Shared } from "../types"
+import type { Enter } from "../../../../action"
+import type { Shared } from "../types"
 import { state } from "../../../../state"
 
 type Actions = Enter | Reset | ReEnter

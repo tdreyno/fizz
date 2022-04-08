@@ -47,15 +47,13 @@ interface Options {
 export function createFizzContext<
   SM extends { [key: string]: BoundStateFn<any, any, any> },
   AM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
->(
-  _states: SM,
-  actions: AM,
-  options: Partial<Options> = {
-    maxHistory: 5,
-  },
-) {
-  const { restartOnInitialStateChange, maxHistory, fallback, disableLogging } =
-    options
+>(_states: SM, actions: AM, options: Partial<Options> = {}) {
+  const {
+    restartOnInitialStateChange,
+    maxHistory = 5,
+    fallback,
+    disableLogging = false,
+  } = options
 
   const defaultContext = createInitialContext(
     [stateWrapper("Placeholder", () => noop())()],

@@ -1,4 +1,4 @@
-import { StateTransition } from "./state.js"
+import type { StateTransition } from "./state.js"
 
 export class History<
   T extends StateTransition<any, any, any> = StateTransition<any, any, any>,
@@ -12,7 +12,8 @@ export class History<
   }
 
   get current(): T {
-    return this.items[0]
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    return this.items[0]!
   }
 
   get previous(): T | undefined {
@@ -62,7 +63,9 @@ interface Options {
   allowUnhandled: boolean
   onAsyncEnterExit: "throw" | "warn" | "silent"
   disableLogging: boolean
-  customLogger?: (msgs: Array<any>, level: "error" | "warn" | "log") => void
+  customLogger?:
+    | undefined
+    | ((msgs: Array<any>, level: "error" | "warn" | "log") => void)
 }
 
 export class Context {
@@ -100,5 +103,5 @@ export const createInitialContext = (
     allowUnhandled: options?.allowUnhandled ?? false,
     onAsyncEnterExit: options?.onAsyncEnterExit ?? "warn",
     disableLogging: options?.disableLogging ?? false,
-    customLogger: options?.customLogger ?? undefined,
+    customLogger: options?.customLogger,
   })

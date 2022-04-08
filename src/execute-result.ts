@@ -1,5 +1,5 @@
-import { Effect } from "./effect.js"
-import { StateReturn } from "./state.js"
+import type { Effect } from "./effect.js"
+import type { StateReturn } from "./state.js"
 import { arraySingleton } from "./util.js"
 
 class ExecuteResult_ {
