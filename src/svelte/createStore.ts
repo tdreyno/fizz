@@ -21,7 +21,7 @@ interface Options {
   disableLogging?: boolean
 }
 
-export const createMachine = <
+export const createStore = <
   SM extends { [key: string]: BoundStateFn<any, any, any> },
   AM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
   R extends Readable<ContextValue<SM, AM>>,

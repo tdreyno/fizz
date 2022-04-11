@@ -1,8 +1,8 @@
 import * as Core from "../../__tests__/loadingMachine/core"
 
-import { createMachine } from "../createMachine"
+import { createStore } from "../createStore"
 
-export const machine = createMachine(
+export const machine = createStore(
   Core.States,
   Core.Actions,
   Core.States.Initializing([{ message: "Loading" }, true]),
