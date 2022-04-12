@@ -38,7 +38,6 @@ export interface ContextValue<
 }
 
 interface Options {
-  fallback: BoundStateFn<any, any, any>
   maxHistory: number
   restartOnInitialStateChange?: boolean
   disableLogging?: boolean
@@ -51,7 +50,6 @@ export function createFizzContext<
   const {
     restartOnInitialStateChange,
     maxHistory = 5,
-    fallback,
     disableLogging = false,
   } = options
 
@@ -83,7 +81,6 @@ export function createFizzContext<
         createRuntime(
           createInitialContext([initialState], { maxHistory, disableLogging }),
           Object.keys(actions),
-          fallback,
         ),
       [initialState],
     )

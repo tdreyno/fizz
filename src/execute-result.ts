@@ -5,13 +5,15 @@ import { arraySingleton } from "./util.js"
 class ExecuteResult_ {
   constructor(
     public effects: Array<Effect>,
-    public promises: Array<Promise<void | StateReturn | Array<StateReturn>>>,
+    public futures: Array<
+      () => Promise<void | StateReturn | Array<StateReturn>>
+    >,
   ) {}
 
-  concat({ effects, promises }: ExecuteResult) {
+  concat({ effects, futures }: ExecuteResult) {
     return ExecuteResult(
       this.effects.concat(effects),
-      this.promises.concat(promises),
+      this.futures.concat(futures),
     )
   }
 
@@ -25,15 +27,15 @@ class ExecuteResult_ {
     return this
   }
 
-  pushPromise(promise: Promise<void | StateReturn | Array<StateReturn>>) {
-    this.promises.push(promise)
+  pushFuture(future: () => Promise<void | StateReturn | Array<StateReturn>>) {
+    this.futures.push(future)
     return this
   }
 }
 
 export const ExecuteResult = (
   effects: Effect | Array<Effect> = [],
-  promises: Array<Promise<void | StateReturn | Array<StateReturn>>> = [],
+  promises: Array<() => Promise<void | StateReturn | Array<StateReturn>>> = [],
 ) => new ExecuteResult_(arraySingleton(effects), promises)
 export type ExecuteResult = ExecuteResult_
 
@@ -42,4 +44,4 @@ export const isExecuteResult = (value: unknown): value is ExecuteResult =>
 
 export const executeResultfromPromise = (
   promise: Promise<void | StateReturn | Array<StateReturn>>,
-) => ExecuteResult([], [promise])
+) => ExecuteResult([], [() => promise])

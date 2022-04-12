@@ -1,10 +1,10 @@
 import { Action, isAction } from "./action.js"
-import type { BoundStateFn, StateReturn, StateTransition } from "./state.js"
 import { ExternalPromise, externalPromise, isNotEmpty } from "./util.js"
 import {
   NoStatesRespondToAction,
   StateDidNotRespondToAction,
 } from "./errors.js"
+import type { StateReturn, StateTransition } from "./state.js"
 import { execute, processStateReturn, runEffects } from "./core.js"
 
 import type { Context } from "./context.js"
@@ -30,7 +30,6 @@ export interface Runtime {
 export const createRuntime = (
   context: Context,
   validActionNames: Array<string> = [],
-  fallback?: BoundStateFn<any, any, any>,
 ): Runtime => {
   const pendingActions_: Array<[Action<any, any>, ExternalPromise<any>]> = []
 
@@ -45,23 +44,25 @@ export const createRuntime = (
 
   const chainResults_ = async ({
     effects,
-    promises,
+    futures,
   }: ExecuteResult): Promise<Array<Effect>> => {
-    const results: void | StateReturn | StateReturn[] = await Promise.all(
-      promises,
-    )
+    const results: Array<void | StateReturn | StateReturn[]> = []
+
+    for (const future of futures) {
+      results.push((await future()) as void | StateReturn | StateReturn[])
+    }
 
     const joinedResults = results.reduce(
       (sum, item) =>
         isAction(item)
-          ? sum.pushPromise(run(item))
+          ? sum.pushFuture(() => run(item))
           : processStateReturn(context, sum, item),
       ExecuteResult(effects),
     )
 
     let effectsToRun: Promise<Array<Effect>>
 
-    if (joinedResults.promises.length > 0) {
+    if (joinedResults.futures.length > 0) {
       effectsToRun = chainResults_(joinedResults)
     } else {
       effectsToRun = Promise.resolve(joinedResults.effects)
@@ -121,25 +122,6 @@ export const createRuntime = (
       // If it failed to handle optional actions like OnFrame, continue.
       if (!(e instanceof StateDidNotRespondToAction)) {
         throw e
-      }
-
-      // If we failed the last step by not responding, and we have
-      // a fallback, try it.
-      if (fallback) {
-        const fallbackState = fallback(currentState())
-
-        try {
-          return execute(e.action, context, fallbackState)
-        } catch (e2) {
-          if (!(e2 instanceof StateDidNotRespondToAction)) {
-            throw e2
-          }
-
-          throw new NoStatesRespondToAction(
-            [currentState(), fallbackState],
-            e.action,
-          )
-        }
       }
 
       throw new NoStatesRespondToAction([currentState()], e.action)

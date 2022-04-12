@@ -130,25 +130,16 @@ export const stateWrapper = <
 }
 
 const matchAction =
-  <Actions extends Action<string, any>, Data>(
-    handlers: {
-      [A in Actions as ActionName<A>]: (
-        data: Data,
-        payload: ActionPayload<A>,
-        utils: {
-          update: (data: Data) => StateTransition<string, Actions, Data>
-          reenter: (data: Data) => StateTransition<string, Actions, Data>
-        },
-      ) => StateReturn | Array<StateReturn>
-    },
-    fallback?: (
+  <Actions extends Action<string, any>, Data>(handlers: {
+    [A in Actions as ActionName<A>]: (
       data: Data,
+      payload: ActionPayload<A>,
       utils: {
         update: (data: Data) => StateTransition<string, Actions, Data>
         reenter: (data: Data) => StateTransition<string, Actions, Data>
       },
-    ) => StateReturn | Array<StateReturn>,
-  ) =>
+    ) => StateReturn | Array<StateReturn>
+  }) =>
   (
     action: Actions,
     data: Data,
@@ -168,7 +159,7 @@ const matchAction =
     ) => StateReturn | Array<StateReturn>
 
     if (!handler) {
-      return fallback ? fallback(data, utils) : undefined
+      return undefined
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
@@ -187,20 +178,12 @@ export const state = <Actions extends Action<string, any>, Data = undefined>(
         reenter: (data: Data) => StateTransition<string, Actions, Data>
       },
     ) => StateReturn | Array<StateReturn>
-  } & {
-    fallback?: (
-      data: Data,
-      utils: {
-        update: (data: Data) => StateTransition<string, Actions, Data>
-        reenter: (data: Data) => StateTransition<string, Actions, Data>
-      },
-    ) => StateReturn | Array<StateReturn>
   },
   options?: { name?: string },
 ): BoundStateFn<string, Actions, Data> =>
   stateWrapper(
     options?.name ?? `AnonymousState${counter++}`,
-    matchAction(handlers, handlers.fallback),
+    matchAction(handlers),
   )
 
 class Matcher<S extends StateTransition<string, any, any>, T> {

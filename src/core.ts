@@ -19,7 +19,9 @@ const enterState = (
   exitState?: StateTransition<any, any, any>,
 ): ExecuteResult => {
   let exitEffects: Array<Effect> = []
-  let exitPromises: Array<Promise<void | StateReturn | Array<StateReturn>>> = []
+  let exitFutures: Array<
+    () => Promise<void | StateReturn | Array<StateReturn>>
+  > = []
 
   if (exitState) {
     exitEffects.push(__internalEffect("exited", exitState, () => void 0))
@@ -28,7 +30,7 @@ const enterState = (
       const result = execute(exit(), context, exitState)
 
       exitEffects = exitEffects.concat(result.effects)
-      exitPromises = result.promises
+      exitFutures = result.futures
     } catch (e) {
       if (!(e instanceof StateDidNotRespondToAction)) {
         throw e
@@ -47,7 +49,7 @@ const enterState = (
       __internalEffect("entered", targetState, () => void 0),
     ],
 
-    exitPromises,
+    exitFutures,
   )
 }
 

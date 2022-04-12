@@ -52,4 +52,35 @@ describe("Runtime", () => {
 
     expect(runtime.currentState().is(B)).toBeTruthy()
   })
+
+  test.only("onEnter actions should run in correct order", async () => {
+    const trigger = createAction("Trigger")
+    type Trigger = ActionCreatorType<typeof trigger>
+
+    const onEnter = jest.fn()
+
+    const A = state<Enter | Trigger, { num: number }>({
+      Enter: (shared, __, { update }) => {
+        onEnter(performance.now())
+        return [update({ ...shared, num: shared.num + 1 }), trigger()]
+      },
+
+      Trigger: (shared, __, { update }) => {
+        return update({ ...shared, num: shared.num + 1 })
+      },
+    })
+
+    const context = createInitialContext([A({ num: 1 })])
+
+    const runtime = createRuntime(context, ["Trigger"])
+
+    await runtime.run(enter())
+
+    expect(runtime.currentState().is(A)).toBeTruthy()
+
+    expect(onEnter).toHaveBeenCalledTimes(1)
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    expect(runtime.currentState().data.num).toBe(3)
+  })
 })
