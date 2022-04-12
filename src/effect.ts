@@ -1,5 +1,6 @@
 import type { Action } from "./action.js"
 import type { Context } from "./context.js"
+import type { StateTransition } from "./state.js"
 
 export interface Effect<T = any> {
   label: string
@@ -24,6 +25,8 @@ const RESERVED_EFFECTS = [
   "warn",
   "noop",
   "timeout",
+  "runTransition",
+  "runAction",
 ]
 
 export const __internalEffect = <D, F extends (context: Context) => void>(
@@ -54,6 +57,14 @@ export const effect = <D, F extends (context: Context) => void>(
 export const goBack = (): Effect<void> =>
   __internalEffect("goBack", undefined, () => void 0)
 
+export const runTransition = <T extends StateTransition<any, any, any>>(
+  transition: T,
+): Effect<T> => __internalEffect("runTransition", transition, () => void 0)
+
+export const runAction = <T extends Action<string, any>>(
+  action: T,
+): Effect<T> => __internalEffect("runAction", action, () => void 0)
+
 const handleLog =
   <T extends Array<any>>(
     msgs: T,
@@ -63,7 +74,7 @@ const handleLog =
   (context: Context) => {
     if (context.customLogger) {
       context.customLogger(msgs, type)
-    } else if (!context.disableLogging) {
+    } else if (context.enableLogging) {
       logger(...msgs)
     }
   }

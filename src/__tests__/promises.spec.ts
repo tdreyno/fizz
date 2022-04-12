@@ -1,7 +1,7 @@
 import { ActionCreatorType, Enter, createAction, enter } from "../action"
 import { effect, noop } from "../effect"
 
-import { createInitialContext } from "./createInitialContext"
+import { createInitialContext } from "../context"
 import { createRuntime } from "../runtime"
 import { state } from "../state"
 

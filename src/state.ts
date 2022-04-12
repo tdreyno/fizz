@@ -13,7 +13,9 @@ export type StateReturn =
   | Effect
   | Action<any, any>
   | StateTransition<any, any, any>
-  | Promise<any>
+
+type SyncHandlerReturn = void | StateReturn | Array<StateReturn>
+export type HandlerReturn = SyncHandlerReturn | Promise<SyncHandlerReturn>
 
 /**
  * State handlers are objects which contain a serializable list of bound
@@ -30,8 +32,8 @@ export interface StateTransition<
   data: Data
   isStateTransition: true
   mode: "append" | "update"
-  reenter: (data: Data) => StateTransition<Name, A, Data>
-  executor: (action: A) => void | StateReturn | Array<StateReturn>
+  // reenter: (data: Data) => StateTransition<Name, A, Data>
+  executor: (action: A) => HandlerReturn
   state: BoundStateFn<Name, A, Data>
   is(state: BoundStateFn<any, any, any>): boolean
   isNamed(name: string): boolean
@@ -60,9 +62,9 @@ export type State<Name extends string, A extends Action<any, any>, Data> = (
   data: Data,
   utils: {
     update: (data: Data) => StateTransition<Name, A, Data>
-    reenter: (data: Data) => StateTransition<Name, A, Data>
+    // reenter: (data: Data) => StateTransition<Name, A, Data>
   },
-) => StateReturn | Array<StateReturn> | undefined
+) => HandlerReturn
 
 export interface BoundStateFn<
   Name extends string,
@@ -96,15 +98,15 @@ export const stateWrapper = <
     isStateTransition: true,
     mode: "append",
 
-    reenter: (reenterData: Data) => {
-      const bound = fn(reenterData)
-      bound.mode = "append"
-      return bound
-    },
+    // reenter: (reenterData: Data) => {
+    //   const bound = fn(reenterData)
+    //   bound.mode = "append"
+    //   return bound
+    // },
 
     executor: (action: A) => {
       // Run state executor
-      return executor(action, data, { reenter, update })
+      return executor(action, data, { /*reenter,*/ update })
     },
 
     state: fn,
@@ -114,11 +116,11 @@ export const stateWrapper = <
 
   Object.defineProperty(fn, "name", { value: name })
 
-  const reenter = (data: Data): StateTransition<Name, A, Data> => {
-    const bound = fn(data)
-    bound.mode = "append"
-    return bound as unknown as StateTransition<Name, A, Data>
-  }
+  // const reenter = (data: Data): StateTransition<Name, A, Data> => {
+  //   const bound = fn(data)
+  //   bound.mode = "append"
+  //   return bound as unknown as StateTransition<Name, A, Data>
+  // }
 
   const update = (data: Data): StateTransition<Name, A, Data> => {
     const bound = fn(data)
@@ -136,27 +138,27 @@ const matchAction =
       payload: ActionPayload<A>,
       utils: {
         update: (data: Data) => StateTransition<string, Actions, Data>
-        reenter: (data: Data) => StateTransition<string, Actions, Data>
+        // reenter: (data: Data) => StateTransition<string, Actions, Data>
       },
-    ) => StateReturn | Array<StateReturn>
+    ) => HandlerReturn
   }) =>
   (
     action: Actions,
     data: Data,
     utils: {
       update: (data: Data) => StateTransition<string, Actions, Data>
-      reenter: (data: Data) => StateTransition<string, Actions, Data>
+      // reenter: (data: Data) => StateTransition<string, Actions, Data>
     },
-  ): StateReturn | Array<StateReturn> | undefined => {
+  ): HandlerReturn => {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const handler = (handlers as never)[action.type] as (
       data: Data,
       payload: ActionPayload<Actions>,
       utils: {
         update: (data: Data) => StateTransition<string, Actions, Data>
-        reenter: (data: Data) => StateTransition<string, Actions, Data>
+        // reenter: (data: Data) => StateTransition<string, Actions, Data>
       },
-    ) => StateReturn | Array<StateReturn>
+    ) => HandlerReturn
 
     if (!handler) {
       return undefined
@@ -175,9 +177,9 @@ export const state = <Actions extends Action<string, any>, Data = undefined>(
       payload: ActionPayload<A>,
       utils: {
         update: (data: Data) => StateTransition<string, Actions, Data>
-        reenter: (data: Data) => StateTransition<string, Actions, Data>
+        // reenter: (data: Data) => StateTransition<string, Actions, Data>
       },
-    ) => StateReturn | Array<StateReturn>
+    ) => HandlerReturn
   },
   options?: { name?: string },
 ): BoundStateFn<string, Actions, Data> =>

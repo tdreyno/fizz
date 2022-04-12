@@ -1,178 +1,73 @@
-import { Action, isAction } from "./action.js"
-import { ExternalPromise, externalPromise, isNotEmpty } from "./util.js"
+import { Action, enter, exit, isAction } from "./action.js"
+import { Effect, __internalEffect, isEffect, log } from "./effect.js"
 import {
+  MissingCurrentState,
   NoStatesRespondToAction,
-  StateDidNotRespondToAction,
+  UnknownStateReturnType,
 } from "./errors.js"
-import type { StateReturn, StateTransition } from "./state.js"
-import { execute, processStateReturn, runEffects } from "./core.js"
+import { StateReturn, StateTransition, isStateTransition } from "./state.js"
+import { arraySingleton, externalPromise } from "./util.js"
 
 import type { Context } from "./context.js"
-import type { Effect } from "./effect.js"
-import { ExecuteResult } from "./execute-result.js"
 
 type ContextChangeSubscriber = (context: Context) => void
 
-export interface Runtime {
-  currentState: () => StateTransition<any, any, any>
-  onContextChange: (fn: ContextChangeSubscriber) => () => void
-  bindActions: <
-    AM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
-  >(
-    actions: AM,
-  ) => AM
-  disconnect: () => void
-  run: (action: Action<any, any>) => Promise<Array<Effect>>
-  canHandle: (action: Action<any, any>) => boolean
-  context: Context
+type QueueItem = {
+  onComplete: () => void
+  onError: (e: unknown) => void
+  item: Action<any, any> | StateTransition<any, any, any> | Effect<any>
 }
 
-export const createRuntime = (
-  context: Context,
-  validActionNames: Array<string> = [],
-): Runtime => {
-  const pendingActions_: Array<[Action<any, any>, ExternalPromise<any>]> = []
+export class Runtime {
+  context: Context
+  #contextChangeSubscribers: Set<ContextChangeSubscriber> = new Set()
+  #validActions: Set<string>
+  #queue: QueueItem[] = []
+  #isRunning = false
 
-  const contextChangeSubscribers_: Set<ContextChangeSubscriber> = new Set()
-
-  let timeoutId_: number | NodeJS.Timeout | undefined
-
-  const validActions_ = validActionNames.reduce(
-    (sum, action) => sum.add(action.toLowerCase()),
-    new Set<string>(),
-  )
-
-  const chainResults_ = async ({
-    effects,
-    futures,
-  }: ExecuteResult): Promise<Array<Effect>> => {
-    const results: Array<void | StateReturn | StateReturn[]> = []
-
-    for (const future of futures) {
-      results.push((await future()) as void | StateReturn | StateReturn[])
-    }
-
-    const joinedResults = results.reduce(
-      (sum, item) =>
-        isAction(item)
-          ? sum.pushFuture(() => run(item))
-          : processStateReturn(context, sum, item),
-      ExecuteResult(effects),
+  constructor(context: Context, validActionNames: Array<string> = []) {
+    this.context = context
+    this.#validActions = validActionNames.reduce(
+      (sum, action) => sum.add(action.toLowerCase()),
+      new Set<string>(),
     )
-
-    let effectsToRun: Promise<Array<Effect>>
-
-    if (joinedResults.futures.length > 0) {
-      effectsToRun = chainResults_(joinedResults)
-    } else {
-      effectsToRun = Promise.resolve(joinedResults.effects)
-    }
-
-    const effectResults = await effectsToRun
-
-    runEffects(context, effectResults)
-
-    return effectResults
   }
 
-  const flushPendingActions_ = () => {
-    if (!isNotEmpty(pendingActions_)) {
-      return
-    }
-
-    const [action, extPromise] = pendingActions_.shift()
-
-    // Make sure we're in a valid state.
-    validateCurrentState_()
-
-    void chainResults_(executeAction_(action))
-      .then(results => {
-        extPromise.resolve(results)
-
-        contextChangeSubscribers_.forEach(sub => sub(context))
-
-        flushPendingActions_()
-      })
-      .catch(e => {
-        extPromise.reject(e)
-
-        pendingActions_.length = 0
-      })
+  currentState(): StateTransition<any, any, any> {
+    return this.context.currentState
   }
 
-  const validateCurrentState_ = () => {
-    const runCurrentState = currentState()
-
-    if (!runCurrentState) {
-      throw new Error(
-        `Fizz could not find current state to run action on. History: ${JSON.stringify(
-          currentHistory()
-            .map(({ name }) => name as string)
-            .join(" -> "),
-        )}`,
-      )
-    }
+  currentHistory() {
+    return this.context.history
   }
 
-  const executeAction_ = (action: Action<any, any>): ExecuteResult => {
-    // Try this runtime.
-    try {
-      return execute(action, context)
-    } catch (e) {
-      // If it failed to handle optional actions like OnFrame, continue.
-      if (!(e instanceof StateDidNotRespondToAction)) {
-        throw e
-      }
+  onContextChange(fn: ContextChangeSubscriber): () => void {
+    this.#contextChangeSubscribers.add(fn)
 
-      throw new NoStatesRespondToAction([currentState()], e.action)
-    }
+    return () => this.#contextChangeSubscribers.delete(fn)
   }
 
-  const onContextChange = (fn: ContextChangeSubscriber) => {
-    contextChangeSubscribers_.add(fn)
-
-    return () => contextChangeSubscribers_.delete(fn)
+  disconnect(): void {
+    this.#contextChangeSubscribers.clear()
   }
 
-  const disconnect = () => contextChangeSubscribers_.clear()
-
-  const currentState = () => context.currentState
-
-  const currentHistory = () => context.history
-
-  const canHandle = (action: Action<any, any>): boolean =>
-    validActions_.has((action.type as string).toLowerCase())
-
-  const run = (action: Action<any, any>): Promise<Array<Effect>> => {
-    const extPromise = externalPromise<Array<Effect>>()
-
-    pendingActions_.push([action, extPromise])
-
-    if (timeoutId_) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      clearTimeout(timeoutId_ as any)
-    }
-
-    timeoutId_ = setTimeout(flushPendingActions_, 0)
-
-    return extPromise.promise
+  canHandle(action: Action<any, any>): boolean {
+    return this.#validActions.has((action.type as string).toLowerCase())
   }
 
-  const bindActions = <
+  bindActions<
     AM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
-  >(
-    actions: AM,
-  ): AM =>
-    Object.keys(actions).reduce((sum, key) => {
+  >(actions: AM): AM {
+    return Object.keys(actions).reduce((sum, key) => {
       sum[key] = (...args: Array<any>) => {
         try {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-non-null-assertion
-          return run(actions[key]!(...args))
+          return this.run(actions[key]!(...args))
         } catch (e) {
           if (e instanceof NoStatesRespondToAction) {
-            if (context.customLogger) {
-              context.customLogger([e.toString()], "error")
-            } else if (!context.disableLogging) {
+            if (this.context.customLogger) {
+              this.context.customLogger([e.toString()], "error")
+            } else if (this.context.enableLogging) {
               console.error(e.toString())
             }
 
@@ -185,14 +80,222 @@ export const createRuntime = (
 
       return sum
     }, {} as Record<string, any>) as AM
+  }
 
-  return {
-    currentState,
-    onContextChange,
-    bindActions,
-    disconnect,
-    run,
-    canHandle,
-    context,
+  async run(action: Action<any, any>): Promise<void> {
+    const promise = new Promise<void>((resolve, reject) => {
+      this.#queue.push({
+        onComplete: resolve,
+        onError: reject,
+        item: action,
+      })
+    })
+
+    if (!this.#isRunning) {
+      this.#isRunning = true
+      void this.#processQueueHead()
+    }
+
+    await promise
+
+    this.#contextDidChange()
+  }
+
+  async #processQueueHead(): Promise<void> {
+    const head = this.#queue.shift()
+
+    if (!head) {
+      this.#isRunning = false
+      return
+    }
+
+    const { item, onComplete, onError } = head
+
+    // Make sure we're in a valid state.
+    this.#validateCurrentState()
+
+    try {
+      let results: StateReturn[] = []
+
+      if (isAction(item)) {
+        results = await this.#executeAction(item)
+      } else if (isStateTransition(item)) {
+        results = this.#handleState(item)
+      } else if (isEffect(item)) {
+        if (item.label === "goBack") {
+          results = this.#handleGoBack()
+        } else {
+          this.#runEffect(item)
+        }
+      } else {
+        // Should be impossible to get here with TypeScript,
+        // but could happen with plain JS.
+        throw new UnknownStateReturnType(item)
+      }
+
+      const { promise, items } = this.#stateReturnsToQueueItems(results)
+
+      // New items go to front of queue
+      this.#queue = [...items, ...this.#queue]
+
+      void promise.then(() => onComplete()).catch(e => onError(e))
+
+      setTimeout(() => {
+        void this.#processQueueHead()
+      }, 0)
+    } catch (e) {
+      onError(e)
+      this.#isRunning = false
+      this.#queue.length = 0
+    }
+  }
+
+  #stateReturnsToQueueItems(stateReturns: StateReturn[]): {
+    promise: Promise<void[]>
+    items: QueueItem[]
+  } {
+    const { promises, items } = stateReturns.reduce(
+      (acc, item) => {
+        const { promise, resolve, reject } = externalPromise<void>()
+
+        acc.promises.push(promise)
+
+        acc.items.push({
+          onComplete: resolve,
+          onError: reject,
+          item,
+        })
+
+        return acc
+      },
+      {
+        promises: [] as Promise<void>[],
+        items: [] as QueueItem[],
+      },
+    )
+
+    return { promise: Promise.all(promises), items }
+  }
+
+  #contextDidChange() {
+    this.#contextChangeSubscribers.forEach(sub => sub(this.context))
+  }
+
+  #validateCurrentState() {
+    const runCurrentState = this.currentState()
+
+    if (!runCurrentState) {
+      throw new Error(
+        `Fizz could not find current state to run action on. History: ${JSON.stringify(
+          this.currentHistory()
+            .map(({ name }) => name as string)
+            .join(" -> "),
+        )}`,
+      )
+    }
+  }
+
+  #runEffect(e: Effect<any>) {
+    e.executor(this.context)
+  }
+
+  async #executeAction<A extends Action<any, any>>(
+    action: A,
+  ): Promise<StateReturn[]> {
+    const targetState = this.context.currentState
+
+    if (!targetState) {
+      throw new MissingCurrentState("Must provide a current state")
+    }
+
+    // const isReentering =
+    //   exitState &&
+    //   exitState.name === targetState.name &&
+    //   targetState.mode === "append" &&
+    //   action.type === "Enter"
+
+    //!isUpdating && !isReentering &&
+    // const isEnteringNewState = action.type === "Enter"
+
+    // const prefix = isEnteringNewState
+    //   ? this.enterState_(targetState, exitState)
+    //   : []
+
+    const result = await targetState.executor(action)
+
+    return arraySingleton(result)
+  }
+
+  #handleState(targetState: StateTransition<any, any, any>): StateReturn[] {
+    const exitState = this.context.currentState
+
+    const isUpdating =
+      exitState &&
+      exitState.name === targetState.name &&
+      targetState.mode === "update"
+
+    return isUpdating
+      ? this.#updateState(targetState)
+      : this.#enterState(targetState)
+  }
+
+  #updateState(targetState: StateTransition<any, any, any>): StateReturn[] {
+    return [
+      // Update history
+      __internalEffect("nextState", targetState, () => {
+        this.context.history.removePrevious()
+        this.context.history.push(targetState)
+      }),
+
+      // Add a log effect.
+      log(`Update: ${targetState.name as string}`, targetState.data),
+    ]
+  }
+
+  #enterState(targetState: StateTransition<any, any, any>): StateReturn[] {
+    const exitState = this.context.currentState
+
+    const effects: StateReturn[] = [
+      // Update history
+      __internalEffect("nextState", targetState, () =>
+        this.context.history.push(targetState),
+      ),
+
+      // Add a log effect.
+      log(`Enter: ${targetState.name as string}`, targetState.data),
+
+      // Run enter on next state
+      enter(),
+
+      // Notify listeners of change
+      // __internalEffect("contextChange", undefined, () => {
+      //   // Only state changes (and updates) can change context
+      //   this.onContextChange_()
+      // }),
+    ]
+
+    // Run exit on prior state first
+    if (exitState) {
+      effects.unshift(exit())
+    }
+
+    return effects
+  }
+
+  #handleGoBack(): StateReturn[] {
+    return [
+      // Update history
+      __internalEffect("updateHistory", undefined, () => {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        this.context.history.push(this.context.history.previous!)
+      }),
+
+      enter(),
+    ]
   }
 }
+
+export const createRuntime = (
+  context: Context,
+  validActionNames: Array<string> = [],
+) => new Runtime(context, validActionNames)
