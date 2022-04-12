@@ -53,7 +53,7 @@ describe("Runtime", () => {
     expect(runtime.currentState().is(B)).toBeTruthy()
   })
 
-  test.only("onEnter actions should run in correct order", async () => {
+  test("onEnter actions should run in correct order", async () => {
     const trigger = createAction("Trigger")
     type Trigger = ActionCreatorType<typeof trigger>
 
@@ -61,7 +61,7 @@ describe("Runtime", () => {
 
     const A = state<Enter | Trigger, { num: number }>({
       Enter: (shared, __, { update }) => {
-        onEnter(performance.now())
+        onEnter()
         return [update({ ...shared, num: shared.num + 1 }), trigger()]
       },
 
