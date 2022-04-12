@@ -13,7 +13,6 @@ export type StateReturn =
   | Effect
   | Action<any, any>
   | StateTransition<any, any, any>
-  | Promise<any>
 
 /**
  * State handlers are objects which contain a serializable list of bound

@@ -6,7 +6,7 @@ import { noop } from "../effect"
 import { state } from "../state"
 
 describe("Runtime", () => {
-  test("should transition through multiple states", async () => {
+  test.only("should transition through multiple states", async () => {
     const A = state<Enter>(
       {
         Enter: () => B(),
