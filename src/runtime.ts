@@ -243,7 +243,7 @@ export class Runtime {
     return [
       // Update history
       __internalEffect("nextState", targetState, () => {
-        this.context.history.removePrevious()
+        this.context.history.pop()
         this.context.history.push(targetState)
       }),
 
@@ -287,7 +287,7 @@ export class Runtime {
       // Update history
       __internalEffect("updateHistory", undefined, () => {
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        this.context.history.push(this.context.history.previous!)
+        this.context.history.pop()
       }),
 
       enter(),

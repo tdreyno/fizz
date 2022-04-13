@@ -350,7 +350,7 @@ describe("Runtime", () => {
 
     const B = state<Enter | Trigger>(
       {
-        Enter: noop,
+        Enter: (data, __, { update }) => [update(data), trigger()],
         Trigger: () => [goBack(), hi()],
       },
       { name: "B" },
@@ -359,11 +359,13 @@ describe("Runtime", () => {
     test("should return to previous state", async () => {
       const customLogger = jest.fn()
 
-      const context = createInitialContext([B(), A("Test")], { customLogger })
+      const context = createInitialContext([B(), A("Test")], {
+        customLogger,
+      })
 
       const runtime = createRuntime(context)
 
-      await runtime.run(trigger())
+      await runtime.run(enter())
 
       expect(runtime.currentState().is(A)).toBeTruthy()
       expect(runtime.currentState().data).toBe("Test")

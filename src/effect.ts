@@ -1,6 +1,5 @@
 import type { Action } from "./action.js"
 import type { Context } from "./context.js"
-import type { StateTransition } from "./state.js"
 
 export interface Effect<T = any> {
   label: string
@@ -16,18 +15,7 @@ export const isEffect = (e: unknown): e is Effect =>
 export const isEffects = (effects: unknown): effects is Array<Effect> =>
   Array.isArray(effects) && effects.every(isEffect)
 
-const RESERVED_EFFECTS = [
-  "exited",
-  "entered",
-  "goBack",
-  "log",
-  "error",
-  "warn",
-  "noop",
-  "timeout",
-  "runTransition",
-  "runAction",
-]
+const RESERVED_EFFECTS = ["goBack", "log", "error", "warn", "noop", "timeout"]
 
 export const __internalEffect = <D, F extends (context: Context) => void>(
   label: string,
@@ -56,14 +44,6 @@ export const effect = <D, F extends (context: Context) => void>(
 
 export const goBack = (): Effect<void> =>
   __internalEffect("goBack", undefined, () => void 0)
-
-export const runTransition = <T extends StateTransition<any, any, any>>(
-  transition: T,
-): Effect<T> => __internalEffect("runTransition", transition, () => void 0)
-
-export const runAction = <T extends Action<string, any>>(
-  action: T,
-): Effect<T> => __internalEffect("runAction", action, () => void 0)
 
 const handleLog =
   <T extends Array<any>>(
