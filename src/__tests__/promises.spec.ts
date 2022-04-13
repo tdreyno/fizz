@@ -5,7 +5,7 @@ import { createInitialContext } from "./createInitialContext"
 import { createRuntime } from "../runtime"
 import { state } from "../state"
 
-describe("Promises", () => {
+describe.skip("Promises", () => {
   const trigger = createAction("Trigger")
   type Trigger = ActionCreatorType<typeof trigger>
 

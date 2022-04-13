@@ -5,7 +5,7 @@ import { createInitialContext } from "./createInitialContext"
 import { createRuntime } from "../runtime"
 import { noop } from "../effect"
 
-describe("onContextChange", () => {
+describe.skip("onContextChange", () => {
   test("should run callback once after changes", async () => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const A = stateWrapper("A", (action: Enter, _name: string) => {

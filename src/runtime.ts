@@ -1,5 +1,5 @@
 import { Action, enter, exit, isAction } from "./action.js"
-import { Effect, isEffect, log, __internalEffect } from "./effect.js"
+import { Effect, __internalEffect, isEffect, log } from "./effect.js"
 import {
   MissingCurrentState,
   NoStatesRespondToAction,
@@ -7,19 +7,12 @@ import {
   UnknownStateReturnType,
 } from "./errors.js"
 import { StateReturn, StateTransition, isStateTransition } from "./state.js"
+import { arraySingleton, externalPromise } from "./util.js"
 
 import type { Context } from "./context.js"
 import { LinkedList } from "./LinkedList.js"
-import { execute } from "./core.js"
-import { arraySingleton, externalPromise } from "./util.js"
 
 type ContextChangeSubscriber = (context: Context) => void
-
-// bindActions: <
-// AM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
-// >(
-// actions: AM,
-// ) => AM
 
 type QueueItem = {
   onComplete: () => void
@@ -30,6 +23,7 @@ export class Runtime {
   contextChangeSubscribers_: Set<ContextChangeSubscriber> = new Set()
   validActions_: Set<string>
   queue_ = LinkedList.empty<QueueItem>()
+  isRunning = false
 
   constructor(
     public context: Context,
@@ -64,18 +58,25 @@ export class Runtime {
   }
 
   run(action: Action<any, any>): Promise<void> {
-    return new Promise<void>(resolve => {
+    const promise = new Promise<void>(resolve => {
       this.queue_.push({
         onComplete: resolve,
         item: action,
       })
     })
+
+    if (!this.isRunning) {
+      this.processQueueHead_()
+    }
+
+    return promise
   }
 
-  async processQueueHead_() {
+  processQueueHead_(): void {
     const head = this.queue_.shift()
 
     if (!head) {
+      this.isRunning = false
       return
     }
 
@@ -89,21 +90,16 @@ export class Runtime {
 
       if (isAction(item)) {
         results = this.executeAction_(item)
+        // What if handler is async?
       } else if (isStateTransition(item)) {
-        // this.currentState().executor(exit())
-        // item.executor(enter())
-        results = execute(enter(), this.context)
-
-        // Only state changes (and updates) can change context
-        this.onContextChange_()
+        results = this.enterState_(item)
       } else if (isEffect(item)) {
         if (item.label === "reenter") {
           results = [] // go to current state
         } else if (item.label === "goBack") {
           results = [] // go to previous state
         } else {
-          // run effect
-          item.executor(this.context)
+          this.runEffect_(item)
         }
       } else {
         // Should be impossible to get here with TypeScript,
@@ -116,11 +112,14 @@ export class Runtime {
       // New items go to front of queue
       this.queue_.prefix(items)
 
-      await promise
+      void promise.then(() => onComplete())
 
-      onComplete()
+      setTimeout(() => {
+        this.processQueueHead_()
+      }, 0)
     } catch (e) {
       console.error(e)
+      this.isRunning = false
       this.queue_.clear()
     }
   }
@@ -169,20 +168,6 @@ export class Runtime {
     }
   }
 
-  executeAction_(action: Action<any, any>): StateReturn[] {
-    // Try this runtime.
-    try {
-      return execute(action, this.context)
-    } catch (e) {
-      // If it failed to handle optional actions like OnFrame, continue.
-      if (!(e instanceof StateDidNotRespondToAction)) {
-        throw e
-      }
-
-      throw new NoStatesRespondToAction([this.currentState()], e.action)
-    }
-  }
-
   bindActions<
     AM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
   >(actions: AM): AM {
@@ -209,83 +194,91 @@ export class Runtime {
       return sum
     }, {} as Record<string, any>) as AM
   }
-}
 
-const enterState = (
-  context: Context,
-  targetState: StateTransition<any, any, any>,
-  exitState?: StateTransition<any, any, any>,
-): StateReturn[] => {
-  let exitEffects: Array<StateReturn> = []
+  runEffect_(e: Effect<any>) {
+    e.executor(this.context)
+  }
 
-  if (exitState) {
-    exitEffects.push(__internalEffect("exited", exitState, () => void 0))
-
-    try {
-      const result = execute(exit(), context, exitState)
-
-      exitEffects = exitEffects.concat(result)
-    } catch (e) {
-      if (!(e instanceof StateDidNotRespondToAction)) {
-        throw e
-      }
+  executeAction_<A extends Action<any, any>>(
+    action: A,
+    // exitState = this.context.history.previous,
+  ): StateReturn[] {
+    const targetState = this.context.currentState
+    if (!targetState) {
+      throw new MissingCurrentState("Must provide a current state")
     }
+
+    // const isUpdating =
+    //   exitState &&
+    //   exitState.name === targetState.name &&
+    //   targetState.mode === "update" &&
+    //   action.type === "Enter"
+
+    // if (isUpdating) {
+    //   // TODO: Needs to be lazy
+    //   this.context.history.removePrevious()
+
+    //   return [
+    //     // Add a log effect.
+    //     log(`Update: ${targetState.name as string}`, targetState.data),
+
+    //     // Add a goto effect for testing.
+    //     __internalEffect("update", targetState, () => void 0),
+    //   ]
+    // }
+
+    // const isReentering =
+    //   exitState &&
+    //   exitState.name === targetState.name &&
+    //   targetState.mode === "append" &&
+    //   action.type === "Enter"
+
+    //!isUpdating && !isReentering &&
+    // const isEnteringNewState = action.type === "Enter"
+
+    // const prefix = isEnteringNewState
+    //   ? this.enterState_(targetState, exitState)
+    //   : []
+
+    const result = targetState.executor(action)
+
+    // return prefix.concat(
+    return arraySingleton<StateReturn>(result)
+    // )
   }
 
-  return [
-    ...exitEffects,
+  enterState_(targetState: StateTransition<any, any, any>): StateReturn[] {
+    const exitState = this.context.currentState
 
-    // Add a log effect.
-    log(`Enter: ${targetState.name as string}`, targetState.data),
+    const effects: StateReturn[] = [
+      // Update history
+      __internalEffect("nextState", targetState, () =>
+        this.context.history.push(targetState),
+      ),
 
-    // Add a goto effect for testing.
-    __internalEffect("entered", targetState, () => void 0),
-  ]
-}
-
-export const execute = <A extends Action<any, any>>(
-  action: A,
-  context: Context,
-  targetState = context.currentState,
-  exitState = context.history.previous,
-): StateReturn[] => {
-  if (!targetState) {
-    throw new MissingCurrentState("Must provide a current state")
-  }
-
-  const isUpdating =
-    exitState &&
-    exitState.name === targetState.name &&
-    targetState.mode === "update" &&
-    action.type === "Enter"
-
-  if (isUpdating) {
-    // TODO: Needs to be lazy
-    context.history.removePrevious()
-
-    return [
       // Add a log effect.
-      log(`Update: ${targetState.name as string}`, targetState.data),
+      log(`Enter: ${targetState.name as string}`, targetState.data),
 
-      // Add a goto effect for testing.
-      __internalEffect("update", targetState, () => void 0),
+      // Run enter on next state
+      enter(),
+
+      // Notify listeners of change
+      // __internalEffect("contextChange", undefined, () => {
+      //   // Only state changes (and updates) can change context
+      //   this.onContextChange_()
+      // }),
     ]
+
+    // Run exit on prior state first
+    if (exitState) {
+      effects.unshift(exit())
+    }
+
+    return effects
   }
-
-  const isReentering =
-    exitState &&
-    exitState.name === targetState.name &&
-    targetState.mode === "append" &&
-    action.type === "Enter"
-
-  const isEnteringNewState =
-    !isUpdating && !isReentering && action.type === "Enter"
-
-  const prefix = isEnteringNewState
-    ? enterState(context, targetState, exitState)
-    : []
-
-  const result = targetState.executor(action)
-
-  return prefix.concat(arraySingleton<StateReturn>(result))
 }
+
+export const createRuntime = (
+  context: Context,
+  validActionNames: Array<string> = [],
+) => new Runtime(context, validActionNames)

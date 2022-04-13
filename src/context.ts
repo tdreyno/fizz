@@ -60,7 +60,6 @@ export class History<
 
 interface Options {
   maxHistory: number
-  allowUnhandled: boolean
   onAsyncEnterExit: "throw" | "warn" | "silent"
   disableLogging: boolean
   customLogger?:
@@ -73,10 +72,6 @@ export class Context {
     public history: History,
     private options_: Omit<Options, "maxHistory">,
   ) {}
-
-  get allowUnhandled() {
-    return this.options_.allowUnhandled
-  }
 
   get onAsyncEnterExit() {
     return this.options_.onAsyncEnterExit
@@ -100,7 +95,6 @@ export const createInitialContext = (
   options?: Partial<Options>,
 ) =>
   new Context(new History(history, options?.maxHistory ?? Infinity), {
-    allowUnhandled: options?.allowUnhandled ?? false,
     onAsyncEnterExit: options?.onAsyncEnterExit ?? "warn",
     disableLogging: options?.disableLogging ?? false,
     customLogger: options?.customLogger,

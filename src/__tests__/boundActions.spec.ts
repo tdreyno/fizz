@@ -5,7 +5,7 @@ import { createInitialContext } from "./createInitialContext"
 import { createRuntime } from "../runtime"
 import { noop } from "../effect"
 
-describe("Bound actions", () => {
+describe.skip("Bound actions", () => {
   test("should run sequentially when called at the same time", async () => {
     const add = createAction<"Add", number>("Add")
     type Add = ActionCreatorType<typeof add>
