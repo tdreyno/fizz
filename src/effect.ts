@@ -74,7 +74,7 @@ const handleLog =
   (context: Context) => {
     if (context.customLogger) {
       context.customLogger(msgs, type)
-    } else if (!context.disableLogging) {
+    } else if (context.enableLogging) {
       logger(...msgs)
     }
   }

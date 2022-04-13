@@ -61,7 +61,7 @@ export class History<
 interface Options {
   maxHistory: number
   onAsyncEnterExit: "throw" | "warn" | "silent"
-  disableLogging: boolean
+  enableLogging: boolean
   customLogger?:
     | undefined
     | ((msgs: Array<any>, level: "error" | "warn" | "log") => void)
@@ -77,8 +77,8 @@ export class Context {
     return this.options_.onAsyncEnterExit
   }
 
-  get disableLogging() {
-    return this.options_.disableLogging
+  get enableLogging() {
+    return this.options_.enableLogging
   }
 
   get customLogger() {
@@ -96,6 +96,6 @@ export const createInitialContext = (
 ) =>
   new Context(new History(history, options?.maxHistory ?? Infinity), {
     onAsyncEnterExit: options?.onAsyncEnterExit ?? "warn",
-    disableLogging: options?.disableLogging ?? false,
+    enableLogging: options?.enableLogging ?? false,
     customLogger: options?.customLogger,
   })

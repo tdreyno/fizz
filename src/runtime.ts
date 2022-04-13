@@ -3,26 +3,25 @@ import { Effect, __internalEffect, isEffect, log } from "./effect.js"
 import {
   MissingCurrentState,
   NoStatesRespondToAction,
-  StateDidNotRespondToAction,
   UnknownStateReturnType,
 } from "./errors.js"
 import { StateReturn, StateTransition, isStateTransition } from "./state.js"
 import { arraySingleton, externalPromise } from "./util.js"
 
 import type { Context } from "./context.js"
-import { LinkedList } from "./LinkedList.js"
 
 type ContextChangeSubscriber = (context: Context) => void
 
 type QueueItem = {
   onComplete: () => void
+  onError: (e: unknown) => void
   item: Action<any, any> | StateTransition<any, any, any> | Effect<any>
 }
 
 export class Runtime {
   contextChangeSubscribers_: Set<ContextChangeSubscriber> = new Set()
   validActions_: Set<string>
-  queue_ = LinkedList.empty<QueueItem>()
+  queue_: QueueItem[] = []
   isRunning = false
 
   constructor(
@@ -57,22 +56,26 @@ export class Runtime {
     return this.validActions_.has((action.type as string).toLowerCase())
   }
 
-  run(action: Action<any, any>): Promise<void> {
-    const promise = new Promise<void>(resolve => {
+  async run(action: Action<any, any>): Promise<void> {
+    const promise = new Promise<void>((resolve, reject) => {
       this.queue_.push({
         onComplete: resolve,
+        onError: reject,
         item: action,
       })
     })
 
     if (!this.isRunning) {
-      this.processQueueHead_()
+      this.isRunning = true
+      void this.processQueueHead_()
     }
 
-    return promise
+    await promise
+
+    this.contextDidChange_()
   }
 
-  processQueueHead_(): void {
+  async processQueueHead_(): Promise<void> {
     const head = this.queue_.shift()
 
     if (!head) {
@@ -80,7 +83,7 @@ export class Runtime {
       return
     }
 
-    const { item, onComplete } = head
+    const { item, onComplete, onError } = head
 
     // Make sure we're in a valid state.
     this.validateCurrentState_()
@@ -89,15 +92,12 @@ export class Runtime {
       let results: StateReturn[] = []
 
       if (isAction(item)) {
-        results = this.executeAction_(item)
-        // What if handler is async?
+        results = await this.executeAction_(item)
       } else if (isStateTransition(item)) {
-        results = this.enterState_(item)
+        results = this.handleState_(item)
       } else if (isEffect(item)) {
-        if (item.label === "reenter") {
-          results = [] // go to current state
-        } else if (item.label === "goBack") {
-          results = [] // go to previous state
+        if (item.label === "goBack") {
+          results = this.handleGoBack_()
         } else {
           this.runEffect_(item)
         }
@@ -110,17 +110,17 @@ export class Runtime {
       const { promise, items } = this.stateReturnsToQueueItems_(results)
 
       // New items go to front of queue
-      this.queue_.prefix(items)
+      this.queue_ = [...items, ...this.queue_]
 
-      void promise.then(() => onComplete())
+      void promise.then(() => onComplete()).catch(e => onError(e))
 
       setTimeout(() => {
-        this.processQueueHead_()
+        void this.processQueueHead_()
       }, 0)
     } catch (e) {
-      console.error(e)
+      onError(e)
       this.isRunning = false
-      this.queue_.clear()
+      this.queue_.length = 0
     }
   }
 
@@ -130,12 +130,13 @@ export class Runtime {
   } {
     const { promises, items } = stateReturns.reduce(
       (acc, item) => {
-        const { promise, resolve } = externalPromise<void>()
+        const { promise, resolve, reject } = externalPromise<void>()
 
         acc.promises.push(promise)
 
         acc.items.push({
           onComplete: resolve,
+          onError: reject,
           item,
         })
 
@@ -150,7 +151,7 @@ export class Runtime {
     return { promise: Promise.all(promises), items }
   }
 
-  onContextChange_() {
+  contextDidChange_() {
     this.contextChangeSubscribers_.forEach(sub => sub(this.context))
   }
 
@@ -180,7 +181,7 @@ export class Runtime {
           if (e instanceof NoStatesRespondToAction) {
             if (this.context.customLogger) {
               this.context.customLogger([e.toString()], "error")
-            } else if (!this.context.disableLogging) {
+            } else if (this.context.enableLogging) {
               console.error(e.toString())
             }
 
@@ -199,33 +200,14 @@ export class Runtime {
     e.executor(this.context)
   }
 
-  executeAction_<A extends Action<any, any>>(
+  async executeAction_<A extends Action<any, any>>(
     action: A,
-    // exitState = this.context.history.previous,
-  ): StateReturn[] {
+  ): Promise<StateReturn[]> {
     const targetState = this.context.currentState
+
     if (!targetState) {
       throw new MissingCurrentState("Must provide a current state")
     }
-
-    // const isUpdating =
-    //   exitState &&
-    //   exitState.name === targetState.name &&
-    //   targetState.mode === "update" &&
-    //   action.type === "Enter"
-
-    // if (isUpdating) {
-    //   // TODO: Needs to be lazy
-    //   this.context.history.removePrevious()
-
-    //   return [
-    //     // Add a log effect.
-    //     log(`Update: ${targetState.name as string}`, targetState.data),
-
-    //     // Add a goto effect for testing.
-    //     __internalEffect("update", targetState, () => void 0),
-    //   ]
-    // }
 
     // const isReentering =
     //   exitState &&
@@ -240,11 +222,35 @@ export class Runtime {
     //   ? this.enterState_(targetState, exitState)
     //   : []
 
-    const result = targetState.executor(action)
+    const result = await targetState.executor(action)
 
-    // return prefix.concat(
-    return arraySingleton<StateReturn>(result)
-    // )
+    return arraySingleton(result)
+  }
+
+  handleState_(targetState: StateTransition<any, any, any>): StateReturn[] {
+    const exitState = this.context.currentState
+
+    const isUpdating =
+      exitState &&
+      exitState.name === targetState.name &&
+      targetState.mode === "update"
+
+    return isUpdating
+      ? this.updateState_(targetState)
+      : this.enterState_(targetState)
+  }
+
+  updateState_(targetState: StateTransition<any, any, any>): StateReturn[] {
+    return [
+      // Update history
+      __internalEffect("nextState", targetState, () => {
+        this.context.history.removePrevious()
+        this.context.history.push(targetState)
+      }),
+
+      // Add a log effect.
+      log(`Update: ${targetState.name as string}`, targetState.data),
+    ]
   }
 
   enterState_(targetState: StateTransition<any, any, any>): StateReturn[] {
@@ -275,6 +281,18 @@ export class Runtime {
     }
 
     return effects
+  }
+
+  handleGoBack_(): StateReturn[] {
+    return [
+      // Update history
+      __internalEffect("updateHistory", undefined, () => {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        this.context.history.push(this.context.history.previous!)
+      }),
+
+      enter(),
+    ]
   }
 }
 

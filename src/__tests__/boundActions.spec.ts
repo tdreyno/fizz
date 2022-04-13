@@ -1,11 +1,11 @@
 import { ActionCreatorType, Enter, createAction } from "../action"
 import { StateReturn, stateWrapper } from "../state"
 
-import { createInitialContext } from "./createInitialContext"
+import { createInitialContext } from "../context"
 import { createRuntime } from "../runtime"
 import { noop } from "../effect"
 
-describe.skip("Bound actions", () => {
+describe("Bound actions", () => {
   test("should run sequentially when called at the same time", async () => {
     const add = createAction<"Add", number>("Add")
     type Add = ActionCreatorType<typeof add>

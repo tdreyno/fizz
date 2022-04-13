@@ -17,7 +17,7 @@ export interface ContextValue<
 interface Options {
   maxHistory: number
   restartOnInitialStateChange?: boolean
-  disableLogging?: boolean
+  enableLogging?: boolean
 }
 
 export const createStore = <
@@ -30,11 +30,11 @@ export const createStore = <
   initialState: StateTransition<any, any, any>,
   options: Partial<Options> = {},
 ): R => {
-  const { maxHistory = 5, disableLogging = false } = options
+  const { maxHistory = 5, enableLogging = false } = options
 
   const defaultContext = createInitialContext([initialState], {
     maxHistory,
-    disableLogging,
+    enableLogging,
   })
 
   const runtime = createRuntime(defaultContext, Object.keys(actions))

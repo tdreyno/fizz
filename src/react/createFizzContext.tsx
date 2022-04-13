@@ -40,7 +40,7 @@ export interface ContextValue<
 interface Options {
   maxHistory: number
   restartOnInitialStateChange?: boolean
-  disableLogging?: boolean
+  enableLogging?: boolean
 }
 
 export function createFizzContext<
@@ -50,12 +50,12 @@ export function createFizzContext<
   const {
     restartOnInitialStateChange,
     maxHistory = 5,
-    disableLogging = false,
+    enableLogging = false,
   } = options
 
   const defaultContext = createInitialContext(
     [stateWrapper("Placeholder", () => noop())()],
-    { maxHistory, disableLogging },
+    { maxHistory, enableLogging },
   )
 
   const MachineContext = React.createContext<ContextValue<SM, AM>>({
@@ -79,7 +79,7 @@ export function createFizzContext<
     const runtime = useMemo(
       () =>
         createRuntime(
-          createInitialContext([initialState], { maxHistory, disableLogging }),
+          createInitialContext([initialState], { maxHistory, enableLogging }),
           Object.keys(actions),
         ),
       [initialState],
