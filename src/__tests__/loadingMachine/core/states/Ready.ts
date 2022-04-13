@@ -1,11 +1,11 @@
-import type { ReEnter, Reset } from "../actions"
 import { goBack, noop } from "../effects"
 
 import type { Enter } from "../../../../action"
+import type { Reset } from "../actions"
 import type { Shared } from "../types"
 import { state } from "../../../../state"
 
-type Actions = Enter | Reset | ReEnter
+type Actions = Enter | Reset // | ReEnter
 type Data = [Shared]
 
 export default state<Actions, Data>(
@@ -14,7 +14,7 @@ export default state<Actions, Data>(
 
     Reset: goBack,
 
-    ReEnter: (data, _, { reenter }) => reenter(data),
+    // ReEnter: (data, _, { reenter }) => reenter(data),
   },
   { name: "Ready" },
 )

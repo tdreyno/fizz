@@ -6,7 +6,4 @@ export const machine = createStore(
   Core.States,
   Core.Actions,
   Core.States.Initializing([{ message: "Loading" }, true]),
-  {
-    disableLogging: true,
-  },
 )

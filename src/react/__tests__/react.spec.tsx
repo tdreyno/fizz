@@ -12,9 +12,7 @@ import { render, screen, waitFor } from "@testing-library/react"
 import React from "react"
 import { switch_ } from "../../state"
 
-const LoadingMachine = createFizzContext(Core.States, Core.Actions, {
-  disableLogging: true,
-})
+const LoadingMachine = createFizzContext(Core.States, Core.Actions)
 
 const { Initializing, Loading, Ready } = Core.States
 
