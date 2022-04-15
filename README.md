@@ -170,7 +170,7 @@ const App = () => (
 
 If you are using Svelte, you can create a machine provider and access the current state with a store.
 
-````typescript
+```typescript
 import { createMachine } from "@tdreyno/fizz/svelte"
 
 const machine = createMachine(states, actions, initialState)
@@ -178,7 +178,6 @@ const machine = createMachine(states, actions, initialState)
 $: {
   console.log($machine.currentState);
 }
-
 ```
 
 ## Design
