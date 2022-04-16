@@ -1,6 +1,6 @@
 {
   "name": "@tdreyno/fizz",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "repository": "https://github.com/tdreyno/fizz.git",
   "publishConfig": {
     "access": "public"
