@@ -36,31 +36,13 @@ export class History<
     return this.items.shift()
   }
 
-  removePrevious(): void {
-    if (this.length <= 1) {
-      return
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const head = this.pop()!
-
-    this.pop()
-
-    this.push(head)
-  }
-
   toArray(): Array<T> {
-    return [...this.items]
-  }
-
-  map<B>(fn: (item: T) => B): Array<B> {
-    return this.toArray().map(fn)
+    return this.items
   }
 }
 
 interface Options {
   maxHistory: number
-  onAsyncEnterExit: "throw" | "warn" | "silent"
   enableLogging: boolean
   customLogger?:
     | undefined
@@ -72,10 +54,6 @@ export class Context {
     public history: History,
     private options_: Omit<Options, "maxHistory">,
   ) {}
-
-  get onAsyncEnterExit() {
-    return this.options_.onAsyncEnterExit
-  }
 
   get enableLogging() {
     return this.options_.enableLogging
@@ -95,7 +73,6 @@ export const createInitialContext = (
   options?: Partial<Options>,
 ) =>
   new Context(new History(history, options?.maxHistory ?? Infinity), {
-    onAsyncEnterExit: options?.onAsyncEnterExit ?? "warn",
     enableLogging: options?.enableLogging ?? false,
     customLogger: options?.customLogger,
   })

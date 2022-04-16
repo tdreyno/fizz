@@ -1,10 +1,6 @@
-import { Action, enter, exit, isAction } from "./action.js"
-import { Effect, __internalEffect, isEffect, log } from "./effect.js"
-import {
-  MissingCurrentState,
-  NoStatesRespondToAction,
-  UnknownStateReturnType,
-} from "./errors.js"
+import { type Action, enter, exit, isAction } from "./action.js"
+import { type Effect, effect, isEffect, log } from "./effect.js"
+import { MissingCurrentState, UnknownStateReturnType } from "./errors.js"
 import { StateReturn, StateTransition, isStateTransition } from "./state.js"
 import { arraySingleton, externalPromise } from "./util.js"
 
@@ -60,22 +56,8 @@ export class Runtime {
   >(actions: AM): AM {
     return Object.keys(actions).reduce((sum, key) => {
       sum[key] = (...args: Array<any>) => {
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-non-null-assertion
-          return this.run(actions[key]!(...args))
-        } catch (e) {
-          if (e instanceof NoStatesRespondToAction) {
-            if (this.context.customLogger) {
-              this.context.customLogger([e.toString()], "error")
-            } else if (this.context.enableLogging) {
-              console.error(e.toString())
-            }
-
-            return
-          }
-
-          throw e
-        }
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-non-null-assertion
+        return this.run(actions[key]!(...args))
       }
 
       return sum
@@ -188,6 +170,7 @@ export class Runtime {
       throw new Error(
         `Fizz could not find current state to run action on. History: ${JSON.stringify(
           this.currentHistory()
+            .toArray()
             .map(({ name }) => name as string)
             .join(" -> "),
         )}`,
@@ -242,7 +225,7 @@ export class Runtime {
   #updateState(targetState: StateTransition<any, any, any>): StateReturn[] {
     return [
       // Update history
-      __internalEffect("nextState", targetState, () => {
+      effect("nextState", targetState, () => {
         this.context.history.pop()
         this.context.history.push(targetState)
       }),
@@ -257,7 +240,7 @@ export class Runtime {
 
     const effects: StateReturn[] = [
       // Update history
-      __internalEffect("nextState", targetState, () =>
+      effect("nextState", targetState, () =>
         this.context.history.push(targetState),
       ),
 
@@ -268,7 +251,7 @@ export class Runtime {
       enter(),
 
       // Notify listeners of change
-      // __internalEffect("contextChange", undefined, () => {
+      // effect("contextChange", undefined, () => {
       //   // Only state changes (and updates) can change context
       //   this.onContextChange_()
       // }),
@@ -285,7 +268,7 @@ export class Runtime {
   #handleGoBack(): StateReturn[] {
     return [
       // Update history
-      __internalEffect("updateHistory", undefined, () => {
+      effect("updateHistory", undefined, () => {
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         this.context.history.pop()
       }),

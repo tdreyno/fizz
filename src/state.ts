@@ -35,7 +35,7 @@ export interface StateTransition<
   // reenter: (data: Data) => StateTransition<Name, A, Data>
   executor: (action: A) => HandlerReturn
   state: BoundStateFn<Name, A, Data>
-  is(state: BoundStateFn<any, any, any>): boolean
+  is(state: BoundStateFn<any, any, any>): state is BoundStateFn<Name, A, Data>
   isNamed(name: string): boolean
 }
 
@@ -110,7 +110,9 @@ export const stateWrapper = <
     },
 
     state: fn,
-    is: (state: BoundStateFn<any, any, any>): boolean => state === fn,
+    is: (
+      state: BoundStateFn<any, any, any>,
+    ): state is BoundStateFn<Name, A, Data> => state === fn,
     isNamed: (testName: string): boolean => testName === name,
   })
 

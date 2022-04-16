@@ -1,4 +1,4 @@
-import { Action, enter } from "../action.js"
+import { type Action, enter } from "../action.js"
 import type { BoundStateFn, StateTransition } from "../state.js"
 import { Context, createInitialContext } from "../context.js"
 import { Readable, readable } from "svelte/store"

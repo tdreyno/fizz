@@ -422,7 +422,7 @@ describe("Runtime", () => {
 
       function serializeContext(c: Context) {
         return serializeJavascript(
-          c.history.map(({ data, name }) => ({
+          c.history.toArray().map(({ data, name }) => ({
             // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             data,
             // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment

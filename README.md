@@ -176,7 +176,7 @@ import { createMachine } from "@tdreyno/fizz/svelte"
 const machine = createMachine(states, actions, initialState)
 
 $: {
-  console.log($machine.currentState);
+  console.log($machine.currentState)
 }
 ```
 
@@ -196,7 +196,7 @@ import { state, Enter } from "@tdreyno/fizz"
 const MyState = state<Enter>({
   Enter: () => log("Entered state MyState."),
 })
-````
+```
 
 In this case, `log` is a side-effect which will log to the console. It is implemented like so:
 
@@ -204,7 +204,7 @@ In this case, `log` is a side-effect which will log to the console. It is implem
 // The side-effect generating function.
 function log(msg) {
   // A representation of the effect, but not the execution.
-  return internalEffect(
+  return effect(
     // An effect name. Helps when writing tests and middleware.
     "log",
 
