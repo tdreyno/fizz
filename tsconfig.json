@@ -1,7 +1,6 @@
 {
   "compilerOptions": {
-    "target": "es2020",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "target": "es2015",
     "jsx": "react",
     "skipLibCheck": true,
     "esModuleInterop": true,
@@ -20,9 +19,9 @@
     "noUnusedParameters": true,
     "importsNotUsedAsValues": "error",
     "forceConsistentCasingInFileNames": true,
-    "module": "esnext",
+    "module": "es2015",
     "moduleResolution": "node",
-    "isolatedModules": false,
+    "isolatedModules": true,
     "allowJs": false,
     "noEmit": false,
     "sourceMap": true,
