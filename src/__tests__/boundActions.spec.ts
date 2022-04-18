@@ -49,6 +49,6 @@ describe("Bound actions", () => {
     ])
 
     expect(runtime.currentState().data).toBe(36)
-    expect(onChange).toHaveBeenCalledTimes(5)
+    expect(onChange).toHaveBeenCalledTimes(10)
   })
 })

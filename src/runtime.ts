@@ -228,6 +228,7 @@ export class Runtime {
       effect("nextState", targetState, () => {
         this.context.history.pop()
         this.context.history.push(targetState)
+        this.#contextDidChange()
       }),
 
       // Add a log effect.
@@ -249,12 +250,6 @@ export class Runtime {
 
       // Run enter on next state
       enter(),
-
-      // Notify listeners of change
-      // effect("contextChange", undefined, () => {
-      //   // Only state changes (and updates) can change context
-      //   this.onContextChange_()
-      // }),
     ]
 
     // Run exit on prior state first

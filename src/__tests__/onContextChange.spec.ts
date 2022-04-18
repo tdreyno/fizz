@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { ActionCreatorType, Enter, createAction, enter } from "../action"
+import { Context, createInitialContext } from "../context"
 
-import { createInitialContext } from "../context"
 import { createRuntime } from "../runtime"
 import { noop } from "../effect"
 import { state } from "../state"
@@ -27,28 +28,37 @@ describe("onContextChange", () => {
     expect(onChange).toHaveBeenCalledTimes(1)
   })
 
-  test("should run callback once on update", async () => {
+  test("should run callback on update", async () => {
     const trigger = createAction("Trigger")
     type Trigger = ActionCreatorType<typeof trigger>
 
-    const A = state<Enter | Trigger, string>(
+    const A = state<Enter | Trigger, number>(
       {
-        Enter: noop,
-        Trigger: (name, _, { update }) => update(name + name),
+        Enter: (n, _, { update }) => [update(n + 1), trigger()],
+        Trigger: async (n, _, { update }) => update(n + 1),
       },
       { name: "A" },
     )
 
-    const context = createInitialContext([A("Test")])
+    const context = createInitialContext([A(1)])
 
     const runtime = createRuntime(context, ["Trigger"])
 
-    const onChange = jest.fn()
+    let i = 0
+    const onChange = jest.fn((context: Context) => {
+      const { data } = context.currentState
+
+      if (i++ == 0) {
+        expect(data).toBe(2)
+      } else {
+        expect(data).toBe(3)
+      }
+    })
+
+    expect.assertions(3)
 
     runtime.onContextChange(onChange)
 
-    await runtime.run(trigger())
-
-    expect(onChange).toHaveBeenCalledTimes(1)
+    await runtime.run(enter())
   })
 })
