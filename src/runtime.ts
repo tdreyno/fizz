@@ -79,6 +79,8 @@ export class Runtime {
     }
 
     await promise
+
+    this.#contextDidChange()
   }
 
   async #processQueueHead(): Promise<void> {
@@ -201,16 +203,10 @@ export class Runtime {
     // const prefix = isEnteringNewState
     //   ? this.enterState_(targetState, exitState)
     //   : []
-    const prefix = [
-      // Add a log effect.
-      log(`Action: ${action.type as string}`, action.payload),
-    ]
 
     const result = await targetState.executor(action)
 
-    this.#contextDidChange()
-
-    return [...prefix, ...arraySingleton(result)]
+    return arraySingleton(result)
   }
 
   #handleState(targetState: StateTransition<any, any, any>): StateReturn[] {
@@ -253,6 +249,12 @@ export class Runtime {
 
       // Run enter on next state
       enter(),
+
+      // Notify listeners of change
+      // effect("contextChange", undefined, () => {
+      //   // Only state changes (and updates) can change context
+      //   this.onContextChange_()
+      // }),
     ]
 
     // Run exit on prior state first
