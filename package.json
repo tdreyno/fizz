@@ -53,7 +53,7 @@
     "prettier": "^2.6.2",
     "semantic-release": "^19.0.0",
     "serialize-javascript": "^6.0.0",
-    "svelte": "^3.46",
+    "svelte": "^3.48",
     "svelte-jester": "^2.3.2",
     "svelte-preprocess": "^4.10.5",
     "ts-jest": "^27.0.7",
@@ -61,7 +61,7 @@
   },
   "dependencies": {},
   "peerDependencies": {
-    "svelte": "^3.46"
+    "svelte": "^3.48"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
