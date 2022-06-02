@@ -1163,10 +1163,10 @@
     lodash "^4.17.15"
     redent "^3.0.0"
 
-"@testing-library/svelte@^3.1.0":
-  version "3.1.1"
-  resolved "https://registry.yarnpkg.com/@testing-library/svelte/-/svelte-3.1.1.tgz#1ed77f2200e1fbed03c016469c78712b42f15f5d"
-  integrity sha512-JM0MwtUCbL13CkdosivF5So5s7Y1cGTrrIGTNUOy4vq+quCvHTiFkHLRsUuOyFhGG3fXT6lhCzX30ichG+AlHA==
+"@testing-library/svelte@^3.1.2":
+  version "3.1.2"
+  resolved "https://registry.yarnpkg.com/@testing-library/svelte/-/svelte-3.1.2.tgz#b229f9b1610579c406f6b76013c023c92621fa34"
+  integrity sha512-S66yOJFB8bgnFFk7lslhudZXHD+AWFmhWAlt7Np5j2N9O+HUiIJiD3/LeLm28YGcPcIkom5RskhPYAM+N3WLlw==
   dependencies:
     "@testing-library/dom" "^8.1.0"
 
