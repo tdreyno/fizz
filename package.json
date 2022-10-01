@@ -38,7 +38,7 @@
     "@testing-library/jest-dom": "^5.16.5",
     "@testing-library/svelte": "^3.2.1",
     "@types/jest": "^27.4.0",
-    "@types/node": "^18.7.14",
+    "@types/node": "^18.7.23",
     "@types/serialize-javascript": "^5.0.1",
     "@typescript-eslint/eslint-plugin": "^5.36.1",
     "@typescript-eslint/parser": "^5.36.1",
