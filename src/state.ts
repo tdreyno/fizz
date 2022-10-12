@@ -1,6 +1,15 @@
-import type { Action, ActionName, ActionPayload } from "./action.js"
+import {
+  Action,
+  ActionCreator,
+  ActionName,
+  ActionPayload,
+  BeforeEnter,
+  enter,
+} from "./action.js"
+import { createInitialContext } from "./context.js"
 
-import type { Effect } from "./effect.js"
+import { Effect, noop } from "./effect.js"
+import { createRuntime, Runtime } from "./runtime.js"
 
 /**
  * States can return either:
@@ -32,7 +41,6 @@ export interface StateTransition<
   data: Data
   isStateTransition: true
   mode: "append" | "update"
-  // reenter: (data: Data) => StateTransition<Name, A, Data>
   executor: (action: A) => HandlerReturn
   state: BoundStateFn<Name, A, Data>
   is(state: BoundStateFn<any, any, any>): state is BoundStateFn<Name, A, Data>
@@ -62,7 +70,7 @@ export type State<Name extends string, A extends Action<any, any>, Data> = (
   data: Data,
   utils: {
     update: (data: Data) => StateTransition<Name, A, Data>
-    // reenter: (data: Data) => StateTransition<Name, A, Data>
+    parentRuntime?: Runtime
   },
 ) => HandlerReturn
 
@@ -84,6 +92,8 @@ export type GetStateData<
   D = S extends BoundStateFn<any, any, infer D> ? D : never,
 > = D
 
+export const PARENT_RUNTIME = Symbol("Parent runtime")
+
 export const stateWrapper = <
   Name extends string,
   A extends Action<any, any>,
@@ -98,15 +108,13 @@ export const stateWrapper = <
     isStateTransition: true,
     mode: "append",
 
-    // reenter: (reenterData: Data) => {
-    //   const bound = fn(reenterData)
-    //   bound.mode = "append"
-    //   return bound
-    // },
-
     executor: (action: A) => {
       // Run state executor
-      return executor(action, data, { /*reenter,*/ update })
+      return executor(action, data, {
+        update,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+        parentRuntime: data ? (data as any)[PARENT_RUNTIME] : undefined,
+      })
     },
 
     state: fn,
@@ -117,12 +125,6 @@ export const stateWrapper = <
   })
 
   Object.defineProperty(fn, "name", { value: name })
-
-  // const reenter = (data: Data): StateTransition<Name, A, Data> => {
-  //   const bound = fn(data)
-  //   bound.mode = "append"
-  //   return bound as unknown as StateTransition<Name, A, Data>
-  // }
 
   const update = (data: Data): StateTransition<Name, A, Data> => {
     const bound = fn(data)
@@ -140,7 +142,7 @@ const matchAction =
       payload: ActionPayload<A>,
       utils: {
         update: (data: Data) => StateTransition<string, Actions, Data>
-        // reenter: (data: Data) => StateTransition<string, Actions, Data>
+        parentRuntime?: Runtime
       },
     ) => HandlerReturn
   }) =>
@@ -149,7 +151,7 @@ const matchAction =
     data: Data,
     utils: {
       update: (data: Data) => StateTransition<string, Actions, Data>
-      // reenter: (data: Data) => StateTransition<string, Actions, Data>
+      parentRuntime?: Runtime
     },
   ): HandlerReturn => {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -158,7 +160,7 @@ const matchAction =
       payload: ActionPayload<Actions>,
       utils: {
         update: (data: Data) => StateTransition<string, Actions, Data>
-        // reenter: (data: Data) => StateTransition<string, Actions, Data>
+        parentRuntime?: Runtime
       },
     ) => HandlerReturn
 
@@ -179,7 +181,7 @@ export const state = <Actions extends Action<string, any>, Data = undefined>(
       payload: ActionPayload<A>,
       utils: {
         update: (data: Data) => StateTransition<string, Actions, Data>
-        // reenter: (data: Data) => StateTransition<string, Actions, Data>
+        parentRuntime?: Runtime
       },
     ) => HandlerReturn
   },
@@ -189,6 +191,80 @@ export const state = <Actions extends Action<string, any>, Data = undefined>(
     options?.name ?? `AnonymousState${counter++}`,
     matchAction(handlers),
   )
+
+export const NESTED = Symbol("Nested runtime")
+
+export const stateWithNested = <
+  Actions extends Action<string, any>,
+  Data = undefined,
+>(
+  handlers: {
+    [A in Actions as ActionName<A>]: (
+      data: Data,
+      payload: ActionPayload<A>,
+      utils: {
+        update: (data: Data) => StateTransition<string, Actions, Data>
+      },
+    ) => HandlerReturn
+  },
+  initialNestedState: StateTransition<any, any, any>,
+  nestedActions: { [key: string]: ActionCreator<any, any> },
+  options?: { name?: string },
+) => {
+  const beforeEnter = async (
+    data: Data,
+    parentRuntime: ActionPayload<BeforeEnter>,
+    {
+      update,
+    }: {
+      update: (data: Data) => StateTransition<string, Actions, Data>
+    },
+  ): Promise<SyncHandlerReturn> => {
+    if (!parentRuntime) {
+      return noop()
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    initialNestedState.data[PARENT_RUNTIME] = parentRuntime
+
+    const runtime = createRuntime(
+      createInitialContext([initialNestedState]),
+      Object.keys(nestedActions),
+    )
+
+    await runtime.run(enter())
+
+    return update({
+      ...data,
+      [NESTED]: runtime,
+    })
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  const forwarders = Object.entries(nestedActions).reduce(
+    (acc, [key, action]) => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      acc[key] = async (data: any, payload: any, { update }: any) => {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        await data[NESTED]?.run(action(payload))
+
+        // Force update
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+        return update({ ...data })
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return acc
+    },
+    {} as any,
+  )
+
+  return state<Actions, Data>(
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    { ...handlers, ...forwarders, BeforeEnter: beforeEnter },
+    options,
+  )
+}
 
 class Matcher<S extends StateTransition<string, any, any>, T> {
   private handlers = new Map<
