@@ -1,4 +1,4 @@
-import { type Action, enter } from "../action.js"
+import { type Action, enter, beforeEnter } from "../action.js"
 import type { BoundStateFn, StateTransition } from "../state.js"
 import { Context, createInitialContext } from "../context.js"
 import { Readable, readable } from "svelte/store"
@@ -58,6 +58,7 @@ export const createStore = <
       }),
     )
 
+    void runtime.run(beforeEnter(runtime))
     void runtime.run(enter())
 
     return unsub

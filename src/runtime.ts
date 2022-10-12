@@ -1,4 +1,4 @@
-import { type Action, enter, exit, isAction } from "./action.js"
+import { type Action, enter, exit, isAction, beforeEnter } from "./action.js"
 import { type Effect, effect, isEffect, log } from "./effect.js"
 import { MissingCurrentState, UnknownStateReturnType } from "./errors.js"
 import { StateReturn, StateTransition, isStateTransition } from "./state.js"
@@ -249,6 +249,9 @@ export class Runtime {
       log(`Enter: ${targetState.name as string}`, targetState.data),
 
       // Run enter on next state
+      beforeEnter(this),
+
+      // Run enter on next state
       enter(),
     ]
 
@@ -267,6 +270,8 @@ export class Runtime {
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         this.context.history.pop()
       }),
+
+      beforeEnter(this),
 
       enter(),
     ]
