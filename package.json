@@ -52,7 +52,7 @@
     "lint-staged": "^13.1.0",
     "prettier": "^2.8.0",
     "semantic-release": "^19.0.5",
-    "serialize-javascript": "^6.0.0",
+    "serialize-javascript": "^6.0.1",
     "svelte": "^3.52",
     "svelte-jester": "^2.3.2",
     "svelte-preprocess": "^5.0.0",
