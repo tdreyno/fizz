@@ -82,7 +82,7 @@ const Playing = state<Enter | OnPaddleInput | OnFrame, Data>({
 })
 
 const Victory = state<Enter, string>({
-  Enter: (data, winner) => log(`Winner is ${winner}`),
+  Enter: winner => log(`Winner is ${winner}`),
 })
 ```
 
