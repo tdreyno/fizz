@@ -7,10 +7,15 @@ import { Runtime, createRuntime } from "../runtime.js"
 export interface ContextValue<
   SM extends { [key: string]: BoundStateFn<any, any, any> },
   AM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
+  PM = {
+    [K in keyof AM]: (...args: Parameters<AM[K]>) => {
+      asPromise: () => Promise<void>
+    }
+  },
 > {
   currentState: ReturnType<SM[keyof SM]>
   context: Context
-  actions: AM
+  actions: PM
   runtime?: Runtime
 }
 

@@ -37,15 +37,17 @@ describe("Bound actions", () => {
 
     const runtime = createRuntime(context, ["Add", "Multiply"])
 
+    const boundActions = runtime.bindActions({ add, multiply })
+
     const onChange = jest.fn()
     runtime.onContextChange(onChange)
 
     await Promise.all([
-      runtime.run(add(2)),
-      runtime.run(multiply(2)),
-      runtime.run(add(3)),
-      runtime.run(multiply(5)),
-      runtime.run(add(1)),
+      boundActions.add(2).asPromise(),
+      boundActions.multiply(2).asPromise(),
+      boundActions.add(3).asPromise(),
+      boundActions.multiply(5).asPromise(),
+      boundActions.add(1).asPromise(),
     ])
 
     expect(runtime.currentState().data).toBe(36)

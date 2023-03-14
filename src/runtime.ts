@@ -53,15 +53,24 @@ export class Runtime {
 
   bindActions<
     AM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
-  >(actions: AM): AM {
+    PM = {
+      [K in keyof AM]: (...args: Parameters<AM[K]>) => {
+        asPromise: () => Promise<void>
+      }
+    },
+  >(actions: AM): PM {
     return Object.keys(actions).reduce((sum, key) => {
       sum[key] = (...args: Array<any>) => {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-non-null-assertion
-        return this.run(actions[key]!(...args))
+        const promise = this.run(actions[key]!(...args))
+
+        return {
+          asPromise: () => promise,
+        }
       }
 
       return sum
-    }, {} as Record<string, any>) as AM
+    }, {} as Record<string, any>) as PM
   }
 
   async run(action: Action<any, any>): Promise<void> {
