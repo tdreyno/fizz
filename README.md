@@ -12,7 +12,7 @@ Fizz is a small library for building state machines that can effectively manage 
 yarn add @tdreyno/fizz
 ```
 
-## Let's play pong.
+## Let's play pong
 
 This example shows how we would model something like a game of Pong.
 
@@ -119,7 +119,7 @@ You can now send actions to the runtime. To kick things off, let's enter the ini
 ```typescript
 const result = await runtime.run(enter())
 
-assert(runtime.currentState().is(Start))
+assert(isState(runtime.currentState(), Start))
 ```
 
 You can continue to run actions on the runtime and await their resulting new state.

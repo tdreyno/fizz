@@ -7,7 +7,7 @@ export default state<SetName, FormData>(
   {
     SetName(data, name, { update, parentRuntime }) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (name === parentRuntime?.currentState().data?.targetName) {
+      if (name === (parentRuntime?.currentState().data as any).targetName) {
         return FormValid({ ...data, name })
       }
 

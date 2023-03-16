@@ -6,7 +6,7 @@ import { UnknownStateReturnType } from "../errors"
 import { createInitialContext } from "../context"
 import { createRuntime } from "../runtime"
 import serializeJavascript from "serialize-javascript"
-import { state } from "../state"
+import { isState, state } from "../state"
 
 describe("Runtime", () => {
   test("should transition through multiple states", async () => {
@@ -28,11 +28,11 @@ describe("Runtime", () => {
 
     const runtime = createRuntime(context)
 
-    expect(runtime.currentState().is(A)).toBeTruthy()
+    expect(isState(runtime.currentState(), A)).toBeTruthy()
 
     await runtime.run(enter())
 
-    expect(runtime.currentState().is(B)).toBeTruthy()
+    expect(isState(runtime.currentState(), B)).toBeTruthy()
   })
 
   test("should run the action returned", async () => {
@@ -54,7 +54,7 @@ describe("Runtime", () => {
 
     await runtime.run(enter())
 
-    expect(runtime.currentState().is(B)).toBeTruthy()
+    expect(isState(runtime.currentState(), B)).toBeTruthy()
   })
 
   test("should run in correct order", async () => {
@@ -77,10 +77,14 @@ describe("Runtime", () => {
 
     await runtime.run(enter())
 
-    expect(runtime.currentState().is(A)).toBeTruthy()
+    const s = runtime.currentState()
+
+    if (!isState(s, A)) {
+      throw new Error()
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    expect(runtime.currentState().data.num).toBe(13)
+    expect(s.data.num).toBe(13)
   })
 
   test("should not throw exception when sending unhandled actions", async () => {
@@ -131,7 +135,7 @@ describe("Runtime", () => {
       const runtime = createRuntime(context)
       await runtime.run(enter())
 
-      expect(runtime.currentState().is(A)).toBeTruthy()
+      expect(isState(runtime.currentState(), A)).toBeTruthy()
       expect(customLogger).toHaveBeenCalledWith(["Hello A"], "log")
     })
 
@@ -156,7 +160,7 @@ describe("Runtime", () => {
       const runtime = createRuntime(context)
       await runtime.run(enter())
 
-      expect(runtime.currentState().is(A)).toBeTruthy()
+      expect(isState(runtime.currentState(), A)).toBeTruthy()
       expect(customLogger).toHaveBeenCalledWith(["Hello A"], "log")
     })
 
@@ -184,7 +188,7 @@ describe("Runtime", () => {
       const runtime = createRuntime(context)
       await runtime.run(enter())
 
-      expect(runtime.currentState().is(B)).toBeTruthy()
+      expect(isState(runtime.currentState(), B)).toBeTruthy()
       expect(customLogger).toHaveBeenCalledWith(["Hello B"], "log")
     })
 
@@ -201,7 +205,7 @@ describe("Runtime", () => {
       const runtime = createRuntime(context)
       await runtime.run(enter())
 
-      expect(runtime.currentState().is(A)).toBeTruthy()
+      expect(isState(runtime.currentState(), A)).toBeTruthy()
       expect(runtime.currentState().data).toBe(2)
     })
 
@@ -233,7 +237,7 @@ describe("Runtime", () => {
       const runtime = createRuntime(context)
       await runtime.run(enter())
 
-      expect(runtime.currentState().is(B)).toBeTruthy()
+      expect(isState(runtime.currentState(), B)).toBeTruthy()
       expect(customLogger).toHaveBeenCalledWith(["Next"], "log")
     })
   })
@@ -263,7 +267,7 @@ describe("Runtime", () => {
 
       await runtime.run(enter())
 
-      expect(runtime.currentState().is(B)).toBeTruthy()
+      expect(isState(runtime.currentState(), B)).toBeTruthy()
 
       expect(customLogger).toHaveBeenCalledWith(["Exit A"], "log")
     })
@@ -298,7 +302,7 @@ describe("Runtime", () => {
 
       await runtime.run(enter())
 
-      expect(runtime.currentState().is(C)).toBeTruthy()
+      expect(isState(runtime.currentState(), C)).toBeTruthy()
     })
   })
 
@@ -321,8 +325,14 @@ describe("Runtime", () => {
       const runtime = createRuntime(context)
       await runtime.run(update())
 
+      const state = runtime.currentState()
+
+      if (!isState(state, A)) {
+        throw new Error()
+      }
+
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const [a, b, c, d] = runtime.currentState().data
+      const [a, b, c, d] = state.data
 
       expect(a).toBe("Test")
       expect(b).toBe(false)
@@ -367,7 +377,7 @@ describe("Runtime", () => {
 
       await runtime.run(enter())
 
-      expect(runtime.currentState().is(A)).toBeTruthy()
+      expect(isState(runtime.currentState(), A)).toBeTruthy()
       expect(runtime.currentState().data).toBe("Test")
       expect(customLogger).toHaveBeenCalledWith(["Hi"], "log")
     })
@@ -454,7 +464,7 @@ describe("Runtime", () => {
 
       await runtime.run(enter())
 
-      expect(context.currentState.is(B)).toBeTruthy()
+      expect(isState(context.currentState, B)).toBeTruthy()
 
       const serialized = serializeContext(context)
       const newContext = deserializeContext(serialized)
@@ -463,7 +473,7 @@ describe("Runtime", () => {
 
       await runtime2.run(next())
 
-      expect(newContext.currentState.is(C)).toBeTruthy()
+      expect(isState(newContext.currentState, C)).toBeTruthy()
       expect(newContext.currentState.data).toBe("Test")
     })
   })

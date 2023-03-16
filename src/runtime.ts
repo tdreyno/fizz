@@ -29,8 +29,8 @@ export class Runtime {
     )
   }
 
-  currentState(): StateTransition<any, any, any> {
-    return this.context.currentState
+  currentState(): StateTransition<string, any, unknown> {
+    return this.context.currentState as StateTransition<string, any, unknown>
   }
 
   currentHistory() {

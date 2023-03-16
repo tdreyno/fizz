@@ -7,7 +7,6 @@ import {
   enter,
 } from "./action.js"
 import { createInitialContext } from "./context.js"
-
 import { Effect, noop } from "./effect.js"
 import { createRuntime, Runtime } from "./runtime.js"
 
@@ -43,7 +42,6 @@ export interface StateTransition<
   mode: "append" | "update"
   executor: (action: A) => HandlerReturn
   state: BoundStateFn<Name, A, Data>
-  is(state: BoundStateFn<any, any, any>): state is BoundStateFn<Name, A, Data>
   isNamed(name: string): boolean
 }
 
@@ -59,6 +57,20 @@ export const isStateTransition = (
 ): a is StateTransition<any, any, any> =>
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
   (a as any)?.isStateTransition
+
+export const isState = <
+  T extends BoundStateFn<any, any, any>,
+  Name_ = T extends BoundStateFn<infer U, any, any> ? U : never,
+  A_ = T extends BoundStateFn<any, infer U, any> ? U : never,
+  Data_ = T extends BoundStateFn<any, any, infer U> ? U : never,
+>(
+  current: StateTransition<any, any, any>,
+  state: T,
+): current is StateTransition<
+  Name_ extends string ? Name_ : never,
+  A_ extends Action<any, any> ? A_ : never,
+  Data_
+> => current.state === state
 
 /**
  * A State function as written by the user. It accepts
@@ -118,9 +130,6 @@ export const stateWrapper = <
     },
 
     state: fn,
-    is: (
-      state: BoundStateFn<any, any, any>,
-    ): state is BoundStateFn<Name, A, Data> => state === fn,
     isNamed: (testName: string): boolean => testName === name,
   })
 

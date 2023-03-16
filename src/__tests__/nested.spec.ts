@@ -1,5 +1,5 @@
 import { enter, beforeEnter } from "../action"
-import { NESTED } from "../state"
+import { isState, NESTED } from "../state"
 import { createInitialContext } from "../context"
 import { createRuntime } from "../runtime"
 import { States, Actions } from "./nestedMachine"
@@ -26,12 +26,12 @@ describe("Nested Machines", () => {
   test("should boot top-level machine and initialize sub machine", async () => {
     const runtime = await init()
 
-    expect(runtime.currentState().is(States.Entry)).toBeTruthy()
+    expect(isState(runtime.currentState(), States.Entry)).toBeTruthy()
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-    expect(runtime.currentState().data[NESTED].currentState().name).toBe(
-      "FormInvalid",
-    )
+    expect(
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      (runtime.currentState().data as any)[NESTED].currentState().name,
+    ).toBe("FormInvalid")
   })
 
   test("should forward actions to sub machine", async () => {
@@ -39,10 +39,10 @@ describe("Nested Machines", () => {
 
     await runtime.run(setName(INCORRECT_TEST_NAME))
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-    expect(runtime.currentState().data[NESTED].currentState().data.name).toBe(
-      INCORRECT_TEST_NAME,
-    )
+    expect(
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      (runtime.currentState().data as any)[NESTED].currentState().data.name,
+    ).toBe(INCORRECT_TEST_NAME)
   })
 
   test("should transition sub machine", async () => {
@@ -50,10 +50,10 @@ describe("Nested Machines", () => {
 
     await runtime.run(setName(CORRECT_TEST_NAME))
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-    expect(runtime.currentState().data[NESTED].currentState().name).toBe(
-      "FormValid",
-    )
+    expect(
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      (runtime.currentState().data as any)[NESTED].currentState().name,
+    ).toBe("FormValid")
 
     // Wait for event to travel from sub to parent
     await timeout(100)

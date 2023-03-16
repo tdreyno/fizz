@@ -3,7 +3,7 @@ import { effect, noop } from "../effect"
 
 import { createInitialContext } from "../context"
 import { createRuntime } from "../runtime"
-import { state } from "../state"
+import { isState, state } from "../state"
 
 describe("Promises", () => {
   const trigger = createAction("Trigger")
@@ -26,7 +26,7 @@ describe("Promises", () => {
 
     await runtime.run(enter())
 
-    expect(runtime.currentState().is(B)).toBeTruthy()
+    expect(isState(runtime.currentState(), B)).toBeTruthy()
   })
 
   test("should run an action with a promise", async () => {
@@ -46,7 +46,7 @@ describe("Promises", () => {
 
     await runtime.run(enter())
 
-    expect(runtime.currentState().is(B)).toBeTruthy()
+    expect(isState(runtime.currentState(), B)).toBeTruthy()
   })
 
   test("should run transition handler result from a promise", async () => {
@@ -60,7 +60,7 @@ describe("Promises", () => {
 
     await runtime.run(enter())
 
-    expect(runtime.currentState().is(B)).toBeTruthy()
+    expect(isState(runtime.currentState(), B)).toBeTruthy()
   })
 
   test("should run a single effect returned by the promise", async () => {
