@@ -1,5 +1,4 @@
-import { StartLoading, startLoading } from "../actions"
-
+import { type StartLoading, startLoading } from "../actions"
 import type { Enter } from "../../../../action"
 import Loading from "./Loading"
 import type { Shared } from "../types"

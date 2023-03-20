@@ -60,12 +60,8 @@ module.exports = {
   // globalTeardown: null,
 
   // A set of global variables that need to be available in all test environments
-  globals: {
-    "ts-jest": {
-      useESM: true,
-      diagnostics: false,
-    },
-  },
+  // globals: {
+  // },
 
   // extensionsToTreatAsEsm: [".ts", ".tsx"],
 
@@ -166,7 +162,13 @@ module.exports = {
 
   // A map from regular expressions to paths to transformers
   transform: {
-    "^.+\\.tsx?$": "ts-jest",
+    "^.+\\.tsx?$": [
+      "ts-jest",
+      {
+        useESM: true,
+        diagnostics: false,
+      },
+    ],
     "^.+\\.svelte$": [
       "svelte-jester",
       {

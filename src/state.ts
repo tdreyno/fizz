@@ -1,9 +1,9 @@
 import {
-  Action,
-  ActionCreator,
-  ActionName,
-  ActionPayload,
-  BeforeEnter,
+  type Action,
+  type ActionCreator,
+  type ActionName,
+  type ActionPayload,
+  type BeforeEnter,
   enter,
 } from "./action.js"
 import { createInitialContext } from "./context.js"

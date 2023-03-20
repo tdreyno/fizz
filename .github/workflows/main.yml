@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node: ["18", "16", "14"]
+        node: ["18", "16"]
     name: Node ${{ matrix.node }}
     steps:
       - uses: actions/checkout@v3
@@ -15,13 +15,13 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node }}
-      - run: yarn install
-      - run: yarn test
-      - run: yarn build
+      - run: npm ci
+      - run: npm run test
+      - run: npm run build
       - name: Code Climate Coverage Action
         uses: paambaati/codeclimate-action@v3.2.0
         env:
           CC_TEST_REPORTER_ID: 3c9c36dc44d794c8a3f398889936100a4df2b6913e5388ab824effed6cefcc31
         with:
-          coverageCommand: yarn coverage
-      - run: yarn test:npm
+          coverageCommand: npm run coverage
+      - run: npm run test:npm

@@ -9,7 +9,7 @@ Fizz is a small library for building state machines that can effectively manage 
 ## Install
 
 ```bash
-yarn add @tdreyno/fizz
+npm install --save @tdreyno/fizz
 ```
 
 ## Let's play pong

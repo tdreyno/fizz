@@ -1,7 +1,11 @@
 import { type Action, enter, exit, isAction, beforeEnter } from "./action.js"
 import { type Effect, effect, isEffect, log } from "./effect.js"
 import { MissingCurrentState, UnknownStateReturnType } from "./errors.js"
-import { StateReturn, StateTransition, isStateTransition } from "./state.js"
+import {
+  type StateReturn,
+  type StateTransition,
+  isStateTransition,
+} from "./state.js"
 import { arraySingleton, externalPromise } from "./util.js"
 
 import type { Context } from "./context.js"

@@ -1,7 +1,7 @@
 import { type Action, enter, beforeEnter } from "../action.js"
 import type { BoundStateFn, StateTransition } from "../state.js"
 import { Context, createInitialContext } from "../context.js"
-import { Readable, readable } from "svelte/store"
+import { type Readable, readable } from "svelte/store"
 import { Runtime, createRuntime } from "../runtime.js"
 
 export interface ContextValue<

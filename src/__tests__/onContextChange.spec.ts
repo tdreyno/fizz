@@ -1,7 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-import { ActionCreatorType, Enter, createAction, enter } from "../action"
+import {
+  type ActionCreatorType,
+  type Enter,
+  createAction,
+  enter,
+} from "../action"
 import { Context, createInitialContext } from "../context"
-
 import { createRuntime } from "../runtime"
 import { noop } from "../effect"
 import { state } from "../state"

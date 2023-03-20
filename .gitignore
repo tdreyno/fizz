@@ -4,6 +4,5 @@ build
 /*.log
 .DS_Store
 .cache
-yarn-error.log
 /coverage
 package-lock.json

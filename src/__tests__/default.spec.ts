@@ -1,4 +1,4 @@
-import { enter, Enter } from "../action"
+import { enter, type Enter } from "../action"
 import { createInitialContext } from "../context"
 import { isState, state } from "../state"
 import { createRuntime } from "../runtime"
