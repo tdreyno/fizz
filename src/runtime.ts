@@ -11,6 +11,9 @@ import { arraySingleton, externalPromise } from "./util.js"
 import type { Context } from "./context.js"
 
 type ContextChangeSubscriber = (context: Context) => void
+type OutputSubscriber<
+  OAM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
+> = (action: ReturnType<OAM[keyof OAM]>) => void
 
 type QueueItem = {
   onComplete: () => void
@@ -18,16 +21,26 @@ type QueueItem = {
   item: Action<any, any> | StateTransition<any, any, any> | Effect<any>
 }
 
-export class Runtime {
-  context: Context
+export class Runtime<
+  AM extends {
+    [key: string]: (...args: Array<any>) => Action<any, any>
+  },
+  OAM extends {
+    [key: string]: (...args: Array<any>) => Action<any, any>
+  },
+> {
   #contextChangeSubscribers: Set<ContextChangeSubscriber> = new Set()
+  #outputSubscribers: Set<OutputSubscriber<OAM>> = new Set()
   #validActions: Set<string>
   #queue: QueueItem[] = []
   #isRunning = false
 
-  constructor(context: Context, validActionNames: Array<string> = []) {
-    this.context = context
-    this.#validActions = validActionNames.reduce(
+  constructor(
+    public context: Context,
+    public internalActions: AM,
+    public outputActions: OAM,
+  ) {
+    this.#validActions = Object.keys(internalActions).reduce(
       (sum, action) => sum.add(action.toLowerCase()),
       new Set<string>(),
     )
@@ -45,6 +58,12 @@ export class Runtime {
     this.#contextChangeSubscribers.add(fn)
 
     return () => this.#contextChangeSubscribers.delete(fn)
+  }
+
+  onOutput(fn: OutputSubscriber<OAM>): () => void {
+    this.#outputSubscribers.add(fn)
+
+    return () => this.#outputSubscribers.delete(fn)
   }
 
   disconnect(): void {
@@ -119,6 +138,10 @@ export class Runtime {
       } else if (isEffect(item)) {
         if (item.label === "goBack") {
           results = this.#handleGoBack()
+        } else if (item.label === "output") {
+          this.#outputSubscribers.forEach(sub =>
+            sub(item.data as ReturnType<OAM[keyof OAM]>),
+          )
         } else {
           this.#runEffect(item)
         }
@@ -291,7 +314,11 @@ export class Runtime {
   }
 }
 
-export const createRuntime = (
+export const createRuntime = <
+  AM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
+  OAM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
+>(
   context: Context,
-  validActionNames: Array<string> = [],
-) => new Runtime(context, validActionNames)
+  internalActions: AM = {} as AM,
+  outputActions: OAM = {} as OAM,
+) => new Runtime(context, internalActions, outputActions)

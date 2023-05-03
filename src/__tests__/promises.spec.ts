@@ -26,7 +26,7 @@ describe("Promises", () => {
 
     const context = createInitialContext([A()])
 
-    const runtime = createRuntime(context, ["Trigger"])
+    const runtime = createRuntime(context, { trigger })
 
     await runtime.run(enter())
 
@@ -44,7 +44,7 @@ describe("Promises", () => {
 
     const context = createInitialContext([A()])
 
-    const runtime = createRuntime(context, ["Trigger"])
+    const runtime = createRuntime(context, { trigger })
 
     expect.assertions(1)
 

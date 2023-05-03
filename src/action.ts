@@ -42,9 +42,10 @@ export const createAction = <T extends string, P = undefined>(
   return fn as unknown as ActionCreator<T, P> & MatchAction<T, P>
 }
 
-export const beforeEnter = createAction<"BeforeEnter", Optional<Runtime>>(
+export const beforeEnter = createAction<
   "BeforeEnter",
-)
+  Optional<Runtime<any, any>>
+>("BeforeEnter")
 export type BeforeEnter = ActionCreatorType<typeof beforeEnter>
 
 export const enter = createAction<"Enter">("Enter")

@@ -46,7 +46,7 @@ describe("onContextChange", () => {
 
     const context = createInitialContext([A(1)])
 
-    const runtime = createRuntime(context, ["Trigger"])
+    const runtime = createRuntime(context, { trigger })
 
     let i = 0
     const onChange = jest.fn((context: Context) => {

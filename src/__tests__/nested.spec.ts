@@ -14,7 +14,7 @@ const init = async () => {
     States.Entry({ targetName: CORRECT_TEST_NAME }),
   ])
 
-  const runtime = createRuntime(context, Object.keys(Actions))
+  const runtime = createRuntime(context, Actions)
 
   await runtime.run(beforeEnter(runtime))
   await runtime.run(enter())

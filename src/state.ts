@@ -82,7 +82,7 @@ export type State<Name extends string, A extends Action<any, any>, Data> = (
   data: Data,
   utils: {
     update: (data: Data) => StateTransition<Name, A, Data>
-    parentRuntime?: Runtime
+    parentRuntime?: Runtime<any, any>
   },
 ) => HandlerReturn
 
@@ -151,7 +151,7 @@ const matchAction =
       payload: ActionPayload<A>,
       utils: {
         update: (data: Data) => StateTransition<string, Actions, Data>
-        parentRuntime?: Runtime
+        parentRuntime?: Runtime<any, any>
       },
     ) => HandlerReturn
   }) =>
@@ -160,7 +160,7 @@ const matchAction =
     data: Data,
     utils: {
       update: (data: Data) => StateTransition<string, Actions, Data>
-      parentRuntime?: Runtime
+      parentRuntime?: Runtime<any, any>
     },
   ): HandlerReturn => {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -169,7 +169,7 @@ const matchAction =
       payload: ActionPayload<Actions>,
       utils: {
         update: (data: Data) => StateTransition<string, Actions, Data>
-        parentRuntime?: Runtime
+        parentRuntime?: Runtime<any, any>
       },
     ) => HandlerReturn
 
@@ -190,7 +190,7 @@ export const state = <Actions extends Action<string, any>, Data = undefined>(
       payload: ActionPayload<A>,
       utils: {
         update: (data: Data) => StateTransition<string, Actions, Data>
-        parentRuntime?: Runtime
+        parentRuntime?: Runtime<any, any>
       },
     ) => HandlerReturn
   },
@@ -233,12 +233,12 @@ export const stateWithNested = <
       return noop()
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
     initialNestedState.data[PARENT_RUNTIME] = parentRuntime
 
     const runtime = createRuntime(
       createInitialContext([initialNestedState]),
-      Object.keys(nestedActions),
+      nestedActions,
     )
 
     await runtime.run(enter())

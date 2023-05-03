@@ -7,6 +7,7 @@ import { Runtime, createRuntime } from "../runtime.js"
 export interface ContextValue<
   SM extends { [key: string]: BoundStateFn<any, any, any> },
   AM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
+  OAM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
   PM = {
     [K in keyof AM]: (...args: Parameters<AM[K]>) => {
       asPromise: () => Promise<void>
@@ -16,7 +17,7 @@ export interface ContextValue<
   currentState: ReturnType<SM[keyof SM]>
   context: Context
   actions: PM
-  runtime?: Runtime
+  runtime?: Runtime<AM, OAM>
 }
 
 interface Options {
@@ -28,11 +29,13 @@ interface Options {
 export const createStore = <
   SM extends { [key: string]: BoundStateFn<any, any, any> },
   AM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
-  R extends Readable<ContextValue<SM, AM>>,
+  OAM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
+  R extends Readable<ContextValue<SM, AM, OAM>>,
 >(
   _states: SM,
   actions: AM,
   initialState: StateTransition<any, any, any>,
+  outputActions: OAM = {} as OAM,
   options: Partial<Options> = {},
 ): R => {
   const { maxHistory = 5, enableLogging = false } = options
@@ -42,11 +45,11 @@ export const createStore = <
     enableLogging,
   })
 
-  const runtime = createRuntime(defaultContext, Object.keys(actions))
+  const runtime = createRuntime(defaultContext, actions, outputActions)
 
   const boundActions = runtime.bindActions(actions)
 
-  const initialContext: ContextValue<SM, AM> = {
+  const initialContext: ContextValue<SM, AM, OAM> = {
     context: defaultContext,
     currentState: defaultContext.currentState as ReturnType<SM[keyof SM]>,
     actions: boundActions,

@@ -34,7 +34,7 @@ describe("Bound actions", () => {
 
     const context = createInitialContext([A(0)])
 
-    const runtime = createRuntime(context, ["Add", "Multiply"])
+    const runtime = createRuntime(context, { add, multiply })
 
     const boundActions = runtime.bindActions({ add, multiply })
 

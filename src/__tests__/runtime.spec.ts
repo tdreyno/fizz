@@ -55,7 +55,7 @@ describe("Runtime", () => {
 
     const context = createInitialContext([A()])
 
-    const runtime = createRuntime(context, ["Trigger"])
+    const runtime = createRuntime(context, { trigger })
 
     await runtime.run(enter())
 
@@ -78,7 +78,7 @@ describe("Runtime", () => {
 
     const context = createInitialContext([A({ num: 3 })])
 
-    const runtime = createRuntime(context, ["Trigger"])
+    const runtime = createRuntime(context, { trigger })
 
     await runtime.run(enter())
 
@@ -101,7 +101,7 @@ describe("Runtime", () => {
 
     const context = createInitialContext([A()])
 
-    const runtime = createRuntime(context, ["Trigger"])
+    const runtime = createRuntime(context, { trigger })
 
     await runtime.run(enter())
 
@@ -117,7 +117,7 @@ describe("Runtime", () => {
 
     const context = createInitialContext([A()])
 
-    const runtime = createRuntime(context, ["Trigger"])
+    const runtime = createRuntime(context)
 
     await expect(runtime.run(enter())).resolves.toBeUndefined()
   })
