@@ -5,9 +5,13 @@ import {
   type ActionPayload,
   type BeforeEnter,
   enter,
+  type Enter,
+  type ActionCreatorType,
+  type GetActionCreatorType,
+  createAction,
 } from "./action.js"
 import { createInitialContext } from "./context.js"
-import { Effect, noop } from "./effect.js"
+import { Effect, noop, output } from "./effect.js"
 import { createRuntime, Runtime } from "./runtime.js"
 
 /**
@@ -40,7 +44,7 @@ export interface StateTransition<
   data: Data
   isStateTransition: true
   mode: "append" | "update"
-  executor: (action: A) => HandlerReturn
+  executor: (action: A, runtime?: Runtime<any, any>) => HandlerReturn
   state: BoundStateFn<Name, A, Data>
   isNamed(name: string): boolean
 }
@@ -83,6 +87,7 @@ export type State<Name extends string, A extends Action<any, any>, Data> = (
   utils: {
     update: (data: Data) => StateTransition<Name, A, Data>
     parentRuntime?: Runtime<any, any>
+    trigger: (action: A) => void
   },
 ) => HandlerReturn
 
@@ -120,10 +125,13 @@ export const stateWrapper = <
     isStateTransition: true,
     mode: "append",
 
-    executor: (action: A) => {
+    executor: (action: A, runtime?: Runtime<any, any>) => {
       // Run state executor
       return executor(action, data, {
         update,
+        trigger: (a: A) => {
+          void runtime?.run(a)
+        },
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
         parentRuntime: data ? (data as any)[PARENT_RUNTIME] : undefined,
       })
@@ -152,6 +160,7 @@ const matchAction =
       utils: {
         update: (data: Data) => StateTransition<string, Actions, Data>
         parentRuntime?: Runtime<any, any>
+        trigger: (action: Actions) => void
       },
     ) => HandlerReturn
   }) =>
@@ -161,6 +170,7 @@ const matchAction =
     utils: {
       update: (data: Data) => StateTransition<string, Actions, Data>
       parentRuntime?: Runtime<any, any>
+      trigger: (action: Actions) => void
     },
   ): HandlerReturn => {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -170,6 +180,7 @@ const matchAction =
       utils: {
         update: (data: Data) => StateTransition<string, Actions, Data>
         parentRuntime?: Runtime<any, any>
+        trigger: (action: Actions) => void
       },
     ) => HandlerReturn
 
@@ -191,6 +202,7 @@ export const state = <Actions extends Action<string, any>, Data = undefined>(
       utils: {
         update: (data: Data) => StateTransition<string, Actions, Data>
         parentRuntime?: Runtime<any, any>
+        trigger: (action: Actions) => void
       },
     ) => HandlerReturn
   },
@@ -305,3 +317,55 @@ class Matcher<S extends StateTransition<string, any, any>, T> {
 
 export const switch_ = <T>(state: StateTransition<string, any, any>) =>
   new Matcher<typeof state, T>(state)
+
+const timedOut = createAction("TimedOut")
+type TimedOut = ActionCreatorType<typeof timedOut>
+
+export const waitState = <
+  Data,
+  ReqAC extends ActionCreator<any, any>,
+  ReqA extends ActionCreatorType<ReqAC>,
+  RespAC extends ActionCreator<any, any> & GetActionCreatorType<any>,
+  RespA extends ActionCreatorType<RespAC>,
+>(
+  requestAction: ReqAC,
+  responseActionCreator: RespAC,
+  transition: (data: Data, payload: RespA["payload"]) => StateReturn,
+  options?: {
+    name?: string
+    timeout?: number
+    onTimeout?: (data: Data) => StateReturn
+  },
+) => {
+  const name = options?.name
+
+  return state<Enter | TimedOut, [Data, ReqA["payload"]]>(
+    {
+      Enter: ([, payload], _, { trigger }) => {
+        if (options?.timeout) {
+          setTimeout(() => {
+            trigger(timedOut())
+          }, options.timeout)
+        }
+
+        return output(requestAction(payload))
+      },
+
+      TimedOut: ([data]) => {
+        if (options?.onTimeout) {
+          return options?.onTimeout(data)
+        }
+
+        return noop()
+      },
+
+      [responseActionCreator.type]: (
+        [data]: [Data],
+        payload: RespA["payload"],
+      ) => {
+        return transition(data, payload)
+      },
+    },
+    name ? { name } : {},
+  )
+}

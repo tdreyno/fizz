@@ -21,6 +21,10 @@ export interface MatchAction<T extends string, P> {
   is(action: Action<any, any>): action is Action<T, P>
 }
 
+export interface GetActionCreatorType<T extends string> {
+  type: T
+}
+
 type Optional<T> = [T]
 
 export type ActionCreator<T extends string, P> = P extends undefined
@@ -33,13 +37,17 @@ export type ActionCreatorType<F extends ActionCreator<any, any>> = ReturnType<F>
 
 export const createAction = <T extends string, P = undefined>(
   type: T,
-): ActionCreator<T, P> & MatchAction<T, P> => {
+): ActionCreator<T, P> & MatchAction<T, P> & GetActionCreatorType<T> => {
   const fn = (payload?: P) => action(type, payload)
 
   fn.is = (action: Action<any, any>): action is Action<T, P> =>
     action.type === type
 
-  return fn as unknown as ActionCreator<T, P> & MatchAction<T, P>
+  fn.type = type
+
+  return fn as unknown as ActionCreator<T, P> &
+    MatchAction<T, P> &
+    GetActionCreatorType<T>
 }
 
 export const beforeEnter = createAction<

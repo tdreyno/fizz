@@ -240,7 +240,7 @@ export class Runtime<
     //   ? this.enterState_(targetState, exitState)
     //   : []
 
-    const result = await targetState.executor(action)
+    const result = await targetState.executor(action, this)
 
     return arraySingleton(result)
   }
