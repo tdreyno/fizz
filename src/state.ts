@@ -330,11 +330,11 @@ export const waitState = <
 >(
   requestAction: ReqAC,
   responseActionCreator: RespAC,
-  transition: (data: Data, payload: RespA["payload"]) => StateReturn,
+  transition: (data: Data, payload: RespA["payload"]) => HandlerReturn,
   options?: {
     name?: string
     timeout?: number
-    onTimeout?: (data: Data) => StateReturn
+    onTimeout?: (data: Data) => HandlerReturn
   },
 ) => {
   const name = options?.name

@@ -120,4 +120,53 @@ describe("waitState", () => {
     expect(isState(runtime.currentState(), TimedOutState)).toBeTruthy()
     expect((runtime.currentState().data as D).count).toBe(INITIAL_COUNT)
   })
+
+  it("should accept async handlers", async () => {
+    const BeforeThing = state<Enter, D>(
+      {
+        Enter: data => WaitForThing([data, RETURN_COUNT]),
+      },
+      { name: "BeforeThing" },
+    )
+
+    const TimedOutState = state<Enter, D>(
+      {
+        Enter: noop,
+      },
+      { name: "TimedOutState" },
+    )
+
+    const WaitForThing = waitState(
+      fetchThing,
+      thingFetched,
+      async (data: D, payload) => {
+        return AfterThing({ ...data, count: data.count + payload })
+      },
+      {
+        name: "WaitForThing",
+        timeout: 1000,
+        onTimeout: async data => {
+          return TimedOutState(data)
+        },
+      },
+    )
+    const context = createInitialContext([
+      BeforeThing({
+        count: INITIAL_COUNT,
+      }),
+    ])
+
+    const runtime = createRuntime(context, {}, { fetchThing })
+
+    expect(isState(runtime.currentState(), BeforeThing)).toBeTruthy()
+
+    await runtime.run(enter())
+
+    expect(isState(runtime.currentState(), WaitForThing)).toBeTruthy()
+
+    await timeout(2000)
+
+    expect(isState(runtime.currentState(), TimedOutState)).toBeTruthy()
+    expect((runtime.currentState().data as D).count).toBe(INITIAL_COUNT)
+  })
 })
