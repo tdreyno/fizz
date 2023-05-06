@@ -1,7 +1,8 @@
 import { enter, type Enter } from "../action"
 import { createInitialContext } from "../context"
-import { isState, state } from "../state"
+import { isState } from "../core"
 import { createRuntime } from "../runtime"
+import { state } from "../state"
 
 describe("Default data", () => {
   test("should empty tuple data", async () => {

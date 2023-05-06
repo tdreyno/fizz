@@ -2,7 +2,7 @@ export const arraySingleton = <T>(
   value: T | Array<T> | undefined | null | void,
 ): Array<T> => (value ? (Array.isArray(value) ? value : [value]) : [])
 
-export type ExternalPromise<T> = {
+type ExternalPromise<T> = {
   promise: Promise<T>
   resolve: (t: T) => void
   reject: (e: any) => void

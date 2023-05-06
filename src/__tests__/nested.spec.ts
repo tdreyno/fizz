@@ -1,5 +1,5 @@
-import { enter, beforeEnter } from "../action"
-import { isState, NESTED } from "../state"
+import { enter } from "../action"
+import { isState } from "../core"
 import { createInitialContext } from "../context"
 import { createRuntime } from "../runtime"
 import { States, Actions } from "./nestedMachine"
@@ -16,7 +16,6 @@ const init = async () => {
 
   const runtime = createRuntime(context, Actions)
 
-  await runtime.run(beforeEnter(runtime))
   await runtime.run(enter())
 
   return runtime
@@ -30,7 +29,7 @@ describe("Nested Machines", () => {
 
     expect(
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-      (runtime.currentState().data as any)[NESTED].currentState().name,
+      (runtime.currentState().data as any).nestedRuntime.currentState().name,
     ).toBe("FormInvalid")
   })
 
@@ -39,9 +38,12 @@ describe("Nested Machines", () => {
 
     await runtime.run(setName(INCORRECT_TEST_NAME))
 
+    await timeout(100)
+
     expect(
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-      (runtime.currentState().data as any)[NESTED].currentState().data.name,
+      (runtime.currentState().data as any).nestedRuntime.currentState().data
+        .name,
     ).toBe(INCORRECT_TEST_NAME)
   })
 
@@ -50,9 +52,11 @@ describe("Nested Machines", () => {
 
     await runtime.run(setName(CORRECT_TEST_NAME))
 
+    await timeout(100)
+
     expect(
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-      (runtime.currentState().data as any)[NESTED].currentState().name,
+      (runtime.currentState().data as any).nestedRuntime.currentState().name,
     ).toBe("FormValid")
 
     // Wait for event to travel from sub to parent

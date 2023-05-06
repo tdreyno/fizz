@@ -1,5 +1,3 @@
-import type { Runtime } from "./runtime"
-
 export class Action<T extends string, P> {
   constructor(public type: T, public payload: P) {}
 }
@@ -50,13 +48,7 @@ export const createAction = <T extends string, P = undefined>(
     GetActionCreatorType<T>
 }
 
-export const beforeEnter = createAction<
-  "BeforeEnter",
-  Optional<Runtime<any, any>>
->("BeforeEnter")
-export type BeforeEnter = ActionCreatorType<typeof beforeEnter>
-
-export const enter = createAction<"Enter">("Enter")
+export const enter = createAction("Enter")
 export type Enter = ActionCreatorType<typeof enter>
 
 export const exit = createAction("Exit")

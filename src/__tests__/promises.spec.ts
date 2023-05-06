@@ -7,7 +7,8 @@ import {
 import { effect, noop } from "../effect"
 import { createInitialContext } from "../context"
 import { createRuntime } from "../runtime"
-import { isState, state } from "../state"
+import { isState } from "../core"
+import { state } from "../state"
 
 describe("Promises", () => {
   const trigger = createAction("Trigger")

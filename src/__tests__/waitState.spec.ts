@@ -2,8 +2,10 @@ import { createAction, enter, type Enter } from "../action"
 import { createInitialContext } from "../context"
 import { noop } from "../effect"
 import { createRuntime } from "../runtime"
-import { isState, state, waitState } from "../state"
+import { isState } from "../core"
 import { timeout } from "./util"
+import { state } from "../state"
+import { waitState } from "../waitState"
 
 const INITIAL_COUNT = 5
 const RETURN_COUNT = 10

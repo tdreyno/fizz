@@ -1,8 +1,9 @@
 import { type ActionCreatorType, type Enter, createAction } from "../action"
-import { type StateReturn, stateWrapper } from "../state"
+import { type StateReturn } from "../core"
 import { createInitialContext } from "../context"
 import { createRuntime } from "../runtime"
 import { noop } from "../effect"
+import { stateWrapper } from "../state"
 
 describe("Bound actions", () => {
   test("should run sequentially when called at the same time", async () => {

@@ -1,7 +1,8 @@
 import type { Enter } from "../action"
 import { createInitialContext } from "../context"
 import { noop } from "../effect"
-import { isState, state } from "../state"
+import { isState } from "../core"
+import { state } from "../state"
 
 describe("Fizz core", () => {
   describe("States", () => {

@@ -1,8 +1,9 @@
 import { enter, type Enter } from "../action"
 import { createInitialContext } from "../context"
-import { isState, state } from "../state"
+import { isState } from "../core"
 import { createRuntime } from "../runtime"
 import { noop } from "../effect"
+import { state } from "../state"
 
 describe("Type narrowing", () => {
   test("should narrow on is", async () => {

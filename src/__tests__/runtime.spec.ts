@@ -11,7 +11,8 @@ import { UnknownStateReturnType } from "../errors"
 import { createInitialContext } from "../context"
 import { createRuntime } from "../runtime"
 import serializeJavascript from "serialize-javascript"
-import { isState, state } from "../state"
+import { isState } from "../core"
+import { state } from "../state"
 
 describe("Runtime", () => {
   test("should transition through multiple states", async () => {

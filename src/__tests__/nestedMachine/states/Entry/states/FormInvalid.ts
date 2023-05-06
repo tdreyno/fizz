@@ -1,3 +1,4 @@
+import type { HandlerReturn } from "../../../../../core"
 import { state } from "../../../../../state"
 import type { SetName } from "../actions"
 import type { FormData } from "../types"
@@ -5,13 +6,12 @@ import FormValid from "./FormValid"
 
 export default state<SetName, FormData>(
   {
-    SetName(data, name, { update, parentRuntime }) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (name === (parentRuntime?.currentState().data as any).targetName) {
-        return FormValid({ ...data, name })
+    SetName({ target }, name, { update }): HandlerReturn {
+      if (name === target) {
+        return FormValid({ target, name })
       }
 
-      return update({ ...data, name })
+      return update({ target, name })
     },
   },
   { name: "FormInvalid" },

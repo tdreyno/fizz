@@ -23,6 +23,9 @@ export const goBack = (): Effect<void> => effect("goBack")
 export const output = <A extends Action<any, any>>(action: A): Effect<A> =>
   effect("output", action)
 
+export const parent = <A extends Action<any, any>>(action: A): Effect<A> =>
+  effect("parent", action)
+
 const handleLog =
   <T extends Array<any>>(
     msgs: T,

@@ -2,7 +2,8 @@ import { type Enter, enter } from "../action"
 import { output } from "../effect"
 import { createInitialContext } from "../context"
 import { createRuntime } from "../runtime"
-import { isState, state } from "../state"
+import { isState } from "../core"
+import { state } from "../state"
 
 describe("onOutput", () => {
   test("should transition through multiple states", async () => {

@@ -1,11 +1,11 @@
-import { type Action, enter, exit, isAction, beforeEnter } from "./action.js"
+import { type Action, enter, exit, isAction } from "./action.js"
 import { type Effect, effect, isEffect, log } from "./effect.js"
 import { MissingCurrentState, UnknownStateReturnType } from "./errors.js"
 import {
   type StateReturn,
   type StateTransition,
   isStateTransition,
-} from "./state.js"
+} from "./core.js"
 import { arraySingleton, externalPromise } from "./util.js"
 
 import type { Context } from "./context.js"
@@ -14,6 +14,9 @@ type ContextChangeSubscriber = (context: Context) => void
 type OutputSubscriber<
   OAM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
 > = (action: ReturnType<OAM[keyof OAM]>) => void | Promise<void>
+type ParentSubscriber<
+  PAM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
+> = (action: ReturnType<PAM[keyof PAM]>) => void | Promise<void>
 
 type QueueItem = {
   onComplete: () => void
@@ -28,9 +31,13 @@ export class Runtime<
   OAM extends {
     [key: string]: (...args: Array<any>) => Action<any, any>
   },
+  PAM extends {
+    [key: string]: (...args: Array<any>) => Action<any, any>
+  },
 > {
   #contextChangeSubscribers: Set<ContextChangeSubscriber> = new Set()
   #outputSubscribers: Set<OutputSubscriber<OAM>> = new Set()
+  #parentSubscribers: Set<ParentSubscriber<PAM>> = new Set()
   #validActions: Set<string>
   #queue: QueueItem[] = []
   #isRunning = false
@@ -39,6 +46,7 @@ export class Runtime<
     public context: Context,
     public internalActions: AM,
     public outputActions: OAM,
+    public parentActions: PAM,
   ) {
     this.#validActions = Object.keys(internalActions).reduce(
       (sum, action) => sum.add(action.toLowerCase()),
@@ -66,6 +74,12 @@ export class Runtime<
     return () => this.#outputSubscribers.delete(fn)
   }
 
+  onParent(fn: ParentSubscriber<PAM>): () => void {
+    this.#parentSubscribers.add(fn)
+
+    return () => this.#parentSubscribers.delete(fn)
+  }
+
   respondToOutput<
     T extends OAM["type"],
     P extends Extract<OAM, { type: T }>["payload"],
@@ -84,6 +98,8 @@ export class Runtime<
 
   disconnect(): void {
     this.#contextChangeSubscribers.clear()
+    this.#parentSubscribers.clear()
+    this.#outputSubscribers.clear()
   }
 
   canHandle(action: Action<any, any>): boolean {
@@ -157,6 +173,10 @@ export class Runtime<
         } else if (item.label === "output") {
           this.#outputSubscribers.forEach(sub => {
             void sub(item.data as ReturnType<OAM[keyof OAM]>)
+          })
+        } else if (item.label === "parent") {
+          this.#parentSubscribers.forEach(sub => {
+            void sub(item.data as ReturnType<PAM[keyof PAM]>)
           })
         } else {
           this.#runEffect(item)
@@ -243,19 +263,6 @@ export class Runtime<
       throw new MissingCurrentState("Must provide a current state")
     }
 
-    // const isReentering =
-    //   exitState &&
-    //   exitState.name === targetState.name &&
-    //   targetState.mode === "append" &&
-    //   action.type === "Enter"
-
-    //!isUpdating && !isReentering &&
-    // const isEnteringNewState = action.type === "Enter"
-
-    // const prefix = isEnteringNewState
-    //   ? this.enterState_(targetState, exitState)
-    //   : []
-
     const result = await targetState.executor(action, this)
 
     return arraySingleton(result)
@@ -301,9 +308,6 @@ export class Runtime<
       log(`Enter: ${targetState.name as string}`, targetState.data),
 
       // Run enter on next state
-      beforeEnter(this),
-
-      // Run enter on next state
       enter(),
     ]
 
@@ -323,8 +327,6 @@ export class Runtime<
         this.context.history.pop()
       }),
 
-      beforeEnter(this),
-
       enter(),
     ]
   }
@@ -333,8 +335,10 @@ export class Runtime<
 export const createRuntime = <
   AM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
   OAM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
+  PAM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
 >(
   context: Context,
   internalActions: AM = {} as AM,
   outputActions: OAM = {} as OAM,
-) => new Runtime(context, internalActions, outputActions)
+  parentActions: PAM = {} as PAM,
+) => new Runtime(context, internalActions, outputActions, parentActions)

@@ -1,9 +1,9 @@
-import type { StateTransition } from "./state.js"
+import type { StateTransition } from "./core.js"
 
 export class History<
   T extends StateTransition<any, any, any> = StateTransition<any, any, any>,
 > {
-  constructor(private items: Array<T>, private maxHistory = Infinity) {
+  constructor(protected items: Array<T>, protected maxHistory = Infinity) {
     if (items.length <= 0) {
       throw new Error(
         "History must contain atleast one previous (or initial) state",
@@ -52,7 +52,7 @@ interface Options {
 export class Context {
   constructor(
     public history: History,
-    private options_: Omit<Options, "maxHistory">,
+    protected options_: Omit<Options, "maxHistory">,
   ) {}
 
   get enableLogging() {
@@ -68,8 +68,8 @@ export class Context {
   }
 }
 
-export const createInitialContext = (
-  history: Array<StateTransition<any, any, any>> = [],
+export const createInitialContext = <T extends StateTransition<any, any, any>>(
+  history: Array<T> = [],
   options?: Partial<Options>,
 ) =>
   new Context(new History(history, options?.maxHistory ?? Infinity), {
