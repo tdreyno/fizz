@@ -3,6 +3,7 @@ import type { BoundStateFn, StateTransition } from "../state.js"
 import { Context, createInitialContext } from "../context.js"
 import { type Readable, readable } from "svelte/store"
 import { Runtime, createRuntime } from "../runtime.js"
+import { onMount } from "svelte"
 
 export interface ContextValue<
   SM extends { [key: string]: BoundStateFn<any, any, any> },
@@ -30,7 +31,16 @@ export const createStore = <
   SM extends { [key: string]: BoundStateFn<any, any, any> },
   AM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
   OAM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
-  R extends Readable<ContextValue<SM, AM, OAM>>,
+  R extends Readable<ContextValue<SM, AM, OAM>> & {
+    respondOnMount: <
+      T extends OAM["type"],
+      P extends Extract<OAM, { type: T }>["payload"],
+      A extends ReturnType<AM[keyof AM]>,
+    >(
+      type: T,
+      handler: (payload: P) => Promise<A> | A | void,
+    ) => void
+  },
 >(
   _states: SM,
   actions: AM,
@@ -56,7 +66,7 @@ export const createStore = <
     runtime,
   }
 
-  return readable(initialContext, set => {
+  const store = readable(initialContext, set => {
     const unsub = runtime.onContextChange(context =>
       set({
         context,
@@ -71,4 +81,17 @@ export const createStore = <
 
     return unsub
   }) as R
+
+  store.respondOnMount = <
+    T extends OAM["type"],
+    P extends Extract<OAM, { type: T }>["payload"],
+    A extends ReturnType<AM[keyof AM]>,
+  >(
+    type: T,
+    handler: (payload: P) => Promise<A> | A | void,
+  ) => {
+    onMount(() => runtime.respondToOutput(type, handler))
+  }
+
+  return store
 }

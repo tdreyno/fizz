@@ -13,7 +13,7 @@ import type { Context } from "./context.js"
 type ContextChangeSubscriber = (context: Context) => void
 type OutputSubscriber<
   OAM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
-> = (action: ReturnType<OAM[keyof OAM]>) => void
+> = (action: ReturnType<OAM[keyof OAM]>) => void | Promise<void>
 
 type QueueItem = {
   onComplete: () => void
@@ -64,6 +64,22 @@ export class Runtime<
     this.#outputSubscribers.add(fn)
 
     return () => this.#outputSubscribers.delete(fn)
+  }
+
+  respondToOutput<
+    T extends OAM["type"],
+    P extends Extract<OAM, { type: T }>["payload"],
+    A extends ReturnType<AM[keyof AM]>,
+  >(type: T, handler: (payload: P) => Promise<A> | A | void): () => void {
+    return this.onOutput(async output => {
+      if (output.type === type) {
+        const maybeAction = await handler(output.payload as P)
+
+        if (maybeAction) {
+          await this.run(maybeAction)
+        }
+      }
+    })
   }
 
   disconnect(): void {
@@ -139,9 +155,9 @@ export class Runtime<
         if (item.label === "goBack") {
           results = this.#handleGoBack()
         } else if (item.label === "output") {
-          this.#outputSubscribers.forEach(sub =>
-            sub(item.data as ReturnType<OAM[keyof OAM]>),
-          )
+          this.#outputSubscribers.forEach(sub => {
+            void sub(item.data as ReturnType<OAM[keyof OAM]>)
+          })
         } else {
           this.#runEffect(item)
         }

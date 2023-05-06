@@ -1,18 +1,23 @@
-import { goBack, noop } from "../effects"
-
+import { goBack } from "../effects"
 import type { Enter } from "../../../../action"
-import type { Reset } from "../actions"
+import type { Reset, World } from "../actions"
 import type { Shared } from "../types"
 import { state } from "../../../../state"
+import { output } from "../../../../effect"
+import { hello } from "../outputActions"
 
-type Actions = Enter | Reset // | ReEnter
+type Actions = Enter | Reset | World // | ReEnter
 type Data = [Shared]
 
 export default state<Actions, Data>(
   {
-    Enter: () => noop(),
+    Enter: () => output(hello()),
 
     Reset: goBack,
+
+    World: ([shared], __, { update }) => {
+      return update([{ ...shared, didWorld: true }])
+    },
 
     // ReEnter: (data, _, { reenter }) => reenter(data),
   },

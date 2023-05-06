@@ -4,7 +4,7 @@ import { createInitialContext } from "../context"
 import { createRuntime } from "../runtime"
 import { isState, state } from "../state"
 
-describe("Ports", () => {
+describe("onOutput", () => {
   test("should transition through multiple states", async () => {
     const enterAction = enter()
 

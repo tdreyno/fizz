@@ -25,13 +25,6 @@ const AfterThing = state<Enter, D>(
 
 describe("waitState", () => {
   it("should run a wait state", async () => {
-    const BeforeThing = state<Enter, D>(
-      {
-        Enter: data => WaitForThing([data, RETURN_COUNT]),
-      },
-      { name: "BeforeThing" },
-    )
-
     const WaitForThing = waitState(
       fetchThing,
       thingFetched,
@@ -42,6 +35,14 @@ describe("waitState", () => {
         name: "WaitForThing",
       },
     )
+
+    const BeforeThing = state<Enter, D>(
+      {
+        Enter: data => WaitForThing([data, RETURN_COUNT]),
+      },
+      { name: "BeforeThing" },
+    )
+
     const context = createInitialContext([
       BeforeThing({
         count: INITIAL_COUNT,
@@ -168,5 +169,51 @@ describe("waitState", () => {
 
     expect(isState(runtime.currentState(), TimedOutState)).toBeTruthy()
     expect((runtime.currentState().data as D).count).toBe(INITIAL_COUNT)
+  })
+
+  it("should be able to use respondToOutput", async () => {
+    const WaitForThing = waitState(
+      fetchThing,
+      thingFetched,
+      (data: D, payload) => {
+        return AfterThing({ ...data, count: data.count + payload })
+      },
+      {
+        name: "WaitForThing",
+      },
+    )
+
+    const BeforeThing = state<Enter, D>(
+      {
+        Enter: data => WaitForThing([data, RETURN_COUNT]),
+      },
+      { name: "BeforeThing" },
+    )
+
+    const context = createInitialContext([
+      BeforeThing({
+        count: INITIAL_COUNT,
+      }),
+    ])
+
+    const runtime = createRuntime(context, { thingFetched }, { fetchThing })
+
+    runtime.respondToOutput("FetchThing", async payload => {
+      await timeout(250)
+      return thingFetched(payload)
+    })
+
+    expect(isState(runtime.currentState(), BeforeThing)).toBeTruthy()
+
+    await runtime.run(enter())
+
+    expect(isState(runtime.currentState(), WaitForThing)).toBeTruthy()
+
+    await timeout(500)
+
+    expect(isState(runtime.currentState(), AfterThing)).toBeTruthy()
+    expect((runtime.currentState().data as D).count).toBe(
+      INITIAL_COUNT + RETURN_COUNT,
+    )
   })
 })
