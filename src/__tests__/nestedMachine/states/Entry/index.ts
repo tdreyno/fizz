@@ -1,7 +1,6 @@
 import { completedForm, type CompletedForm } from "../../actions"
-import { setName, type SetName } from "./actions"
 import Complete from "../Complete"
-import { state } from "../../../../state"
+import { state, stateWrapper } from "../../../../state"
 import { Runtime } from "../../../../runtime"
 import { Context, History } from "../../../../context"
 import {
@@ -9,10 +8,31 @@ import {
   type Exit,
   type ActionCreatorType,
   createAction,
+  Action,
 } from "../../../../action"
-import { initializeNestedRuntime, initializeNestedRuntime2 } from "./states"
-import type { BoundStateFn } from "../../../../core"
+import { initializeNestedRuntime } from "./states"
+import type {
+  BoundStateFn,
+  HandlerReturn,
+  State,
+  StateTransition,
+} from "../../../../core"
 import * as NestedActions from "./actions"
+import { output } from "../../../../effect"
+
+const Entry = state<
+  CompletedForm,
+  {
+    targetName: string
+  }
+>(
+  {
+    CompletedForm() {
+      return Complete()
+    },
+  },
+  { name: "Entry" },
+)
 
 export const onNestedContextChange = createAction<
   "OnNestedContextChange",
@@ -22,97 +42,85 @@ export type OnNestedContextChange = ActionCreatorType<
   typeof onNestedContextChange
 >
 
-type NestedRuntime = Runtime<any, any, any>
-
-const Entry = state<
-  Enter | Exit | CompletedForm | SetName | OnNestedContextChange,
-  {
-    targetName: string
-    nestedRuntime?: NestedRuntime
-    nestedHistoryItems?: History["items"]
-  }
->(
-  {
-    Enter(shared, _, { update, trigger }) {
-      const nestedRuntime = initializeNestedRuntime(
-        shared.targetName,
-        trigger,
-        shared.nestedHistoryItems,
-      )
-
-      return update({ ...shared, nestedRuntime })
-    },
-
-    // Can we generate this?
-    OnNestedContextChange(shared, nestedContext, { update }) {
-      return update({
-        ...shared,
-        nestedHistoryItems: nestedContext.history.toArray(),
-      })
-    },
-
-    CompletedForm() {
-      return Complete()
-    },
-
-    // Forward down to nested machine.
-    // Can we generate these?
-    SetName({ nestedRuntime }, payload) {
-      void nestedRuntime?.run(setName(payload))
-    },
-
-    // Can we generate this?
-    Exit({ nestedRuntime }) {
-      nestedRuntime?.disconnect()
-    },
-  },
-  { name: "Entry" },
-)
-
 const withNestedMachine = <
-  S extends BoundStateFn<any, any, any>,
+  N extends string,
+  A extends Action<any, any>,
+  D extends { historyItems_?: History["items"] },
+  S extends BoundStateFn<N, A, D>,
   AM extends {
     [key: string]: (...args: Array<any>) => Action<any, any>
   },
-  D = S extends BoundStateFn<any, any, infer D> ? D : never,
-  R = BoundStateFn<any, any, any>,
+  RT extends Runtime<any, any, any>,
+  R = BoundStateFn<N, A, D>,
 >(
   state: S,
-  initializer: (shared: D, history: History["items"]) => Runtime<any, any, any>,
+  initializer: (shared: D, history?: History["items"]) => RT,
   nestedActions: AM,
 ): R => {
-  // run initializer on Enter
-  const nestedRuntime = initializer(
-    state.shared,
-    state.context.history.toArray(),
-  )
+  // TODO: expand A with forward actions
+  // Figure out: OnNestedContextChange
+  const handler = ((
+    action: A | Enter | Exit | ReturnType<AM[keyof AM]>,
+    data: D,
+    utils: {
+      update: (data: D) => StateTransition<string, A, D>
+      trigger: (action: A | Action<any, any>) => void
+    },
+  ) => {
+    switch (action.type) {
+      case "Enter":
+        // Init and store nested runtime
+        const nestedRuntime = initializer(data, data.historyItems_)
 
-  //listen  to nested outputs to propogate up
-  nestedRuntime.onOutput(action => {
-    trigger(output(action))
-  })
+        // listen to nested outputs to propogate up
+        nestedRuntime.onOutput(action => {
+          // utils.trigger(output(action))
+        })
 
-  // listen for parent actions to propagate up
-  nestedRuntime.onParent(action => {
-    // trigger(action)
-  })
+        // listen for parent actions to propagate up
+        nestedRuntime.onParent((action: A) => {
+          utils.trigger(action)
+        })
 
-  // track history for serialization on context change
-  nestedRuntime.onContextChange(ctx => {
-    // trigger(onNestedContextChange(ctx))
-  })
+        // track history for serialization on context change
+        nestedRuntime.onContextChange(ctx => {
+          // utils.trigger(onNestedContextChange(ctx))
+        })
 
-  // TODO:
-  // forward actions to nested machine
+        // then run normal enter
+
+        break
+
+      // // Can we generate this?
+      // OnNestedContextChange(shared, nestedContext, { update }) {
+      //   return update({
+      //     ...shared,
+      //     nestedHistoryItems: nestedContext.history.toArray(),
+      //   })
+      // },
+      case "Exit":
+        // disconnect nested runtime
+        // then run normal enter
+        // nestedRuntime?.disconnect()
+        break
+
+      default:
+        if (nestedActions[action.type as string]) {
+          // forward to nested machine
+          // nestedRuntime?.run(action)
+        }
+      // either way, try to run on initial state
+    }
+  }) as State<N, A, D>
 
   // setup parentActions
-  return null as any as R
+  return stateWrapper(state.name, handler) as R
 }
 
 const EntryWithNestedMachine = withNestedMachine(
   Entry,
   (shared, history: History["items"]) =>
-    initializeNestedRuntime2(shared.targetName, history),
+    initializeNestedRuntime(shared.targetName, history),
   NestedActions,
 )
 
