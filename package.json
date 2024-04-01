@@ -46,7 +46,7 @@
     "@typescript-eslint/parser": "^5.62.0",
     "commitizen": "^4.3.0",
     "cz-conventional-changelog": "3.3.0",
-    "eslint": "^8.52.0",
+    "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.1.3",
     "husky": "^8.0.3",
