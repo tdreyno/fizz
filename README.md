@@ -126,44 +126,55 @@ You can continue to run actions on the runtime and await their resulting new sta
 
 ## React Runtime
 
-If you are using React, you can create a machine provider and access the current state with hooks.
+If you are using React, you can interact with a machine with hooks.
 
 ```typescript
-import { createFizzContext, useMachine, Enter, ActionCreatorType, createAction } from "@tdreyno/fizz"
+import {
+  useMachine,
+  Enter,
+  ActionCreatorType,
+  createAction,
+} from "@tdreyno/fizz"
 
 const finished = createAction<"Finished", string>("Finished")
 type Finished = ActionCreatorType<typeof finished>
 
 const Start = state<Enter | Finished>({
   Enter: noop,
-  Finished: () => End()
+  Finished: () => End(),
 })
 
 const End = state<Enter>({
   Enter: noop,
 })
 
-const Machine = createFizzContext({
-  Start,
-  End,
-}, {
-  finish
-})
-
-const ShowState = () => {
-  const { currentState, actions: { finished } } = useMachine(Machine)
-
-  return <div role="name">
-    <h1>{currentState.name}</h1>
-    <button onClick={() => finished()}>
-  </div>
+const useShowMachine = () => {
+  // Can store in context to better share.
+  return useMachine(
+    {
+      Start,
+      End,
+    },
+    {
+      finish,
+    },
+    Start(),
+  )
 }
 
-const App = () => (
-  <Machine.Provider initialState={States.Start()}>
-    {({ currentState, actions }) => <ShowState />}
-  </Machine.Provider>
-)
+const Show = () => {
+  const { actions, currentState } = useShowMachine()
+
+  return (
+    <div>
+      {currentState.state === Start ? (
+        <button onClick={() => actions.finished()}>Finish</button>
+      ) : (
+        <div>Finished</div>
+      )}
+    </div>
+  )
+}
 ```
 
 ## Svelte Runtime

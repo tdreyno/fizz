@@ -41,6 +41,7 @@
     "@semantic-release/github": "^10.0.3",
     "@testing-library/jest-dom": "^6.4.5",
     "@testing-library/svelte": "^5.1.0",
+    "@testing-library/react": "^15.0.7",
     "@types/jest": "^29.5.5",
     "@types/node": "^20.12.2",
     "@types/serialize-javascript": "^5.0.4",
@@ -56,6 +57,7 @@
     "prettier": "^3.2.5",
     "semantic-release": "^24.0.0",
     "serialize-javascript": "^6.0.1",
+    "react": "^18.3.1",
     "svelte": "^4.2.17",
     "svelte-jester": "^3.0.0",
     "svelte-preprocess": "^5.1.4",
@@ -64,7 +66,8 @@
     "typescript-eslint": "^8.0.0-alpha.24"
   },
   "peerDependencies": {
-    "svelte": "^4.0"
+    "svelte": "^4.0",
+    "react": "^18.0"
   },
   "lint-staged": {
     "*.{ts,tsx}": [

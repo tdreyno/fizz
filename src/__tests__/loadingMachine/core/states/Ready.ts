@@ -6,7 +6,7 @@ import { state } from "../../../../state"
 import { output } from "../../../../effect"
 import { hello } from "../outputActions"
 
-type Actions = Enter | Reset | World // | ReEnter
+type Actions = Enter | Reset | World
 type Data = [Shared]
 
 export default state<Actions, Data>(
@@ -18,8 +18,6 @@ export default state<Actions, Data>(
     World: ([shared], __, { update }) => {
       return update([{ ...shared, didWorld: true }])
     },
-
-    // ReEnter: (data, _, { reenter }) => reenter(data),
   },
   { name: "Ready" },
 )
