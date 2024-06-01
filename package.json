@@ -22,7 +22,7 @@
     "build": "rm -rf dist && tsc --project tsconfig.json",
     "build:incremental": "tsc --incremental --project tsconfig.json",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
-    "test:ci": "jest --runInBand",
+    "test:ci": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand",
     "test:npm": "bash bin/test-npm-version",
     "version": "npm run build",
     "coverage": "jest --runInBand --coverage --coverageDirectory '../coverage'",
