@@ -20,7 +20,7 @@
     "noUnusedParameters": true,
     "verbatimModuleSyntax": true,
     "forceConsistentCasingInFileNames": true,
-    "module": "es2020",
+    "module": "es2015",
     "moduleResolution": "node",
     "allowJs": true,
     "noEmit": false,

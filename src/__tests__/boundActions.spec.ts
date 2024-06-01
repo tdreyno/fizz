@@ -1,3 +1,4 @@
+import { jest } from "@jest/globals"
 import { type ActionCreatorType, type Enter, createAction } from "../action"
 import { type StateReturn, stateWrapper } from "../state"
 import { createInitialContext } from "../context"
