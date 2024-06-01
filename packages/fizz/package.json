@@ -1,0 +1,51 @@
+{
+  "name": "@tdreyno/fizz",
+  "version": "5.4.0",
+  "repository": "https://github.com/tdreyno/fizz.git",
+  "funding": "https://github.com/sponsors/tdreyno",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">= 16"
+  },
+  "sideEffects": false,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "src",
+    "dist"
+  ],
+  "scripts": {
+    "lint": "eslint",
+    "build": "rm -rf dist && tsc --project tsconfig.json",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
+    "test:ci": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand",
+    "test:npm": "bash bin/test-npm-version",
+    "coverage": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand --coverage --coverageDirectory '../coverage'",
+    "format": "prettier . --write"
+  },
+  "devDependencies": {
+    "@types/serialize-javascript": "^5.0.4",
+    "serialize-javascript": "^6.0.1"
+  },
+  "peerDependencies": {
+    "svelte": "^4.0",
+    "react": "^18.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{css,md,json}": [
+      "prettier --write"
+    ]
+  },
+  "config": {
+    "commitizen": {
+      "path": "./node_modules/cz-conventional-changelog"
+    }
+  }
+}
