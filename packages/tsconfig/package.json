@@ -1,0 +1,11 @@
+{
+  "name": "@repo/tsconfig",
+  "version": "0.0.0",
+  "private": true,
+  "files": [
+    "base.json"
+  ],
+  "devDependencies": {
+    "typescript": "^5.4.3"
+  }
+}

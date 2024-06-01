@@ -130,11 +130,11 @@ If you are using React, you can interact with a machine with hooks.
 
 ```typescript
 import {
-  useMachine,
   Enter,
   ActionCreatorType,
   createAction,
 } from "@tdreyno/fizz"
+import { useMachine } from "@tdreyno/fizz-react"
 
 const finished = createAction<"Finished", string>("Finished")
 type Finished = ActionCreatorType<typeof finished>
@@ -182,7 +182,7 @@ const Show = () => {
 If you are using Svelte, you can create a machine provider and access the current state with a store.
 
 ```typescript
-import { createMachine } from "@tdreyno/fizz/svelte"
+import { createMachine } from "@tdreyno/fizz-svelte"
 
 const machine = createMachine(states, actions, initialState)
 
