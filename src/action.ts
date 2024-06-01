@@ -1,7 +1,10 @@
 import type { Runtime } from "./runtime"
 
 export class Action<T extends string, P> {
-  constructor(public type: T, public payload: P) {}
+  constructor(
+    public type: T,
+    public payload: P,
+  ) {}
 }
 
 export const action = <T extends string, P>(type: T, payload: P) =>
@@ -30,8 +33,8 @@ type Optional<T> = [T]
 export type ActionCreator<T extends string, P> = P extends undefined
   ? () => Action<T, undefined>
   : P extends Optional<infer Z>
-  ? (payload?: Z) => Action<T, Z | undefined>
-  : (payload: P) => Action<T, P>
+    ? (payload?: Z) => Action<T, Z | undefined>
+    : (payload: P) => Action<T, P>
 
 export type ActionCreatorType<F extends ActionCreator<any, any>> = ReturnType<F>
 

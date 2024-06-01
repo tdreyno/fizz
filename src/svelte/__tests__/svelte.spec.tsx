@@ -2,8 +2,7 @@
  * @jest-environment jsdom
  */
 
-/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
-import "@testing-library/jest-dom/extend-expect"
+import "@testing-library/jest-dom"
 
 import Comp from "./Comp.svelte"
 import { act, render } from "@testing-library/svelte"

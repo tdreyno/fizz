@@ -16,7 +16,7 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - run: npm ci
-      - run: npm run test
+      - run: npm run test:ci
       - run: npm run build
       - name: Code Climate Coverage Action
         uses: paambaati/codeclimate-action@v6.0.0

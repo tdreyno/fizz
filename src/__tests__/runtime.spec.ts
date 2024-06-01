@@ -88,7 +88,6 @@ describe("Runtime", () => {
       throw new Error()
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     expect(s.data.num).toBe(13)
   })
 
@@ -336,14 +335,12 @@ describe("Runtime", () => {
         throw new Error()
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const [a, b, c, d] = state.data
 
       expect(a).toBe("Test")
       expect(b).toBe(false)
       expect(c).toBe(5)
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       expect(d()).toBe("Inside")
     })
   })
@@ -455,9 +452,9 @@ describe("Runtime", () => {
         )
 
         return createInitialContext(
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
           unboundHistory.map(({ data, name }) => {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return
             return (STATES as any)[name](data)
           }),
         )

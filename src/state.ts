@@ -57,7 +57,7 @@ export type StateTransitionToBoundStateFn<
 > = BoundStateFn<any, any, D>
 
 export const isStateTransition = (
-  a: StateTransition<any, any, any> | unknown,
+  a: unknown,
 ): a is StateTransition<any, any, any> =>
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
   (a as any)?.isStateTransition
@@ -96,11 +96,9 @@ export interface BoundStateFn<
   A extends Action<any, any>,
   Data = undefined,
 > {
-  (...data: Data extends undefined ? [] : [Data]): StateTransition<
-    Name,
-    A,
-    Data
-  >
+  (
+    ...data: Data extends undefined ? [] : [Data]
+  ): StateTransition<Name, A, Data>
   name: Name
 }
 
@@ -173,7 +171,6 @@ const matchAction =
       trigger: (action: Actions) => void
     },
   ): HandlerReturn => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const handler = (handlers as never)[action.type] as (
       data: Data,
       payload: ActionPayload<Actions>,
@@ -245,7 +242,7 @@ export const stateWithNested = <
       return noop()
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     initialNestedState.data[PARENT_RUNTIME] = parentRuntime
 
     const runtime = createRuntime(

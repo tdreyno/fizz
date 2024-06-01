@@ -29,8 +29,8 @@ export class Runtime<
     [key: string]: (...args: Array<any>) => Action<any, any>
   },
 > {
-  #contextChangeSubscribers: Set<ContextChangeSubscriber> = new Set()
-  #outputSubscribers: Set<OutputSubscriber<OAM>> = new Set()
+  #contextChangeSubscribers = new Set<ContextChangeSubscriber>()
+  #outputSubscribers = new Set<OutputSubscriber<OAM>>()
   #validActions: Set<string>
   #queue: QueueItem[] = []
   #isRunning = false
@@ -98,18 +98,21 @@ export class Runtime<
       }
     },
   >(actions: AM): PM {
-    return Object.keys(actions).reduce((sum, key) => {
-      sum[key] = (...args: Array<any>) => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-non-null-assertion
-        const promise = this.run(actions[key]!(...args))
+    return Object.keys(actions).reduce(
+      (sum, key) => {
+        sum[key] = (...args: Array<any>) => {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+          const promise = this.run(actions[key]!(...args))
 
-        return {
-          asPromise: () => promise,
+          return {
+            asPromise: () => promise,
+          }
         }
-      }
 
-      return sum
-    }, {} as Record<string, any>) as PM
+        return sum
+      },
+      {} as Record<string, any>,
+    ) as PM
   }
 
   async run(action: Action<any, any>): Promise<void> {
@@ -319,7 +322,6 @@ export class Runtime<
     return [
       // Update history
       effect("updateHistory", undefined, () => {
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         this.context.history.pop()
       }),
 

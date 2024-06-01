@@ -3,7 +3,10 @@ import type { StateTransition } from "./state.js"
 export class History<
   T extends StateTransition<any, any, any> = StateTransition<any, any, any>,
 > {
-  constructor(private items: Array<T>, private maxHistory = Infinity) {
+  constructor(
+    private items: Array<T>,
+    private maxHistory = Infinity,
+  ) {
     if (items.length <= 0) {
       throw new Error(
         "History must contain atleast one previous (or initial) state",
@@ -12,7 +15,6 @@ export class History<
   }
 
   get current(): T {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     return this.items[0]!
   }
 
