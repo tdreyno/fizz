@@ -25,5 +25,8 @@
   "packageManager": "npm@10.8.1",
   "workspaces": [
     "packages/*"
-  ]
+  ],
+  "dependencies": {
+    "@changesets/cli": "^2.27.5"
+  }
 }
