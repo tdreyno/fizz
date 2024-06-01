@@ -25,7 +25,7 @@
     "test:ci": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand",
     "test:npm": "bash bin/test-npm-version",
     "version": "npm run build",
-    "coverage": "jest --runInBand --coverage --coverageDirectory '../coverage'",
+    "coverage": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand --coverage --coverageDirectory '../coverage'",
     "commit": "git-cz",
     "semantic-release": "semantic-release",
     "prepare": "husky install",
