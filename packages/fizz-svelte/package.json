@@ -1,7 +1,10 @@
 {
   "name": "@tdreyno/fizz-svelte",
-  "version": "5.4.0",
-  "repository": "https://github.com/tdreyno/fizz.git",
+  "version": "6.0.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tdreyno/fizz.git"
+  },
   "funding": "https://github.com/sponsors/tdreyno",
   "publishConfig": {
     "access": "public"
