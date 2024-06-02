@@ -1,5 +1,13 @@
 # @tdreyno/fizz-svelte
 
+## 6.0.1
+
+### Patch Changes
+
+- 9baacf4: Turborepo + GH release test
+- Updated dependencies [9baacf4]
+  - @tdreyno/fizz@6.0.1
+
 ## 6.0.0
 
 ### Major Changes
