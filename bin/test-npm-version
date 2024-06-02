@@ -1,3 +1,0 @@
-#! /bin/bash
-
-npm link && cd test-npm-version && npm install && npm link "@tdreyno/fizz" && npm run build

@@ -1,3 +1,3 @@
 import * as Fizz from "@tdreyno/fizz"
 
-console.log(Fizz, Fizz.createStore)
+console.log(Fizz, Fizz.state)
