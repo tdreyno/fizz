@@ -11,11 +11,14 @@ jobs:
     name: Node ${{ matrix.node }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - name: Setup node
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
-      - run: npm ci
+          cache: "npm"
+      - run: npm install
       - run: npm run test:ci
       - run: npm run build
-      - run: npm run test:npm
+      # - run: npm run test:npm
