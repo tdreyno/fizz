@@ -7,21 +7,18 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node: ["20", "18", "16"]
+        node: ["20", "18"]
     name: Node ${{ matrix.node }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - name: Setup node
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
-      - run: npm ci
-      - run: npm run test:ci
+          cache: "npm"
+      - run: npm install
       - run: npm run build
-      - name: Code Climate Coverage Action
-        uses: paambaati/codeclimate-action@v6.0.0
-        env:
-          CC_TEST_REPORTER_ID: 3c9c36dc44d794c8a3f398889936100a4df2b6913e5388ab824effed6cefcc31
-        with:
-          coverageCommand: npm run coverage
+      - run: npm run test:ci
       - run: npm run test:npm

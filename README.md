@@ -1,6 +1,5 @@
 # Fizz
 
-[![Test Coverage](https://api.codeclimate.com/v1/badges/bade509a61c126d7f488/test_coverage)](https://codeclimate.com/github/tdreyno/fizz/test_coverage)
 [![npm latest version](https://img.shields.io/npm/v/@tdreyno/fizz/latest.svg)](https://www.npmjs.com/package/@tdreyno/fizz)
 [![Minified Size](https://badgen.net/bundlephobia/minzip/@tdreyno/fizz)](https://bundlephobia.com/result?p=@tdreyno/fizz)
 
@@ -130,11 +129,11 @@ If you are using React, you can interact with a machine with hooks.
 
 ```typescript
 import {
-  useMachine,
   Enter,
   ActionCreatorType,
   createAction,
 } from "@tdreyno/fizz"
+import { useMachine } from "@tdreyno/fizz-react"
 
 const finished = createAction<"Finished", string>("Finished")
 type Finished = ActionCreatorType<typeof finished>
@@ -182,7 +181,7 @@ const Show = () => {
 If you are using Svelte, you can create a machine provider and access the current state with a store.
 
 ```typescript
-import { createMachine } from "@tdreyno/fizz/svelte"
+import { createMachine } from "@tdreyno/fizz-svelte"
 
 const machine = createMachine(states, actions, initialState)
 
