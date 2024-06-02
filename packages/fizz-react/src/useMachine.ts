@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   type Action,
   enter,
@@ -45,16 +45,24 @@ export const useMachine = <
   outputActions: OAM = {} as OAM,
   options: Partial<Options> = {},
 ): R => {
-  const { maxHistory = 5, enableLogging = false } = options
+  const { defaultContext, runtime, boundActions } = useMemo(() => {
+    const { maxHistory = 5, enableLogging = false } = options
 
-  const defaultContext = createInitialContext([initialState], {
-    maxHistory,
-    enableLogging,
-  })
+    const defaultContext = createInitialContext([initialState], {
+      maxHistory,
+      enableLogging,
+    })
 
-  const runtime = createRuntime(defaultContext, actions, outputActions)
+    const runtime = createRuntime(defaultContext, actions, outputActions)
 
-  const boundActions = runtime.bindActions(actions)
+    const boundActions = runtime.bindActions(actions)
+
+    return {
+      defaultContext,
+      runtime,
+      boundActions,
+    }
+  }, [])
 
   const [context, setContext] = useState<R>({
     context: defaultContext,
@@ -64,13 +72,13 @@ export const useMachine = <
   } as R)
 
   useEffect(() => {
-    const unsub = runtime.onContextChange(context =>
+    const unsub = runtime.onContextChange(context => {
       setContext(r => ({
         ...r,
         context,
         currentState: context.currentState as ReturnType<SM[keyof SM]>,
-      })),
-    )
+      }))
+    })
 
     void runtime.run(beforeEnter(runtime))
     void runtime.run(enter())

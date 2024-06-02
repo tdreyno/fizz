@@ -1,5 +1,5 @@
 {
-  "name": "my-turborepo",
+  "name": "fizz",
   "private": true,
   "scripts": {
     "build": "turbo build",
@@ -17,6 +17,7 @@
     "@tdreyno/fizz": "*",
     "@tdreyno/fizz-react": "*",
     "@tdreyno/fizz-svelte": "*",
+    "@repo/react-example": "*",
     "prettier": "^3.2.5",
     "turbo": "^1.13.3"
   },
