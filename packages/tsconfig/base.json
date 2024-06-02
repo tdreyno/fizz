@@ -25,7 +25,6 @@
     "allowJs": true,
     "noEmit": false,
     "sourceMap": true,
-    "declaration": true,
-    "rootDir": "./src"
+    "declaration": true
   }
 }
