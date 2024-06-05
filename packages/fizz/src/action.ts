@@ -10,12 +10,11 @@ export class Action<T extends string, P> {
 export const action = <T extends string, P>(type: T, payload: P) =>
   new Action(type, payload)
 
-export type ActionName<
-  A extends Action<any, any>,
-  T = A["type"],
-> = T extends string ? T : never
+export type ActionName<A extends Action<any, any>> =
+  A extends Action<infer U, any> ? U : never
 
-export type ActionPayload<A extends Action<any, any>> = A["payload"]
+export type ActionPayload<A extends Action<any, any>> =
+  A extends Action<any, infer U> ? U : never
 
 export const isAction = <T extends string>(a: unknown): a is Action<T, any> =>
   a instanceof Action

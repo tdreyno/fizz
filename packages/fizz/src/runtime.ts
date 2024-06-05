@@ -40,14 +40,17 @@ export class Runtime<
     public internalActions: AM,
     public outputActions: OAM,
   ) {
-    this.#validActions = Object.keys(internalActions).reduce(
-      (sum, action) => sum.add(action.toLowerCase()),
-      new Set<string>(),
+    this.#validActions = new Set(
+      Object.keys(internalActions).map(a => a.toLowerCase()),
     )
   }
 
   currentState(): StateTransition<string, any, unknown> {
-    return this.context.currentState as StateTransition<string, any, unknown>
+    return this.context.currentState satisfies StateTransition<
+      string,
+      any,
+      unknown
+    >
   }
 
   currentHistory() {
@@ -86,22 +89,16 @@ export class Runtime<
     this.#contextChangeSubscribers.clear()
   }
 
-  canHandle(action: Action<any, any>): boolean {
-    return this.#validActions.has((action.type as string).toLowerCase())
+  canHandle(action: Action<string, unknown>): boolean {
+    return this.#validActions.has(action.type.toLowerCase())
   }
 
   bindActions<
     AM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
-    PM = {
-      [K in keyof AM]: (...args: Parameters<AM[K]>) => {
-        asPromise: () => Promise<void>
-      }
-    },
-  >(actions: AM): PM {
+  >(actions: AM) {
     return Object.keys(actions).reduce(
-      (sum, key) => {
-        sum[key] = (...args: Array<any>) => {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+      (sum, key: keyof AM) => {
+        sum[key] = (...args) => {
           const promise = this.run(actions[key]!(...args))
 
           return {
@@ -111,8 +108,12 @@ export class Runtime<
 
         return sum
       },
-      {} as Record<string, any>,
-    ) as PM
+      {} as {
+        [K in keyof AM]: (...args: Parameters<AM[K]>) => {
+          asPromise: () => Promise<void>
+        }
+      },
+    )
   }
 
   async run(action: Action<any, any>): Promise<void> {
@@ -155,14 +156,17 @@ export class Runtime<
       } else if (isStateTransition(item)) {
         results = this.#handleState(item)
       } else if (isEffect(item)) {
-        if (item.label === "goBack") {
-          results = this.#handleGoBack()
-        } else if (item.label === "output") {
-          this.#outputSubscribers.forEach(sub => {
-            void sub(item.data as ReturnType<OAM[keyof OAM]>)
-          })
-        } else {
-          this.#runEffect(item)
+        switch (item.label) {
+          case "goBack":
+            results = this.#handleGoBack()
+            break
+          case "output":
+            this.#outputSubscribers.forEach(sub => {
+              void sub(item.data as ReturnType<OAM[keyof OAM]>)
+            })
+            break
+          default:
+            this.#runEffect(item)
         }
       } else {
         // Should be impossible to get here with TypeScript,
@@ -175,7 +179,7 @@ export class Runtime<
       // New items go to front of queue
       this.#queue = [...items, ...this.#queue]
 
-      void promise.then(() => onComplete()).catch(e => onError(e))
+      void promise.then(onComplete).catch(onError)
 
       setTimeout(() => {
         void this.#processQueueHead()
@@ -246,19 +250,6 @@ export class Runtime<
       throw new MissingCurrentState("Must provide a current state")
     }
 
-    // const isReentering =
-    //   exitState &&
-    //   exitState.name === targetState.name &&
-    //   targetState.mode === "append" &&
-    //   action.type === "Enter"
-
-    //!isUpdating && !isReentering &&
-    // const isEnteringNewState = action.type === "Enter"
-
-    // const prefix = isEnteringNewState
-    //   ? this.enterState_(targetState, exitState)
-    //   : []
-
     const result = await targetState.executor(action, this)
 
     return arraySingleton(result)
@@ -267,17 +258,15 @@ export class Runtime<
   #handleState(targetState: StateTransition<any, any, any>): StateReturn[] {
     const exitState = this.context.currentState
 
-    const isUpdating =
-      exitState &&
-      exitState.name === targetState.name &&
-      targetState.mode === "update"
+    const handler =
+      exitState?.name === targetState.name && targetState.mode === "update"
+        ? this.#updateState
+        : this.#enterState
 
-    return isUpdating
-      ? this.#updateState(targetState)
-      : this.#enterState(targetState)
+    return handler.call(this, targetState)
   }
 
-  #updateState(targetState: StateTransition<any, any, any>): StateReturn[] {
+  #updateState(targetState: StateTransition<string, any, any>): StateReturn[] {
     return [
       // Update history
       effect("nextState", targetState, () => {
@@ -287,11 +276,11 @@ export class Runtime<
       }),
 
       // Add a log effect.
-      log(`Update: ${targetState.name as string}`, targetState.data),
+      log(`Update: ${targetState.name}`, targetState.data),
     ]
   }
 
-  #enterState(targetState: StateTransition<any, any, any>): StateReturn[] {
+  #enterState(targetState: StateTransition<string, any, any>): StateReturn[] {
     const exitState = this.context.currentState
 
     const effects: StateReturn[] = [
@@ -301,7 +290,7 @@ export class Runtime<
       ),
 
       // Add a log effect.
-      log(`Enter: ${targetState.name as string}`, targetState.data),
+      log(`Enter: ${targetState.name}`, targetState.data),
 
       // Run enter on next state
       beforeEnter(this),

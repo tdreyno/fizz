@@ -191,24 +191,83 @@ const matchAction =
 
 let counter = 1
 
-export const state = <Actions extends Action<string, any>, Data = undefined>(
-  handlers: {
-    [A in Actions as ActionName<A>]: (
-      data: Data,
-      payload: ActionPayload<A>,
-      utils: {
-        update: (data: Data) => StateTransition<string, Actions, Data>
-        parentRuntime?: Runtime<any, any>
-        trigger: (action: Actions) => void
-      },
-    ) => HandlerReturn
+type Handler<
+  Actions extends Action<string, any>,
+  A extends Action<string, any>,
+  Data = undefined,
+> = (
+  data: Data,
+  payload: ActionPayload<A>,
+  utils: {
+    update: (data: Data) => StateTransition<string, A, Data>
+    parentRuntime?: Runtime<any, any>
+    trigger: (action: Actions) => void
   },
+) => HandlerReturn
+
+type Handlers<Actions extends Action<string, any>, Data = undefined> = {
+  [A in Actions as ActionName<A>]: Handler<Actions, A, Data>
+}
+
+export const state = <Actions extends Action<string, any>, Data = undefined>(
+  handlers: Handlers<Actions, Data>,
   options?: { name?: string },
 ): BoundStateFn<string, Actions, Data> =>
   stateWrapper(
     options?.name ?? `AnonymousState${counter++}`,
     matchAction(handlers),
   )
+
+class StateV2<Data, Actions extends Action<string, any>>
+  implements StateV2<Data, Actions>
+{
+  constructor(
+    public name: string,
+    public handlers = {} as Handlers<Actions, Data>,
+  ) {}
+
+  on<
+    T extends string,
+    A extends ActionCreator<T, any> & GetActionCreatorType<T>,
+  >(action: A, handler: Handler<Actions, ActionCreatorType<A>, Data>) {
+    return new StateV2(this.name, {
+      ...this.handlers,
+      [action.type]: handler,
+    } as Handlers<Actions | ActionCreatorType<A>, Data>).toBoundStateFn()
+  }
+
+  toBoundStateFn(): BoundStateClassFn<Actions, Data> {
+    const fn = stateWrapper(
+      this.name ?? `AnonymousState${counter++}`,
+      matchAction(this.handlers),
+    ) as BoundStateClassFn<Actions, Data>
+
+    fn.on = this.on.bind(this)
+
+    return fn
+  }
+}
+
+export interface BoundStateClassFn<
+  Actions extends Action<string, any>,
+  Data = undefined,
+> extends BoundStateFn<string, Actions, Data> {
+  on<
+    T extends string,
+    A extends ActionCreator<T, any> & GetActionCreatorType<T>,
+  >(
+    action: A,
+    handler: Handler<Actions, ActionCreatorType<A>, Data>,
+  ): BoundStateClassFn<Actions | ActionCreatorType<A>, Data>
+}
+
+let unnamedStateCounter = 1
+export const stateV2 = <Data = undefined>(
+  name?: string,
+): BoundStateClassFn<never, Data> =>
+  new StateV2<Data, never>(
+    name ?? `UnnamedState${unnamedStateCounter++}`,
+  ).toBoundStateFn()
 
 export const NESTED = Symbol("Nested runtime")
 

@@ -1,22 +1,22 @@
-import type { Enter } from "../../action.js"
-import { state } from "../../state.js"
-import type { FinishedLoading, Update } from "../actions/index.js"
+import { enter } from "../../action.js"
+import { stateV2 } from "../../state.js"
+import { finishedLoading, update } from "../actions/index.js"
 import Ready from "./Ready.js"
 import type { Shared } from "../types.js"
 import { loadData } from "../effects.js"
 
-type Actions = Enter | FinishedLoading | Update
 type Data = [Shared, string]
 
-export default state<Actions, Data>({
-  Enter: loadData,
+export default stateV2<Data>("Loading")
+  .on(enter, loadData)
 
-  FinishedLoading: ([shared], name) =>
+  .on(finishedLoading, ([shared], name) =>
     Ready([{ ...shared, message: `Hi, ${name}` }]),
+  )
 
-  Update: ([shared, str], _, { update }) =>
+  .on(update, ([shared, str], _, { update }) =>
     update([
       { ...shared, message: shared.message + " " + shared.message },
       str,
     ]),
-})
+  )
