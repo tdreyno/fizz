@@ -19,7 +19,7 @@
     "@tdreyno/fizz-svelte": "*",
     "@repo/react-example": "*",
     "prettier": "^3.2.5",
-    "turbo": "^1.13.3"
+    "turbo": "^2.0.6"
   },
   "engines": {
     "node": ">=18"
