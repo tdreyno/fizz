@@ -26,7 +26,7 @@
     "test:npm": "bash bin/test-npm-version"
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "^6.4.5",
+    "@testing-library/jest-dom": "^6.4.8",
     "@types/jest": "^29.5.5",
     "@types/node": "^20.14.9",
     "@types/serialize-javascript": "^5.0.4",
