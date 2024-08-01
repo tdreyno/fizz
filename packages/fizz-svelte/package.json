@@ -42,7 +42,7 @@
     "svelte-jester": "^3.0.0",
     "svelte-preprocess": "^5.1.4",
     "ts-jest": "^29.1.2",
-    "typescript": "^5.5.3",
+    "typescript": "^5.5.4",
     "@repo/eslint-config": "*",
     "@repo/typescript-config": "*",
     "tsup": "^8.0.2"
