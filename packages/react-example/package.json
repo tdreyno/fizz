@@ -14,7 +14,7 @@
     "@tdreyno/fizz-react": "*"
   },
   "devDependencies": {
-    "@types/node": "20.14.9",
+    "@types/node": "22.7.4",
     "@types/react": "18.2.33",
     "@types/react-dom": "18.2.14",
     "typescript": "^5.5.4"
