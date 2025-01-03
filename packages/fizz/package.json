@@ -38,6 +38,6 @@
     "typescript": "^5.5.4",
     "@repo/eslint-config": "*",
     "@repo/typescript-config": "*",
-    "tsup": "^8.0.2"
+    "tsup": "^8.3.5"
   }
 }
