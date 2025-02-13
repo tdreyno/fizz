@@ -19,7 +19,7 @@
     "@tdreyno/fizz-react": "*",
     "@tdreyno/fizz-svelte": "*",
     "prettier": "^3.3.3",
-    "turbo": "^2.4.0"
+    "turbo": "^2.4.2"
   },
   "engines": {
     "node": ">=18"
