@@ -18,7 +18,7 @@
     "@tdreyno/fizz": "*",
     "@tdreyno/fizz-react": "*",
     "@tdreyno/fizz-svelte": "*",
-    "prettier": "^3.3.3",
+    "prettier": "^3.5.3",
     "turbo": "^2.4.4"
   },
   "engines": {
