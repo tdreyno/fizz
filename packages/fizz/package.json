@@ -27,7 +27,7 @@
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.3",
-    "@types/jest": "^29.5.5",
+    "@types/jest": "^29.5.14",
     "@types/node": "^22.13.17",
     "@types/serialize-javascript": "^5.0.4",
     "eslint": "^9.17.0",
