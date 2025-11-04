@@ -41,7 +41,7 @@
     "svelte": "^4.2.19",
     "svelte-jester": "^5.0.0",
     "svelte-preprocess": "^6.0.3",
-    "ts-jest": "^29.4.1",
+    "ts-jest": "^29.4.5",
     "typescript": "^5.9.2",
     "@repo/eslint-config": "*",
     "@repo/typescript-config": "*",
