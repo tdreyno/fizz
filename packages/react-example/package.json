@@ -2,6 +2,7 @@
   "name": "@repo/react-example",
   "private": true,
   "scripts": {
+    "clean": "rm -rf .next && rm -rf .turbo && rm -rf node_modules",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
