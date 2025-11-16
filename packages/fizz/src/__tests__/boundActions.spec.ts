@@ -1,9 +1,12 @@
 import { jest } from "@jest/globals"
-import { type ActionCreatorType, type Enter, createAction } from "../action"
-import { type StateReturn, stateWrapper } from "../state"
+
+import type { ActionCreatorType, Enter } from "../action"
+import { createAction } from "../action"
 import { createInitialContext } from "../context"
-import { createRuntime } from "../runtime"
 import { noop } from "../effect"
+import { createRuntime } from "../runtime"
+import type { StateReturn } from "../state"
+import { stateWrapper } from "../state"
 
 describe("Bound actions", () => {
   test("should run sequentially when called at the same time", async () => {

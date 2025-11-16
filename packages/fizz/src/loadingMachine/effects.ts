@@ -2,7 +2,7 @@ function timeout(ts: number) {
   return new Promise<void>(resolve => setTimeout(() => resolve(), ts))
 }
 
-export { noop, log, goBack, effect } from "../effect.js"
+export { effect, goBack, log, noop } from "../effect.js"
 import { finishedLoading } from "./actions/index.js"
 
 export async function loadData() {

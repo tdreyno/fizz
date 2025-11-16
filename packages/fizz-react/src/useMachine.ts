@@ -1,15 +1,13 @@
-import { useEffect, useMemo, useState } from "react"
+import type { Action, BoundStateFn, StateTransition } from "@tdreyno/fizz"
 import {
-  type Action,
-  enter,
   beforeEnter,
-  type BoundStateFn,
-  type StateTransition,
   Context,
   createInitialContext,
-  Runtime,
   createRuntime,
+  enter,
+  Runtime,
 } from "@tdreyno/fizz"
+import { useEffect, useMemo, useState } from "react"
 
 interface ContextValue<
   SM extends { [key: string]: BoundStateFn<any, any, any> },

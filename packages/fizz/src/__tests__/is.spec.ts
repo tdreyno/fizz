@@ -1,8 +1,9 @@
-import { enter, type Enter } from "../action"
+import type { Enter } from "../action"
+import { enter } from "../action"
 import { createInitialContext } from "../context"
-import { isState, state } from "../state"
-import { createRuntime } from "../runtime"
 import { noop } from "../effect"
+import { createRuntime } from "../runtime"
+import { isState, state } from "../state"
 
 describe("Type narrowing", () => {
   test("should narrow on is", async () => {

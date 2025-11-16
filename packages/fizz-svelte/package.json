@@ -19,6 +19,7 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "lint": "eslint",
+    "lint:fix": "eslint --fix",
     "build": "tsup src/index.ts --format cjs,esm --dts --sourcemap",
     "dev": "npm run build -- --watch",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",

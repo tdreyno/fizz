@@ -1,4 +1,5 @@
-import { createAction, enter, type Enter } from "../action"
+import type { Enter } from "../action"
+import { createAction, enter } from "../action"
 import { createInitialContext } from "../context"
 import { noop } from "../effect"
 import { createRuntime } from "../runtime"

@@ -2,8 +2,9 @@
  * @jest-environment jsdom
  */
 
-import { renderHook, act } from "@testing-library/react"
 import { LoadingMachine } from "@tdreyno/fizz"
+import { act, renderHook } from "@testing-library/react"
+
 import { useMachine } from "../useMachine"
 
 describe("React integration", () => {

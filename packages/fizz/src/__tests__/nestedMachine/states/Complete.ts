@@ -1,6 +1,6 @@
 import type { Enter } from "../../../action"
-import { state } from "../../../state"
 import { noop } from "../../../effect"
+import { state } from "../../../state"
 
 type Actions = Enter
 

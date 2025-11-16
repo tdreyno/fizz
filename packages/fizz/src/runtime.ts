@@ -1,14 +1,12 @@
-import { type Action, enter, exit, isAction, beforeEnter } from "./action.js"
-import { type Effect, effect, isEffect, log } from "./effect.js"
-import { MissingCurrentState, UnknownStateReturnType } from "./errors.js"
-import {
-  type StateReturn,
-  type StateTransition,
-  isStateTransition,
-} from "./state.js"
-import { arraySingleton, externalPromise } from "./util.js"
-
+import type { Action } from "./action.js"
+import { beforeEnter, enter, exit, isAction } from "./action.js"
 import type { Context } from "./context.js"
+import type { Effect } from "./effect.js"
+import { effect, isEffect, log } from "./effect.js"
+import { MissingCurrentState, UnknownStateReturnType } from "./errors.js"
+import type { StateReturn, StateTransition } from "./state.js"
+import { isStateTransition } from "./state.js"
+import { arraySingleton, externalPromise } from "./util.js"
 
 type ContextChangeSubscriber = (context: Context) => void
 type OutputSubscriber<

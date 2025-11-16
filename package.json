@@ -5,6 +5,7 @@
     "build": "turbo build",
     "dev": "turbo dev",
     "lint": "turbo lint",
+    "lint:fix": "turbo lint:fix",
     "test": "turbo run test",
     "test:ci": "turbo run test:ci",
     "test:npm": "turbo run test:npm",

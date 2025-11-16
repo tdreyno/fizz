@@ -1,17 +1,13 @@
 import { jest } from "@jest/globals"
-import {
-  type ActionCreatorType,
-  type Enter,
-  type Exit,
-  createAction,
-  enter,
-} from "../action"
-import { goBack, log, noop } from "../effect"
-import type { Context } from "../context"
-import { UnknownStateReturnType } from "../errors"
-import { createInitialContext } from "../context"
-import { createRuntime } from "../runtime"
 import serializeJavascript from "serialize-javascript"
+
+import type { ActionCreatorType, Enter, Exit } from "../action"
+import { createAction, enter } from "../action"
+import type { Context } from "../context"
+import { createInitialContext } from "../context"
+import { goBack, log, noop } from "../effect"
+import { UnknownStateReturnType } from "../errors"
+import { createRuntime } from "../runtime"
 import { isState, state } from "../state"
 
 describe("Runtime", () => {

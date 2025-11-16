@@ -1,14 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { jest } from "@jest/globals"
-import {
-  type ActionCreatorType,
-  type Enter,
-  createAction,
-  enter,
-} from "../action"
+
+import type { ActionCreatorType, Enter } from "../action"
+import { createAction, enter } from "../action"
 import { Context, createInitialContext } from "../context"
-import { createRuntime } from "../runtime"
 import { noop } from "../effect"
+import { createRuntime } from "../runtime"
 import { state } from "../state"
 
 describe("onContextChange", () => {
