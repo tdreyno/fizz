@@ -2,6 +2,7 @@
   "name": "fizz",
   "private": true,
   "scripts": {
+    "clean": "turbo clean",
     "build": "turbo build",
     "dev": "turbo dev",
     "lint": "turbo lint",
