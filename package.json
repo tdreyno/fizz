@@ -11,7 +11,7 @@
     "test:ci": "turbo run test:ci",
     "test:npm": "turbo run test:npm",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "release": "turbo run build lint test:ci test:npm && changeset version && changeset publish"
+    "release": "turbo run build && turbo run lint && turbo run build && turbo run test:ci && turbo run test:npm && changeset version && changeset publish"
   },
   "devDependencies": {
     "@repo/eslint-config": "*",
