@@ -82,7 +82,7 @@ describe("Promises", () => {
 
     await runtime.run(enter())
 
-    expect(myEffectExecutor).toBeCalled()
+    expect(myEffectExecutor).toHaveBeenCalled()
   })
 
   test("should run multiple effects returned by the promise", async () => {
@@ -102,8 +102,8 @@ describe("Promises", () => {
 
     await runtime.run(enter())
 
-    expect(myEffectExecutor1).toBeCalled()
-    expect(myEffectExecutor2).toBeCalled()
+    expect(myEffectExecutor1).toHaveBeenCalled()
+    expect(myEffectExecutor2).toHaveBeenCalled()
   })
 
   test("should run update functions", async () => {
@@ -136,6 +136,6 @@ describe("Promises", () => {
 
     await runtime.run(enter())
 
-    expect(myEffectExecutor1).toBeCalled()
+    expect(myEffectExecutor1).toHaveBeenCalled()
   })
 })
