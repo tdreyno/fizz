@@ -9,6 +9,10 @@
   "publishConfig": {
     "access": "public"
   },
+  "files": [
+    "dist",
+    "src"
+  ],
   "engines": {
     "node": ">= 20"
   },
