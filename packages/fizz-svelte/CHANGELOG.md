@@ -1,5 +1,13 @@
 # @tdreyno/fizz-svelte
 
+## 7.0.1
+
+### Patch Changes
+
+- 5cdd4d0: Ignore turbo files in npm package
+- Updated dependencies [5cdd4d0]
+  - @tdreyno/fizz@7.0.2
+
 ## 7.0.0
 
 ### Major Changes

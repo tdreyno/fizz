@@ -1,5 +1,11 @@
 # @tdreyno/fizz
 
+## 7.0.2
+
+### Patch Changes
+
+- 5cdd4d0: Ignore turbo files in npm package
+
 ## 7.0.1
 
 ### Patch Changes
