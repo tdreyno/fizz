@@ -1,5 +1,11 @@
 # @tdreyno/fizz
 
+## 7.0.3
+
+### Patch Changes
+
+- f9d73dc: Add license to package
+
 ## 7.0.2
 
 ### Patch Changes
