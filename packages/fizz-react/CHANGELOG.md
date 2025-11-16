@@ -1,5 +1,13 @@
 # @tdreyno/fizz-react
 
+## 7.0.2
+
+### Patch Changes
+
+- f9d73dc: Add license to package
+- Updated dependencies [f9d73dc]
+  - @tdreyno/fizz@7.0.3
+
 ## 7.0.1
 
 ### Patch Changes
