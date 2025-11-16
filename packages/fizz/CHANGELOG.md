@@ -1,5 +1,11 @@
 # @tdreyno/fizz
 
+## 7.0.1
+
+### Patch Changes
+
+- 64f8359: Include README in core package
+
 ## 7.0.0
 
 ### Major Changes
