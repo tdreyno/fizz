@@ -1,5 +1,11 @@
 # @repo/eslint-config
 
+## 2.0.0
+
+### Major Changes
+
+- 63a0efb: Node 20 now the minimum version. Add React 19 support
+
 ## 1.0.1
 
 ### Patch Changes
