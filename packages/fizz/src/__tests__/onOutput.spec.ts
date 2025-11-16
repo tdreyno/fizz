@@ -30,6 +30,6 @@ describe("onOutput", () => {
 
     await runtime.run(enter())
 
-    expect(fn).toBeCalledWith(enterAction)
+    expect(fn).toHaveBeenCalledWith(enterAction)
   })
 })

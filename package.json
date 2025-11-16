@@ -14,15 +14,15 @@
   "devDependencies": {
     "@repo/eslint-config": "*",
     "@repo/react-example": "*",
-    "@repo/typescript-config": "*",
+    "@repo/tsconfig": "*",
     "@tdreyno/fizz": "*",
     "@tdreyno/fizz-react": "*",
     "@tdreyno/fizz-svelte": "*",
     "prettier": "^3.6.2",
-    "turbo": "^2.5.4"
+    "turbo": "^2.6.1"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "packageManager": "npm@10.8.1",
   "workspaces": [
