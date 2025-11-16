@@ -1,4 +1,5 @@
-import { type ActionCreatorType, createAction } from "../../../action"
+import type { ActionCreatorType } from "../../../action"
+import { createAction } from "../../../action"
 
 export const completedForm = createAction<"CompletedForm", string>(
   "CompletedForm",

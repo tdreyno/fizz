@@ -1,12 +1,9 @@
 import { jest } from "@jest/globals"
-import {
-  type ActionCreatorType,
-  type Enter,
-  createAction,
-  enter,
-} from "../action"
-import { effect, noop } from "../effect"
+
+import type { ActionCreatorType, Enter } from "../action"
+import { createAction, enter } from "../action"
 import { createInitialContext } from "../context"
+import { effect, noop } from "../effect"
 import { createRuntime } from "../runtime"
 import { isState, state } from "../state"
 

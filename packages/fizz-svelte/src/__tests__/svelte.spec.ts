@@ -4,8 +4,9 @@
 
 import "@testing-library/jest-dom"
 
-import Comp from "./Comp.svelte"
 import { act, render } from "@testing-library/svelte"
+
+import Comp from "./Comp.svelte"
 
 function timeout(ts: number) {
   return new Promise<void>(resolve => setTimeout(() => resolve(), ts))

@@ -1,4 +1,4 @@
-import Entry from "./Entry"
 import Complete from "./Complete"
+import Entry from "./Entry"
 
 export default { Entry, Complete }

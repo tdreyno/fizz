@@ -21,7 +21,7 @@
     "noUnusedParameters": true,
     "verbatimModuleSyntax": true,
     "forceConsistentCasingInFileNames": true,
-    "module": "es2015",
+    "module": "esnext",
     "moduleResolution": "node",
     "allowJs": true,
     "noEmit": false,

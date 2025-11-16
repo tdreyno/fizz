@@ -1,16 +1,17 @@
-import { onMount } from "svelte"
-import { type Readable, readable } from "svelte/store"
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+import type { Action, BoundStateFn, StateTransition } from "@tdreyno/fizz"
 import {
-  type Action,
-  enter,
   beforeEnter,
-  type BoundStateFn,
-  type StateTransition,
   Context,
   createInitialContext,
-  Runtime,
   createRuntime,
+  enter,
+  Runtime,
 } from "@tdreyno/fizz"
+import { onMount } from "svelte"
+import { readable } from "svelte/store"
+import type { Readable } from "svelte/store"
 
 export interface ContextValue<
   SM extends { [key: string]: BoundStateFn<any, any, any> },
@@ -73,7 +74,7 @@ export const createStore = <
     runtime,
   }
 
-  const store = readable(initialContext, set => {
+  const store = readable(initialContext, (set: any) => {
     const unsub = runtime.onContextChange(context =>
       set({
         context,
