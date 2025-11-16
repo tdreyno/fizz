@@ -10,8 +10,8 @@ import {
   Runtime,
 } from "@tdreyno/fizz"
 import { onMount } from "svelte"
-import { readable } from "svelte/store"
 import type { Readable } from "svelte/store"
+import { readable } from "svelte/store"
 
 export interface ContextValue<
   SM extends { [key: string]: BoundStateFn<any, any, any> },
