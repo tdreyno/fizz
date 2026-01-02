@@ -47,6 +47,6 @@
     "typescript": "^5.9.3",
     "@repo/eslint-config": "*",
     "@repo/tsconfig": "*",
-    "tsdown": "^0.16.4"
+    "tsdown": "^0.18.4"
   }
 }
