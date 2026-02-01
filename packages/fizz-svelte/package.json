@@ -44,7 +44,7 @@
     "@testing-library/svelte": "^5.2.8",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.10.1",
-    "eslint": "^9.39.1",
+    "eslint": "^9.39.2",
     "jest": "^30.2.0",
     "jest-environment-jsdom": "^30.2.0",
     "svelte": "^4.2.19",
