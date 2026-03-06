@@ -9,23 +9,26 @@ import { isStateTransition } from "./state.js"
 import { arraySingleton, externalPromise } from "./util.js"
 
 type ContextChangeSubscriber = (context: Context) => void
+type RuntimeAction = Action<string, unknown>
+type RuntimeState = StateTransition<string, any, unknown>
+type RuntimeActionMap = {
+  [key: string]: (...args: Array<any>) => RuntimeAction
+}
+
 type OutputSubscriber<
-  OAM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
-> = (action: ReturnType<OAM[keyof OAM]>) => void | Promise<void>
+  OAM extends RuntimeActionMap,
+  OA extends RuntimeAction = ReturnType<OAM[keyof OAM]>,
+> = (action: OA) => void | Promise<void>
 
 type QueueItem = {
   onComplete: () => void
   onError: (e: unknown) => void
-  item: Action<any, any> | StateTransition<any, any, any> | Effect<any>
+  item: RuntimeAction | RuntimeState | Effect<unknown>
 }
 
 export class Runtime<
-  AM extends {
-    [key: string]: (...args: Array<any>) => Action<any, any>
-  },
-  OAM extends {
-    [key: string]: (...args: Array<any>) => Action<any, any>
-  },
+  AM extends RuntimeActionMap,
+  OAM extends RuntimeActionMap,
 > {
   readonly #contextChangeSubscribers = new Set<ContextChangeSubscriber>()
   readonly #outputSubscribers = new Set<OutputSubscriber<OAM>>()
@@ -44,8 +47,8 @@ export class Runtime<
     )
   }
 
-  currentState(): StateTransition<string, any, unknown> {
-    return this.context.currentState as StateTransition<string, any, unknown>
+  currentState(): RuntimeState {
+    return this.context.currentState as RuntimeState
   }
 
   currentHistory() {
@@ -65,13 +68,20 @@ export class Runtime<
   }
 
   respondToOutput<
-    T extends OAM["type"],
-    P extends Extract<OAM, { type: T }>["payload"],
+    OA extends ReturnType<OAM[keyof OAM]>,
+    T extends OA["type"],
     A extends ReturnType<AM[keyof AM]>,
-  >(type: T, handler: (payload: P) => Promise<A> | A | void): () => void {
+  >(
+    type: T,
+    handler: (
+      payload: Extract<OA, { type: T }>["payload"],
+    ) => Promise<A> | A | void,
+  ): () => void {
     return this.onOutput(async output => {
       if (output.type === type) {
-        const maybeAction = await handler(output.payload as P)
+        const maybeAction = await handler(
+          (output as Extract<OA, { type: T }>).payload,
+        )
 
         if (maybeAction) {
           await this.run(maybeAction)
@@ -84,12 +94,12 @@ export class Runtime<
     this.#contextChangeSubscribers.clear()
   }
 
-  canHandle(action: Action<any, any>): boolean {
-    return this.#validActions.has((action.type as string).toLowerCase())
+  canHandle(action: RuntimeAction): boolean {
+    return this.#validActions.has(action.type.toLowerCase())
   }
 
   bindActions<
-    AM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
+    AM extends RuntimeActionMap,
     PM = {
       [K in keyof AM]: (...args: Parameters<AM[K]>) => {
         asPromise: () => Promise<void>
@@ -113,7 +123,7 @@ export class Runtime<
     ) as PM
   }
 
-  async run(action: Action<any, any>): Promise<void> {
+  async run(action: RuntimeAction): Promise<void> {
     const promise = new Promise<void>((resolve, reject) => {
       this.#queue.push({
         onComplete: resolve,
@@ -224,18 +234,18 @@ export class Runtime<
         `Fizz could not find current state to run action on. History: ${JSON.stringify(
           this.currentHistory()
             .toArray()
-            .map(({ name }) => name as string)
+            .map(({ name }) => name)
             .join(" -> "),
         )}`,
       )
     }
   }
 
-  #runEffect(e: Effect<any>) {
+  #runEffect(e: Effect<unknown>) {
     e.executor(this.context)
   }
 
-  async #executeAction<A extends Action<any, any>>(
+  async #executeAction<A extends RuntimeAction>(
     action: A,
   ): Promise<StateReturn[]> {
     const targetState = this.context.currentState
@@ -249,44 +259,46 @@ export class Runtime<
     return arraySingleton(result)
   }
 
-  #handleState(targetState: StateTransition<any, any, any>): StateReturn[] {
+  #handleState(targetState: RuntimeState): StateReturn[] {
     const exitState = this.context.currentState
 
     const isUpdating =
-      exitState &&
-      exitState.name === targetState.name &&
-      targetState.mode === "update"
+      exitState?.name === targetState.name && targetState.mode === "update"
 
     return isUpdating
       ? this.#updateState(targetState)
       : this.#enterState(targetState)
   }
 
-  #updateState(targetState: StateTransition<any, any, any>): StateReturn[] {
+  #updateState(targetState: RuntimeState): StateReturn[] {
     return [
       // Update history
       effect("nextState", targetState, () => {
         this.context.history.pop()
-        this.context.history.push(targetState)
+        this.context.history.push(
+          targetState as typeof this.context.currentState,
+        )
         this.#contextDidChange()
       }),
 
       // Add a log effect.
-      log(`Update: ${targetState.name as string}`, targetState.data),
+      log(`Update: ${targetState.name}`, targetState.data),
     ]
   }
 
-  #enterState(targetState: StateTransition<any, any, any>): StateReturn[] {
+  #enterState(targetState: RuntimeState): StateReturn[] {
     const exitState = this.context.currentState
 
     const effects: StateReturn[] = [
       // Update history
       effect("nextState", targetState, () =>
-        this.context.history.push(targetState),
+        this.context.history.push(
+          targetState as typeof this.context.currentState,
+        ),
       ),
 
       // Add a log effect.
-      log(`Enter: ${targetState.name as string}`, targetState.data),
+      log(`Enter: ${targetState.name}`, targetState.data),
 
       // Run enter on next state
       beforeEnter(this),
@@ -318,8 +330,8 @@ export class Runtime<
 }
 
 export const createRuntime = <
-  AM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
-  OAM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
+  AM extends RuntimeActionMap,
+  OAM extends RuntimeActionMap,
 >(
   context: Context,
   internalActions: AM = {} as AM,

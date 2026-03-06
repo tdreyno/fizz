@@ -1,4 +1,4 @@
-import type { Action, BoundStateFn, StateTransition } from "@tdreyno/fizz"
+import type { Action, BoundStateFn } from "@tdreyno/fizz"
 import {
   beforeEnter,
   Context,
@@ -9,10 +9,15 @@ import {
 } from "@tdreyno/fizz"
 import { useEffect, useMemo, useState } from "react"
 
+type AnyBoundState = BoundStateFn<any, any, any>
+type ActionMap = {
+  [key: string]: (...args: Array<any>) => Action<string, unknown>
+}
+
 interface ContextValue<
-  SM extends { [key: string]: BoundStateFn<any, any, any> },
-  AM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
-  OAM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
+  SM extends { [key: string]: AnyBoundState },
+  AM extends ActionMap,
+  OAM extends ActionMap,
   PM = {
     [K in keyof AM]: (...args: Parameters<AM[K]>) => {
       asPromise: () => Promise<void>
@@ -32,14 +37,14 @@ interface Options {
 }
 
 export const useMachine = <
-  SM extends { [key: string]: BoundStateFn<any, any, any> },
-  AM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
-  OAM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
+  SM extends { [key: string]: AnyBoundState },
+  AM extends ActionMap,
+  OAM extends ActionMap,
   R extends ContextValue<SM, AM, OAM>,
 >(
   _states: SM,
   actions: AM,
-  initialState: StateTransition<any, any, any>,
+  initialState: ReturnType<SM[keyof SM]>,
   outputActions: OAM = {} as OAM,
   options: Partial<Options> = {},
 ): R => {

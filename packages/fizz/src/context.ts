@@ -1,11 +1,16 @@
+import type { Action } from "./action.js"
 import type { StateTransition } from "./state.js"
 
 export class History<
-  T extends StateTransition<any, any, any> = StateTransition<any, any, any>,
+  T extends StateTransition<
+    string,
+    Action<string, unknown>,
+    unknown
+  > = StateTransition<string, Action<string, unknown>, unknown>,
 > {
   constructor(
     private items: Array<T>,
-    private maxHistory = Infinity,
+    private readonly maxHistory = Infinity,
   ) {
     if (items.length <= 0) {
       throw new Error(
@@ -48,13 +53,13 @@ interface Options {
   enableLogging: boolean
   customLogger?:
     | undefined
-    | ((msgs: Array<any>, level: "error" | "warn" | "log") => void)
+    | ((msgs: readonly unknown[], level: "error" | "warn" | "log") => void)
 }
 
 export class Context {
   constructor(
     public history: History,
-    private options_: Omit<Options, "maxHistory">,
+    private readonly options_: Omit<Options, "maxHistory">,
   ) {}
 
   get enableLogging() {
@@ -71,7 +76,9 @@ export class Context {
 }
 
 export const createInitialContext = (
-  history: Array<StateTransition<any, any, any>> = [],
+  history: Array<
+    StateTransition<string, Action<string, unknown>, unknown>
+  > = [],
   options?: Partial<Options>,
 ) =>
   new Context(new History(history, options?.maxHistory ?? Infinity), {

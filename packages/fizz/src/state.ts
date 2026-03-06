@@ -58,22 +58,15 @@ export type StateTransitionToBoundStateFn<
 export const isStateTransition = (
   a: unknown,
 ): a is StateTransition<any, any, any> =>
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
-  (a as any)?.isStateTransition
+  typeof a === "object" &&
+  a !== null &&
+  "isStateTransition" in a &&
+  (a as { isStateTransition?: unknown }).isStateTransition === true
 
-export const isState = <
-  T extends BoundStateFn<any, any, any>,
-  Name_ = T extends BoundStateFn<infer U, any, any> ? U : never,
-  A_ = T extends BoundStateFn<any, infer U, any> ? U : never,
-  Data_ = T extends BoundStateFn<any, any, infer U> ? U : never,
->(
+export const isState = <T extends BoundStateFn<any, any, any>>(
   current: StateTransition<any, any, any>,
   state: T,
-): current is StateTransition<
-  Name_ extends string ? Name_ : never,
-  A_ extends Action<any, any> ? A_ : never,
-  Data_
-> => current.state === state
+): current is ReturnType<T> => current.state === state
 
 /**
  * A State function as written by the user. It accepts
@@ -123,14 +116,20 @@ export const stateWrapper = <
     mode: "append",
 
     executor: (action: A, runtime?: Runtime<any, any>) => {
+      const parentRuntime =
+        typeof data === "object" && data !== null && PARENT_RUNTIME in data
+          ? (data as { [PARENT_RUNTIME]?: ActionPayload<BeforeEnter> })[
+              PARENT_RUNTIME
+            ]
+          : undefined
+
       // Run state executor
       return executor(action, data, {
         update,
         trigger: (a: A) => {
           void runtime?.run(a)
         },
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-        parentRuntime: data ? (data as any)[PARENT_RUNTIME] : undefined,
+        ...(parentRuntime ? { parentRuntime } : {}),
       })
     },
 
@@ -150,7 +149,7 @@ export const stateWrapper = <
 }
 
 const matchAction =
-  <Actions extends Action<string, any>, Data>(handlers: {
+  <Actions extends Action<string, unknown>, Data>(handlers: {
     [A in Actions as ActionName<A>]: (
       data: Data,
       payload: ActionPayload<A>,
@@ -184,13 +183,15 @@ const matchAction =
       return undefined
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     return handler(data, action.payload, utils)
   }
 
 let counter = 1
 
-export const state = <Actions extends Action<string, any>, Data = undefined>(
+export const state = <
+  Actions extends Action<string, unknown>,
+  Data = undefined,
+>(
   handlers: {
     [A in Actions as ActionName<A>]: (
       data: Data,
@@ -212,7 +213,7 @@ export const state = <Actions extends Action<string, any>, Data = undefined>(
 export const NESTED = Symbol("Nested runtime")
 
 export const stateWithNested = <
-  Actions extends Action<string, any>,
+  Actions extends Action<string, unknown>,
   Data = undefined,
 >(
   handlers: {
@@ -224,8 +225,8 @@ export const stateWithNested = <
       },
     ) => HandlerReturn
   },
-  initialNestedState: StateTransition<any, any, any>,
-  nestedActions: { [key: string]: ActionCreator<any, any> },
+  initialNestedState: StateTransition<string, Action<string, unknown>, unknown>,
+  nestedActions: { [key: string]: ActionCreator<string, unknown> },
   options?: { name?: string },
 ) => {
   const beforeEnter = async (
@@ -241,8 +242,16 @@ export const stateWithNested = <
       return noop()
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    initialNestedState.data[PARENT_RUNTIME] = parentRuntime
+    if (
+      typeof initialNestedState.data === "object" &&
+      initialNestedState.data !== null
+    ) {
+      ;(
+        initialNestedState.data as {
+          [PARENT_RUNTIME]?: ActionPayload<BeforeEnter>
+        }
+      )[PARENT_RUNTIME] = parentRuntime
+    }
 
     const runtime = createRuntime(
       createInitialContext([initialNestedState]),
@@ -257,27 +266,46 @@ export const stateWithNested = <
     })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const forwarders = Object.entries(nestedActions).reduce(
     (acc, [key, action]) => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      acc[key] = async (data: any, payload: any, { update }: any) => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-        await data[NESTED]?.run(action(payload))
+      acc[key] = async (
+        data: Data,
+        payload: unknown,
+        {
+          update,
+        }: {
+          update: (data: Data) => StateTransition<string, Actions, Data>
+        },
+      ) => {
+        const nestedRuntime =
+          typeof data === "object" && data !== null && NESTED in data
+            ? (data as { [NESTED]?: { run: (a: Actions) => Promise<void> } })[
+                NESTED
+              ]
+            : undefined
+
+        if (nestedRuntime) {
+          await nestedRuntime.run(action(payload as never) as Actions)
+        }
 
         // Force update
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
         return update({ ...data })
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return acc
     },
-    {} as any,
+    {} as {
+      [K in keyof typeof nestedActions]?: (
+        data: Data,
+        payload: unknown,
+        utils: {
+          update: (data: Data) => StateTransition<string, Actions, Data>
+        },
+      ) => HandlerReturn
+    },
   )
 
   return state<Actions, Data>(
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     { ...handlers, ...forwarders, BeforeEnter: beforeEnter },
     options,
   )
@@ -285,7 +313,7 @@ export const stateWithNested = <
 
 class Matcher<S extends StateTransition<string, any, any>, T> {
   private readonly handlers = new Map<
-    StateTransitionToBoundStateFn<S>,
+    BoundStateFn<any, any, any>,
     (data: any) => T
   >()
 
@@ -300,7 +328,6 @@ class Matcher<S extends StateTransition<string, any, any>, T> {
   }
 
   run(): T | undefined {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     const handler = this.handlers.get(this.state.state)
 
     if (!handler) {

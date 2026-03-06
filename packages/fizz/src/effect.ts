@@ -20,11 +20,12 @@ export const effect = <D>(
 
 export const goBack = (): Effect<void> => effect("goBack")
 
-export const output = <A extends Action<any, any>>(action: A): Effect<A> =>
-  effect("output", action)
+export const output = <A extends Action<string, unknown>>(
+  action: A,
+): Effect<A> => effect("output", action)
 
 const handleLog =
-  <T extends Array<any>>(
+  <T extends unknown[]>(
     msgs: T,
     type: "log" | "error" | "warn",
     logger: (...args: T) => void,
@@ -37,18 +38,18 @@ const handleLog =
     }
   }
 
-export const log = <T extends Array<any>>(...msgs: T): Effect<T> =>
+export const log = <T extends unknown[]>(...msgs: T): Effect<T> =>
   effect("log", msgs, handleLog(msgs, "log", console.log))
 
-export const error = <T extends Array<any>>(...msgs: T): Effect<T> =>
+export const error = <T extends unknown[]>(...msgs: T): Effect<T> =>
   effect("error", msgs, handleLog(msgs, "error", console.error))
 
-export const warn = <T extends Array<any>>(...msgs: T): Effect<T> =>
+export const warn = <T extends unknown[]>(...msgs: T): Effect<T> =>
   effect("warn", msgs, handleLog(msgs, "warn", console.warn))
 
 export const noop = (): Effect<void> => effect("noop")
 
-export const timeout = <A extends Action<any, any>>(
+export const timeout = <A extends Action<string, unknown>>(
   ms: number,
   action: A,
 ): Promise<A> =>

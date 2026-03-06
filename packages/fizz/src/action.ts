@@ -11,17 +11,18 @@ export const action = <T extends string, P>(type: T, payload: P) =>
   new Action(type, payload)
 
 export type ActionName<
-  A extends Action<any, any>,
+  A extends Action<string, unknown>,
   T = A["type"],
 > = T extends string ? T : never
 
-export type ActionPayload<A extends Action<any, any>> = A["payload"]
+export type ActionPayload<A extends Action<string, unknown>> = A["payload"]
 
-export const isAction = <T extends string>(a: unknown): a is Action<T, any> =>
-  a instanceof Action
+export const isAction = <T extends string>(
+  a: unknown,
+): a is Action<T, unknown> => a instanceof Action
 
 export interface MatchAction<T extends string, P> {
-  is(action: Action<any, any>): action is Action<T, P>
+  is(action: Action<string, unknown>): action is Action<T, P>
 }
 
 export interface GetActionCreatorType<T extends string> {
@@ -36,14 +37,16 @@ export type ActionCreator<T extends string, P> = P extends undefined
     ? (payload?: Z) => Action<T, Z | undefined>
     : (payload: P) => Action<T, P>
 
-export type ActionCreatorType<F extends ActionCreator<any, any>> = ReturnType<F>
+export type ActionCreatorType<
+  F extends (...args: never[]) => Action<string, unknown>,
+> = ReturnType<F>
 
 export const createAction = <T extends string, P = undefined>(
   type: T,
 ): ActionCreator<T, P> & MatchAction<T, P> & GetActionCreatorType<T> => {
   const fn = (payload?: P) => action(type, payload)
 
-  fn.is = (action: Action<any, any>): action is Action<T, P> =>
+  fn.is = (action: Action<string, unknown>): action is Action<T, P> =>
     action.type === type
 
   fn.type = type

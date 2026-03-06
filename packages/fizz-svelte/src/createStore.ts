@@ -1,4 +1,4 @@
-import type { Action, BoundStateFn, StateTransition } from "@tdreyno/fizz"
+import type { Action, BoundStateFn } from "@tdreyno/fizz"
 import {
   beforeEnter,
   Context,
@@ -7,14 +7,20 @@ import {
   enter,
   Runtime,
 } from "@tdreyno/fizz"
+// eslint-disable-next-line import/no-duplicates
 import { onMount } from "svelte"
-import type { Readable, StartStopNotifier } from "svelte/store"
+// eslint-disable-next-line import/no-duplicates
 import { readable } from "svelte/store"
 
+type AnyBoundState = BoundStateFn<any, any, any>
+type ActionMap = {
+  [key: string]: (...args: Array<any>) => Action<string, unknown>
+}
+
 export interface ContextValue<
-  SM extends { [key: string]: BoundStateFn<any, any, any> },
-  AM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
-  OAM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
+  SM extends { [key: string]: AnyBoundState },
+  AM extends ActionMap,
+  OAM extends ActionMap,
   PM = {
     [K in keyof AM]: (...args: Parameters<AM[K]>) => {
       asPromise: () => Promise<void>
@@ -34,23 +40,25 @@ interface Options {
 }
 
 export const createStore = <
-  SM extends { [key: string]: BoundStateFn<any, any, any> },
-  AM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
-  OAM extends { [key: string]: (...args: Array<any>) => Action<any, any> },
-  R extends Readable<ContextValue<SM, AM, OAM>> & {
+  SM extends { [key: string]: AnyBoundState },
+  AM extends ActionMap,
+  OAM extends ActionMap,
+  R extends import("svelte/store").Readable<ContextValue<SM, AM, OAM>> & {
     respondOnMount: <
-      T extends OAM["type"],
-      P extends Extract<OAM, { type: T }>["payload"],
+      OA extends ReturnType<OAM[keyof OAM]>,
+      T extends OA["type"],
       A extends ReturnType<AM[keyof AM]>,
     >(
       type: T,
-      handler: (payload: P) => Promise<A> | A | void,
+      handler: (
+        payload: Extract<OA, { type: T }>["payload"],
+      ) => Promise<A> | A | void,
     ) => void
   },
 >(
   _states: SM,
   actions: AM,
-  initialState: StateTransition<any, any, any>,
+  initialState: ReturnType<SM[keyof SM]>,
   outputActions: OAM = {} as OAM,
   options: Partial<Options> = {},
 ): R => {
@@ -72,7 +80,7 @@ export const createStore = <
     runtime,
   }
 
-  const start: StartStopNotifier<ContextValue<SM, AM, OAM>> = set => {
+  const start = (set: (value: ContextValue<SM, AM, OAM>) => void) => {
     const unsub = runtime.onContextChange(context =>
       set({
         context,
@@ -91,14 +99,24 @@ export const createStore = <
   const store = readable(initialContext, start) as R
 
   store.respondOnMount = <
-    T extends OAM["type"],
-    P extends Extract<OAM, { type: T }>["payload"],
+    OA extends ReturnType<OAM[keyof OAM]>,
+    T extends OA["type"],
     A extends ReturnType<AM[keyof AM]>,
   >(
     type: T,
-    handler: (payload: P) => Promise<A> | A | void,
+    handler: (
+      payload: Extract<OA, { type: T }>["payload"],
+    ) => Promise<A> | A | void,
   ) => {
-    onMount(() => runtime.respondToOutput(type, handler))
+    type RuntimeRespondType = Parameters<typeof runtime.respondToOutput>[0]
+    type RuntimeRespondHandler = Parameters<typeof runtime.respondToOutput>[1]
+
+    onMount(() =>
+      runtime.respondToOutput(
+        type as unknown as RuntimeRespondType,
+        handler as RuntimeRespondHandler,
+      ),
+    )
   }
 
   return store
