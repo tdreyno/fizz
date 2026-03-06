@@ -58,6 +58,7 @@ export default defineConfig(
       "simple-import-sort/imports": "error",
       "simple-import-sort/exports": "error",
       "import/consistent-type-specifier-style": "error",
+      "import/no-duplicates": ["error", { "prefer-inline": false }],
     },
   },
 )

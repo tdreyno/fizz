@@ -29,6 +29,24 @@ const parseReportTask = async () => {
   }
 }
 
+const parseProjectProperties = async () => {
+  const raw = await readFile("sonar-project.properties", "utf8")
+
+  return raw
+    .split("\n")
+    .map(line => line.trim())
+    .filter(line => Boolean(line) && !line.startsWith("#"))
+    .reduce((acc, line) => {
+      const [key, ...rest] = line.split("=")
+
+      if (key && rest.length > 0) {
+        acc[key] = rest.join("=")
+      }
+
+      return acc
+    }, {})
+}
+
 const sonarRequest = async ({ url, token }) => {
   const response = await fetch(url, {
     headers: {
@@ -76,22 +94,52 @@ const main = async () => {
     throw new Error("SONAR_TOKEN is required")
   }
 
-  const { ceTaskUrl, dashboardUrl, projectKey, serverUrl } =
-    await parseReportTask()
+  let reportTask
 
-  if (!ceTaskUrl || !projectKey) {
+  try {
+    reportTask = await parseReportTask()
+  } catch (error) {
+    if (
+      !(error instanceof Error) ||
+      !error.message.includes("report-task.txt")
+    ) {
+      throw error
+    }
+  }
+
+  const properties = await parseProjectProperties()
+
+  const projectKey =
+    process.env.SONAR_PROJECT_KEY ??
+    reportTask?.projectKey ??
+    properties["sonar.projectKey"]
+
+  if (!projectKey) {
     throw new Error(
-      "Could not read ceTaskUrl/projectKey from .scannerwork/report-task.txt",
+      "Missing project key. Set SONAR_PROJECT_KEY or sonar.projectKey in sonar-project.properties",
     )
   }
 
-  const ceTask = await waitForCeTask({ ceTaskUrl, token })
-
-  const host = normalizeHost(process.env.SONAR_HOST_URL ?? serverUrl ?? "")
+  const host = normalizeHost(
+    process.env.SONAR_HOST_URL ??
+      reportTask?.serverUrl ??
+      properties["sonar.host.url"] ??
+      "https://sonarcloud.io",
+  )
 
   if (!host) {
     throw new Error(
       "SONAR_HOST_URL is required when report task serverUrl is unavailable",
+    )
+  }
+
+  let ceTask
+
+  if (reportTask?.ceTaskUrl) {
+    ceTask = await waitForCeTask({ ceTaskUrl: reportTask.ceTaskUrl, token })
+  } else {
+    console.log(
+      "No .scannerwork/report-task.txt found. Assuming automatic analysis mode and checking project quality gate directly.",
     )
   }
 
@@ -104,11 +152,18 @@ const main = async () => {
     throw new Error("Malformed quality gate response")
   }
 
-  console.log(`Sonar CE task: ${ceTask.status}`)
+  if (ceTask) {
+    console.log(`Sonar CE task: ${ceTask.status}`)
+  }
+
   console.log(`Quality gate status: ${status}`)
 
-  if (dashboardUrl) {
-    console.log(`Dashboard: ${dashboardUrl}`)
+  if (reportTask?.dashboardUrl) {
+    console.log(`Dashboard: ${reportTask.dashboardUrl}`)
+  } else {
+    console.log(
+      `Dashboard: ${host}/summary/new_code?id=${encodeURIComponent(projectKey)}`,
+    )
   }
 
   if (status !== "OK") {
