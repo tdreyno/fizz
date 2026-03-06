@@ -21,3 +21,4 @@ applyTo:
   - run `npx prettier --check` on changed test files (and `--write` if needed)
   - run `npm run lint` in the touched package for updated test files
   - run the relevant package tests (targeted spec runs are preferred)
+  - run local SonarQube scans for changed test files and require a passing quality gate (fallback: touched package if changed-files scope is unavailable)

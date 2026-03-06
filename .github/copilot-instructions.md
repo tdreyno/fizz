@@ -19,6 +19,12 @@
   - sorted imports/exports
   - use `import type` for type-only imports where appropriate
 - Match existing functional style. Prefer plain functions and data-first helpers over classes.
+- Prefer functional transforms (`map`, `filter`, `flatMap`, `reduce`) over imperative loops when readability and performance are comparable.
+- Optimize generated code for human readability and simplicity first:
+  - clear and descriptive names
+  - small, focused helpers over large multi-purpose functions
+  - low nesting and straightforward control flow
+  - avoid clever or dense one-liners when a clearer form exists
 
 ## Fizz Architecture Conventions
 
@@ -45,13 +51,16 @@
 
 ## Validation Workflow (Required)
 
-- For any generated or edited code, run formatting, linting, and tests before finalizing.
+- For any generated or edited code, run formatting, linting, tests, and SonarQube checks before finalizing.
 - Prefer scoped validation for speed and signal:
   - Prettier: `npx prettier --check <changed-files>`
   - If Prettier fails: `npx prettier --write <changed-files>` then re-run `--check`
   - ESLint (from touched package): `npm run lint -- <changed-files-or-folder>`
   - Tests (from touched package): `npm run test` or `npm run test -- <spec-file-pattern>`
+  - SonarQube (local only, changed files scope): run the local SonarQube scan for changed files and require a passing quality gate
+- For instruction/prompt documentation files under `.github`, Prettier checks can be skipped.
 - If multiple packages are touched, run lint/tests in each touched package.
+- If changed-files Sonar scanning is not supported by local tooling, use the smallest practical fallback scope (touched package).
 - Report the exact validation commands run and outcomes in the final response.
 
 ## Change Hygiene

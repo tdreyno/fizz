@@ -19,10 +19,13 @@ Constraints:
 - Match the local package's existing test style and naming.
 - Keep tests deterministic and avoid brittle timing assumptions.
 - Prefer behavior-level assertions over implementation details.
+- Optimize generated test code for readability and simplicity.
+- Prefer functional transforms (`map`, `filter`, `flatMap`, `reduce`) over imperative loops when readability and performance are comparable.
 - Before finalizing, validate generated changes:
   - run `npx prettier --check <changed-files>` (then `--write` and re-check if needed)
   - run `npm run lint` in the touched package for changed test/source files
   - run relevant package tests, preferably targeted to the changed specs
+  - run local SonarQube scans for changed files and require a passing quality gate (fallback: touched package if changed-files scope is unavailable)
 
 Output format:
 

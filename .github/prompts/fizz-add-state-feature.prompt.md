@@ -12,11 +12,14 @@ Requirements:
 - Identify the target package (`@tdreyno/fizz`, `@tdreyno/fizz-react`, or `@tdreyno/fizz-svelte`).
 - Follow existing TypeScript and runtime conventions in that package.
 - Preserve backward compatibility unless the request explicitly allows breaking changes.
+- Optimize generated code for human readability and simplicity.
+- Prefer functional transforms (`map`, `filter`, `flatMap`, `reduce`) over imperative loops when readability and performance are comparable.
 - Add or update tests under that package's `src/__tests__` directory.
 - Run validation against generated changes before completion:
   - `npx prettier --check <changed-files>` (then `--write` and re-check if needed)
   - `npm run lint` in the touched package (scoped to changed files when possible)
   - `npm run test` in the touched package (or a targeted spec pattern)
+  - run local SonarQube scans for changed files and require a passing quality gate (fallback: touched package if changed-files scope is unavailable)
 
 Output format:
 

@@ -12,6 +12,8 @@ Checklist:
 - Confirm changed files pass Prettier checks.
 - Confirm the package builds and lints.
 - Confirm relevant tests pass.
+- Confirm generated code remains readable and simple (clear naming, low nesting, straightforward control flow).
+- Confirm local SonarQube scan passes quality gate for changed files (fallback: touched package if changed-files scope is unavailable).
 - Identify public API changes from edited files.
 - Flag docs/examples/changelog updates that should accompany the change.
 - Call out backward-compatibility risks.

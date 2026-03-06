@@ -17,6 +17,11 @@ applyTo: "packages/*/src/**/*.{ts,tsx}"
   - no semicolons
   - small, focused helpers
   - functional patterns over class-based design
+- Prefer functional transforms (`map`, `filter`, `flatMap`, `reduce`) over imperative loops when readability and performance are comparable.
+- Optimize for human readability and simplicity by default:
+  - use clear names
+  - keep control flow easy to follow
+  - avoid dense or overly clever expressions
 - For state-machine code:
   - keep handlers deterministic
   - return transitions/actions/effects in existing runtime-compatible shapes
@@ -26,3 +31,4 @@ applyTo: "packages/*/src/**/*.{ts,tsx}"
   - run `npx prettier --check` on changed files (and `--write` if needed)
   - run `npm run lint` from each touched package, scoped to changed files when possible
   - run package tests when runtime behavior or public API surface changes
+  - run local SonarQube scans for changed files and require a passing quality gate (fallback: touched package if changed-files scope is unavailable)
