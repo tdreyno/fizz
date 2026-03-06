@@ -284,12 +284,12 @@ export const stateWithNested = <
 }
 
 class Matcher<S extends StateTransition<string, any, any>, T> {
-  private handlers = new Map<
+  private readonly handlers = new Map<
     StateTransitionToBoundStateFn<S>,
     (data: any) => T
   >()
 
-  constructor(private state: S) {}
+  constructor(private readonly state: S) {}
 
   case_<S2 extends StateTransitionToBoundStateFn<S>>(
     state: S2,

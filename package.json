@@ -7,10 +7,12 @@
     "dev": "turbo dev",
     "lint": "turbo lint",
     "lint:fix": "turbo lint:fix",
+    "sonar": "npx sonar-scanner",
+    "sonar:quality-gate": "node scripts/sonar-quality-gate.mjs",
     "test": "turbo run test",
     "test:ci": "turbo run test:ci",
     "test:npm": "turbo run test:npm",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,md}\"",
     "release": "turbo run build && turbo run lint && turbo run build && turbo run test:ci && turbo run test:npm && changeset version && changeset publish"
   },
   "devDependencies": {

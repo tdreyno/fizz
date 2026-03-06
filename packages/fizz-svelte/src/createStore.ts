@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 import type { Action, BoundStateFn, StateTransition } from "@tdreyno/fizz"
 import {
   beforeEnter,
@@ -10,7 +8,7 @@ import {
   Runtime,
 } from "@tdreyno/fizz"
 import { onMount } from "svelte"
-import type { Readable } from "svelte/store"
+import type { Readable, StartStopNotifier } from "svelte/store"
 import { readable } from "svelte/store"
 
 export interface ContextValue<
@@ -74,7 +72,7 @@ export const createStore = <
     runtime,
   }
 
-  const store = readable(initialContext, (set: any) => {
+  const start: StartStopNotifier<ContextValue<SM, AM, OAM>> = set => {
     const unsub = runtime.onContextChange(context =>
       set({
         context,
@@ -88,7 +86,9 @@ export const createStore = <
     void runtime.run(enter())
 
     return unsub
-  }) as R
+  }
+
+  const store = readable(initialContext, start) as R
 
   store.respondOnMount = <
     T extends OAM["type"],

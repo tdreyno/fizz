@@ -27,9 +27,9 @@ export class Runtime<
     [key: string]: (...args: Array<any>) => Action<any, any>
   },
 > {
-  #contextChangeSubscribers = new Set<ContextChangeSubscriber>()
-  #outputSubscribers = new Set<OutputSubscriber<OAM>>()
-  #validActions: Set<string>
+  readonly #contextChangeSubscribers = new Set<ContextChangeSubscriber>()
+  readonly #outputSubscribers = new Set<OutputSubscriber<OAM>>()
+  readonly #validActions: Set<string>
   #queue: QueueItem[] = []
   #isRunning = false
 
@@ -243,19 +243,6 @@ export class Runtime<
     if (!targetState) {
       throw new MissingCurrentState("Must provide a current state")
     }
-
-    // const isReentering =
-    //   exitState &&
-    //   exitState.name === targetState.name &&
-    //   targetState.mode === "append" &&
-    //   action.type === "Enter"
-
-    //!isUpdating && !isReentering &&
-    // const isEnteringNewState = action.type === "Enter"
-
-    // const prefix = isEnteringNewState
-    //   ? this.enterState_(targetState, exitState)
-    //   : []
 
     const result = await targetState.executor(action, this)
 
