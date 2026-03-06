@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "clean": "turbo clean",
+    "changeset": "changeset",
     "build": "turbo build",
     "dev": "turbo dev",
     "lint": "turbo lint",
