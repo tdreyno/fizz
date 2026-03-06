@@ -7,6 +7,7 @@
     "dev": "turbo dev",
     "lint": "turbo lint",
     "lint:fix": "turbo lint:fix",
+    "typecheck": "turbo typecheck",
     "sonar": "set -a && . ./.env && set +a && npx sonar-scanner",
     "sonar:quality-gate": "set -a && . ./.env && set +a && node scripts/sonar-quality-gate.mjs",
     "test": "turbo run test",
@@ -22,8 +23,8 @@
     "@tdreyno/fizz": "*",
     "@tdreyno/fizz-react": "*",
     "@tdreyno/fizz-svelte": "*",
-    "prettier": "^3.6.2",
-    "turbo": "^2.6.1"
+    "prettier": "^3.8.1",
+    "turbo": "^2.8.13"
   },
   "engines": {
     "node": ">=20"
@@ -33,6 +34,6 @@
     "packages/*"
   ],
   "dependencies": {
-    "@changesets/cli": "^2.29.7"
+    "@changesets/cli": "^2.30.0"
   }
 }

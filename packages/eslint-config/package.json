@@ -7,14 +7,14 @@
     "eslint.config.js"
   ],
   "devDependencies": {
-    "@eslint/js": "^9.39.1",
-    "eslint": "^9.39.1",
-    "eslint-config-turbo": "^2.7.2",
+    "@eslint/js": "^9.39.3",
+    "eslint": "^9.39.3",
+    "eslint-config-turbo": "^2.8.13",
     "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-prettier": "^5.5.4",
+    "eslint-plugin-prettier": "^5.5.5",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-simple-import-sort": "^12.1.1",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.48.0"
+    "typescript-eslint": "^8.56.1"
   }
 }

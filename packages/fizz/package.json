@@ -28,6 +28,7 @@
     "clean": "rm -rf dist && rm -rf .turbo && rm -rf node_modules",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
+    "typecheck": "tsc --noEmit --project tsconfig.typecheck.json",
     "build": "tsdown",
     "dev": "npm run build -- --watch",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
@@ -35,18 +36,18 @@
     "test:npm": "bash bin/test-npm-version"
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/jest-dom": "^6.9.1",
     "@types/jest": "^30.0.0",
-    "@types/node": "^24.10.1",
+    "@types/node": "^24.11.2",
     "@types/serialize-javascript": "^5.0.4",
-    "eslint": "^9.39.1",
+    "eslint": "^9.39.3",
     "jest": "^30.2.0",
     "jest-environment-jsdom": "^30.2.0",
-    "serialize-javascript": "^7.0.1",
-    "ts-jest": "^29.4.5",
+    "serialize-javascript": "^7.0.4",
+    "ts-jest": "^29.4.6",
     "typescript": "^5.9.3",
     "@repo/eslint-config": "*",
     "@repo/tsconfig": "*",
-    "tsdown": "^0.18.4"
+    "tsdown": "^0.21.0"
   }
 }

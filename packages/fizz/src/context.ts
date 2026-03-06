@@ -2,11 +2,8 @@ import type { Action } from "./action.js"
 import type { StateTransition } from "./state.js"
 
 export class History<
-  T extends StateTransition<
-    string,
-    Action<string, unknown>,
-    unknown
-  > = StateTransition<string, Action<string, unknown>, unknown>,
+  T extends StateTransition<string, Action<string, unknown>, unknown> =
+    StateTransition<string, Action<string, unknown>, unknown>,
 > {
   constructor(
     private items: Array<T>,
