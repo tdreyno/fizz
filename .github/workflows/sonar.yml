@@ -31,6 +31,9 @@ jobs:
       - name: Run tests with coverage
         run: npm run test:ci
 
+      - name: Prepare coverage report for Sonar
+        run: npm run coverage:sonar
+
       - name: Run Sonar scanner
         run: npm run sonar
         env:

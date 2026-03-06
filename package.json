@@ -9,6 +9,7 @@
     "lint": "turbo lint",
     "lint:fix": "turbo lint:fix",
     "typecheck": "turbo typecheck",
+    "coverage:sonar": "node scripts/prepare-sonar-coverage.mjs",
     "sonar": "if [ -f ./.env ]; then set -a && . ./.env && set +a; fi && npx sonar-scanner",
     "sonar:quality-gate": "if [ -f ./.env ]; then set -a && . ./.env && set +a; fi && node scripts/sonar-quality-gate.mjs",
     "test": "turbo run test",
