@@ -1,5 +1,11 @@
 # @tdreyno/fizz
 
+## 7.1.0
+
+### Minor Changes
+
+- ab3a829: Tighten types
+
 ## 7.0.3
 
 ### Patch Changes
