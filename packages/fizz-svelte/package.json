@@ -41,8 +41,10 @@
     "svelte": "^4.0"
   },
   "devDependencies": {
+    "@repo/eslint-config": "*",
+    "@repo/tsconfig": "*",
     "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/svelte": "^5.3.1",
+    "@testing-library/svelte": "^4.2.3",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.11.2",
     "eslint": "^9.39.3",
@@ -52,9 +54,7 @@
     "svelte-jester": "^5.0.0",
     "svelte-preprocess": "^6.0.3",
     "ts-jest": "^29.4.6",
-    "typescript": "^5.9.3",
-    "@repo/eslint-config": "*",
-    "@repo/tsconfig": "*",
-    "tsup": "^8.5.1"
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3"
   }
 }
