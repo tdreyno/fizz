@@ -16,6 +16,10 @@ applyTo:
 - For async behavior, use `async/await` and assert awaited outcomes explicitly.
 - Reuse existing helpers/utilities in `__tests__/util.ts` when they already fit.
 - Keep fixtures simple and local to the test file unless shared across multiple specs.
+- Follow red/green TDD for generated code changes:
+  - write or update a failing test first to lock expected behavior (`red`)
+  - implement the smallest production change needed to pass (`green`)
+  - refactor only after tests are passing and behavior remains unchanged
 - When fixing a bug, add a regression test that fails before the fix and passes after.
 - Validate test changes before completion:
   - run `npx prettier --check` on changed test files (and `--write` if needed)

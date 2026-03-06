@@ -38,6 +38,10 @@
 - Tests use Jest + `ts-jest` in ESM mode.
 - Keep tests close to package code under `src/__tests__`.
 - Follow existing spec naming (`*.spec.ts` / `*.spec.tsx`) and behavior-focused test descriptions.
+- Use a red/green TDD workflow for generated code changes:
+  - write or update a failing test first that captures the intended behavior (`red`)
+  - implement the smallest code change needed to make the test pass (`green`)
+  - refactor only after tests are green and keep behavior unchanged
 - When changing runtime behavior, add or update tests in the same package in the same change.
 
 ## Commands

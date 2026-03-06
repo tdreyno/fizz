@@ -22,6 +22,10 @@ applyTo: "packages/*/src/**/*.{ts,tsx}"
   - use clear names
   - keep control flow easy to follow
   - avoid dense or overly clever expressions
+- Use red/green TDD for generated code changes:
+  - add or update a test that fails first to define expected behavior (`red`)
+  - implement the minimal source change required for that test to pass (`green`)
+  - perform any refactor only with tests passing and behavior preserved
 - For state-machine code:
   - keep handlers deterministic
   - return transitions/actions/effects in existing runtime-compatible shapes
