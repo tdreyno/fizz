@@ -1,5 +1,17 @@
 # @tdreyno/fizz-react
 
+## 7.1.0
+
+### Minor Changes
+
+- ab3a829: Tighten types
+
+### Patch Changes
+
+- 8f2c70a: Fix peerDeps range for react
+- Updated dependencies [ab3a829]
+  - @tdreyno/fizz@7.1.0
+
 ## 7.0.2
 
 ### Patch Changes
