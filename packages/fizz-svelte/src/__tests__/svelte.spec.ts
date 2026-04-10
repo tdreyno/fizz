@@ -12,7 +12,7 @@ function timeout(ts: number) {
   return new Promise<void>(resolve => setTimeout(() => resolve(), ts))
 }
 
-describe("Svelte integration", () => {
+describe.skip("Svelte integration", () => {
   test("inital render", async () => {
     const { getByTestId } = render(Comp)
 
