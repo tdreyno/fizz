@@ -1,5 +1,16 @@
 # @tdreyno/fizz-svelte
 
+## 7.1.0
+
+### Minor Changes
+
+- ab3a829: Tighten types
+
+### Patch Changes
+
+- Updated dependencies [ab3a829]
+  - @tdreyno/fizz@7.1.0
+
 ## 7.0.2
 
 ### Patch Changes
