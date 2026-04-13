@@ -3,6 +3,9 @@ import {
   beforeEnter,
   enter,
   exit,
+  intervalCancelled,
+  intervalStarted,
+  intervalTriggered,
   isAction,
   timerCancelled,
   timerCompleted,
@@ -10,9 +13,12 @@ import {
 } from "./action.js"
 import type { Context } from "./context.js"
 import type {
+  CancelIntervalEffectData,
   CancelTimerEffectData,
   Effect,
+  RestartIntervalEffectData,
   RestartTimerEffectData,
+  StartIntervalEffectData,
   StartTimerEffectData,
 } from "./effect.js"
 import { effect, isEffect, log } from "./effect.js"
@@ -41,6 +47,10 @@ type QueueItem = {
 
 export interface RuntimeTimerDriver {
   start: (delay: number, onElapsed: () => Promise<void> | void) => unknown
+  startInterval: (
+    delay: number,
+    onElapsed: () => Promise<void> | void,
+  ) => unknown
   cancel: (handle: unknown) => void
 }
 
@@ -64,6 +74,10 @@ const createDefaultTimerDriver = (): RuntimeTimerDriver => ({
     setTimeout(() => {
       void onElapsed()
     }, delay),
+  startInterval: (delay, onElapsed) =>
+    setInterval(() => {
+      void onElapsed()
+    }, delay),
   cancel: handle => clearTimeout(handle as ReturnType<typeof setTimeout>),
 })
 
@@ -78,6 +92,7 @@ export const createControlledTimerDriver = (): ControlledTimerDriver => {
       delay: number
       dueAt: number
       onElapsed: () => Promise<void> | void
+      repeats: boolean
     }
   >()
 
@@ -90,6 +105,21 @@ export const createControlledTimerDriver = (): ControlledTimerDriver => {
         delay,
         dueAt: now + delay,
         onElapsed,
+        repeats: false,
+      })
+
+      return id
+    },
+
+    startInterval: (delay, onElapsed) => {
+      const id = counter++
+
+      timers.set(id, {
+        active: true,
+        delay,
+        dueAt: now + delay,
+        onElapsed,
+        repeats: true,
       })
 
       return id
@@ -121,8 +151,13 @@ export const createControlledTimerDriver = (): ControlledTimerDriver => {
 
         const [id, timer] = next
 
-        timers.delete(id)
         now = timer.dueAt
+
+        if (timer.repeats) {
+          timer.dueAt += timer.delay
+        } else {
+          timers.delete(id)
+        }
 
         await timer.onElapsed()
       }
@@ -157,6 +192,7 @@ export class Runtime<
   readonly #validActions: Set<string>
   readonly #timerDriver: RuntimeTimerDriver
   readonly #timers = new Map<string, ActiveTimer>()
+  readonly #intervals = new Map<string, ActiveTimer>()
   #queue: QueueItem[] = []
   #isRunning = false
   #timerCounter = 1
@@ -283,39 +319,7 @@ export class Runtime<
     this.#validateCurrentState()
 
     try {
-      let results: StateReturn[] = []
-
-      if (isAction(item)) {
-        results = await this.#executeAction(item)
-      } else if (isStateTransition(item)) {
-        results = this.#handleState(item)
-      } else if (isEffect(item)) {
-        if (item.label === "goBack") {
-          results = this.#handleGoBack()
-        } else if (item.label === "output") {
-          this.#outputSubscribers.forEach(sub => {
-            void sub(item.data as ReturnType<OAM[keyof OAM]>)
-          })
-        } else if (item.label === "startTimer") {
-          results = this.#handleStartTimer(
-            item.data as StartTimerEffectData<string>,
-          )
-        } else if (item.label === "cancelTimer") {
-          results = this.#handleCancelTimer(
-            item.data as CancelTimerEffectData<string>,
-          )
-        } else if (item.label === "restartTimer") {
-          results = this.#handleRestartTimer(
-            item.data as RestartTimerEffectData<string>,
-          )
-        } else {
-          this.#runEffect(item)
-        }
-      } else {
-        // Should be impossible to get here with TypeScript,
-        // but could happen with plain JS.
-        throw new UnknownStateReturnType(item)
-      }
+      const results = await this.#queueItemToStateReturns(item)
 
       const { promise, items } = this.#stateReturnsToQueueItems(results)
 
@@ -332,6 +336,76 @@ export class Runtime<
       this.#isRunning = false
       this.#queue.length = 0
     }
+  }
+
+  async #queueItemToStateReturns(
+    item: QueueItem["item"],
+  ): Promise<StateReturn[]> {
+    if (isAction(item)) {
+      return this.#executeAction(item)
+    }
+
+    if (isStateTransition(item)) {
+      return this.#handleState(item)
+    }
+
+    if (isEffect(item)) {
+      return this.#handleEffectItem(item)
+    }
+
+    // Should be impossible to get here with TypeScript,
+    // but could happen with plain JS.
+    throw new UnknownStateReturnType(item)
+  }
+
+  #handleEffectItem(item: Effect<unknown>): StateReturn[] {
+    if (item.label === "goBack") {
+      return this.#handleGoBack()
+    }
+
+    if (item.label === "output") {
+      this.#outputSubscribers.forEach(sub => {
+        void sub(item.data as ReturnType<OAM[keyof OAM]>)
+      })
+
+      return []
+    }
+
+    if (item.label === "startTimer") {
+      return this.#handleStartTimer(item.data as StartTimerEffectData<string>)
+    }
+
+    if (item.label === "cancelTimer") {
+      return this.#handleCancelTimer(item.data as CancelTimerEffectData<string>)
+    }
+
+    if (item.label === "restartTimer") {
+      return this.#handleRestartTimer(
+        item.data as RestartTimerEffectData<string>,
+      )
+    }
+
+    if (item.label === "startInterval") {
+      return this.#handleStartInterval(
+        item.data as StartIntervalEffectData<string>,
+      )
+    }
+
+    if (item.label === "cancelInterval") {
+      return this.#handleCancelInterval(
+        item.data as CancelIntervalEffectData<string>,
+      )
+    }
+
+    if (item.label === "restartInterval") {
+      return this.#handleRestartInterval(
+        item.data as RestartIntervalEffectData<string>,
+      )
+    }
+
+    this.#runEffect(item)
+
+    return []
   }
 
   #stateReturnsToQueueItems(stateReturns: StateReturn[]): {
@@ -442,6 +516,63 @@ export class Runtime<
     ]
   }
 
+  #handleStartInterval<TimeoutId extends string>(
+    data: StartIntervalEffectData<TimeoutId>,
+  ): StateReturn[] {
+    this.#replaceInterval(data.timeoutId)
+
+    const token = this.#timerCounter++
+    const handle = this.#timerDriver.startInterval(data.delay, async () => {
+      const activeInterval = this.#intervals.get(data.timeoutId)
+
+      if (activeInterval?.token !== token) {
+        return
+      }
+
+      await this.run(intervalTriggered(data))
+    })
+
+    this.#intervals.set(data.timeoutId, {
+      delay: data.delay,
+      handle,
+      token,
+    })
+
+    return [intervalStarted(data)]
+  }
+
+  #handleCancelInterval<TimeoutId extends string>(
+    data: CancelIntervalEffectData<TimeoutId>,
+  ): StateReturn[] {
+    const cancelled = this.#cancelActiveInterval(data.timeoutId)
+
+    if (!cancelled) {
+      return []
+    }
+
+    return [
+      intervalCancelled({ timeoutId: data.timeoutId, delay: cancelled.delay }),
+    ]
+  }
+
+  #handleRestartInterval<TimeoutId extends string>(
+    data: RestartIntervalEffectData<TimeoutId>,
+  ): StateReturn[] {
+    const cancelled = this.#cancelActiveInterval(data.timeoutId)
+
+    return [
+      ...(cancelled
+        ? [
+            intervalCancelled({
+              timeoutId: data.timeoutId,
+              delay: cancelled.delay,
+            }),
+          ]
+        : []),
+      ...this.#handleStartInterval(data),
+    ]
+  }
+
   #cancelActiveTimer(timeoutId: string): TimerPayload<string> | undefined {
     const activeTimer = this.#timers.get(timeoutId)
 
@@ -469,12 +600,44 @@ export class Runtime<
     this.#timers.delete(timeoutId)
   }
 
+  #cancelActiveInterval(timeoutId: string): TimerPayload<string> | undefined {
+    const activeInterval = this.#intervals.get(timeoutId)
+
+    if (!activeInterval) {
+      return
+    }
+
+    this.#timerDriver.cancel(activeInterval.handle)
+    this.#intervals.delete(timeoutId)
+
+    return {
+      timeoutId,
+      delay: activeInterval.delay,
+    }
+  }
+
+  #replaceInterval(timeoutId: string) {
+    const activeInterval = this.#intervals.get(timeoutId)
+
+    if (!activeInterval) {
+      return
+    }
+
+    this.#timerDriver.cancel(activeInterval.handle)
+    this.#intervals.delete(timeoutId)
+  }
+
   #clearTimers() {
     this.#timers.forEach(timer => {
       this.#timerDriver.cancel(timer.handle)
     })
 
+    this.#intervals.forEach(interval => {
+      this.#timerDriver.cancel(interval.handle)
+    })
+
     this.#timers.clear()
+    this.#intervals.clear()
   }
 
   async #executeAction<A extends RuntimeAction>(

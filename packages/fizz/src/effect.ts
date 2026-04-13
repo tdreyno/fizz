@@ -63,6 +63,20 @@ export type RestartTimerEffectData<TimeoutId extends string = string> = {
   delay: number
 }
 
+export type StartIntervalEffectData<TimeoutId extends string = string> = {
+  timeoutId: TimeoutId
+  delay: number
+}
+
+export type CancelIntervalEffectData<TimeoutId extends string = string> = {
+  timeoutId: TimeoutId
+}
+
+export type RestartIntervalEffectData<TimeoutId extends string = string> = {
+  timeoutId: TimeoutId
+  delay: number
+}
+
 export const startTimer = <TimeoutId extends string = string>(
   timeoutId: TimeoutId,
   delay: number,
@@ -79,6 +93,23 @@ export const restartTimer = <TimeoutId extends string = string>(
   delay: number,
 ): Effect<RestartTimerEffectData<TimeoutId>> =>
   effect("restartTimer", { timeoutId, delay })
+
+export const startInterval = <TimeoutId extends string = string>(
+  timeoutId: TimeoutId,
+  delay: number,
+): Effect<StartIntervalEffectData<TimeoutId>> =>
+  effect("startInterval", { timeoutId, delay })
+
+export const cancelInterval = <TimeoutId extends string = string>(
+  timeoutId: TimeoutId,
+): Effect<CancelIntervalEffectData<TimeoutId>> =>
+  effect("cancelInterval", { timeoutId })
+
+export const restartInterval = <TimeoutId extends string = string>(
+  timeoutId: TimeoutId,
+  delay: number,
+): Effect<RestartIntervalEffectData<TimeoutId>> =>
+  effect("restartInterval", { timeoutId, delay })
 
 export const timeout = <A extends Action<string, unknown>>(
   ms: number,
