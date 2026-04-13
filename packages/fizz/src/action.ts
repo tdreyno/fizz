@@ -120,20 +120,23 @@ export type TimerCancelled<TimeoutId extends string = string> = Action<
 >
 export const timerCancelled = createTimerAction("TimerCancelled")
 
-export type IntervalStarted<TimeoutId extends string = string> = Action<
+export type IntervalPayload<IntervalId extends string = string> =
+  TimerPayload<IntervalId>
+
+export type IntervalStarted<IntervalId extends string = string> = Action<
   "IntervalStarted",
-  TimerPayload<TimeoutId>
+  IntervalPayload<IntervalId>
 >
 export const intervalStarted = createTimerAction("IntervalStarted")
 
-export type IntervalTriggered<TimeoutId extends string = string> = Action<
+export type IntervalTriggered<IntervalId extends string = string> = Action<
   "IntervalTriggered",
-  TimerPayload<TimeoutId>
+  IntervalPayload<IntervalId>
 >
 export const intervalTriggered = createTimerAction("IntervalTriggered")
 
-export type IntervalCancelled<TimeoutId extends string = string> = Action<
+export type IntervalCancelled<IntervalId extends string = string> = Action<
   "IntervalCancelled",
-  TimerPayload<TimeoutId>
+  IntervalPayload<IntervalId>
 >
 export const intervalCancelled = createTimerAction("IntervalCancelled")

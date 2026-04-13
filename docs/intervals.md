@@ -6,11 +6,11 @@ Intervals are a good fit for polling, periodic refresh, heartbeats, and other re
 
 ## How intervals work
 
-Declare a timeout id union as the third generic parameter to `state(...)`. Once you do that, Fizz adds three interval helper functions to the handler utils:
+Declare an interval id union as the fourth generic parameter to `state(...)` when you want interval ids to stay distinct from timer ids. If the state only uses intervals, use `never` for the timer-id slot. Fizz then adds three interval helper functions to the handler utils:
 
-- `startInterval(timeoutId, delay)`
-- `cancelInterval(timeoutId)`
-- `restartInterval(timeoutId, delay)`
+- `startInterval(intervalId, delay)`
+- `cancelInterval(intervalId)`
+- `restartInterval(intervalId, delay)`
 
 Fizz also makes three interval actions available to the state automatically:
 
@@ -34,9 +34,9 @@ The important difference from timers is that intervals do not complete. A timer 
 This example starts an interval when the state is entered and stops it after three ticks.
 
 ```typescript
-import { Enter, state } from "@tdreyno/fizz"
+import { Enter, state, whichInterval } from "@tdreyno/fizz"
 
-type TimeoutId = "healthCheck"
+type IntervalId = "healthCheck"
 
 type Data = {
   events: string[]
@@ -48,7 +48,7 @@ const appendEvent = (data: Data, event: string): Data => ({
   events: [...data.events, event],
 })
 
-const Polling = state<Enter, Data, TimeoutId>(
+const Polling = state<Enter, Data, never, IntervalId>(
   {
     Enter: (data, _, { startInterval, update }) => [
       update(appendEvent(data, "enter")),
@@ -59,18 +59,21 @@ const Polling = state<Enter, Data, TimeoutId>(
       return update(appendEvent(data, `started:${timeoutId}`))
     },
 
-    IntervalTriggered: (data, { timeoutId }, { cancelInterval, update }) => {
-      const nextData = {
-        ...appendEvent(data, `triggered:${timeoutId}`),
-        tickCount: data.tickCount + 1,
-      }
+    IntervalTriggered: whichInterval<IntervalId>({
+      healthCheck: (data, payload, { cancelInterval, update }) => {
+        const intervalId: "healthCheck" = payload.timeoutId
+        const nextData = {
+          ...appendEvent(data, `triggered:${intervalId}`),
+          tickCount: data.tickCount + 1,
+        }
 
-      const nextState = update(nextData)
+        const nextState = update(nextData)
 
-      return nextData.tickCount >= 3
-        ? [nextState, cancelInterval(timeoutId)]
-        : nextState
-    },
+        return nextData.tickCount >= 3
+          ? [nextState, cancelInterval(intervalId)]
+          : nextState
+      },
+    }),
 
     IntervalCancelled: (data, { timeoutId }, { update }) => {
       return update(appendEvent(data, `cancelled:${timeoutId}`))
@@ -80,7 +83,58 @@ const Polling = state<Enter, Data, TimeoutId>(
 )
 ```
 
-This is the core interval pattern: `Enter` starts the schedule, `IntervalTriggered` handles each repetition, and cancellation is explicit.
+This is the core interval pattern: `Enter` starts the schedule, `IntervalTriggered` handles each repetition, and cancellation is explicit. `whichInterval(...)` is exhaustive over the declared interval id union, so every interval id must be handled.
+
+## Matching with `whichInterval`
+
+Use `whichInterval(...)` when an interval handler should branch by interval id and you want the branch payload narrowed to the exact interval id instead of manually checking `timeoutId`.
+
+```typescript
+import { Enter, state, whichInterval } from "@tdreyno/fizz"
+
+type IntervalId = "presence" | "sync"
+
+type Data = {
+  lastPresenceTick: number
+  lastSyncTick: number
+}
+
+const Connected = state<Enter, Data, never, IntervalId>({
+  Enter: (_, __, { startInterval }) => [
+    startInterval("presence", 5000),
+    startInterval("sync", 30000),
+  ],
+
+  IntervalTriggered: whichInterval<IntervalId>({
+    presence: (data, payload, { update }) => {
+      const intervalId: "presence" = payload.timeoutId
+
+      return update({
+        ...data,
+        lastPresenceTick:
+          intervalId === "presence" ? Date.now() : data.lastPresenceTick,
+      })
+    },
+
+    sync: (data, payload, { update }) => {
+      const intervalId: "sync" = payload.timeoutId
+
+      return update({
+        ...data,
+        lastSyncTick: intervalId === "sync" ? Date.now() : data.lastSyncTick,
+      })
+    },
+  }),
+})
+```
+
+`whichInterval(...)` guarantees three things:
+
+- The handler map is exhaustive for the declared `IntervalId` union.
+- Each branch narrows `payload.timeoutId` to its specific interval id.
+- The returned function plugs directly into interval handlers such as `IntervalTriggered`.
+
+Use `whichInterval<IntervalId>({...})` directly, even when the surrounding state also declares a separate timer-id union.
 
 ## Restarting intervals with `restartInterval`
 
@@ -92,14 +146,14 @@ import { ActionCreatorType, Enter, createAction, state } from "@tdreyno/fizz"
 const faster = createAction("Faster")
 type Faster = ActionCreatorType<typeof faster>
 
-type TimeoutId = "refresh"
+type IntervalId = "refresh"
 
 type Data = {
   intervalMs: number
   refreshCount: number
 }
 
-const Refreshing = state<Enter | Faster, Data, TimeoutId>(
+const Refreshing = state<Enter | Faster, Data, never, IntervalId>(
   {
     Enter: (data, _, { startInterval }) => {
       return startInterval("refresh", data.intervalMs)
@@ -135,41 +189,48 @@ In the runtime, `restartInterval` behaves like cancel plus start. If the interva
 Interval ids are type-safe, so a single state can coordinate more than one repeating schedule.
 
 ```typescript
-import { Enter, state } from "@tdreyno/fizz"
+import { Enter, state, whichInterval } from "@tdreyno/fizz"
 
-type TimeoutId = "presence" | "sync"
+type IntervalId = "presence" | "sync"
 
 type Data = {
   lastPresenceTick: number
   lastSyncTick: number
 }
 
-const Connected = state<Enter, Data, TimeoutId>(
+const Connected = state<Enter, Data, never, IntervalId>(
   {
     Enter: (_, __, { startInterval }) => [
       startInterval("presence", 5000),
       startInterval("sync", 30000),
     ],
 
-    IntervalTriggered: (data, { timeoutId }, { update }) => {
-      if (timeoutId === "presence") {
+    IntervalTriggered: whichInterval<IntervalId>({
+      presence: (data, payload, { update }) => {
+        const intervalId: "presence" = payload.timeoutId
+
         return update({
           ...data,
-          lastPresenceTick: Date.now(),
+          lastPresenceTick:
+            intervalId === "presence" ? Date.now() : data.lastPresenceTick,
         })
-      }
+      },
 
-      return update({
-        ...data,
-        lastSyncTick: Date.now(),
-      })
-    },
+      sync: (data, payload, { update }) => {
+        const intervalId: "sync" = payload.timeoutId
+
+        return update({
+          ...data,
+          lastSyncTick: intervalId === "sync" ? Date.now() : data.lastSyncTick,
+        })
+      },
+    }),
   },
   { name: "Connected" },
 )
 ```
 
-The `timeoutId` value is narrowed to the declared union, so TypeScript will reject unknown ids.
+The `timeoutId` value is narrowed to the declared interval-id member in each branch, so TypeScript will reject unknown ids and missing handlers.
 
 ## Testing intervals
 
@@ -186,9 +247,9 @@ import {
   state,
 } from "@tdreyno/fizz"
 
-type TimeoutId = "autosave"
+type IntervalId = "autosave"
 
-const Editing = state<Enter, { tickCount: number }, TimeoutId>({
+const Editing = state<Enter, { tickCount: number }, never, IntervalId>({
   Enter: (_, __, { startInterval }) => startInterval("autosave", 20),
 
   IntervalTriggered: (data, _, { update }) =>
@@ -213,6 +274,24 @@ if (isState(currentState, Editing)) {
 ```
 
 With a `20` millisecond interval, advancing the controlled timer driver by `60` milliseconds triggers the interval three times.
+
+## Interval Helper Reference
+
+Intervals are exposed through the main package exports:
+
+```typescript
+import {
+  cancelInterval,
+  intervalCancelled,
+  intervalStarted,
+  intervalTriggered,
+  restartInterval,
+  startInterval,
+  whichInterval,
+} from "@tdreyno/fizz"
+```
+
+In most state-machine code, you will use the helper functions injected into the state handler utils or `whichInterval(...)` rather than calling the effect creators directly.
 
 ## requestAnimationFrame loops
 
@@ -307,7 +386,7 @@ This makes frame-driven behavior deterministic without relying on the browser or
 - `restartInterval` cancels an active interval before starting the replacement interval.
 - `cancelInterval` is a no-op if that interval is not currently running.
 - When a state transition leaves the current state, Fizz clears any active intervals owned by that state without emitting `IntervalCancelled`.
-- Interval actions are available automatically once the state declares a `TimeoutId` generic.
+- Interval actions are available automatically once the state declares an `IntervalId` generic in the fourth `state(...)` slot.
 - Frame loops dispatch `OnFrame` until `cancelFrame()` is called or the state exits.
 - Frame loops do not use ids or emit separate started or cancelled actions.
 

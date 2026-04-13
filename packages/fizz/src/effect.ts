@@ -63,17 +63,17 @@ export type RestartTimerEffectData<TimeoutId extends string = string> = {
   delay: number
 }
 
-export type StartIntervalEffectData<TimeoutId extends string = string> = {
-  timeoutId: TimeoutId
+export type StartIntervalEffectData<IntervalId extends string = string> = {
+  timeoutId: IntervalId
   delay: number
 }
 
-export type CancelIntervalEffectData<TimeoutId extends string = string> = {
-  timeoutId: TimeoutId
+export type CancelIntervalEffectData<IntervalId extends string = string> = {
+  timeoutId: IntervalId
 }
 
-export type RestartIntervalEffectData<TimeoutId extends string = string> = {
-  timeoutId: TimeoutId
+export type RestartIntervalEffectData<IntervalId extends string = string> = {
+  timeoutId: IntervalId
   delay: number
 }
 
@@ -94,21 +94,21 @@ export const restartTimer = <TimeoutId extends string = string>(
 ): Effect<RestartTimerEffectData<TimeoutId>> =>
   effect("restartTimer", { timeoutId, delay })
 
-export const startInterval = <TimeoutId extends string = string>(
-  timeoutId: TimeoutId,
+export const startInterval = <IntervalId extends string = string>(
+  timeoutId: IntervalId,
   delay: number,
-): Effect<StartIntervalEffectData<TimeoutId>> =>
+): Effect<StartIntervalEffectData<IntervalId>> =>
   effect("startInterval", { timeoutId, delay })
 
-export const cancelInterval = <TimeoutId extends string = string>(
-  timeoutId: TimeoutId,
-): Effect<CancelIntervalEffectData<TimeoutId>> =>
+export const cancelInterval = <IntervalId extends string = string>(
+  timeoutId: IntervalId,
+): Effect<CancelIntervalEffectData<IntervalId>> =>
   effect("cancelInterval", { timeoutId })
 
-export const restartInterval = <TimeoutId extends string = string>(
-  timeoutId: TimeoutId,
+export const restartInterval = <IntervalId extends string = string>(
+  timeoutId: IntervalId,
   delay: number,
-): Effect<RestartIntervalEffectData<TimeoutId>> =>
+): Effect<RestartIntervalEffectData<IntervalId>> =>
   effect("restartInterval", { timeoutId, delay })
 
 export const startFrame = (): Effect<undefined> => effect("startFrame")

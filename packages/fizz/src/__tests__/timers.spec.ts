@@ -5,9 +5,10 @@ import { createAction, enter } from "../action"
 import { createInitialContext } from "../context"
 import { noop } from "../effect"
 import { createControlledTimerDriver, createRuntime } from "../runtime"
-import { isState, state } from "../state"
+import { isState, state, whichInterval, whichTimeout } from "../state"
 
 type TimeoutId = "autosave" | "flashSaved"
+type IntervalId = "heartbeat" | "sync"
 
 type Data = {
   events: string[]
@@ -17,6 +18,9 @@ const appendEvent = (data: Data, event: string): Data => ({
   ...data,
   events: [...data.events, event],
 })
+
+const expectTimeoutId = (timeoutId: TimeoutId): TimeoutId => timeoutId
+const expectIntervalId = (intervalId: IntervalId): IntervalId => intervalId
 
 describe("timers", () => {
   test("should support timer handlers and helper typing without explicitly listing timer actions", async () => {
@@ -232,33 +236,143 @@ describe("timers", () => {
     expect(currentState.data.events).toEqual(["enter", "leave"])
   })
 
-  test("should type timer helpers to the timeout id union", () => {
-    state<Enter, undefined, TimeoutId>({
-      Enter: (_, __, { startTimer, restartTimer, cancelTimer }) => {
+  test("should type timer helpers to the timeout id union independently from interval ids", () => {
+    state<Enter, undefined, TimeoutId, IntervalId>({
+      Enter: (
+        _,
+        __,
+        { startTimer, restartTimer, cancelTimer, startInterval },
+      ) => {
         startTimer("autosave", 100)
         restartTimer("flashSaved", 200)
         cancelTimer("autosave")
+        startInterval("heartbeat", 100)
 
-        // @ts-expect-error timeout id should be narrowed to the declared union
+        // @ts-expect-error timer helper should reject interval ids
+        startTimer("heartbeat", 100)
+
+        // @ts-expect-error timer helper should reject interval ids
+        restartTimer("sync", 100)
+
+        // @ts-expect-error timer helper should reject interval ids
+        cancelTimer("heartbeat")
+
+        // @ts-expect-error timer helper should reject unknown timeout ids
         startTimer("unknown", 100)
-
-        // @ts-expect-error timeout id should be narrowed to the declared union
-        restartTimer("unknown", 100)
-
-        // @ts-expect-error timeout id should be narrowed to the declared union
-        cancelTimer("unknown")
 
         return noop()
       },
     })
   })
 
+  test("should type timer and interval payloads against separate unions", () => {
+    state<Enter, Data, TimeoutId, IntervalId>({
+      Enter: noop,
+
+      TimerCompleted: (data, { timeoutId }, { update }) => {
+        expectTimeoutId(timeoutId)
+
+        // @ts-expect-error timer payload should not narrow to interval ids
+        expectIntervalId(timeoutId)
+
+        return update(appendEvent(data, timeoutId))
+      },
+
+      IntervalTriggered: (data, { timeoutId }, { update }) => {
+        expectIntervalId(timeoutId)
+
+        // @ts-expect-error interval payload should not narrow to timeout ids
+        expectTimeoutId(timeoutId)
+
+        return update(appendEvent(data, timeoutId))
+      },
+    })
+  })
+
+  test("should dispatch timer handlers with whichTimeout", async () => {
+    const Editing = state<Enter, Data, TimeoutId, IntervalId>(
+      {
+        Enter: (data, _, { startTimer, update }) => [
+          update(appendEvent(data, "enter")),
+          startTimer("flashSaved", 10),
+          startTimer("autosave", 20),
+        ],
+
+        TimerCompleted: whichTimeout<TimeoutId>({
+          autosave: (data: Data, payload, { update }) => {
+            const timeoutId: "autosave" = payload.timeoutId
+
+            return update(appendEvent(data, `completed:${timeoutId}`))
+          },
+
+          flashSaved: (data: Data, payload, { update }) => {
+            const timeoutId: "flashSaved" = payload.timeoutId
+
+            return update(appendEvent(data, `completed:${timeoutId}`))
+          },
+        }),
+      },
+      { name: "Editing" },
+    )
+
+    const context = createInitialContext([Editing({ events: [] })])
+    const timerDriver = createControlledTimerDriver()
+    const runtime = createRuntime(context, {}, {}, { timerDriver })
+
+    await runtime.run(enter())
+    await timerDriver.advanceBy(20)
+
+    const currentState = runtime.currentState()
+
+    if (!isState(currentState, Editing)) {
+      throw new Error("Expected Editing state")
+    }
+
+    expect(currentState.data.events).toEqual([
+      "enter",
+      "completed:flashSaved",
+      "completed:autosave",
+    ])
+  })
+
+  test("should type whichTimeout exhaustively to the timeout id union", () => {
+    state<Enter, Data, TimeoutId, IntervalId>({
+      Enter: noop,
+
+      TimerCompleted: whichTimeout<TimeoutId>({
+        autosave: (data: Data, payload, { update }) => {
+          const timeoutId: "autosave" = payload.timeoutId
+
+          return update(appendEvent(data, timeoutId))
+        },
+
+        flashSaved: (data: Data, payload, { update }) => {
+          const timeoutId: "flashSaved" = payload.timeoutId
+
+          return update(appendEvent(data, timeoutId))
+        },
+      }),
+    })
+
+    // @ts-expect-error missing timeout id should fail exhaustiveness
+    whichTimeout<TimeoutId>({
+      autosave: () => noop(),
+    })
+
+    whichTimeout<TimeoutId>({
+      autosave: () => noop(),
+      flashSaved: () => noop(),
+      // @ts-expect-error unknown timeout id should be rejected
+      unknown: () => noop(),
+    })
+  })
+
   test("should support interval handlers and keep triggering until cancelled", async () => {
-    const Editing = state<Enter, Data, TimeoutId>(
+    const Editing = state<Enter, Data, TimeoutId, IntervalId>(
       {
         Enter: (data, _, { startInterval, update }) => [
           update(appendEvent(data, "enter")),
-          startInterval("autosave", 10),
+          startInterval("heartbeat", 10),
         ],
 
         IntervalStarted: (data, { timeoutId }, { update }) => {
@@ -299,11 +413,11 @@ describe("timers", () => {
 
     expect(currentState.data.events).toEqual([
       "enter",
-      "started:autosave",
-      "triggered:autosave",
-      "triggered:autosave",
-      "triggered:autosave",
-      "cancelled:autosave",
+      "started:heartbeat",
+      "triggered:heartbeat",
+      "triggered:heartbeat",
+      "triggered:heartbeat",
+      "cancelled:heartbeat",
     ])
   })
 
@@ -311,16 +425,16 @@ describe("timers", () => {
     const save = createAction("Save")
     type Save = ActionCreatorType<typeof save>
 
-    const Editing = state<Enter | Save, Data, TimeoutId>(
+    const Editing = state<Enter | Save, Data, TimeoutId, IntervalId>(
       {
         Enter: (data, _, { startInterval, update }) => [
           update(appendEvent(data, "enter")),
-          startInterval("autosave", 100),
+          startInterval("heartbeat", 100),
         ],
 
         Save: (data, _, { restartInterval, update }) => [
           update(appendEvent(data, "save")),
-          restartInterval("autosave", 25),
+          restartInterval("heartbeat", 25),
         ],
 
         IntervalStarted: (data, { timeoutId }, { update }) => {
@@ -359,12 +473,12 @@ describe("timers", () => {
 
     expect(currentState.data.events).toEqual([
       "enter",
-      "started:autosave",
+      "started:heartbeat",
       "save",
-      "cancelled:autosave",
-      "started:autosave",
-      "triggered:autosave",
-      "cancelled:autosave",
+      "cancelled:heartbeat",
+      "started:heartbeat",
+      "triggered:heartbeat",
+      "cancelled:heartbeat",
     ])
   })
 
@@ -372,12 +486,12 @@ describe("timers", () => {
     const cancelNow = createAction("CancelNow")
     type CancelNow = ActionCreatorType<typeof cancelNow>
 
-    const Editing = state<Enter | CancelNow, Data, TimeoutId>(
+    const Editing = state<Enter | CancelNow, Data, TimeoutId, IntervalId>(
       {
         Enter: noop,
 
         CancelNow: (data, _, { cancelInterval, update }) => [
-          cancelInterval("autosave"),
+          cancelInterval("heartbeat"),
           update(appendEvent(data, "cancel-attempt")),
         ],
 
@@ -421,11 +535,11 @@ describe("timers", () => {
       { name: "Done" },
     )
 
-    const Editing = state<Enter | Leave, Data, TimeoutId>(
+    const Editing = state<Enter | Leave, Data, TimeoutId, IntervalId>(
       {
         Enter: (data, _, { startInterval, update }) => [
           update(appendEvent(data, "enter")),
-          startInterval("autosave", 20),
+          startInterval("heartbeat", 20),
         ],
 
         Leave: data => Done(appendEvent(data, "leave")),
@@ -456,24 +570,116 @@ describe("timers", () => {
     expect(currentState.data.events).toEqual(["enter", "leave"])
   })
 
-  test("should type interval helpers to the timeout id union", () => {
-    state<Enter, undefined, TimeoutId>({
-      Enter: (_, __, { startInterval, restartInterval, cancelInterval }) => {
+  test("should type interval helpers to the interval id union independently from timeout ids", () => {
+    state<Enter, undefined, TimeoutId, IntervalId>({
+      Enter: (
+        _,
+        __,
+        { startTimer, startInterval, restartInterval, cancelInterval },
+      ) => {
+        startTimer("autosave", 100)
+        startInterval("heartbeat", 100)
+        restartInterval("sync", 200)
+        cancelInterval("heartbeat")
+
+        // @ts-expect-error interval helper should reject timeout ids
         startInterval("autosave", 100)
-        restartInterval("flashSaved", 200)
+
+        // @ts-expect-error interval helper should reject timeout ids
+        restartInterval("flashSaved", 100)
+
+        // @ts-expect-error interval helper should reject timeout ids
         cancelInterval("autosave")
 
-        // @ts-expect-error timeout id should be narrowed to the declared union
+        // @ts-expect-error interval helper should reject unknown interval ids
         startInterval("unknown", 100)
-
-        // @ts-expect-error timeout id should be narrowed to the declared union
-        restartInterval("unknown", 100)
-
-        // @ts-expect-error timeout id should be narrowed to the declared union
-        cancelInterval("unknown")
 
         return noop()
       },
+    })
+  })
+
+  test("should dispatch interval handlers with whichInterval", async () => {
+    const Editing = state<Enter, Data, TimeoutId, IntervalId>(
+      {
+        Enter: (data, _, { startInterval, update }) => [
+          update(appendEvent(data, "enter")),
+          startInterval("sync", 10),
+          startInterval("heartbeat", 15),
+        ],
+
+        IntervalTriggered: whichInterval<IntervalId>({
+          heartbeat: (data: Data, payload, { cancelInterval, update }) => {
+            const intervalId: "heartbeat" = payload.timeoutId
+
+            return [
+              update(appendEvent(data, `triggered:${intervalId}`)),
+              cancelInterval(intervalId),
+            ]
+          },
+
+          sync: (data: Data, payload, { cancelInterval, update }) => {
+            const intervalId: "sync" = payload.timeoutId
+
+            return [
+              update(appendEvent(data, `triggered:${intervalId}`)),
+              cancelInterval(intervalId),
+            ]
+          },
+        }),
+      },
+      { name: "Editing" },
+    )
+
+    const context = createInitialContext([Editing({ events: [] })])
+    const timerDriver = createControlledTimerDriver()
+    const runtime = createRuntime(context, {}, {}, { timerDriver })
+
+    await runtime.run(enter())
+    await timerDriver.advanceBy(15)
+
+    const currentState = runtime.currentState()
+
+    if (!isState(currentState, Editing)) {
+      throw new Error("Expected Editing state")
+    }
+
+    expect(currentState.data.events).toEqual([
+      "enter",
+      "triggered:sync",
+      "triggered:heartbeat",
+    ])
+  })
+
+  test("should type whichInterval exhaustively to the interval id union", () => {
+    state<Enter, Data, TimeoutId, IntervalId>({
+      Enter: noop,
+
+      IntervalTriggered: whichInterval<IntervalId>({
+        heartbeat: (data: Data, payload, { update }) => {
+          const intervalId: "heartbeat" = payload.timeoutId
+
+          return update(appendEvent(data, intervalId))
+        },
+
+        sync: (data: Data, payload, { update }) => {
+          const intervalId: "sync" = payload.timeoutId
+
+          return update(appendEvent(data, intervalId))
+        },
+      }),
+    })
+
+    // @ts-expect-error missing interval id should fail exhaustiveness
+    whichInterval<IntervalId>({
+      heartbeat: () => noop(),
+    })
+
+    whichInterval<IntervalId>({
+      heartbeat: () => noop(),
+      sync: () => noop(),
+      // @ts-expect-error unknown interval id should be rejected
+      autosave: () => noop(),
     })
   })
 

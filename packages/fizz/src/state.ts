@@ -12,6 +12,7 @@ import type {
   IntervalTriggered,
   TimerCancelled,
   TimerCompleted,
+  TimerPayload,
   TimerStarted,
 } from "./action.js"
 import { createAction, enter } from "./action.js"
@@ -48,37 +49,45 @@ type TimerActions<TimeoutId extends string> =
   | TimerCompleted<TimeoutId>
   | TimerCancelled<TimeoutId>
 
-type IntervalActions<TimeoutId extends string> =
-  | IntervalStarted<TimeoutId>
-  | IntervalTriggered<TimeoutId>
-  | IntervalCancelled<TimeoutId>
+type IntervalActions<IntervalId extends string> =
+  | IntervalStarted<IntervalId>
+  | IntervalTriggered<IntervalId>
+  | IntervalCancelled<IntervalId>
 
-type ScheduledActions<TimeoutId extends string> =
+type ScheduledActions<TimeoutId extends string, IntervalId extends string> =
   | TimerActions<TimeoutId>
-  | IntervalActions<TimeoutId>
+  | IntervalActions<IntervalId>
 
 type WithScheduledActions<
   Actions extends Action<string, unknown>,
   TimeoutId extends string,
-> = Actions | ScheduledActions<TimeoutId>
+  IntervalId extends string,
+> = Actions | ScheduledActions<TimeoutId, IntervalId>
 
 type StateUtils<
   Name extends string,
   Actions extends Action<string, unknown>,
   Data,
   TimeoutId extends string,
+  IntervalId extends string,
 > = {
   update: (
     data: Data,
-  ) => StateTransition<Name, WithScheduledActions<Actions, TimeoutId>, Data>
+  ) => StateTransition<
+    Name,
+    WithScheduledActions<Actions, TimeoutId, IntervalId>,
+    Data
+  >
   parentRuntime?: Runtime<any, any>
-  trigger: (action: WithScheduledActions<Actions, TimeoutId>) => void
+  trigger: (
+    action: WithScheduledActions<Actions, TimeoutId, IntervalId>,
+  ) => void
   startTimer: (timeoutId: TimeoutId, delay: number) => Effect
   cancelTimer: (timeoutId: TimeoutId) => Effect
   restartTimer: (timeoutId: TimeoutId, delay: number) => Effect
-  startInterval: (timeoutId: TimeoutId, delay: number) => Effect
-  cancelInterval: (timeoutId: TimeoutId) => Effect
-  restartInterval: (timeoutId: TimeoutId, delay: number) => Effect
+  startInterval: (intervalId: IntervalId, delay: number) => Effect
+  cancelInterval: (intervalId: IntervalId) => Effect
+  restartInterval: (intervalId: IntervalId, delay: number) => Effect
   startFrame: () => Effect
   cancelFrame: () => Effect
 }
@@ -88,28 +97,72 @@ type Handler<
   Actions extends Action<string, unknown>,
   Data,
   TimeoutId extends string,
-  A extends WithScheduledActions<Actions, TimeoutId>,
+  IntervalId extends string,
+  A extends WithScheduledActions<Actions, TimeoutId, IntervalId>,
 > = (
   data: Data,
   payload: ActionPayload<A>,
-  utils: StateUtils<Name, Actions, Data, TimeoutId>,
+  utils: StateUtils<Name, Actions, Data, TimeoutId, IntervalId>,
 ) => HandlerReturn
 
 type StateHandlers<
   Actions extends Action<string, unknown>,
   Data,
   TimeoutId extends string,
+  IntervalId extends string,
 > = {
-  [A in Actions as ActionName<A>]: Handler<string, Actions, Data, TimeoutId, A>
-} & {
-  [A in ScheduledActions<TimeoutId> as ActionName<A>]?: Handler<
+  [A in Actions as ActionName<A>]: Handler<
     string,
     Actions,
     Data,
     TimeoutId,
+    IntervalId,
+    A
+  >
+} & {
+  [A in ScheduledActions<TimeoutId, IntervalId> as ActionName<A>]?: Handler<
+    string,
+    Actions,
+    Data,
+    TimeoutId,
+    IntervalId,
     A
   >
 }
+
+type ScheduledPayload<
+  TimeoutId extends string,
+  K extends TimeoutId = TimeoutId,
+> = TimerPayload<K>
+
+type ScheduledBranch<
+  Id extends string,
+  TimeoutId extends string,
+  IntervalId extends string,
+  K extends Id,
+> = (
+  data: any,
+  payload: ScheduledPayload<Id, K>,
+  utils: StateUtils<string, any, any, TimeoutId, IntervalId>,
+) => HandlerReturn
+
+type ScheduledBranchMap<
+  Id extends string,
+  TimeoutId extends string,
+  IntervalId extends string,
+> = {
+  [K in Id]: ScheduledBranch<Id, TimeoutId, IntervalId, K>
+}
+
+type ScheduledHandler<
+  Id extends string,
+  TimeoutId extends string,
+  IntervalId extends string,
+> = (
+  data: any,
+  payload: ScheduledPayload<Id>,
+  utils: StateUtils<string, any, any, TimeoutId, IntervalId>,
+) => HandlerReturn
 
 type SyncHandlerReturn = void | StateReturn | Array<StateReturn>
 export type HandlerReturn = SyncHandlerReturn | Promise<SyncHandlerReturn>
@@ -164,10 +217,11 @@ export type State<
   Actions extends Action<any, any>,
   Data,
   TimeoutId extends string = string,
+  IntervalId extends string = TimeoutId,
 > = (
-  action: WithScheduledActions<Actions, TimeoutId>,
+  action: WithScheduledActions<Actions, TimeoutId, IntervalId>,
   data: Data,
-  utils: StateUtils<Name, Actions, Data, TimeoutId>,
+  utils: StateUtils<Name, Actions, Data, TimeoutId, IntervalId>,
 ) => HandlerReturn
 
 export interface BoundStateFn<
@@ -193,6 +247,7 @@ export const stateWrapper = <
   A extends Action<any, any>,
   Data = undefined,
   TimeoutId extends string = string,
+  IntervalId extends string = TimeoutId,
 >(
   name: Name,
   executor: (
@@ -205,9 +260,9 @@ export const stateWrapper = <
       startTimer: (timeoutId: TimeoutId, delay: number) => Effect
       cancelTimer: (timeoutId: TimeoutId) => Effect
       restartTimer: (timeoutId: TimeoutId, delay: number) => Effect
-      startInterval: (timeoutId: TimeoutId, delay: number) => Effect
-      cancelInterval: (timeoutId: TimeoutId) => Effect
-      restartInterval: (timeoutId: TimeoutId, delay: number) => Effect
+      startInterval: (intervalId: IntervalId, delay: number) => Effect
+      cancelInterval: (intervalId: IntervalId) => Effect
+      restartInterval: (intervalId: IntervalId, delay: number) => Effect
       startFrame: () => Effect
       cancelFrame: () => Effect
     },
@@ -238,12 +293,12 @@ export const stateWrapper = <
         cancelTimer: (timeoutId: TimeoutId) => cancelTimerEffect(timeoutId),
         restartTimer: (timeoutId: TimeoutId, delay: number) =>
           restartTimerEffect(timeoutId, delay),
-        startInterval: (timeoutId: TimeoutId, delay: number) =>
-          startIntervalEffect(timeoutId, delay),
-        cancelInterval: (timeoutId: TimeoutId) =>
-          cancelIntervalEffect(timeoutId),
-        restartInterval: (timeoutId: TimeoutId, delay: number) =>
-          restartIntervalEffect(timeoutId, delay),
+        startInterval: (intervalId: IntervalId, delay: number) =>
+          startIntervalEffect(intervalId, delay),
+        cancelInterval: (intervalId: IntervalId) =>
+          cancelIntervalEffect(intervalId),
+        restartInterval: (intervalId: IntervalId, delay: number) =>
+          restartIntervalEffect(intervalId, delay),
         startFrame: () => startFrameEffect(),
         cancelFrame: () => cancelFrameEffect(),
         ...(parentRuntime ? { parentRuntime } : {}),
@@ -266,13 +321,18 @@ export const stateWrapper = <
 }
 
 const matchAction =
-  <Actions extends Action<string, unknown>, Data, TimeoutId extends string>(
-    handlers: StateHandlers<Actions, Data, TimeoutId>,
+  <
+    Actions extends Action<string, unknown>,
+    Data,
+    TimeoutId extends string,
+    IntervalId extends string,
+  >(
+    handlers: StateHandlers<Actions, Data, TimeoutId, IntervalId>,
   ) =>
   (
-    action: WithScheduledActions<Actions, TimeoutId>,
+    action: WithScheduledActions<Actions, TimeoutId, IntervalId>,
     data: Data,
-    utils: StateUtils<string, Actions, Data, TimeoutId>,
+    utils: StateUtils<string, Actions, Data, TimeoutId, IntervalId>,
   ): HandlerReturn => {
     const handler = (handlers as never)[action.type] as
       | Handler<
@@ -280,7 +340,8 @@ const matchAction =
           Actions,
           Data,
           TimeoutId,
-          WithScheduledActions<Actions, TimeoutId>
+          IntervalId,
+          WithScheduledActions<Actions, TimeoutId, IntervalId>
         >
       | undefined
 
@@ -297,10 +358,15 @@ export const state = <
   Actions extends Action<string, unknown>,
   Data = undefined,
   TimeoutId extends string = string,
+  IntervalId extends string = TimeoutId,
 >(
-  handlers: StateHandlers<Actions, Data, TimeoutId>,
+  handlers: StateHandlers<Actions, Data, TimeoutId, IntervalId>,
   options?: { name?: string },
-): BoundStateFn<string, WithScheduledActions<Actions, TimeoutId>, Data> =>
+): BoundStateFn<
+  string,
+  WithScheduledActions<Actions, TimeoutId, IntervalId>,
+  Data
+> =>
   stateWrapper(
     options?.name ?? `AnonymousState${counter++}`,
     matchAction(handlers),
@@ -436,6 +502,40 @@ class Matcher<S extends StateTransition<string, any, any>, T> {
 
 export const switch_ = <T>(state: StateTransition<string, any, any>) =>
   new Matcher<typeof state, T>(state)
+
+const createScheduledMatcher = <
+  Id extends string,
+  TimeoutId extends string,
+  IntervalId extends string,
+>(
+  handlers: ScheduledBranchMap<Id, TimeoutId, IntervalId>,
+): ScheduledHandler<Id, TimeoutId, IntervalId> => {
+  return (data, payload, utils) => {
+    const handler = handlers[payload.timeoutId] as ScheduledHandler<
+      Id,
+      TimeoutId,
+      IntervalId
+    >
+
+    return handler(data, payload, utils)
+  }
+}
+
+export const whichTimeout = <TimeoutId extends string>(
+  handlers: ScheduledBranchMap<TimeoutId, TimeoutId, any>,
+): (<Actions extends Action<string, unknown>, Data, IntervalId extends string>(
+  data: Data,
+  payload: ScheduledPayload<TimeoutId>,
+  utils: StateUtils<string, Actions, Data, TimeoutId, IntervalId>,
+) => HandlerReturn) => createScheduledMatcher(handlers as never) as never
+
+export const whichInterval = <IntervalId extends string>(
+  handlers: ScheduledBranchMap<IntervalId, any, IntervalId>,
+): (<Actions extends Action<string, unknown>, Data, TimeoutId extends string>(
+  data: Data,
+  payload: ScheduledPayload<IntervalId>,
+  utils: StateUtils<string, Actions, Data, TimeoutId, IntervalId>,
+) => HandlerReturn) => createScheduledMatcher(handlers as never) as never
 
 const timedOut = createAction("TimedOut")
 type TimedOut = ActionCreatorType<typeof timedOut>
