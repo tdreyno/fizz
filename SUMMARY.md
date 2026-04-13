@@ -2,6 +2,7 @@
 
 - [Introduction](README.md)
 - [F.A.Q.](docs/faq.md)
+- [Timers](docs/timers.md)
 - [Changelog](https://github.com/tdreyno/fizz/releases)
 
 ## API
