@@ -7,6 +7,7 @@ import {
   intervalStarted,
   intervalTriggered,
   isAction,
+  onFrame,
   timerCancelled,
   timerCompleted,
   timerStarted,
@@ -51,11 +52,13 @@ export interface RuntimeTimerDriver {
     delay: number,
     onElapsed: () => Promise<void> | void,
   ) => unknown
+  startFrame: (onFrame: (timestamp: number) => Promise<void> | void) => unknown
   cancel: (handle: unknown) => void
 }
 
 export interface ControlledTimerDriver extends RuntimeTimerDriver {
   advanceBy: (ms: number) => Promise<void>
+  advanceFrames: (count: number, frameMs?: number) => Promise<void>
   runAll: () => Promise<void>
 }
 
@@ -69,17 +72,89 @@ type ActiveTimer = {
   token: number
 }
 
-const createDefaultTimerDriver = (): RuntimeTimerDriver => ({
-  start: (delay, onElapsed) =>
-    setTimeout(() => {
-      void onElapsed()
-    }, delay),
-  startInterval: (delay, onElapsed) =>
-    setInterval(() => {
-      void onElapsed()
-    }, delay),
-  cancel: handle => clearTimeout(handle as ReturnType<typeof setTimeout>),
-})
+type ActiveFrame = {
+  handle: unknown
+  token: number
+}
+
+type DefaultDriverHandle =
+  | {
+      handle: ReturnType<typeof setTimeout>
+      kind: "timer"
+    }
+  | {
+      handle: ReturnType<typeof setInterval>
+      kind: "interval"
+    }
+  | {
+      active: boolean
+      handle: number | null
+      kind: "frame"
+    }
+
+const createDefaultTimerDriver = (): RuntimeTimerDriver => {
+  const scheduleFrame = (
+    frameHandle: Extract<DefaultDriverHandle, { kind: "frame" }>,
+    onElapsed: (timestamp: number) => Promise<void> | void,
+  ) => {
+    frameHandle.handle = requestAnimationFrame(timestamp => {
+      if (!frameHandle.active) {
+        return
+      }
+
+      void onElapsed(timestamp)
+
+      if (frameHandle.active) {
+        scheduleFrame(frameHandle, onElapsed)
+      }
+    })
+  }
+
+  return {
+    start: (delay, onElapsed) => ({
+      handle: setTimeout(() => {
+        void onElapsed()
+      }, delay),
+      kind: "timer",
+    }),
+    startInterval: (delay, onElapsed) => ({
+      handle: setInterval(() => {
+        void onElapsed()
+      }, delay),
+      kind: "interval",
+    }),
+    startFrame: onElapsed => {
+      const handle: Extract<DefaultDriverHandle, { kind: "frame" }> = {
+        active: true,
+        handle: null,
+        kind: "frame",
+      }
+
+      scheduleFrame(handle, onElapsed)
+
+      return handle
+    },
+    cancel: handle => {
+      const driverHandle = handle as DefaultDriverHandle
+
+      if (driverHandle.kind === "timer") {
+        clearTimeout(driverHandle.handle)
+        return
+      }
+
+      if (driverHandle.kind === "interval") {
+        clearInterval(driverHandle.handle)
+        return
+      }
+
+      driverHandle.active = false
+
+      if (driverHandle.handle !== null) {
+        cancelAnimationFrame(driverHandle.handle)
+      }
+    },
+  }
+}
 
 export const createControlledTimerDriver = (): ControlledTimerDriver => {
   let now = 0
@@ -93,6 +168,13 @@ export const createControlledTimerDriver = (): ControlledTimerDriver => {
       dueAt: number
       onElapsed: () => Promise<void> | void
       repeats: boolean
+    }
+  >()
+  const frames = new Map<
+    number,
+    {
+      active: boolean
+      onFrame: (timestamp: number) => Promise<void> | void
     }
   >()
 
@@ -125,16 +207,35 @@ export const createControlledTimerDriver = (): ControlledTimerDriver => {
       return id
     },
 
+    startFrame: onFrame => {
+      const id = counter++
+
+      frames.set(id, {
+        active: true,
+        onFrame,
+      })
+
+      return id
+    },
+
     cancel: handle => {
       const timerId = handle as number
       const timer = timers.get(timerId)
 
-      if (!timer) {
+      if (timer) {
+        timer.active = false
+        timers.delete(timerId)
         return
       }
 
-      timer.active = false
-      timers.delete(timerId)
+      const frame = frames.get(timerId)
+
+      if (!frame) {
+        return
+      }
+
+      frame.active = false
+      frames.delete(timerId)
     },
 
     advanceBy: async ms => {
@@ -165,6 +266,24 @@ export const createControlledTimerDriver = (): ControlledTimerDriver => {
       now = target
     },
 
+    advanceFrames: async (count, frameMs = 16) => {
+      for (let index = 0; index < count; index += 1) {
+        now += frameMs
+
+        const currentFrames = [...frames.entries()].filter(
+          ([, frame]) => frame.active,
+        )
+
+        for (const [id, frame] of currentFrames) {
+          if (!frames.has(id) || !frame.active) {
+            continue
+          }
+
+          await frame.onFrame(now)
+        }
+      }
+    },
+
     runAll: async () => {
       while (timers.size > 0) {
         const nextDueAt = [...timers.values()]
@@ -193,6 +312,7 @@ export class Runtime<
   readonly #timerDriver: RuntimeTimerDriver
   readonly #timers = new Map<string, ActiveTimer>()
   readonly #intervals = new Map<string, ActiveTimer>()
+  #frame: ActiveFrame | undefined
   #queue: QueueItem[] = []
   #isRunning = false
   #timerCounter = 1
@@ -403,6 +523,14 @@ export class Runtime<
       )
     }
 
+    if (item.label === "startFrame") {
+      return this.#handleStartFrame()
+    }
+
+    if (item.label === "cancelFrame") {
+      return this.#handleCancelFrame()
+    }
+
     this.#runEffect(item)
 
     return []
@@ -573,6 +701,32 @@ export class Runtime<
     ]
   }
 
+  #handleStartFrame(): StateReturn[] {
+    this.#replaceFrame()
+
+    const token = this.#timerCounter++
+    const handle = this.#timerDriver.startFrame(async timestamp => {
+      if (this.#frame?.token !== token) {
+        return
+      }
+
+      await this.run(onFrame(timestamp))
+    })
+
+    this.#frame = {
+      handle,
+      token,
+    }
+
+    return []
+  }
+
+  #handleCancelFrame(): StateReturn[] {
+    this.#cancelActiveFrame()
+
+    return []
+  }
+
   #cancelActiveTimer(timeoutId: string): TimerPayload<string> | undefined {
     const activeTimer = this.#timers.get(timeoutId)
 
@@ -627,6 +781,19 @@ export class Runtime<
     this.#intervals.delete(timeoutId)
   }
 
+  #cancelActiveFrame() {
+    if (!this.#frame) {
+      return
+    }
+
+    this.#timerDriver.cancel(this.#frame.handle)
+    this.#frame = undefined
+  }
+
+  #replaceFrame() {
+    this.#cancelActiveFrame()
+  }
+
   #clearTimers() {
     this.#timers.forEach(timer => {
       this.#timerDriver.cancel(timer.handle)
@@ -636,8 +803,13 @@ export class Runtime<
       this.#timerDriver.cancel(interval.handle)
     })
 
+    if (this.#frame) {
+      this.#timerDriver.cancel(this.#frame.handle)
+    }
+
     this.#timers.clear()
     this.#intervals.clear()
+    this.#frame = undefined
   }
 
   async #executeAction<A extends RuntimeAction>(

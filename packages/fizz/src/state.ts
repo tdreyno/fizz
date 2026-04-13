@@ -17,6 +17,7 @@ import type {
 import { createAction, enter } from "./action.js"
 import { createInitialContext } from "./context.js"
 import {
+  cancelFrame as cancelFrameEffect,
   cancelInterval as cancelIntervalEffect,
   cancelTimer as cancelTimerEffect,
   Effect,
@@ -24,6 +25,7 @@ import {
   output,
   restartInterval as restartIntervalEffect,
   restartTimer as restartTimerEffect,
+  startFrame as startFrameEffect,
   startInterval as startIntervalEffect,
   startTimer as startTimerEffect,
 } from "./effect.js"
@@ -77,6 +79,8 @@ type StateUtils<
   startInterval: (timeoutId: TimeoutId, delay: number) => Effect
   cancelInterval: (timeoutId: TimeoutId) => Effect
   restartInterval: (timeoutId: TimeoutId, delay: number) => Effect
+  startFrame: () => Effect
+  cancelFrame: () => Effect
 }
 
 type Handler<
@@ -204,6 +208,8 @@ export const stateWrapper = <
       startInterval: (timeoutId: TimeoutId, delay: number) => Effect
       cancelInterval: (timeoutId: TimeoutId) => Effect
       restartInterval: (timeoutId: TimeoutId, delay: number) => Effect
+      startFrame: () => Effect
+      cancelFrame: () => Effect
     },
   ) => HandlerReturn,
 ): BoundStateFn<Name, A, Data> => {
@@ -238,6 +244,8 @@ export const stateWrapper = <
           cancelIntervalEffect(timeoutId),
         restartInterval: (timeoutId: TimeoutId, delay: number) =>
           restartIntervalEffect(timeoutId, delay),
+        startFrame: () => startFrameEffect(),
+        cancelFrame: () => cancelFrameEffect(),
         ...(parentRuntime ? { parentRuntime } : {}),
       })
     },

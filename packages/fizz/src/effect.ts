@@ -111,6 +111,10 @@ export const restartInterval = <TimeoutId extends string = string>(
 ): Effect<RestartIntervalEffectData<TimeoutId>> =>
   effect("restartInterval", { timeoutId, delay })
 
+export const startFrame = (): Effect<undefined> => effect("startFrame")
+
+export const cancelFrame = (): Effect<undefined> => effect("cancelFrame")
+
 export const timeout = <A extends Action<string, unknown>>(
   ms: number,
   action: A,

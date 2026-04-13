@@ -214,6 +214,93 @@ if (isState(currentState, Editing)) {
 
 With a `20` millisecond interval, advancing the controlled timer driver by `60` milliseconds triggers the interval three times.
 
+## requestAnimationFrame loops
+
+Intervals are based on elapsed time. Frame loops are based on the browser render cycle. Use `requestAnimationFrame` when the work should stay synchronized with painting, such as sprite movement, canvas drawing, or visual progress indicators.
+
+Fizz exposes frame loops through two zero-argument helpers:
+
+- `startFrame()`
+- `cancelFrame()`
+
+Unlike intervals, frame loops do not use timeout ids. A state either has an active frame loop or it does not. Each animation frame dispatches the existing `OnFrame` action with the browser timestamp.
+
+```typescript
+import { Enter, OnFrame, state } from "@tdreyno/fizz"
+
+type Data = {
+  angle: number
+  running: boolean
+}
+
+const Spinning = state<Enter | OnFrame, Data>({
+  Enter: (data, _, { startFrame, update }) => [
+    update({ ...data, running: true }),
+    startFrame(),
+  ],
+
+  OnFrame: (data, timestamp, { cancelFrame, update }) => {
+    const nextAngle = (data.angle + 6) % 360
+    const nextData = {
+      ...data,
+      angle: nextAngle,
+    }
+
+    return nextAngle === 0
+      ? [update({ ...nextData, running: false }), cancelFrame()]
+      : update(nextData)
+  },
+})
+```
+
+This pattern is intentionally different from the older recursive `onFrame()` example style. Start the loop once, handle each `OnFrame` action, and stop it explicitly when the animation is done.
+
+## Testing frame loops
+
+`createControlledTimerDriver()` also supports frame-loop tests. Use `advanceFrames(count, frameMs)` to simulate browser frames deterministically.
+
+```typescript
+import {
+  Enter,
+  OnFrame,
+  createControlledTimerDriver,
+  createInitialContext,
+  createRuntime,
+  enter,
+  isState,
+  state,
+} from "@tdreyno/fizz"
+
+const Animating = state<Enter | OnFrame, { frameCount: number }>({
+  Enter: (_, __, { startFrame }) => startFrame(),
+
+  OnFrame: (data, _, { cancelFrame, update }) => {
+    const nextData = {
+      frameCount: data.frameCount + 1,
+    }
+
+    return nextData.frameCount >= 3
+      ? [update(nextData), cancelFrame()]
+      : update(nextData)
+  },
+})
+
+const timerDriver = createControlledTimerDriver()
+const context = createInitialContext([Animating({ frameCount: 0 })])
+const runtime = createRuntime(context, {}, {}, { timerDriver })
+
+await runtime.run(enter())
+await timerDriver.advanceFrames(3, 16)
+
+const currentState = runtime.currentState()
+
+if (isState(currentState, Animating)) {
+  currentState.data.frameCount
+}
+```
+
+This makes frame-driven behavior deterministic without relying on the browser or wall-clock time.
+
 ## Behavior notes
 
 - Intervals emit `IntervalStarted` once, then `IntervalTriggered` repeatedly until they are cancelled.
@@ -221,6 +308,8 @@ With a `20` millisecond interval, advancing the controlled timer driver by `60` 
 - `cancelInterval` is a no-op if that interval is not currently running.
 - When a state transition leaves the current state, Fizz clears any active intervals owned by that state without emitting `IntervalCancelled`.
 - Interval actions are available automatically once the state declares a `TimeoutId` generic.
+- Frame loops dispatch `OnFrame` until `cancelFrame()` is called or the state exits.
+- Frame loops do not use ids or emit separate started or cancelled actions.
 
 ## Reference
 
@@ -228,11 +317,15 @@ Intervals are exposed through the main package exports:
 
 ```typescript
 import {
+  OnFrame,
   cancelInterval,
+  cancelFrame,
   intervalCancelled,
   intervalStarted,
   intervalTriggered,
+  onFrame,
   restartInterval,
+  startFrame,
   startInterval,
 } from "@tdreyno/fizz"
 ```

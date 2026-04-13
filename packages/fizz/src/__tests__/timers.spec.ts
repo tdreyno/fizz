@@ -1,6 +1,6 @@
 import { describe, expect, test } from "@jest/globals"
 
-import type { ActionCreatorType, Enter } from "../action"
+import type { ActionCreatorType, Enter, OnFrame } from "../action"
 import { createAction, enter } from "../action"
 import { createInitialContext } from "../context"
 import { noop } from "../effect"
@@ -471,6 +471,145 @@ describe("timers", () => {
 
         // @ts-expect-error timeout id should be narrowed to the declared union
         cancelInterval("unknown")
+
+        return noop()
+      },
+    })
+  })
+
+  test("should dispatch OnFrame repeatedly until cancelled", async () => {
+    type FrameData = {
+      frameCount: number
+      lastTimestamp: number
+    }
+
+    const Animating = state<Enter | OnFrame, FrameData>({
+      Enter: (_, __, { startFrame }) => startFrame(),
+
+      OnFrame: (data, timestamp, { cancelFrame, update }) => {
+        const nextData = {
+          frameCount: data.frameCount + 1,
+          lastTimestamp: timestamp,
+        }
+
+        return nextData.frameCount >= 3
+          ? [update(nextData), cancelFrame()]
+          : update(nextData)
+      },
+    })
+
+    const context = createInitialContext([
+      Animating({ frameCount: 0, lastTimestamp: 0 }),
+    ])
+    const timerDriver = createControlledTimerDriver()
+    const runtime = createRuntime(context, {}, {}, { timerDriver })
+
+    await runtime.run(enter())
+    await timerDriver.advanceFrames(5, 10)
+
+    const currentState = runtime.currentState()
+
+    if (!isState(currentState, Animating)) {
+      throw new Error("Expected Animating state")
+    }
+
+    expect(currentState.data).toEqual({
+      frameCount: 3,
+      lastTimestamp: 30,
+    })
+  })
+
+  test("should not fail when cancelling a frame loop that is not running", async () => {
+    const stop = createAction("Stop")
+    type Stop = ActionCreatorType<typeof stop>
+
+    type FrameData = {
+      events: string[]
+    }
+
+    const Idle = state<Enter | Stop, FrameData>({
+      Enter: noop,
+
+      Stop: (data, _, { cancelFrame, update }) => [
+        cancelFrame(),
+        update(appendEvent(data, "cancel-attempt")),
+      ],
+    })
+
+    const context = createInitialContext([Idle({ events: [] })])
+    const timerDriver = createControlledTimerDriver()
+    const runtime = createRuntime(context, { stop }, {}, { timerDriver })
+
+    await runtime.run(enter())
+    await runtime.run(stop())
+    await timerDriver.advanceFrames(1)
+
+    const currentState = runtime.currentState()
+
+    if (!isState(currentState, Idle)) {
+      throw new Error("Expected Idle state")
+    }
+
+    expect(currentState.data.events).toEqual(["cancel-attempt"])
+  })
+
+  test("should cancel the frame loop when leaving the state", async () => {
+    type FrameData = {
+      frameCount: number
+    }
+
+    const leave = createAction("Leave")
+    type Leave = ActionCreatorType<typeof leave>
+
+    const Done = state<Enter, FrameData>(
+      {
+        Enter: noop,
+      },
+      { name: "Done" },
+    )
+
+    const Animating = state<Enter | Leave | OnFrame, FrameData>(
+      {
+        Enter: (_, __, { startFrame }) => startFrame(),
+
+        Leave: data => Done(data),
+
+        OnFrame: (data, _, { update }) =>
+          update({
+            frameCount: data.frameCount + 1,
+          }),
+      },
+      { name: "Animating" },
+    )
+
+    const context = createInitialContext([Animating({ frameCount: 0 })])
+    const timerDriver = createControlledTimerDriver()
+    const runtime = createRuntime(context, { leave }, {}, { timerDriver })
+
+    await runtime.run(enter())
+    await runtime.run(leave())
+    await timerDriver.advanceFrames(3)
+
+    const currentState = runtime.currentState()
+
+    if (!isState(currentState, Done)) {
+      throw new Error("Expected Done state")
+    }
+
+    expect(currentState.data.frameCount).toBe(0)
+  })
+
+  test("should type frame helpers without accepting ids", () => {
+    state<Enter, undefined>({
+      Enter: (_, __, { startFrame, cancelFrame }) => {
+        startFrame()
+        cancelFrame()
+
+        // @ts-expect-error frame helpers do not accept ids
+        startFrame("spinner")
+
+        // @ts-expect-error frame helpers do not accept ids
+        cancelFrame("spinner")
 
         return noop()
       },
