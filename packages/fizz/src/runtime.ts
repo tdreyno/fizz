@@ -1,7 +1,20 @@
-import type { Action } from "./action.js"
-import { beforeEnter, enter, exit, isAction } from "./action.js"
+import type { Action, TimerPayload } from "./action.js"
+import {
+  beforeEnter,
+  enter,
+  exit,
+  isAction,
+  timerCancelled,
+  timerCompleted,
+  timerStarted,
+} from "./action.js"
 import type { Context } from "./context.js"
-import type { Effect } from "./effect.js"
+import type {
+  CancelTimerEffectData,
+  Effect,
+  RestartTimerEffectData,
+  StartTimerEffectData,
+} from "./effect.js"
 import { effect, isEffect, log } from "./effect.js"
 import { MissingCurrentState, UnknownStateReturnType } from "./errors.js"
 import type { StateReturn, StateTransition } from "./state.js"
@@ -26,6 +39,115 @@ type QueueItem = {
   item: RuntimeAction | RuntimeState | Effect<unknown>
 }
 
+export interface RuntimeTimerDriver {
+  start: (delay: number, onElapsed: () => Promise<void> | void) => unknown
+  cancel: (handle: unknown) => void
+}
+
+export interface ControlledTimerDriver extends RuntimeTimerDriver {
+  advanceBy: (ms: number) => Promise<void>
+  runAll: () => Promise<void>
+}
+
+type RuntimeOptions = {
+  timerDriver?: RuntimeTimerDriver
+}
+
+type ActiveTimer = {
+  delay: number
+  handle: unknown
+  token: number
+}
+
+const createDefaultTimerDriver = (): RuntimeTimerDriver => ({
+  start: (delay, onElapsed) =>
+    setTimeout(() => {
+      void onElapsed()
+    }, delay),
+  cancel: handle => clearTimeout(handle as ReturnType<typeof setTimeout>),
+})
+
+export const createControlledTimerDriver = (): ControlledTimerDriver => {
+  let now = 0
+  let counter = 1
+
+  const timers = new Map<
+    number,
+    {
+      active: boolean
+      delay: number
+      dueAt: number
+      onElapsed: () => Promise<void> | void
+    }
+  >()
+
+  const driver: ControlledTimerDriver = {
+    start: (delay, onElapsed) => {
+      const id = counter++
+
+      timers.set(id, {
+        active: true,
+        delay,
+        dueAt: now + delay,
+        onElapsed,
+      })
+
+      return id
+    },
+
+    cancel: handle => {
+      const timerId = handle as number
+      const timer = timers.get(timerId)
+
+      if (!timer) {
+        return
+      }
+
+      timer.active = false
+      timers.delete(timerId)
+    },
+
+    advanceBy: async ms => {
+      const target = now + ms
+
+      while (true) {
+        const next = [...timers.entries()]
+          .filter(([, timer]) => timer.active && timer.dueAt <= target)
+          .sort(([, left], [, right]) => left.dueAt - right.dueAt)[0]
+
+        if (!next) {
+          break
+        }
+
+        const [id, timer] = next
+
+        timers.delete(id)
+        now = timer.dueAt
+
+        await timer.onElapsed()
+      }
+
+      now = target
+    },
+
+    runAll: async () => {
+      while (timers.size > 0) {
+        const nextDueAt = [...timers.values()]
+          .filter(timer => timer.active)
+          .sort((left, right) => left.dueAt - right.dueAt)[0]?.dueAt
+
+        if (nextDueAt === undefined) {
+          break
+        }
+
+        await driver.advanceBy(nextDueAt - now)
+      }
+    },
+  }
+
+  return driver
+}
+
 export class Runtime<
   AM extends RuntimeActionMap,
   OAM extends RuntimeActionMap,
@@ -33,18 +155,23 @@ export class Runtime<
   readonly #contextChangeSubscribers = new Set<ContextChangeSubscriber>()
   readonly #outputSubscribers = new Set<OutputSubscriber<OAM>>()
   readonly #validActions: Set<string>
+  readonly #timerDriver: RuntimeTimerDriver
+  readonly #timers = new Map<string, ActiveTimer>()
   #queue: QueueItem[] = []
   #isRunning = false
+  #timerCounter = 1
 
   constructor(
     public context: Context,
     public internalActions: AM,
     public outputActions: OAM,
+    options: RuntimeOptions = {},
   ) {
     this.#validActions = Object.keys(internalActions).reduce(
       (sum, action) => sum.add(action.toLowerCase()),
       new Set<string>(),
     )
+    this.#timerDriver = options.timerDriver ?? createDefaultTimerDriver()
   }
 
   currentState(): RuntimeState {
@@ -169,6 +296,18 @@ export class Runtime<
           this.#outputSubscribers.forEach(sub => {
             void sub(item.data as ReturnType<OAM[keyof OAM]>)
           })
+        } else if (item.label === "startTimer") {
+          results = this.#handleStartTimer(
+            item.data as StartTimerEffectData<string>,
+          )
+        } else if (item.label === "cancelTimer") {
+          results = this.#handleCancelTimer(
+            item.data as CancelTimerEffectData<string>,
+          )
+        } else if (item.label === "restartTimer") {
+          results = this.#handleRestartTimer(
+            item.data as RestartTimerEffectData<string>,
+          )
         } else {
           this.#runEffect(item)
         }
@@ -245,6 +384,99 @@ export class Runtime<
     e.executor(this.context)
   }
 
+  #handleStartTimer<TimeoutId extends string>(
+    data: StartTimerEffectData<TimeoutId>,
+  ): StateReturn[] {
+    this.#replaceTimer(data.timeoutId)
+
+    const token = this.#timerCounter++
+    const handle = this.#timerDriver.start(data.delay, async () => {
+      const activeTimer = this.#timers.get(data.timeoutId)
+
+      if (activeTimer?.token !== token) {
+        return
+      }
+
+      this.#timers.delete(data.timeoutId)
+      await this.run(timerCompleted(data))
+    })
+
+    this.#timers.set(data.timeoutId, {
+      delay: data.delay,
+      handle,
+      token,
+    })
+
+    return [timerStarted(data)]
+  }
+
+  #handleCancelTimer<TimeoutId extends string>(
+    data: CancelTimerEffectData<TimeoutId>,
+  ): StateReturn[] {
+    const cancelled = this.#cancelActiveTimer(data.timeoutId)
+
+    if (!cancelled) {
+      return []
+    }
+
+    return [
+      timerCancelled({ timeoutId: data.timeoutId, delay: cancelled.delay }),
+    ]
+  }
+
+  #handleRestartTimer<TimeoutId extends string>(
+    data: RestartTimerEffectData<TimeoutId>,
+  ): StateReturn[] {
+    const cancelled = this.#cancelActiveTimer(data.timeoutId)
+
+    return [
+      ...(cancelled
+        ? [
+            timerCancelled({
+              timeoutId: data.timeoutId,
+              delay: cancelled.delay,
+            }),
+          ]
+        : []),
+      ...this.#handleStartTimer(data),
+    ]
+  }
+
+  #cancelActiveTimer(timeoutId: string): TimerPayload<string> | undefined {
+    const activeTimer = this.#timers.get(timeoutId)
+
+    if (!activeTimer) {
+      return
+    }
+
+    this.#timerDriver.cancel(activeTimer.handle)
+    this.#timers.delete(timeoutId)
+
+    return {
+      timeoutId,
+      delay: activeTimer.delay,
+    }
+  }
+
+  #replaceTimer(timeoutId: string) {
+    const activeTimer = this.#timers.get(timeoutId)
+
+    if (!activeTimer) {
+      return
+    }
+
+    this.#timerDriver.cancel(activeTimer.handle)
+    this.#timers.delete(timeoutId)
+  }
+
+  #clearTimers() {
+    this.#timers.forEach(timer => {
+      this.#timerDriver.cancel(timer.handle)
+    })
+
+    this.#timers.clear()
+  }
+
   async #executeAction<A extends RuntimeAction>(
     action: A,
   ): Promise<StateReturn[]> {
@@ -289,6 +521,10 @@ export class Runtime<
   #enterState(targetState: RuntimeState): StateReturn[] {
     const exitState = this.context.currentState
 
+    if (exitState && exitState.name !== targetState.name) {
+      this.#clearTimers()
+    }
+
     const effects: StateReturn[] = [
       // Update history
       effect("nextState", targetState, () =>
@@ -316,6 +552,8 @@ export class Runtime<
   }
 
   #handleGoBack(): StateReturn[] {
+    this.#clearTimers()
+
     return [
       // Update history
       effect("updateHistory", undefined, () => {
@@ -336,4 +574,5 @@ export const createRuntime = <
   context: Context,
   internalActions: AM = {} as AM,
   outputActions: OAM = {} as OAM,
-) => new Runtime(context, internalActions, outputActions)
+  options?: RuntimeOptions,
+) => new Runtime(context, internalActions, outputActions, options)

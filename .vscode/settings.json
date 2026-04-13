@@ -2,5 +2,9 @@
   "typescript.tsdk": "node_modules/typescript/lib",
   "chat.tools.terminal.autoApprove": {
     "npx prettier": true
+  },
+  "sonarlint.connectedMode.project": {
+    "connectionId": "tdreyno",
+    "projectKey": "tdreyno_fizz"
   }
 }

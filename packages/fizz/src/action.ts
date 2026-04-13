@@ -70,3 +70,52 @@ export type Exit = ActionCreatorType<typeof exit>
 
 export const onFrame = createAction<"OnFrame", number>("OnFrame")
 export type OnFrame = ActionCreatorType<typeof onFrame>
+
+export type TimerPayload<TimeoutId extends string = string> = {
+  timeoutId: TimeoutId
+  delay: number
+}
+
+type GenericTimerActionCreator<T extends string> = MatchAction<
+  T,
+  TimerPayload<string>
+> & {
+  <TimeoutId extends string = string>(
+    payload: TimerPayload<TimeoutId>,
+  ): Action<T, TimerPayload<TimeoutId>>
+  type: T
+}
+
+const createTimerAction = <T extends string>(
+  type: T,
+): GenericTimerActionCreator<T> => {
+  const fn = <TimeoutId extends string = string>(
+    payload: TimerPayload<TimeoutId>,
+  ) => action(type, payload)
+
+  fn.is = (
+    action: Action<string, unknown>,
+  ): action is Action<T, TimerPayload<string>> => action.type === type
+
+  fn.type = type
+
+  return fn as GenericTimerActionCreator<T>
+}
+
+export type TimerStarted<TimeoutId extends string = string> = Action<
+  "TimerStarted",
+  TimerPayload<TimeoutId>
+>
+export const timerStarted = createTimerAction("TimerStarted")
+
+export type TimerCompleted<TimeoutId extends string = string> = Action<
+  "TimerCompleted",
+  TimerPayload<TimeoutId>
+>
+export const timerCompleted = createTimerAction("TimerCompleted")
+
+export type TimerCancelled<TimeoutId extends string = string> = Action<
+  "TimerCancelled",
+  TimerPayload<TimeoutId>
+>
+export const timerCancelled = createTimerAction("TimerCancelled")

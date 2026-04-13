@@ -1,9 +1,11 @@
-import type { Action } from "./action.js"
 import type { StateTransition } from "./state.js"
 
 export class History<
-  T extends StateTransition<string, Action<string, unknown>, unknown> =
-    StateTransition<string, Action<string, unknown>, unknown>,
+  T extends StateTransition<string, any, unknown> = StateTransition<
+    string,
+    any,
+    unknown
+  >,
 > {
   constructor(
     private items: Array<T>,
@@ -72,13 +74,13 @@ export class Context {
   }
 }
 
-export const createInitialContext = (
-  history: Array<
-    StateTransition<string, Action<string, unknown>, unknown>
-  > = [],
+export const createInitialContext = <
+  T extends StateTransition<string, any, any>,
+>(
+  history: Array<T> = [],
   options?: Partial<Options>,
 ) =>
-  new Context(new History(history, options?.maxHistory ?? Infinity), {
+  new Context(new History<T>(history, options?.maxHistory ?? Infinity), {
     enableLogging: options?.enableLogging ?? false,
     customLogger: options?.customLogger,
   })

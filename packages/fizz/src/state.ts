@@ -7,10 +7,20 @@ import type {
   BeforeEnter,
   Enter,
   GetActionCreatorType,
+  TimerCancelled,
+  TimerCompleted,
+  TimerStarted,
 } from "./action.js"
 import { createAction, enter } from "./action.js"
 import { createInitialContext } from "./context.js"
-import { Effect, noop, output } from "./effect.js"
+import {
+  cancelTimer as cancelTimerEffect,
+  Effect,
+  noop,
+  output,
+  restartTimer as restartTimerEffect,
+  startTimer as startTimerEffect,
+} from "./effect.js"
 import { createRuntime, Runtime } from "./runtime.js"
 
 /**
@@ -24,6 +34,60 @@ export type StateReturn =
   | Effect
   | Action<any, any>
   | StateTransition<any, any, any>
+
+type TimerActions<TimeoutId extends string> =
+  | TimerStarted<TimeoutId>
+  | TimerCompleted<TimeoutId>
+  | TimerCancelled<TimeoutId>
+
+type WithTimerActions<
+  Actions extends Action<string, unknown>,
+  TimeoutId extends string,
+> = Actions | TimerActions<TimeoutId>
+
+type StateUtils<
+  Name extends string,
+  Actions extends Action<string, unknown>,
+  Data,
+  TimeoutId extends string,
+> = {
+  update: (
+    data: Data,
+  ) => StateTransition<Name, WithTimerActions<Actions, TimeoutId>, Data>
+  parentRuntime?: Runtime<any, any>
+  trigger: (action: WithTimerActions<Actions, TimeoutId>) => void
+  startTimer: (timeoutId: TimeoutId, delay: number) => Effect
+  cancelTimer: (timeoutId: TimeoutId) => Effect
+  restartTimer: (timeoutId: TimeoutId, delay: number) => Effect
+}
+
+type Handler<
+  Name extends string,
+  Actions extends Action<string, unknown>,
+  Data,
+  TimeoutId extends string,
+  A extends WithTimerActions<Actions, TimeoutId>,
+> = (
+  data: Data,
+  payload: ActionPayload<A>,
+  utils: StateUtils<Name, Actions, Data, TimeoutId>,
+) => HandlerReturn
+
+type StateHandlers<
+  Actions extends Action<string, unknown>,
+  Data,
+  TimeoutId extends string,
+> = {
+  [A in Actions as ActionName<A>]: Handler<string, Actions, Data, TimeoutId, A>
+} & {
+  [A in TimerActions<TimeoutId> as ActionName<A>]?: Handler<
+    string,
+    Actions,
+    Data,
+    TimeoutId,
+    A
+  >
+}
 
 type SyncHandlerReturn = void | StateReturn | Array<StateReturn>
 export type HandlerReturn = SyncHandlerReturn | Promise<SyncHandlerReturn>
@@ -73,14 +137,15 @@ export const isState = <T extends BoundStateFn<any, any, any>>(
  * the action to run and an arbitrary number of serializable
  * arguments.
  */
-export type State<Name extends string, A extends Action<any, any>, Data> = (
-  action: A,
+export type State<
+  Name extends string,
+  Actions extends Action<any, any>,
+  Data,
+  TimeoutId extends string = string,
+> = (
+  action: WithTimerActions<Actions, TimeoutId>,
   data: Data,
-  utils: {
-    update: (data: Data) => StateTransition<Name, A, Data>
-    parentRuntime?: Runtime<any, any>
-    trigger: (action: A) => void
-  },
+  utils: StateUtils<Name, Actions, Data, TimeoutId>,
 ) => HandlerReturn
 
 export interface BoundStateFn<
@@ -105,9 +170,21 @@ export const stateWrapper = <
   Name extends string,
   A extends Action<any, any>,
   Data = undefined,
+  TimeoutId extends string = string,
 >(
   name: Name,
-  executor: State<Name, A, Data>,
+  executor: (
+    action: A,
+    data: Data,
+    utils: {
+      update: (data: Data) => StateTransition<Name, A, Data>
+      parentRuntime?: Runtime<any, any>
+      trigger: (action: A) => void
+      startTimer: (timeoutId: TimeoutId, delay: number) => Effect
+      cancelTimer: (timeoutId: TimeoutId) => Effect
+      restartTimer: (timeoutId: TimeoutId, delay: number) => Effect
+    },
+  ) => HandlerReturn,
 ): BoundStateFn<Name, A, Data> => {
   const fn = (data: Data) => ({
     name,
@@ -129,6 +206,11 @@ export const stateWrapper = <
         trigger: (a: A) => {
           void runtime?.run(a)
         },
+        startTimer: (timeoutId: TimeoutId, delay: number) =>
+          startTimerEffect(timeoutId, delay),
+        cancelTimer: (timeoutId: TimeoutId) => cancelTimerEffect(timeoutId),
+        restartTimer: (timeoutId: TimeoutId, delay: number) =>
+          restartTimerEffect(timeoutId, delay),
         ...(parentRuntime ? { parentRuntime } : {}),
       })
     },
@@ -149,41 +231,29 @@ export const stateWrapper = <
 }
 
 const matchAction =
-  <Actions extends Action<string, unknown>, Data>(handlers: {
-    [A in Actions as ActionName<A>]: (
-      data: Data,
-      payload: ActionPayload<A>,
-      utils: {
-        update: (data: Data) => StateTransition<string, Actions, Data>
-        parentRuntime?: Runtime<any, any>
-        trigger: (action: Actions) => void
-      },
-    ) => HandlerReturn
-  }) =>
+  <Actions extends Action<string, unknown>, Data, TimeoutId extends string>(
+    handlers: StateHandlers<Actions, Data, TimeoutId>,
+  ) =>
   (
-    action: Actions,
+    action: WithTimerActions<Actions, TimeoutId>,
     data: Data,
-    utils: {
-      update: (data: Data) => StateTransition<string, Actions, Data>
-      parentRuntime?: Runtime<any, any>
-      trigger: (action: Actions) => void
-    },
+    utils: StateUtils<string, Actions, Data, TimeoutId>,
   ): HandlerReturn => {
-    const handler = (handlers as never)[action.type] as (
-      data: Data,
-      payload: ActionPayload<Actions>,
-      utils: {
-        update: (data: Data) => StateTransition<string, Actions, Data>
-        parentRuntime?: Runtime<any, any>
-        trigger: (action: Actions) => void
-      },
-    ) => HandlerReturn
+    const handler = (handlers as never)[action.type] as
+      | Handler<
+          string,
+          Actions,
+          Data,
+          TimeoutId,
+          WithTimerActions<Actions, TimeoutId>
+        >
+      | undefined
 
     if (!handler) {
       return undefined
     }
 
-    return handler(data, action.payload, utils)
+    return handler(data, action.payload as never, utils)
   }
 
 let counter = 1
@@ -191,20 +261,11 @@ let counter = 1
 export const state = <
   Actions extends Action<string, unknown>,
   Data = undefined,
+  TimeoutId extends string = string,
 >(
-  handlers: {
-    [A in Actions as ActionName<A>]: (
-      data: Data,
-      payload: ActionPayload<A>,
-      utils: {
-        update: (data: Data) => StateTransition<string, Actions, Data>
-        parentRuntime?: Runtime<any, any>
-        trigger: (action: Actions) => void
-      },
-    ) => HandlerReturn
-  },
+  handlers: StateHandlers<Actions, Data, TimeoutId>,
   options?: { name?: string },
-): BoundStateFn<string, Actions, Data> =>
+): BoundStateFn<string, WithTimerActions<Actions, TimeoutId>, Data> =>
   stateWrapper(
     options?.name ?? `AnonymousState${counter++}`,
     matchAction(handlers),

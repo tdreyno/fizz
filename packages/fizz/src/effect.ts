@@ -49,6 +49,37 @@ export const warn = <T extends unknown[]>(...msgs: T): Effect<T> =>
 
 export const noop = (): Effect<void> => effect("noop")
 
+export type StartTimerEffectData<TimeoutId extends string = string> = {
+  timeoutId: TimeoutId
+  delay: number
+}
+
+export type CancelTimerEffectData<TimeoutId extends string = string> = {
+  timeoutId: TimeoutId
+}
+
+export type RestartTimerEffectData<TimeoutId extends string = string> = {
+  timeoutId: TimeoutId
+  delay: number
+}
+
+export const startTimer = <TimeoutId extends string = string>(
+  timeoutId: TimeoutId,
+  delay: number,
+): Effect<StartTimerEffectData<TimeoutId>> =>
+  effect("startTimer", { timeoutId, delay })
+
+export const cancelTimer = <TimeoutId extends string = string>(
+  timeoutId: TimeoutId,
+): Effect<CancelTimerEffectData<TimeoutId>> =>
+  effect("cancelTimer", { timeoutId })
+
+export const restartTimer = <TimeoutId extends string = string>(
+  timeoutId: TimeoutId,
+  delay: number,
+): Effect<RestartTimerEffectData<TimeoutId>> =>
+  effect("restartTimer", { timeoutId, delay })
+
 export const timeout = <A extends Action<string, unknown>>(
   ms: number,
   action: A,
