@@ -17,17 +17,17 @@ This example shows how we would model something like a game of Pong.
 ```typescript
 import {
   state,
-  createAction,
+  action,
   ActionCreatorType,
   onFrame,
   OnFrame,
   Enter,
 } from "@tdreyno/fizz"
 
-export const start = createAction("Start")
+export const start = action("Start")
 export type Start = ActionCreatorType<typeof start>
 
-export const onPaddleInput = createAction("OnPaddleInput")
+export const onPaddleInput = action("OnPaddleInput")
 export type OnPaddleInput = ActionCreatorType<typeof onPaddleInput>
 
 type Data = {
@@ -130,11 +130,11 @@ If you are using React, you can interact with a machine with hooks.
 import {
   Enter,
   ActionCreatorType,
-  createAction,
+  action,
 } from "@tdreyno/fizz"
 import { useMachine } from "@tdreyno/fizz-react"
 
-const finished = createAction<"Finished", string>("Finished")
+const finished = action("Finished").withPayload<string>()
 type Finished = ActionCreatorType<typeof finished>
 
 const Start = state<Enter | Finished>({
@@ -154,7 +154,7 @@ const useShowMachine = () => {
       End,
     },
     {
-      finish,
+      finished,
     },
     Start(),
   )

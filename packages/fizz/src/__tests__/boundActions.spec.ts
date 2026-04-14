@@ -1,7 +1,7 @@
 import { jest } from "@jest/globals"
 
 import type { ActionCreatorType, Enter } from "../action"
-import { createAction } from "../action"
+import { action } from "../action"
 import { createInitialContext } from "../context"
 import { noop } from "../effect"
 import { createRuntime } from "../runtime"
@@ -10,10 +10,10 @@ import { stateWrapper } from "../state"
 
 describe("Bound actions", () => {
   test("should run sequentially when called at the same time", async () => {
-    const add = createAction<"Add", number>("Add")
+    const add = action("Add").withPayload<number>()
     type Add = ActionCreatorType<typeof add>
 
-    const multiply = createAction<"Multiply", number>("Multiply")
+    const multiply = action("Multiply").withPayload<number>()
     type Multiply = ActionCreatorType<typeof multiply>
 
     const A = stateWrapper(

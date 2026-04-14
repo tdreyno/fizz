@@ -1,4 +1,4 @@
-import { type ActionCreatorType, createAction } from "@tdreyno/fizz"
+import { action, type ActionCreatorType } from "@tdreyno/fizz"
 
-export const reset = createAction("Reset")
+export const reset = action("Reset")
 export type Reset = ActionCreatorType<typeof reset>

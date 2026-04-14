@@ -1,4 +1,4 @@
-import { type ActionCreatorType, createAction } from "@tdreyno/fizz"
+import { action, type ActionCreatorType } from "@tdreyno/fizz"
 
-export const world = createAction("World")
+export const world = action("World")
 export type World = ActionCreatorType<typeof world>

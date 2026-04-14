@@ -2,7 +2,7 @@
 import { jest } from "@jest/globals"
 
 import type { ActionCreatorType, Enter } from "../action"
-import { createAction, enter } from "../action"
+import { action, enter } from "../action"
 import { Context, createInitialContext } from "../context"
 import { noop } from "../effect"
 import { createRuntime } from "../runtime"
@@ -31,7 +31,7 @@ describe("onContextChange", () => {
   })
 
   test("should run callback on update", async () => {
-    const trigger = createAction("Trigger")
+    const trigger = action("Trigger")
     type Trigger = ActionCreatorType<typeof trigger>
 
     const A = state<Enter | Trigger, number>(

@@ -2,7 +2,7 @@ import { jest } from "@jest/globals"
 import serializeJavascript from "serialize-javascript"
 
 import type { ActionCreatorType, Enter, Exit } from "../action"
-import { createAction, enter } from "../action"
+import { action, enter } from "../action"
 import type { Context } from "../context"
 import { createInitialContext } from "../context"
 import { goBack, log, noop } from "../effect"
@@ -38,7 +38,7 @@ describe("Runtime", () => {
   })
 
   test("should run the action returned", async () => {
-    const trigger = createAction("Trigger")
+    const trigger = action("Trigger")
     type Trigger = ActionCreatorType<typeof trigger>
 
     const A = state<Enter | Trigger>({
@@ -60,7 +60,7 @@ describe("Runtime", () => {
   })
 
   test("should run in correct order", async () => {
-    const trigger = createAction("Trigger")
+    const trigger = action("Trigger")
     type Trigger = ActionCreatorType<typeof trigger>
 
     const A = state<Enter | Trigger, { num: number }>({
@@ -89,7 +89,7 @@ describe("Runtime", () => {
   })
 
   test("should not throw exception when sending unhandled actions", async () => {
-    const trigger = createAction("Trigger")
+    const trigger = action("Trigger")
 
     const A = state<Enter>({
       Enter: noop,
@@ -141,7 +141,7 @@ describe("Runtime", () => {
     })
 
     test("should enter a state and immediately run an action", async () => {
-      const next = createAction("Next")
+      const next = action("Next")
       type Next = ActionCreatorType<typeof next>
 
       const A = state<Enter | Next>(
@@ -211,7 +211,7 @@ describe("Runtime", () => {
     })
 
     test("should enter a state and immediately transition then run an action", async () => {
-      const next = createAction("Next")
+      const next = action("Next")
       type Next = ActionCreatorType<typeof next>
 
       const A = state<Enter>(
@@ -310,7 +310,7 @@ describe("Runtime", () => {
   describe("update", () => {
     type Data = [str: string, bool: boolean, num: number, fn: () => string]
 
-    const update = createAction("Update")
+    const update = action("Update")
     type Update = ActionCreatorType<typeof update>
 
     const A = state<Enter | Update, Data>({
@@ -343,10 +343,10 @@ describe("Runtime", () => {
   })
 
   describe("goBack", () => {
-    const hi = createAction("Hi")
+    const hi = action("Hi")
     type Hi = ActionCreatorType<typeof hi>
 
-    const trigger = createAction("Trigger")
+    const trigger = action("Trigger")
     type Trigger = ActionCreatorType<typeof trigger>
 
     const A = state<Enter | Hi, string>(
@@ -404,7 +404,7 @@ describe("Runtime", () => {
 
   describe("Serialization", () => {
     test("should be able to serialize and deserialize state", async () => {
-      const next = createAction("Next")
+      const next = action("Next")
       type Next = ActionCreatorType<typeof next>
 
       const A = state<Enter>(

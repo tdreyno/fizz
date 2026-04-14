@@ -1,4 +1,4 @@
-import { type ActionCreatorType, createAction } from "@tdreyno/fizz"
+import { action, type ActionCreatorType } from "@tdreyno/fizz"
 
-export const reEnter = createAction<"ReEnter", string>("ReEnter")
+export const reEnter = action("ReEnter").withPayload<string>()
 export type ReEnter = ActionCreatorType<typeof reEnter>

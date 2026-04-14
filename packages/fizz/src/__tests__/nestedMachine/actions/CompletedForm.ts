@@ -1,7 +1,5 @@
 import type { ActionCreatorType } from "../../../action"
-import { createAction } from "../../../action"
+import { action } from "../../../action"
 
-export const completedForm = createAction<"CompletedForm", string>(
-  "CompletedForm",
-)
+export const completedForm = action("CompletedForm").withPayload<string>()
 export type CompletedForm = ActionCreatorType<typeof completedForm>

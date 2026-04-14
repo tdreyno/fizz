@@ -1,21 +1,21 @@
 import {
   type ActionCreatorType,
-  createAction,
+  action,
   type Enter,
   state,
 } from "@tdreyno/fizz"
 import { useMachine } from "@tdreyno/fizz-react"
 
-const arm = createAction("Arm")
+const arm = action("Arm")
 type Arm = ActionCreatorType<typeof arm>
 
-const cancel = createAction("Cancel")
+const cancel = action("Cancel")
 type Cancel = ActionCreatorType<typeof cancel>
 
-const faster = createAction("Faster")
+const faster = action("Faster")
 type Faster = ActionCreatorType<typeof faster>
 
-const reset = createAction("Reset")
+const reset = action("Reset")
 type Reset = ActionCreatorType<typeof reset>
 
 type TimeoutId = "toast"

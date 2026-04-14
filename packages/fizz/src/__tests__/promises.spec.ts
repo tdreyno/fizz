@@ -1,14 +1,14 @@
 import { jest } from "@jest/globals"
 
 import type { ActionCreatorType, Enter } from "../action"
-import { createAction, enter } from "../action"
+import { action, enter } from "../action"
 import { createInitialContext } from "../context"
 import { effect, noop } from "../effect"
 import { createRuntime } from "../runtime"
 import { isState, state } from "../state"
 
 describe("Promises", () => {
-  const trigger = createAction("Trigger")
+  const trigger = action("Trigger")
   type Trigger = ActionCreatorType<typeof trigger>
 
   const B = state<Enter>({

@@ -1,6 +1,4 @@
-import { type ActionCreatorType, createAction } from "@tdreyno/fizz"
+import { action, type ActionCreatorType } from "@tdreyno/fizz"
 
-export const finishedLoading = createAction<"FinishedLoading", string>(
-  "FinishedLoading",
-)
+export const finishedLoading = action("FinishedLoading").withPayload<string>()
 export type FinishedLoading = ActionCreatorType<typeof finishedLoading>

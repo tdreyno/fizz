@@ -16,7 +16,7 @@ import type {
   TimerPayload,
   TimerStarted,
 } from "./action.js"
-import { createAction, enter } from "./action.js"
+import { action, enter } from "./action.js"
 import { createInitialContext } from "./context.js"
 import type { StartAsyncEffectCreator } from "./effect.js"
 import {
@@ -999,7 +999,7 @@ export const whichInterval = <IntervalId extends string>(
   utils: StateUtils<string, Actions, Data, TimeoutId, IntervalId, AsyncId>,
 ) => HandlerReturn) => createScheduledMatcher(handlers as never) as never
 
-const timedOut = createAction("TimedOut")
+const timedOut = action("TimedOut")
 type TimedOut = ActionCreatorType<typeof timedOut>
 
 export const waitState = <

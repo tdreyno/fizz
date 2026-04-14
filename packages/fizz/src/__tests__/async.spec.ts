@@ -2,7 +2,7 @@ import { describe, expect, test } from "@jest/globals"
 import * as z from "zod"
 
 import type { ActionCreatorType, Enter } from "../action"
-import { createAction, enter } from "../action"
+import { action, enter } from "../action"
 import { createInitialContext } from "../context"
 import { noop, requestJSONAsync, startAsync } from "../effect"
 import { createControlledAsyncDriver, createRuntime } from "../runtime"
@@ -65,10 +65,10 @@ const createResponse = <T>(options: {
 
 describe("Async scheduled operations", () => {
   test("should map resolved async work to a user action through the controlled async driver", async () => {
-    const profileLoaded = createAction<
-      "ProfileLoaded",
-      { id: string; name: string }
-    >("ProfileLoaded")
+    const profileLoaded = action("ProfileLoaded").withPayload<{
+      id: string
+      name: string
+    }>()
     type ProfileLoaded = ActionCreatorType<typeof profileLoaded>
 
     const loadProfile = deferred<{ id: string; name: string }>()
@@ -121,7 +121,7 @@ describe("Async scheduled operations", () => {
   })
 
   test("should dispatch AsyncCancelled and abort active work when explicitly cancelled", async () => {
-    const cancelLoad = createAction("CancelLoad")
+    const cancelLoad = action("CancelLoad")
     type CancelLoad = ActionCreatorType<typeof cancelLoad>
 
     let aborted = false
@@ -139,7 +139,7 @@ describe("Async scheduled operations", () => {
               }),
             {
               resolve: value =>
-                createAction<"Unexpected", string>("Unexpected")(value),
+                action("Unexpected").withPayload<string>()(value),
             },
             "profile",
           ),
@@ -174,13 +174,13 @@ describe("Async scheduled operations", () => {
   })
 
   test("should ignore stale completions when startAsync is called without an id", async () => {
-    const leave = createAction("Leave")
+    const leave = action("Leave")
     type Leave = ActionCreatorType<typeof leave>
 
-    const profileLoaded = createAction<
-      "ProfileLoaded",
-      { id: string; name: string }
-    >("ProfileLoaded")
+    const profileLoaded = action("ProfileLoaded").withPayload<{
+      id: string
+      name: string
+    }>()
     type ProfileLoaded = ActionCreatorType<typeof profileLoaded>
 
     const loadProfile = deferred<{ id: string; name: string }>()
@@ -236,10 +236,10 @@ describe("Async scheduled operations", () => {
   })
 
   test("should accept an already in-flight promise", async () => {
-    const profileLoaded = createAction<
-      "ProfileLoaded",
-      { id: string; name: string }
-    >("ProfileLoaded")
+    const profileLoaded = action("ProfileLoaded").withPayload<{
+      id: string
+      name: string
+    }>()
     type ProfileLoaded = ActionCreatorType<typeof profileLoaded>
 
     const loadProfile = deferred<{ id: string; name: string }>()
@@ -292,10 +292,10 @@ describe("Async scheduled operations", () => {
   })
 
   test("should type startAsync and cancelAsync with an id-last signature", () => {
-    const profileLoaded = createAction<
-      "ProfileLoaded",
-      { id: string; name: string }
-    >("ProfileLoaded")
+    const profileLoaded = action("ProfileLoaded").withPayload<{
+      id: string
+      name: string
+    }>()
 
     state<Enter, undefined, string, string, AsyncId>({
       Enter: (_, __, { cancelAsync, startAsync: startAsyncHelper }) => {
@@ -329,12 +329,10 @@ describe("Async scheduled operations", () => {
   })
 
   test("should request JSON, validate it, and map the parsed value to a user action", async () => {
-    const profileLoaded = createAction<"ProfileLoaded", Profile>(
-      "ProfileLoaded",
-    )
+    const profileLoaded = action("ProfileLoaded").withPayload<Profile>()
     type ProfileLoaded = ActionCreatorType<typeof profileLoaded>
 
-    const profileFailed = createAction<"ProfileFailed", string>("ProfileFailed")
+    const profileFailed = action("ProfileFailed").withPayload<string>()
     type ProfileFailed = ActionCreatorType<typeof profileFailed>
 
     const assertProfile = (value: unknown): asserts value is Profile => {
@@ -523,12 +521,10 @@ describe("Async scheduled operations", () => {
 
     type Profile = z.infer<typeof Profile>
 
-    const profileLoaded = createAction<"ProfileLoaded", Profile>(
-      "ProfileLoaded",
-    )
+    const profileLoaded = action("ProfileLoaded").withPayload<Profile>()
     type ProfileLoaded = ActionCreatorType<typeof profileLoaded>
 
-    const profileFailed = createAction<"ProfileFailed", string>("ProfileFailed")
+    const profileFailed = action("ProfileFailed").withPayload<string>()
     type ProfileFailed = ActionCreatorType<typeof profileFailed>
 
     const Loading = state<Enter | ProfileLoaded | ProfileFailed, Data>({
@@ -588,10 +584,8 @@ describe("Async scheduled operations", () => {
   })
 
   test("should send non-ok responses to the reject handler", async () => {
-    const profileLoaded = createAction<"ProfileLoaded", Profile>(
-      "ProfileLoaded",
-    )
-    const profileFailed = createAction<"ProfileFailed", string>("ProfileFailed")
+    const profileLoaded = action("ProfileLoaded").withPayload<Profile>()
+    const profileFailed = action("ProfileFailed").withPayload<string>()
     type ProfileFailed = ActionCreatorType<typeof profileFailed>
 
     const Loading = state<
@@ -647,13 +641,11 @@ describe("Async scheduled operations", () => {
   })
 
   test("should allow cancellation through asyncId in requestJSONAsync init", async () => {
-    const cancelLoad = createAction("CancelLoad")
+    const cancelLoad = action("CancelLoad")
     type CancelLoad = ActionCreatorType<typeof cancelLoad>
 
-    const profileLoaded = createAction<"ProfileLoaded", Profile>(
-      "ProfileLoaded",
-    )
-    const profileFailed = createAction<"ProfileFailed", string>("ProfileFailed")
+    const profileLoaded = action("ProfileLoaded").withPayload<Profile>()
+    const profileFailed = action("ProfileFailed").withPayload<string>()
     type ProfileFailed = ActionCreatorType<typeof profileFailed>
 
     let aborted = false
@@ -721,10 +713,8 @@ describe("Async scheduled operations", () => {
   })
 
   test("should pass validator-thrown values to the reject handler unchanged", async () => {
-    const profileLoaded = createAction<"ProfileLoaded", Profile>(
-      "ProfileLoaded",
-    )
-    const profileFailed = createAction<"ProfileFailed", string>("ProfileFailed")
+    const profileLoaded = action("ProfileLoaded").withPayload<Profile>()
+    const profileFailed = action("ProfileFailed").withPayload<string>()
     type ProfileFailed = ActionCreatorType<typeof profileFailed>
 
     const thrown = new Error("Invalid profile payload")
@@ -782,10 +772,8 @@ describe("Async scheduled operations", () => {
   })
 
   test("should type requestJSONAsync with optional validate before chainToAction", () => {
-    const profileLoaded = createAction<"ProfileLoaded", Profile>(
-      "ProfileLoaded",
-    )
-    const profileFailed = createAction<"ProfileFailed", string>("ProfileFailed")
+    const profileLoaded = action("ProfileLoaded").withPayload<Profile>()
+    const profileFailed = action("ProfileFailed").withPayload<string>()
 
     const assertProfile = (value: unknown): asserts value is Profile => {
       if (typeof value !== "object" || value === null) {

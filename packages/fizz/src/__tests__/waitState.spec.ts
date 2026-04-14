@@ -1,5 +1,5 @@
 import type { Enter } from "../action"
-import { createAction, enter } from "../action"
+import { action, enter } from "../action"
 import { createInitialContext } from "../context"
 import { noop } from "../effect"
 import { createRuntime } from "../runtime"
@@ -9,9 +9,9 @@ import { timeout } from "./util"
 const INITIAL_COUNT = 5
 const RETURN_COUNT = 10
 
-const fetchThing = createAction<"FetchThing", number>("FetchThing")
+const fetchThing = action("FetchThing").withPayload<number>()
 
-const thingFetched = createAction<"ThingFetched", number>("ThingFetched")
+const thingFetched = action("ThingFetched").withPayload<number>()
 
 type D = {
   count: number

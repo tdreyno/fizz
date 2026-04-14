@@ -186,9 +186,9 @@ If you need throttle options, use the object form: `throttle(handler, { delay: 1
 `restartInterval` is useful when you want to replace an active interval with a new cadence. If the interval is already running, Fizz cancels it first and starts a fresh one with the new delay.
 
 ```typescript
-import { ActionCreatorType, Enter, createAction, state } from "@tdreyno/fizz"
+import { ActionCreatorType, Enter, action, state } from "@tdreyno/fizz"
 
-const faster = createAction("Faster")
+const faster = action("Faster")
 type Faster = ActionCreatorType<typeof faster>
 
 type IntervalId = "refresh"

@@ -7,9 +7,6 @@ export class Action<T extends string, P> {
   ) {}
 }
 
-export const action = <T extends string, P>(type: T, payload: P) =>
-  new Action(type, payload)
-
 export type ActionName<
   A extends Action<string, unknown>,
   T = A["type"],
@@ -31,6 +28,17 @@ export interface GetActionCreatorType<T extends string> {
 
 type Optional<T> = [T]
 
+type NamedActionCreator<T extends string, P> = ActionCreator<T, P> &
+  MatchAction<T, P> &
+  GetActionCreatorType<T>
+
+export type ActionBuilder<T extends string> = NamedActionCreator<
+  T,
+  undefined
+> & {
+  withPayload<P>(): NamedActionCreator<T, P>
+}
+
 export type ActionCreator<T extends string, P> = P extends undefined
   ? () => Action<T, undefined>
   : P extends Optional<infer Z>
@@ -41,34 +49,64 @@ export type ActionCreatorType<
   F extends (...args: never[]) => Action<string, unknown>,
 > = ReturnType<F>
 
-export const createAction = <T extends string, P = undefined>(
+const createActionValue = <T extends string, P>(type: T, payload: P) =>
+  new Action(type, payload)
+
+const createNamedAction = <T extends string, P = undefined>(
   type: T,
-): ActionCreator<T, P> & MatchAction<T, P> & GetActionCreatorType<T> => {
-  const fn = (payload?: P) => action(type, payload)
+): NamedActionCreator<T, P> => {
+  const fn = (payload?: P) => createActionValue(type, payload as P)
 
   fn.is = (action: Action<string, unknown>): action is Action<T, P> =>
     action.type === type
 
   fn.type = type
 
-  return fn as unknown as ActionCreator<T, P> &
-    MatchAction<T, P> &
-    GetActionCreatorType<T>
+  return fn as unknown as NamedActionCreator<T, P>
 }
 
-export const beforeEnter = createAction<
+const createActionBuilder = <T extends string>(type: T): ActionBuilder<T> => {
+  const fn = createNamedAction(type) as ActionBuilder<T>
+
+  fn.withPayload = <P>() => createNamedAction<T, P>(type)
+
+  return fn
+}
+
+export function action<T extends string>(type: T): ActionBuilder<T>
+export function action<T extends string, P>(type: T, payload: P): Action<T, P>
+export function action<T extends string, P>(
+  type: T,
+  payload?: P,
+): ActionBuilder<T> | Action<T, P> {
+  if (arguments.length === 1) {
+    return createActionBuilder(type)
+  }
+
+  return createActionValue(type, payload as P)
+}
+
+/**
+ * @deprecated Use `action("Type")` for no-payload actions or
+ * `action("Type").withPayload<Payload>()` for payload-bearing actions.
+ */
+export const createAction = <T extends string, P = undefined>(
+  type: T,
+): NamedActionCreator<T, P> => createNamedAction<T, P>(type)
+
+export const beforeEnter = createNamedAction<
   "BeforeEnter",
   Optional<Runtime<any, any>>
 >("BeforeEnter")
 export type BeforeEnter = ActionCreatorType<typeof beforeEnter>
 
-export const enter = createAction<"Enter">("Enter")
+export const enter = action("Enter")
 export type Enter = ActionCreatorType<typeof enter>
 
-export const exit = createAction("Exit")
+export const exit = action("Exit")
 export type Exit = ActionCreatorType<typeof exit>
 
-export const onFrame = createAction<"OnFrame", number>("OnFrame")
+export const onFrame = action("OnFrame").withPayload<number>()
 export type OnFrame = ActionCreatorType<typeof onFrame>
 
 export type TimerPayload<TimeoutId extends string = string> = {

@@ -10,7 +10,7 @@ import type {
   TimerPayload,
   TimerStarted,
 } from "../action"
-import { createAction, enter } from "../action"
+import { action, enter } from "../action"
 import { createInitialContext } from "../context"
 import type { Effect } from "../effect"
 import { noop } from "../effect"
@@ -60,7 +60,7 @@ const expectIntervalId = (intervalId: IntervalId): IntervalId => intervalId
 
 describe("timers", () => {
   test("should support timer handlers and helper typing without explicitly listing timer actions", async () => {
-    const save = createAction("Save")
+    const save = action("Save")
     type Save = ActionCreatorType<typeof save>
 
     const Done = state<Enter, Data>(
@@ -130,7 +130,7 @@ describe("timers", () => {
   })
 
   test("should restart an active timer by cancelling it before starting the replacement", async () => {
-    const save = createAction("Save")
+    const save = action("Save")
     type Save = ActionCreatorType<typeof save>
 
     const Editing = state<Enter | Save, Data, TimeoutId>(
@@ -185,7 +185,7 @@ describe("timers", () => {
   })
 
   test("should not dispatch TimerCancelled when cancelling a timer that is not running", async () => {
-    const cancelNow = createAction("CancelNow")
+    const cancelNow = action("CancelNow")
     type CancelNow = ActionCreatorType<typeof cancelNow>
 
     const Editing = state<Enter | CancelNow, Data, TimeoutId>(
@@ -227,7 +227,7 @@ describe("timers", () => {
   })
 
   test("should cancel running timers when leaving the state", async () => {
-    const leave = createAction("Leave")
+    const leave = action("Leave")
     type Leave = ActionCreatorType<typeof leave>
 
     const Done = state<Enter, Data>(
@@ -458,7 +458,7 @@ describe("timers", () => {
   })
 
   test("should restart an active interval by cancelling it before starting the replacement", async () => {
-    const save = createAction("Save")
+    const save = action("Save")
     type Save = ActionCreatorType<typeof save>
 
     const Editing = state<Enter | Save, Data, TimeoutId, IntervalId>(
@@ -519,7 +519,7 @@ describe("timers", () => {
   })
 
   test("should not dispatch IntervalCancelled when cancelling an interval that is not running", async () => {
-    const cancelNow = createAction("CancelNow")
+    const cancelNow = action("CancelNow")
     type CancelNow = ActionCreatorType<typeof cancelNow>
 
     const Editing = state<Enter | CancelNow, Data, TimeoutId, IntervalId>(
@@ -561,7 +561,7 @@ describe("timers", () => {
   })
 
   test("should cancel running intervals when leaving the state", async () => {
-    const leave = createAction("Leave")
+    const leave = action("Leave")
     type Leave = ActionCreatorType<typeof leave>
 
     const Done = state<Enter, Data>(
@@ -720,7 +720,7 @@ describe("timers", () => {
   })
 
   test("should debounce a direct handler without leaking internal timer events", async () => {
-    const save = createAction<"Save", string>("Save")
+    const save = action("Save").withPayload<string>()
     type Save = ActionCreatorType<typeof save>
 
     const Editing = state<Enter | Save, Data, TimeoutId>(
@@ -976,7 +976,7 @@ describe("timers", () => {
   })
 
   test("should not fail when cancelling a frame loop that is not running", async () => {
-    const stop = createAction("Stop")
+    const stop = action("Stop")
     type Stop = ActionCreatorType<typeof stop>
 
     type FrameData = {
@@ -1014,7 +1014,7 @@ describe("timers", () => {
       frameCount: number
     }
 
-    const leave = createAction("Leave")
+    const leave = action("Leave")
     type Leave = ActionCreatorType<typeof leave>
 
     const Done = state<Enter, FrameData>(

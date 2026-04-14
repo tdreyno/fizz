@@ -64,14 +64,14 @@ If you return `requestJSONAsync(...)` directly without chaining `validate(...)` 
 This example starts a profile request when the state is entered, validates the JSON payload, maps the parsed result to a user action, and maps failures to a user-visible error action.
 
 ```typescript
-import { Enter, createAction, requestJSONAsync, state } from "@tdreyno/fizz"
+import { Enter, action, requestJSONAsync, state } from "@tdreyno/fizz"
 
-const profileLoaded = createAction<
-  "ProfileLoaded",
-  { id: string; name: string }
->("ProfileLoaded")
+const profileLoaded = action("ProfileLoaded").withPayload<{
+  id: string
+  name: string
+}>()
 
-const profileFailed = createAction<"ProfileFailed", string>("ProfileFailed")
+const profileFailed = action("ProfileFailed").withPayload<string>()
 
 type Data = {
   error?: string
@@ -124,7 +124,7 @@ If you already use `zod`, you can pass a schema parser directly to `validate(...
 ```typescript
 import * as z from "zod"
 
-import { Enter, createAction, requestJSONAsync, state } from "@tdreyno/fizz"
+import { Enter, action, requestJSONAsync, state } from "@tdreyno/fizz"
 
 const Profile = z.object({
   id: z.string(),
@@ -133,8 +133,8 @@ const Profile = z.object({
 
 type Profile = z.infer<typeof Profile>
 
-const profileLoaded = createAction<"ProfileLoaded", Profile>("ProfileLoaded")
-const profileFailed = createAction<"ProfileFailed", string>("ProfileFailed")
+const profileLoaded = action("ProfileLoaded").withPayload<Profile>()
+const profileFailed = action("ProfileFailed").withPayload<string>()
 
 const Loading = state<Enter | typeof profileLoaded | typeof profileFailed>({
   Enter: () =>

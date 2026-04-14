@@ -1,5 +1,5 @@
 import type { ActionCreatorType } from "../../../../../action"
-import { createAction } from "../../../../../action"
+import { action } from "../../../../../action"
 
-export const setName = createAction<"SetName", string>("SetName")
+export const setName = action("SetName").withPayload<string>()
 export type SetName = ActionCreatorType<typeof setName>

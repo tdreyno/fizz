@@ -193,9 +193,9 @@ If you need the long form, `debounce(handler, { delay: 300 })` is equivalent to 
 Use `throttle(...)` when a handler should run at most once per window. The short form is `throttle(handler, 1000)`. If you need lodash-style options such as `leading` or `trailing`, use the object form.
 
 ```typescript
-import { createAction, throttle, state } from "@tdreyno/fizz"
+import { action, throttle, state } from "@tdreyno/fizz"
 
-const save = createAction<"Save", { content: string }>("Save")
+const save = action("Save").withPayload<{ content: string }>()
 
 type Save = ReturnType<typeof save>
 
@@ -222,9 +222,9 @@ const Editing = state<Save, Data>({
 `restartTimer` is the usual choice when you want debounce behavior. If the timer is already running, Fizz cancels it first and starts a fresh one with the new delay.
 
 ```typescript
-import { ActionCreatorType, createAction, state } from "@tdreyno/fizz"
+import { ActionCreatorType, action, state } from "@tdreyno/fizz"
 
-const save = createAction<"Save", { content: string }>("Save")
+const save = action("Save").withPayload<{ content: string }>()
 type Save = ActionCreatorType<typeof save>
 
 type TimeoutId = "autosave"

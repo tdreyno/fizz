@@ -1,5 +1,5 @@
 import type { ActionCreatorType } from "../../action.js"
-import { createAction } from "../../action.js"
+import { action } from "../../action.js"
 
-export const hello = createAction("Hello")
+export const hello = action("Hello")
 export type Hello = ActionCreatorType<typeof hello>
