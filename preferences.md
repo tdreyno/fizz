@@ -8,3 +8,7 @@
 - Prettier checks may be skipped for files under `.github`.
 - In repos using Changesets, generate a changeset only when package library code changes.
 - Do not generate changesets for docs, CI, repo config, instructions, or other non-library-code-only changes.
+- When a changeset is needed, inspect `.changeset/config.json` and existing `.changeset/*.md` files before creating a new one.
+- Changesets should use the published workspace package name in frontmatter, for example `"@tdreyno/fizz": patch|minor|major`.
+- Choose `patch` for backwards-compatible fixes, `minor` for backwards-compatible features, and `major` for breaking public API or behavior changes.
+- Keep changeset bodies short and include migration guidance for breaking changes.
