@@ -1,0 +1,46 @@
+# Fizz AI Skill
+
+This repository now ships a skills.sh-compatible agent skill for working with Fizz state machines and the React integration.
+
+## Install
+
+Install the skill from the repository root with:
+
+```bash
+npx skills add tdreyno/fizz
+```
+
+## What It Covers
+
+- `@tdreyno/fizz` runtime setup and state-machine modeling
+- `@tdreyno/fizz` async, timers, intervals, and cancellation helpers
+- `@tdreyno/fizz-react` integration through `useMachine(...)`
+
+## What It Excludes
+
+- `@tdreyno/fizz-svelte`
+- Example-app specific guidance from `react-example/`
+- Generic non-Fizz state-management advice
+
+## Structure
+
+```text
+skills/fizz/
+  SKILL.md
+  README.md
+  references/
+    async-and-scheduling.md
+    core-runtime.md
+    examples.md
+    react-integration.md
+```
+
+`SKILL.md` is the trigger surface and short working guide. The files in `references/` are deeper, on-demand material for agents that need more detail.
+
+## References
+
+- `skills/fizz/SKILL.md`
+- `skills/fizz/references/core-runtime.md`
+- `skills/fizz/references/async-and-scheduling.md`
+- `skills/fizz/references/react-integration.md`
+- `skills/fizz/references/examples.md`

@@ -1,0 +1,109 @@
+# Async And Scheduling
+
+Use this reference when the task involves promise-backed work, JSON requests, timers, intervals, animation frames, cancellation, or stale completion handling.
+
+## Prefer Fizz Helpers Over Ad-Hoc Control Flow
+
+Fizz already exposes the lifecycle primitives needed for async and scheduled work. Prefer those helpers over manually wiring `setTimeout`, `setInterval`, or fetch bookkeeping in components.
+
+## `startAsync(...)`
+
+Use `startAsync(...)` when you need to start async work from a state handler and map the settled result back into actions.
+
+Supported patterns:
+
+- pass a lazy async function `(signal, context) => Promise<T>`
+- pass an already-created promise if that is truly what the task requires
+
+Use an explicit `asyncId` when later cancellation matters.
+
+```typescript
+startAsync(
+  loadProfile,
+  {
+    resolve: profileLoaded,
+    reject: profileFailed,
+  },
+  "profile",
+)
+```
+
+## `requestJSONAsync(...)`
+
+Use `requestJSONAsync(...)` for JSON request flows handled by Fizz.
+
+Key behavior from `packages/fizz/src/effect.ts` and async tests:
+
+- it forces `Accept: application/json`
+- it merges the runtime abort signal with any provided `signal`
+- it rejects when `response.ok` is false
+- it parses `response.json()` internally
+- it can run as a bare effect or chain directly to actions
+
+### Current builder flow
+
+The current API is:
+
+- `requestJSONAsync(input, init?)`
+- optional `.validate(validator)` once
+- optional `.chainToAction(resolve, reject?)`
+
+Use `validate(...)` when the payload must be checked or narrowed before action dispatch.
+
+```typescript
+requestJSONAsync("/api/profile", { asyncId: "profile" })
+  .validate(assertProfile)
+  .chainToAction(profileLoaded, profileFailed)
+```
+
+A validator may throw. If it throws, that thrown value is passed through to the reject handler unchanged.
+
+## Bare async effects vs action chaining
+
+Use bare async effects when the request should happen but no follow-up action is needed.
+
+Use `.chainToAction(...)` when the settled value should feed back into the machine as an action.
+
+If the task is about UI behavior after success or failure, action chaining is usually the better default.
+
+## Cancellation
+
+Use `cancelAsync(asyncId)` when a machine should actively cancel in-flight work.
+
+Design for `AsyncCancelled` only when the state needs to observe that cancellation and update state data in response.
+
+Important runtime behavior:
+
+- explicit cancellation dispatches `AsyncCancelled`
+- stale completions are ignored
+- abort-style rejections should not be treated as normal failures
+- state exit can invalidate work started by that state instance
+
+## Timers, intervals, and frames
+
+Fizz exposes scheduling helpers through state utils and effect helpers:
+
+- `startTimer(timeoutId, delay)`
+- `cancelTimer(timeoutId)`
+- `restartTimer(timeoutId, delay)`
+- `startInterval(intervalId, delay)`
+- `cancelInterval(intervalId)`
+- `restartInterval(intervalId, delay)`
+- `startFrame()`
+- `cancelFrame()`
+
+Use explicit ids when later restart or cancellation matters.
+
+Model scheduled callbacks through their corresponding Fizz actions instead of reaching around the runtime.
+
+## Review Heuristics
+
+When reviewing async or scheduling code, check these first:
+
+- Is the task using Fizz helpers instead of ad-hoc external orchestration?
+- Are async ids or timer ids present where cancellation is required?
+- Is the request path using `validate(...)` when payload shape matters?
+- Are stale completions and cancellation treated as normal design concerns?
+- Does the machine respond only to the scheduled actions it truly needs?
+
+If the task shifts into React components, continue with `react-integration.md`.

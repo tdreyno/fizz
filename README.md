@@ -10,4 +10,14 @@ Fizz is a small library for building state machines that can effectively manage 
 npm install --save @tdreyno/fizz
 ```
 
+## AI Skills
+
+Fizz also ships an installable agent skill for `@tdreyno/fizz` and `@tdreyno/fizz-react` via [skills.sh](https://skills.sh/).
+
+```bash
+npx skills add tdreyno/fizz
+```
+
+See [AI Skills](./docs/ai-skills.md) for scope, usage, and what the skill teaches agents.
+
 See the [Fizz Package README](./packages/fizz/README.md) for more details and examples.
