@@ -140,3 +140,39 @@ export type IntervalCancelled<IntervalId extends string = string> = Action<
   IntervalPayload<IntervalId>
 >
 export const intervalCancelled = createTimerAction("IntervalCancelled")
+
+export type AsyncPayload<AsyncId extends string = string> = {
+  asyncId: AsyncId
+}
+
+type GenericAsyncActionCreator<T extends string> = MatchAction<
+  T,
+  AsyncPayload<string>
+> & {
+  <AsyncId extends string = string>(
+    payload: AsyncPayload<AsyncId>,
+  ): Action<T, AsyncPayload<AsyncId>>
+  type: T
+}
+
+const createAsyncAction = <T extends string>(
+  type: T,
+): GenericAsyncActionCreator<T> => {
+  const fn = <AsyncId extends string = string>(
+    payload: AsyncPayload<AsyncId>,
+  ) => action(type, payload)
+
+  fn.is = (
+    action: Action<string, unknown>,
+  ): action is Action<T, AsyncPayload<string>> => action.type === type
+
+  fn.type = type
+
+  return fn as GenericAsyncActionCreator<T>
+}
+
+export type AsyncCancelled<AsyncId extends string = string> = Action<
+  "AsyncCancelled",
+  AsyncPayload<AsyncId>
+>
+export const asyncCancelled = createAsyncAction("AsyncCancelled")

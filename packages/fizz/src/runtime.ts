@@ -1,5 +1,6 @@
 import type { Action, TimerPayload } from "./action.js"
 import {
+  asyncCancelled,
   beforeEnter,
   enter,
   exit,
@@ -14,11 +15,13 @@ import {
 } from "./action.js"
 import type { Context } from "./context.js"
 import type {
+  CancelAsyncEffectData,
   CancelIntervalEffectData,
   CancelTimerEffectData,
   Effect,
   RestartIntervalEffectData,
   RestartTimerEffectData,
+  StartAsyncEffectData,
   StartIntervalEffectData,
   StartTimerEffectData,
 } from "./effect.js"
@@ -62,7 +65,22 @@ export interface ControlledTimerDriver extends RuntimeTimerDriver {
   runAll: () => Promise<void>
 }
 
+export interface RuntimeAsyncDriver {
+  cancel: (handle: unknown) => void
+  start: <T>(options: {
+    onReject: (error: unknown) => Promise<void> | void
+    onResolve: (value: T) => Promise<void> | void
+    run: () => Promise<T>
+  }) => unknown
+}
+
+export interface ControlledAsyncDriver extends RuntimeAsyncDriver {
+  flush: () => Promise<void>
+  runAll: () => Promise<void>
+}
+
 type RuntimeOptions = {
+  asyncDriver?: RuntimeAsyncDriver
   timerDriver?: RuntimeTimerDriver
 }
 
@@ -73,6 +91,12 @@ type ActiveTimer = {
 }
 
 type ActiveFrame = {
+  handle: unknown
+  token: number
+}
+
+type ActiveAsync = {
+  controller: AbortController
   handle: unknown
   token: number
 }
@@ -155,6 +179,29 @@ const createDefaultTimerDriver = (): RuntimeTimerDriver => {
     },
   }
 }
+
+const createDefaultAsyncDriver = (): RuntimeAsyncDriver => ({
+  cancel: handle => {
+    ;(handle as { active?: boolean }).active = false
+  },
+  start: ({ onReject, onResolve, run }) => {
+    const handle = { active: true }
+
+    void run()
+      .then(value => {
+        if (handle.active) {
+          return onResolve(value)
+        }
+      })
+      .catch(error => {
+        if (handle.active) {
+          return onReject(error)
+        }
+      })
+
+    return handle
+  },
+})
 
 export const createControlledTimerDriver = (): ControlledTimerDriver => {
   let now = 0
@@ -302,10 +349,93 @@ export const createControlledTimerDriver = (): ControlledTimerDriver => {
   return driver
 }
 
+export const createControlledAsyncDriver = (): ControlledAsyncDriver => {
+  let counter = 1
+
+  const operations = new Map<
+    number,
+    {
+      active: boolean
+      pending: Array<() => Promise<void> | void>
+    }
+  >()
+
+  const driver: ControlledAsyncDriver = {
+    cancel: handle => {
+      const operationId = handle as number
+      const operation = operations.get(operationId)
+
+      if (!operation) {
+        return
+      }
+
+      operation.active = false
+      operation.pending = []
+      operations.delete(operationId)
+    },
+
+    start: ({ onReject, onResolve, run }) => {
+      const operationId = counter++
+
+      operations.set(operationId, {
+        active: true,
+        pending: [],
+      })
+
+      void run()
+        .then(value => {
+          const operation = operations.get(operationId)
+
+          if (!operation?.active) {
+            return
+          }
+
+          operation.pending.push(() => onResolve(value))
+        })
+        .catch(error => {
+          const operation = operations.get(operationId)
+
+          if (!operation?.active) {
+            return
+          }
+
+          operation.pending.push(() => onReject(error))
+        })
+
+      return operationId
+    },
+
+    flush: async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+
+      const pending = [...operations.values()].flatMap(operation =>
+        operation.active ? operation.pending.splice(0) : [],
+      )
+
+      for (const task of pending) {
+        await task()
+      }
+    },
+
+    runAll: async () => {
+      while (
+        [...operations.values()].some(operation => operation.pending.length > 0)
+      ) {
+        await driver.flush()
+      }
+    },
+  }
+
+  return driver
+}
+
 export class Runtime<
   AM extends RuntimeActionMap,
   OAM extends RuntimeActionMap,
 > {
+  readonly #asyncDriver: RuntimeAsyncDriver
+  readonly #asyncOperations = new Map<string, ActiveAsync>()
   readonly #contextChangeSubscribers = new Set<ContextChangeSubscriber>()
   readonly #outputSubscribers = new Set<OutputSubscriber<OAM>>()
   readonly #validActions: Set<string>
@@ -313,6 +443,8 @@ export class Runtime<
   readonly #timers = new Map<string, ActiveTimer>()
   readonly #intervals = new Map<string, ActiveTimer>()
   #frame: ActiveFrame | undefined
+  #asyncCounter = 1
+  #asyncIdCounter = 1
   #queue: QueueItem[] = []
   #isRunning = false
   #timerCounter = 1
@@ -327,6 +459,7 @@ export class Runtime<
       (sum, action) => sum.add(action.toLowerCase()),
       new Set<string>(),
     )
+    this.#asyncDriver = options.asyncDriver ?? createDefaultAsyncDriver()
     this.#timerDriver = options.timerDriver ?? createDefaultTimerDriver()
   }
 
@@ -374,6 +507,7 @@ export class Runtime<
   }
 
   disconnect(): void {
+    this.#clearAsync()
     this.#contextChangeSubscribers.clear()
   }
 
@@ -495,8 +629,18 @@ export class Runtime<
       return this.#handleStartTimer(item.data as StartTimerEffectData<string>)
     }
 
+    if (item.label === "startAsync") {
+      return this.#handleStartAsync(
+        item.data as StartAsyncEffectData<unknown, string>,
+      )
+    }
+
     if (item.label === "cancelTimer") {
       return this.#handleCancelTimer(item.data as CancelTimerEffectData<string>)
+    }
+
+    if (item.label === "cancelAsync") {
+      return this.#handleCancelAsync(item.data as CancelAsyncEffectData<string>)
     }
 
     if (item.label === "restartTimer") {
@@ -584,6 +728,70 @@ export class Runtime<
 
   #runEffect(e: Effect<unknown>) {
     e.executor(this.context)
+  }
+
+  #handleStartAsync<Resolved>(
+    data: StartAsyncEffectData<Resolved, string>,
+  ): StateReturn[] {
+    const asyncId = data.asyncId ?? `__fizz_async__${this.#asyncIdCounter++}`
+
+    this.#replaceAsync(asyncId)
+
+    const controller = new AbortController()
+    const token = this.#asyncCounter++
+    const handle = this.#asyncDriver.start({
+      onReject: async error => {
+        const activeAsync = this.#asyncOperations.get(asyncId)
+
+        if (activeAsync?.token !== token) {
+          return
+        }
+
+        this.#asyncOperations.delete(asyncId)
+
+        if (this.#isAbortError(error, controller.signal)) {
+          return
+        }
+
+        const action = data.handlers.reject?.(error)
+
+        if (action) {
+          await this.run(action)
+        }
+      },
+      onResolve: async value => {
+        const activeAsync = this.#asyncOperations.get(asyncId)
+
+        if (activeAsync?.token !== token) {
+          return
+        }
+
+        this.#asyncOperations.delete(asyncId)
+
+        const action = data.handlers.resolve?.(value)
+
+        if (action) {
+          await this.run(action)
+        }
+      },
+      run: () => this.#runAsyncOperation(data.run, controller.signal),
+    })
+
+    this.#asyncOperations.set(asyncId, {
+      controller,
+      handle,
+      token,
+    })
+
+    return []
+  }
+
+  #handleCancelAsync<AsyncId extends string>(
+    data: CancelAsyncEffectData<AsyncId>,
+  ): StateReturn[] {
+    const cancelled = this.#cancelActiveAsync(data.asyncId)
+
+    return cancelled ? [asyncCancelled({ asyncId: data.asyncId })] : []
   }
 
   #handleStartTimer<TimeoutId extends string>(
@@ -727,6 +935,20 @@ export class Runtime<
     return []
   }
 
+  #cancelActiveAsync(asyncId: string): boolean {
+    const activeAsync = this.#asyncOperations.get(asyncId)
+
+    if (!activeAsync) {
+      return false
+    }
+
+    activeAsync.controller.abort()
+    this.#asyncDriver.cancel(activeAsync.handle)
+    this.#asyncOperations.delete(asyncId)
+
+    return true
+  }
+
   #cancelActiveTimer(timeoutId: string): TimerPayload<string> | undefined {
     const activeTimer = this.#timers.get(timeoutId)
 
@@ -752,6 +974,10 @@ export class Runtime<
 
     this.#timerDriver.cancel(activeTimer.handle)
     this.#timers.delete(timeoutId)
+  }
+
+  #replaceAsync(asyncId: string) {
+    this.#cancelActiveAsync(asyncId)
   }
 
   #cancelActiveInterval(timeoutId: string): TimerPayload<string> | undefined {
@@ -812,6 +1038,41 @@ export class Runtime<
     this.#frame = undefined
   }
 
+  #clearAsync() {
+    this.#asyncOperations.forEach(activeAsync => {
+      activeAsync.controller.abort()
+      this.#asyncDriver.cancel(activeAsync.handle)
+    })
+
+    this.#asyncOperations.clear()
+  }
+
+  #isAbortError(error: unknown, signal: AbortSignal): boolean {
+    if (signal.aborted) {
+      return true
+    }
+
+    return (
+      typeof error === "object" &&
+      error !== null &&
+      "name" in error &&
+      (error as { name?: unknown }).name === "AbortError"
+    )
+  }
+
+  async #runAsyncOperation<Resolved>(
+    run: StartAsyncEffectData<Resolved, string>["run"],
+    signal: AbortSignal,
+  ): Promise<Resolved> {
+    try {
+      return typeof run === "function"
+        ? await run(signal, this.context)
+        : await run
+    } catch (error) {
+      throw error instanceof Error ? error : new Error(String(error))
+    }
+  }
+
   async #executeAction<A extends RuntimeAction>(
     action: A,
   ): Promise<StateReturn[]> {
@@ -828,6 +1089,10 @@ export class Runtime<
 
   #handleState(targetState: RuntimeState): StateReturn[] {
     const exitState = this.context.currentState
+
+    if (exitState) {
+      this.#clearAsync()
+    }
 
     const isUpdating =
       exitState?.name === targetState.name && targetState.mode === "update"
@@ -887,6 +1152,7 @@ export class Runtime<
   }
 
   #handleGoBack(): StateReturn[] {
+    this.#clearAsync()
     this.#clearTimers()
 
     return [

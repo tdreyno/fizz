@@ -36,6 +36,8 @@
     "test:npm": "bash bin/test-npm-version"
   },
   "devDependencies": {
+    "@repo/eslint-config": "*",
+    "@repo/tsconfig": "*",
     "@testing-library/jest-dom": "^6.9.1",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.11.2",
@@ -45,9 +47,8 @@
     "jest-environment-jsdom": "^30.2.0",
     "serialize-javascript": "^7.0.4",
     "ts-jest": "^29.4.6",
+    "tsdown": "^0.21.0",
     "typescript": "^5.9.3",
-    "@repo/eslint-config": "*",
-    "@repo/tsconfig": "*",
-    "tsdown": "^0.21.0"
+    "zod": "^4.3.6"
   }
 }

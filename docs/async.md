@@ -1,0 +1,207 @@
+# Async
+
+Fizz async operations let a state start promise-backed work without leaving the state machine model. You can use the low-level async helpers directly, or use `requestJSONAsync(...)` for the common JSON request flow.
+
+Async operations are a good fit for `fetch`, form submission, loading related resources, and other request-shaped work where stale completions should be ignored automatically.
+
+## Low-level helpers
+
+Fizz adds two async helpers to the state handler utils:
+
+- `startAsync(run, handlers, asyncId?)`
+- `cancelAsync(asyncId)`
+
+`startAsync(...)` accepts either:
+
+- A lazy function `(signal, context) => Promise<T>`
+- A `Promise<T>` that is already in flight
+
+The `handlers` object maps the settled result to your own actions:
+
+```typescript
+{
+  resolve: value => someAction(value),
+  reject: reason => someOtherAction(reason),
+}
+```
+
+If you provide an `asyncId`, the state can later cancel that specific operation with `cancelAsync(asyncId)`. If you omit the id, Fizz generates one internally so the operation still participates in stale-completion protection and state-exit cleanup, but you cannot target it later with manual cancellation.
+
+When an active async operation is explicitly cancelled, Fizz dispatches `AsyncCancelled` with this payload shape:
+
+```typescript
+{
+  asyncId: "your-async-id"
+}
+```
+
+## JSON requests with `requestJSONAsync`
+
+`requestJSONAsync(input, init?)` is a convenience builder for the common `fetch(...).json()` flow.
+
+It supports two valid shapes:
+
+- `requestJSONAsync(input, init?).chainToAction(resolve, reject)`
+- `requestJSONAsync(input, init?).validate(validator).chainToAction(resolve, reject)`
+
+`requestJSONAsync(...)` will:
+
+- pass through normal `RequestInit` options such as `method`, `body`, `credentials`, and similar config
+- accept an optional `asyncId` in `init` when a request should later be cancellable with `cancelAsync(asyncId)`
+- always send `Accept: "application/json"`; if you provide `Accept` yourself it is ignored and replaced
+- inject the runtime abort signal so stale requests can be cancelled cleanly
+- reject when `response.ok` is false
+- parse `response.json()` internally
+
+`validate(...)` is optional. When present, it may appear only once and it must come before `chainToAction(...)`.
+
+Use `validate(...)` when you want to assert that the parsed JSON matches the payload shape your action expects. The validator should throw when the payload is invalid. If it throws, that exact thrown value becomes the value received by the `reject` handler.
+
+If you return `requestJSONAsync(...)` directly without chaining `validate(...)` or `chainToAction(...)`, Fizz still treats it as a side-effect and starts the request. In that fire-and-forget form, the response value is ignored.
+
+## Common request example
+
+This example starts a profile request when the state is entered, validates the JSON payload, maps the parsed result to a user action, and maps failures to a user-visible error action.
+
+```typescript
+import { Enter, createAction, requestJSONAsync, state } from "@tdreyno/fizz"
+
+const profileLoaded = createAction<
+  "ProfileLoaded",
+  { id: string; name: string }
+>("ProfileLoaded")
+
+const profileFailed = createAction<"ProfileFailed", string>("ProfileFailed")
+
+type Data = {
+  error?: string
+  profileName?: string
+}
+
+const assertProfile = (
+  value: unknown,
+): asserts value is { id: string; name: string } => {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("Invalid profile payload")
+  }
+
+  const candidate = value as Record<string, unknown>
+
+  if (typeof candidate.id !== "string" || typeof candidate.name !== "string") {
+    throw new Error("Invalid profile payload")
+  }
+}
+
+const Loading = state<
+  Enter | typeof profileLoaded | typeof profileFailed,
+  Data
+>({
+  Enter: () =>
+    requestJSONAsync("/api/profile")
+      .validate(assertProfile)
+      .chainToAction(profileLoaded, error =>
+        profileFailed(error instanceof Error ? error.message : "Unknown error"),
+      ),
+
+  ProfileLoaded: (data, profile, { update }) =>
+    update({
+      ...data,
+      profileName: profile.name,
+    }),
+
+  ProfileFailed: (data, message, { update }) =>
+    update({
+      ...data,
+      error: message,
+    }),
+})
+```
+
+## Zod validation example
+
+If you already use `zod`, you can pass a schema parser directly to `validate(...)`. `zod`'s `.parse(...)` method throws when the payload is invalid, which matches the contract that `requestJSONAsync(...)` expects.
+
+```typescript
+import * as z from "zod"
+
+import { Enter, createAction, requestJSONAsync, state } from "@tdreyno/fizz"
+
+const Profile = z.object({
+  id: z.string(),
+  name: z.string(),
+})
+
+type Profile = z.infer<typeof Profile>
+
+const profileLoaded = createAction<"ProfileLoaded", Profile>("ProfileLoaded")
+const profileFailed = createAction<"ProfileFailed", string>("ProfileFailed")
+
+const Loading = state<Enter | typeof profileLoaded | typeof profileFailed>({
+  Enter: () =>
+    requestJSONAsync("/api/profile")
+      .validate(Profile.parse)
+      .chainToAction(profileLoaded, error =>
+        profileFailed(error instanceof Error ? error.message : "Unknown error"),
+      ),
+})
+```
+
+## POST example
+
+You can pass through normal `RequestInit` options for verbs such as `POST`, `PUT`, `PATCH`, and `DELETE`.
+
+```typescript
+requestJSONAsync("/api/posts", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    title: "Hello world",
+  }),
+}).chainToAction(postCreated, postFailed)
+```
+
+## Cancellable request example
+
+If a request-shaped flow needs explicit cancellation later, put the `asyncId` in the optional `init` object.
+
+```typescript
+requestJSONAsync("/api/profile", {
+  asyncId: "profile",
+}).chainToAction(profileLoaded, profileFailed)
+
+CancelLoad: (_, __, { cancelAsync }) => cancelAsync("profile")
+```
+
+## When to use `startAsync` directly
+
+Use `startAsync(...)` directly when you need behavior that the JSON request builder does not expose, such as:
+
+- mapping a non-request async operation
+- handling a response format other than `response.json()`
+- starting from a promise that is already in flight
+
+```typescript
+import { Enter, startAsync, state } from "@tdreyno/fizz"
+
+const profilePromise = fetch("/api/profile").then(response => response.json())
+
+const Loading = state<Enter | typeof profileLoaded>({
+  Enter: () =>
+    startAsync(
+      profilePromise,
+      {
+        resolve: profileLoaded,
+      },
+      "profile",
+    ),
+})
+```
+
+## Cancellation and stale completions
+
+- `cancelAsync(asyncId)` cancels the active async operation for that id and dispatches `AsyncCancelled`.
+- If a state transition replaces the current state instance, Fizz cancels async work started by that instance.
+- Abort-style rejections are suppressed and do not flow into the `reject` handler.
+- If an async operation resolves after it has become stale, Fizz ignores the completion.
