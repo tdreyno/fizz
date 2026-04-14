@@ -1,4 +1,4 @@
-import type { Action, TimerPayload } from "./action.js"
+import type { Action, IntervalPayload, TimerPayload } from "./action.js"
 import {
   asyncCancelled,
   beforeEnter,
@@ -852,14 +852,14 @@ export class Runtime<
     ]
   }
 
-  #handleStartInterval<TimeoutId extends string>(
-    data: StartIntervalEffectData<TimeoutId>,
+  #handleStartInterval<IntervalId extends string>(
+    data: StartIntervalEffectData<IntervalId>,
   ): StateReturn[] {
-    this.#replaceInterval(data.timeoutId)
+    this.#replaceInterval(data.intervalId)
 
     const token = this.#timerCounter++
     const handle = this.#timerDriver.startInterval(data.delay, async () => {
-      const activeInterval = this.#intervals.get(data.timeoutId)
+      const activeInterval = this.#intervals.get(data.intervalId)
 
       if (activeInterval?.token !== token) {
         return
@@ -868,7 +868,7 @@ export class Runtime<
       await this.run(intervalTriggered(data))
     })
 
-    this.#intervals.set(data.timeoutId, {
+    this.#intervals.set(data.intervalId, {
       delay: data.delay,
       handle,
       token,
@@ -877,30 +877,33 @@ export class Runtime<
     return [intervalStarted(data)]
   }
 
-  #handleCancelInterval<TimeoutId extends string>(
-    data: CancelIntervalEffectData<TimeoutId>,
+  #handleCancelInterval<IntervalId extends string>(
+    data: CancelIntervalEffectData<IntervalId>,
   ): StateReturn[] {
-    const cancelled = this.#cancelActiveInterval(data.timeoutId)
+    const cancelled = this.#cancelActiveInterval(data.intervalId)
 
     if (!cancelled) {
       return []
     }
 
     return [
-      intervalCancelled({ timeoutId: data.timeoutId, delay: cancelled.delay }),
+      intervalCancelled({
+        intervalId: data.intervalId,
+        delay: cancelled.delay,
+      }),
     ]
   }
 
-  #handleRestartInterval<TimeoutId extends string>(
-    data: RestartIntervalEffectData<TimeoutId>,
+  #handleRestartInterval<IntervalId extends string>(
+    data: RestartIntervalEffectData<IntervalId>,
   ): StateReturn[] {
-    const cancelled = this.#cancelActiveInterval(data.timeoutId)
+    const cancelled = this.#cancelActiveInterval(data.intervalId)
 
     return [
       ...(cancelled
         ? [
             intervalCancelled({
-              timeoutId: data.timeoutId,
+              intervalId: data.intervalId,
               delay: cancelled.delay,
             }),
           ]
@@ -980,31 +983,33 @@ export class Runtime<
     this.#cancelActiveAsync(asyncId)
   }
 
-  #cancelActiveInterval(timeoutId: string): TimerPayload<string> | undefined {
-    const activeInterval = this.#intervals.get(timeoutId)
+  #cancelActiveInterval(
+    intervalId: string,
+  ): IntervalPayload<string> | undefined {
+    const activeInterval = this.#intervals.get(intervalId)
 
     if (!activeInterval) {
       return
     }
 
     this.#timerDriver.cancel(activeInterval.handle)
-    this.#intervals.delete(timeoutId)
+    this.#intervals.delete(intervalId)
 
     return {
-      timeoutId,
+      intervalId,
       delay: activeInterval.delay,
     }
   }
 
-  #replaceInterval(timeoutId: string) {
-    const activeInterval = this.#intervals.get(timeoutId)
+  #replaceInterval(intervalId: string) {
+    const activeInterval = this.#intervals.get(intervalId)
 
     if (!activeInterval) {
       return
     }
 
     this.#timerDriver.cancel(activeInterval.handle)
-    this.#intervals.delete(timeoutId)
+    this.#intervals.delete(intervalId)
   }
 
   #cancelActiveFrame() {

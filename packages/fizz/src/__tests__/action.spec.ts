@@ -3,7 +3,14 @@ import { describe, expect, test } from "@jest/globals"
 import type { ActionCreatorType } from "../action"
 import * as actionModule from "../action"
 
-const { action, enter } = actionModule
+const { action, enter, intervalStarted } = actionModule
+
+type LegacyCreateAction = <T extends string, P = undefined>(
+  type: T,
+) => ((payload: P) => { payload: P; type: T }) & {
+  is(action: { type: string }): boolean
+  type: T
+}
 
 describe("action", () => {
   test("should create a no-payload action creator directly from the builder", () => {
@@ -35,9 +42,9 @@ describe("action", () => {
   })
 
   test("should keep createAction working as a deprecated compatibility helper", () => {
-    // eslint-disable-next-line @typescript-eslint/dot-notation, import/namespace
-    // @ts-expect-error Intentionally exercises the deprecated compatibility helper.
-    const legacy = actionModule["createAction"]<"Legacy", number>("Legacy")
+    const legacy = (
+      Reflect.get(actionModule, "createAction") as LegacyCreateAction
+    )<"Legacy", number>("Legacy")
 
     expect(legacy(4)).toEqual({
       payload: 4,
@@ -46,6 +53,16 @@ describe("action", () => {
     expect(enter()).toEqual({
       payload: undefined,
       type: "Enter",
+    })
+  })
+
+  test("should create interval lifecycle actions with intervalId payloads", () => {
+    expect(intervalStarted({ intervalId: "heartbeat", delay: 2500 })).toEqual({
+      payload: {
+        delay: 2500,
+        intervalId: "heartbeat",
+      },
+      type: "IntervalStarted",
     })
   })
 })

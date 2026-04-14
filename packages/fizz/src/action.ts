@@ -114,6 +114,11 @@ export type TimerPayload<TimeoutId extends string = string> = {
   delay: number
 }
 
+export type IntervalPayload<IntervalId extends string = string> = {
+  intervalId: IntervalId
+  delay: number
+}
+
 type GenericTimerActionCreator<T extends string> = MatchAction<
   T,
   TimerPayload<string>
@@ -158,26 +163,49 @@ export type TimerCancelled<TimeoutId extends string = string> = Action<
 >
 export const timerCancelled = createTimerAction("TimerCancelled")
 
-export type IntervalPayload<IntervalId extends string = string> =
-  TimerPayload<IntervalId>
+type GenericIntervalActionCreator<T extends string> = MatchAction<
+  T,
+  IntervalPayload<string>
+> & {
+  <IntervalId extends string = string>(
+    payload: IntervalPayload<IntervalId>,
+  ): Action<T, IntervalPayload<IntervalId>>
+  type: T
+}
+
+const createIntervalAction = <T extends string>(
+  type: T,
+): GenericIntervalActionCreator<T> => {
+  const fn = <IntervalId extends string = string>(
+    payload: IntervalPayload<IntervalId>,
+  ) => action(type, payload)
+
+  fn.is = (
+    action: Action<string, unknown>,
+  ): action is Action<T, IntervalPayload<string>> => action.type === type
+
+  fn.type = type
+
+  return fn as GenericIntervalActionCreator<T>
+}
 
 export type IntervalStarted<IntervalId extends string = string> = Action<
   "IntervalStarted",
   IntervalPayload<IntervalId>
 >
-export const intervalStarted = createTimerAction("IntervalStarted")
+export const intervalStarted = createIntervalAction("IntervalStarted")
 
 export type IntervalTriggered<IntervalId extends string = string> = Action<
   "IntervalTriggered",
   IntervalPayload<IntervalId>
 >
-export const intervalTriggered = createTimerAction("IntervalTriggered")
+export const intervalTriggered = createIntervalAction("IntervalTriggered")
 
 export type IntervalCancelled<IntervalId extends string = string> = Action<
   "IntervalCancelled",
   IntervalPayload<IntervalId>
 >
-export const intervalCancelled = createTimerAction("IntervalCancelled")
+export const intervalCancelled = createIntervalAction("IntervalCancelled")
 
 export type AsyncPayload<AsyncId extends string = string> = {
   asyncId: AsyncId

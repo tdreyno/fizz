@@ -291,16 +291,16 @@ export type RestartTimerEffectData<TimeoutId extends string = string> = {
 }
 
 export type StartIntervalEffectData<IntervalId extends string = string> = {
-  timeoutId: IntervalId
+  intervalId: IntervalId
   delay: number
 }
 
 export type CancelIntervalEffectData<IntervalId extends string = string> = {
-  timeoutId: IntervalId
+  intervalId: IntervalId
 }
 
 export type RestartIntervalEffectData<IntervalId extends string = string> = {
-  timeoutId: IntervalId
+  intervalId: IntervalId
   delay: number
 }
 
@@ -322,21 +322,21 @@ export const restartTimer = <TimeoutId extends string = string>(
   effect("restartTimer", { timeoutId, delay })
 
 export const startInterval = <IntervalId extends string = string>(
-  timeoutId: IntervalId,
+  intervalId: IntervalId,
   delay: number,
 ): Effect<StartIntervalEffectData<IntervalId>> =>
-  effect("startInterval", { timeoutId, delay })
+  effect("startInterval", { intervalId, delay })
 
 export const cancelInterval = <IntervalId extends string = string>(
-  timeoutId: IntervalId,
+  intervalId: IntervalId,
 ): Effect<CancelIntervalEffectData<IntervalId>> =>
-  effect("cancelInterval", { timeoutId })
+  effect("cancelInterval", { intervalId })
 
 export const restartInterval = <IntervalId extends string = string>(
-  timeoutId: IntervalId,
+  intervalId: IntervalId,
   delay: number,
 ): Effect<RestartIntervalEffectData<IntervalId>> =>
-  effect("restartInterval", { timeoutId, delay })
+  effect("restartInterval", { intervalId, delay })
 
 export const startFrame = (): Effect<undefined> => effect("startFrame")
 

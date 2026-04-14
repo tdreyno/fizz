@@ -22,7 +22,7 @@ Each action carries the same payload shape:
 
 ```typescript
 {
-  timeoutId: "your-interval-id"
+  intervalId: "your-interval-id"
   delay: 5000
 }
 ```
@@ -55,13 +55,13 @@ const Polling = state<Enter, Data, never, IntervalId>(
       startInterval("healthCheck", 1000),
     ],
 
-    IntervalStarted: (data, { timeoutId }, { update }) => {
-      return update(appendEvent(data, `started:${timeoutId}`))
+    IntervalStarted: (data, { intervalId }, { update }) => {
+      return update(appendEvent(data, `started:${intervalId}`))
     },
 
     IntervalTriggered: whichInterval<IntervalId>({
       healthCheck: (data, payload, { cancelInterval, update }) => {
-        const intervalId: "healthCheck" = payload.timeoutId
+        const intervalId: "healthCheck" = payload.intervalId
         const nextData = {
           ...appendEvent(data, `triggered:${intervalId}`),
           tickCount: data.tickCount + 1,
@@ -75,8 +75,8 @@ const Polling = state<Enter, Data, never, IntervalId>(
       },
     }),
 
-    IntervalCancelled: (data, { timeoutId }, { update }) => {
-      return update(appendEvent(data, `cancelled:${timeoutId}`))
+    IntervalCancelled: (data, { intervalId }, { update }) => {
+      return update(appendEvent(data, `cancelled:${intervalId}`))
     },
   },
   { name: "Polling" },
@@ -87,7 +87,7 @@ This is the core interval pattern: `Enter` starts the schedule, `IntervalTrigger
 
 ## Matching with `whichInterval`
 
-Use `whichInterval(...)` when an interval handler should branch by interval id and you want the branch payload narrowed to the exact interval id instead of manually checking `timeoutId`.
+Use `whichInterval(...)` when an interval handler should branch by interval id and you want the branch payload narrowed to the exact interval id instead of manually checking `intervalId`.
 
 ```typescript
 import { Enter, state, whichInterval } from "@tdreyno/fizz"
@@ -107,7 +107,7 @@ const Connected = state<Enter, Data, never, IntervalId>({
 
   IntervalTriggered: whichInterval<IntervalId>({
     presence: (data, payload, { update }) => {
-      const intervalId: "presence" = payload.timeoutId
+      const intervalId: "presence" = payload.intervalId
 
       return update({
         ...data,
@@ -117,7 +117,7 @@ const Connected = state<Enter, Data, never, IntervalId>({
     },
 
     sync: (data, payload, { update }) => {
-      const intervalId: "sync" = payload.timeoutId
+      const intervalId: "sync" = payload.intervalId
 
       return update({
         ...data,
@@ -131,7 +131,7 @@ const Connected = state<Enter, Data, never, IntervalId>({
 `whichInterval(...)` guarantees three things:
 
 - The handler map is exhaustive for the declared `IntervalId` union.
-- Each branch narrows `payload.timeoutId` to its specific interval id.
+- Each branch narrows `payload.intervalId` to its specific interval id.
 - The returned function plugs directly into interval handlers such as `IntervalTriggered`.
 
 Use `whichInterval<IntervalId>({...})` directly, even when the surrounding state also declares a separate timer-id union.
@@ -160,7 +160,7 @@ const Connected = state<Enter, Data, never, IntervalId>({
       (data, payload, { update }) =>
         update({
           ...data,
-          ticks: [...data.ticks, `presence:${payload.timeoutId}`],
+          ticks: [...data.ticks, `presence:${payload.intervalId}`],
         }),
       1000,
     ),
@@ -169,7 +169,7 @@ const Connected = state<Enter, Data, never, IntervalId>({
       (data, payload, { update }) =>
         update({
           ...data,
-          ticks: [...data.ticks, `sync:${payload.timeoutId}`],
+          ticks: [...data.ticks, `sync:${payload.intervalId}`],
         }),
       2000,
     ),
@@ -252,7 +252,7 @@ const Connected = state<Enter, Data, never, IntervalId>(
 
     IntervalTriggered: whichInterval<IntervalId>({
       presence: (data, payload, { update }) => {
-        const intervalId: "presence" = payload.timeoutId
+        const intervalId: "presence" = payload.intervalId
 
         return update({
           ...data,
@@ -262,7 +262,7 @@ const Connected = state<Enter, Data, never, IntervalId>(
       },
 
       sync: (data, payload, { update }) => {
-        const intervalId: "sync" = payload.timeoutId
+        const intervalId: "sync" = payload.intervalId
 
         return update({
           ...data,
@@ -275,7 +275,7 @@ const Connected = state<Enter, Data, never, IntervalId>(
 )
 ```
 
-The `timeoutId` value is narrowed to the declared interval-id member in each branch, so TypeScript will reject unknown ids and missing handlers.
+The `intervalId` value is narrowed to the declared interval-id member in each branch, so TypeScript will reject unknown ids and missing handlers.
 
 ## requestAnimationFrame loops
 

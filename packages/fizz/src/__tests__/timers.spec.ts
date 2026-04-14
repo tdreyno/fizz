@@ -4,6 +4,7 @@ import type {
   Action,
   ActionCreatorType,
   Enter,
+  IntervalPayload,
   OnFrame,
   TimerCancelled,
   TimerCompleted,
@@ -45,15 +46,17 @@ type SaveTimerActions =
   | TimerCancelled<TimeoutId>
 
 type SaveTimerState = StateTransition<string, SaveTimerActions, Data>
-type BranchTimerState = StateTransition<string, Action<string, unknown>, Data>
-type BranchIntervalState = StateTransition<
+type GenericActionState<DataShape> = StateTransition<
   string,
   Action<string, unknown>,
-  {
-    events: string[]
-    syncCount: number
-  }
+  DataShape
 >
+
+type BranchTimerState = GenericActionState<Data>
+type BranchIntervalState = GenericActionState<{
+  events: string[]
+  syncCount: number
+}>
 
 const expectTimeoutId = (timeoutId: TimeoutId): TimeoutId => timeoutId
 const expectIntervalId = (intervalId: IntervalId): IntervalId => intervalId
@@ -314,13 +317,13 @@ describe("timers", () => {
         return update(appendEvent(data, timeoutId))
       },
 
-      IntervalTriggered: (data, { timeoutId }, { update }) => {
-        expectIntervalId(timeoutId)
+      IntervalTriggered: (data, { intervalId }, { update }) => {
+        expectIntervalId(intervalId)
 
         // @ts-expect-error interval payload should not narrow to timeout ids
-        expectTimeoutId(timeoutId)
+        expectTimeoutId(intervalId)
 
-        return update(appendEvent(data, timeoutId))
+        return update(appendEvent(data, intervalId))
       },
     })
   })
@@ -411,24 +414,24 @@ describe("timers", () => {
           startInterval("heartbeat", 10),
         ],
 
-        IntervalStarted: (data, { timeoutId }, { update }) => {
-          return update(appendEvent(data, `started:${timeoutId}`))
+        IntervalStarted: (data, { intervalId }, { update }) => {
+          return update(appendEvent(data, `started:${intervalId}`))
         },
 
         IntervalTriggered: (
           data,
-          { timeoutId },
+          { intervalId },
           { cancelInterval, update },
         ) => {
-          const nextData = update(appendEvent(data, `triggered:${timeoutId}`))
+          const nextData = update(appendEvent(data, `triggered:${intervalId}`))
 
           return data.events.length >= 4
-            ? [nextData, cancelInterval(timeoutId)]
+            ? [nextData, cancelInterval(intervalId)]
             : nextData
         },
 
-        IntervalCancelled: (data, { timeoutId }, { update }) => {
-          return update(appendEvent(data, `cancelled:${timeoutId}`))
+        IntervalCancelled: (data, { intervalId }, { update }) => {
+          return update(appendEvent(data, `cancelled:${intervalId}`))
         },
       },
       { name: "Editing" },
@@ -473,21 +476,21 @@ describe("timers", () => {
           restartInterval("heartbeat", 25),
         ],
 
-        IntervalStarted: (data, { timeoutId }, { update }) => {
-          return update(appendEvent(data, `started:${timeoutId}`))
+        IntervalStarted: (data, { intervalId }, { update }) => {
+          return update(appendEvent(data, `started:${intervalId}`))
         },
 
         IntervalTriggered: (
           data,
-          { timeoutId },
+          { intervalId },
           { cancelInterval, update },
         ) => [
-          update(appendEvent(data, `triggered:${timeoutId}`)),
-          cancelInterval(timeoutId),
+          update(appendEvent(data, `triggered:${intervalId}`)),
+          cancelInterval(intervalId),
         ],
 
-        IntervalCancelled: (data, { timeoutId }, { update }) => {
-          return update(appendEvent(data, `cancelled:${timeoutId}`))
+        IntervalCancelled: (data, { intervalId }, { update }) => {
+          return update(appendEvent(data, `cancelled:${intervalId}`))
         },
       },
       { name: "Editing" },
@@ -531,8 +534,8 @@ describe("timers", () => {
           update(appendEvent(data, "cancel-attempt")),
         ],
 
-        IntervalCancelled: (data, { timeoutId }, { update }) => {
-          return update(appendEvent(data, `cancelled:${timeoutId}`))
+        IntervalCancelled: (data, { intervalId }, { update }) => {
+          return update(appendEvent(data, `cancelled:${intervalId}`))
         },
       },
       { name: "Editing" },
@@ -580,8 +583,8 @@ describe("timers", () => {
 
         Leave: data => Done(appendEvent(data, "leave")),
 
-        IntervalTriggered: (data, { timeoutId }, { update }) => {
-          return update(appendEvent(data, `triggered:${timeoutId}`))
+        IntervalTriggered: (data, { intervalId }, { update }) => {
+          return update(appendEvent(data, `triggered:${intervalId}`))
         },
       },
       { name: "Editing" },
@@ -646,7 +649,7 @@ describe("timers", () => {
 
         IntervalTriggered: whichInterval<IntervalId>({
           heartbeat: (data: Data, payload, { cancelInterval, update }) => {
-            const intervalId: "heartbeat" = payload.timeoutId
+            const intervalId: "heartbeat" = payload.intervalId
 
             return [
               update(appendEvent(data, `triggered:${intervalId}`)),
@@ -655,7 +658,7 @@ describe("timers", () => {
           },
 
           sync: (data: Data, payload, { cancelInterval, update }) => {
-            const intervalId: "sync" = payload.timeoutId
+            const intervalId: "sync" = payload.intervalId
 
             return [
               update(appendEvent(data, `triggered:${intervalId}`)),
@@ -693,13 +696,13 @@ describe("timers", () => {
 
       IntervalTriggered: whichInterval<IntervalId>({
         heartbeat: (data: Data, payload, { update }) => {
-          const intervalId: "heartbeat" = payload.timeoutId
+          const intervalId: "heartbeat" = payload.intervalId
 
           return update(appendEvent(data, intervalId))
         },
 
         sync: (data: Data, payload, { update }) => {
-          const intervalId: "sync" = payload.timeoutId
+          const intervalId: "sync" = payload.intervalId
 
           return update(appendEvent(data, intervalId))
         },
@@ -858,14 +861,14 @@ describe("timers", () => {
           heartbeat: throttle(
             (
               data: BranchData,
-              payload: TimerPayload<"heartbeat">,
+              payload: IntervalPayload<"heartbeat">,
               {
                 update,
               }: {
                 update: (data: BranchData) => BranchIntervalState
               },
             ): BranchIntervalState => {
-              const intervalId: "heartbeat" = payload.timeoutId
+              const intervalId: "heartbeat" = payload.intervalId
 
               return update({
                 ...data,
@@ -878,7 +881,7 @@ describe("timers", () => {
           sync: throttle(
             (
               data: BranchData,
-              payload: TimerPayload<"sync">,
+              payload: IntervalPayload<"sync">,
               {
                 cancelInterval,
                 update,
@@ -887,7 +890,7 @@ describe("timers", () => {
                 update: (data: BranchData) => BranchIntervalState
               },
             ): HandlerReturn => {
-              const intervalId: "sync" = payload.timeoutId
+              const intervalId: "sync" = payload.intervalId
               const syncCount = data.syncCount + 1
               const nextData = {
                 ...data,

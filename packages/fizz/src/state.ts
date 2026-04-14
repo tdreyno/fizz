@@ -9,6 +9,7 @@ import type {
   Enter,
   GetActionCreatorType,
   IntervalCancelled,
+  IntervalPayload,
   IntervalStarted,
   IntervalTriggered,
   TimerCancelled,
@@ -212,53 +213,110 @@ type StateHandlers<
   >
 }
 
-type ScheduledPayload<
+type TimeoutScheduledPayload<
   TimeoutId extends string,
   K extends TimeoutId = TimeoutId,
 > = TimerPayload<K>
 
+type IntervalScheduledPayload<
+  IntervalId extends string,
+  K extends IntervalId = IntervalId,
+> = IntervalPayload<K>
+
 type ScheduledBranch<
-  Id extends string,
+  Payload,
   TimeoutId extends string,
   IntervalId extends string,
   AsyncId extends string,
-  K extends Id,
 > = (
   data: any,
-  payload: ScheduledPayload<Id, K>,
+  payload: Payload,
   utils: StateUtils<string, any, any, TimeoutId, IntervalId, AsyncId>,
 ) => HandlerReturn
 
-type ScheduledBranchValue<
+type TimeoutScheduledBranchValue<
   Id extends string,
   TimeoutId extends string,
   IntervalId extends string,
   AsyncId extends string,
   K extends Id,
 > =
-  | ScheduledBranch<Id, TimeoutId, IntervalId, AsyncId, K>
+  | ScheduledBranch<
+      TimeoutScheduledPayload<Id, K>,
+      TimeoutId,
+      IntervalId,
+      AsyncId
+    >
   | WrappedHandler<
-      ScheduledBranch<Id, TimeoutId, IntervalId, AsyncId, K> &
+      ScheduledBranch<
+        TimeoutScheduledPayload<Id, K>,
+        TimeoutId,
+        IntervalId,
+        AsyncId
+      > &
         ((...args: any[]) => HandlerReturn)
     >
 
-type ScheduledBranchMap<
+type TimeoutScheduledBranchMap<
   Id extends string,
   TimeoutId extends string,
   IntervalId extends string,
   AsyncId extends string,
 > = {
-  [K in Id]: ScheduledBranchValue<Id, TimeoutId, IntervalId, AsyncId, K>
+  [K in Id]: TimeoutScheduledBranchValue<Id, TimeoutId, IntervalId, AsyncId, K>
 }
 
-type ScheduledHandler<
+type IntervalScheduledBranchValue<
+  Id extends string,
+  TimeoutId extends string,
+  IntervalId extends string,
+  AsyncId extends string,
+  K extends Id,
+> =
+  | ScheduledBranch<
+      IntervalScheduledPayload<Id, K>,
+      TimeoutId,
+      IntervalId,
+      AsyncId
+    >
+  | WrappedHandler<
+      ScheduledBranch<
+        IntervalScheduledPayload<Id, K>,
+        TimeoutId,
+        IntervalId,
+        AsyncId
+      > &
+        ((...args: any[]) => HandlerReturn)
+    >
+
+type IntervalScheduledBranchMap<
+  Id extends string,
+  TimeoutId extends string,
+  IntervalId extends string,
+  AsyncId extends string,
+> = {
+  [K in Id]: IntervalScheduledBranchValue<Id, TimeoutId, IntervalId, AsyncId, K>
+}
+
+type TimeoutScheduledHandler<
   Id extends string,
   TimeoutId extends string,
   IntervalId extends string,
   AsyncId extends string,
 > = (
   data: any,
-  payload: ScheduledPayload<Id>,
+  payload: TimeoutScheduledPayload<Id>,
+  utils: StateUtils<string, any, any, TimeoutId, IntervalId, AsyncId>,
+) => HandlerReturn
+
+type IntervalScheduledHandler<
+  Id extends string,
+  TimeoutId extends string,
+  IntervalId extends string,
+  AsyncId extends string,
+> = (
+  data: any,
+  payload: IntervalScheduledPayload<Id>,
   utils: StateUtils<string, any, any, TimeoutId, IntervalId, AsyncId>,
 ) => HandlerReturn
 
@@ -332,16 +390,27 @@ type ScheduledMatcherMetadata = {
   wrappedHandlers: AnyWrappedHandler[]
 }
 
-type ScheduledMatcher<
+type TimeoutScheduledMatcher<
   Id extends string,
   TimeoutId extends string,
   IntervalId extends string,
   AsyncId extends string,
-> = ScheduledHandler<Id, TimeoutId, IntervalId, AsyncId> & {
+> = TimeoutScheduledHandler<Id, TimeoutId, IntervalId, AsyncId> & {
   [scheduledMatcherSymbol]?: ScheduledMatcherMetadata
 }
 
-type AnyScheduledMatcher = ScheduledMatcher<string, string, string, string>
+type IntervalScheduledMatcher<
+  Id extends string,
+  TimeoutId extends string,
+  IntervalId extends string,
+  AsyncId extends string,
+> = IntervalScheduledHandler<Id, TimeoutId, IntervalId, AsyncId> & {
+  [scheduledMatcherSymbol]?: ScheduledMatcherMetadata
+}
+
+type AnyScheduledMatcher =
+  | TimeoutScheduledMatcher<string, string, string, string>
+  | IntervalScheduledMatcher<string, string, string, string>
 
 const isScheduledMatcher = (
   handler: AnyHandlerValue,
@@ -938,17 +1007,17 @@ class Matcher<S extends StateTransition<string, any, any>, T> {
 export const switch_ = <T>(state: StateTransition<string, any, any>) =>
   new Matcher<typeof state, T>(state)
 
-const createScheduledMatcher = <
+const createTimeoutMatcher = <
   Id extends string,
   TimeoutId extends string,
   IntervalId extends string,
   AsyncId extends string,
 >(
-  handlers: ScheduledBranchMap<Id, TimeoutId, IntervalId, AsyncId>,
-): ScheduledMatcher<Id, TimeoutId, IntervalId, AsyncId> => {
+  handlers: TimeoutScheduledBranchMap<Id, TimeoutId, IntervalId, AsyncId>,
+): TimeoutScheduledMatcher<Id, TimeoutId, IntervalId, AsyncId> => {
   const matcher = ((
     data: unknown,
-    payload: ScheduledPayload<Id>,
+    payload: TimeoutScheduledPayload<Id>,
     utils: StateUtils<
       string,
       Action<string, unknown>,
@@ -962,7 +1031,42 @@ const createScheduledMatcher = <
     const handler = handlers[payload.timeoutId] as AnyHandlerValue
 
     return runHandlerValue(handler, data, payload, utils as never, runtime)
-  }) as ScheduledMatcher<Id, TimeoutId, IntervalId, AsyncId>
+  }) as TimeoutScheduledMatcher<Id, TimeoutId, IntervalId, AsyncId>
+
+  matcher[scheduledMatcherSymbol] = {
+    wrappedHandlers: collectWrappedHandlers(
+      handlers as Record<string, AnyHandlerValue>,
+    ),
+  }
+
+  return matcher
+}
+
+const createIntervalMatcher = <
+  Id extends string,
+  TimeoutId extends string,
+  IntervalId extends string,
+  AsyncId extends string,
+>(
+  handlers: IntervalScheduledBranchMap<Id, TimeoutId, IntervalId, AsyncId>,
+): IntervalScheduledMatcher<Id, TimeoutId, IntervalId, AsyncId> => {
+  const matcher = ((
+    data: unknown,
+    payload: IntervalScheduledPayload<Id>,
+    utils: StateUtils<
+      string,
+      Action<string, unknown>,
+      unknown,
+      TimeoutId,
+      IntervalId,
+      AsyncId
+    >,
+    runtime?: Runtime<any, any>,
+  ) => {
+    const handler = handlers[payload.intervalId] as AnyHandlerValue
+
+    return runHandlerValue(handler, data, payload, utils as never, runtime)
+  }) as IntervalScheduledMatcher<Id, TimeoutId, IntervalId, AsyncId>
 
   matcher[scheduledMatcherSymbol] = {
     wrappedHandlers: collectWrappedHandlers(
@@ -974,7 +1078,7 @@ const createScheduledMatcher = <
 }
 
 export const whichTimeout = <TimeoutId extends string>(
-  handlers: ScheduledBranchMap<TimeoutId, TimeoutId, any, any>,
+  handlers: TimeoutScheduledBranchMap<TimeoutId, TimeoutId, any, any>,
 ): (<
   Actions extends Action<string, unknown>,
   Data,
@@ -982,12 +1086,12 @@ export const whichTimeout = <TimeoutId extends string>(
   AsyncId extends string,
 >(
   data: Data,
-  payload: ScheduledPayload<TimeoutId>,
+  payload: TimeoutScheduledPayload<TimeoutId>,
   utils: StateUtils<string, Actions, Data, TimeoutId, IntervalId, AsyncId>,
-) => HandlerReturn) => createScheduledMatcher(handlers as never) as never
+) => HandlerReturn) => createTimeoutMatcher(handlers as never) as never
 
 export const whichInterval = <IntervalId extends string>(
-  handlers: ScheduledBranchMap<IntervalId, any, IntervalId, any>,
+  handlers: IntervalScheduledBranchMap<IntervalId, any, IntervalId, any>,
 ): (<
   Actions extends Action<string, unknown>,
   Data,
@@ -995,9 +1099,9 @@ export const whichInterval = <IntervalId extends string>(
   AsyncId extends string,
 >(
   data: Data,
-  payload: ScheduledPayload<IntervalId>,
+  payload: IntervalScheduledPayload<IntervalId>,
   utils: StateUtils<string, Actions, Data, TimeoutId, IntervalId, AsyncId>,
-) => HandlerReturn) => createScheduledMatcher(handlers as never) as never
+) => HandlerReturn) => createIntervalMatcher(handlers as never) as never
 
 const timedOut = action("TimedOut")
 type TimedOut = ActionCreatorType<typeof timedOut>
