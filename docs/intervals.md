@@ -136,6 +136,51 @@ const Connected = state<Enter, Data, never, IntervalId>({
 
 Use `whichInterval<IntervalId>({...})` directly, even when the surrounding state also declares a separate timer-id union.
 
+## Throttling and debouncing branches
+
+Wrap individual `whichInterval(...)` branches when different interval ids need different rate limits. The short form is the default: pass the delay as the second argument.
+
+```typescript
+import { Enter, debounce, state, throttle, whichInterval } from "@tdreyno/fizz"
+
+type IntervalId = "presence" | "sync"
+
+type Data = {
+  ticks: string[]
+}
+
+const Connected = state<Enter, Data, never, IntervalId>({
+  Enter: (_, __, { startInterval }) => [
+    startInterval("presence", 5000),
+    startInterval("sync", 5000),
+  ],
+
+  IntervalTriggered: whichInterval<IntervalId>({
+    presence: throttle(
+      (data, payload, { update }) =>
+        update({
+          ...data,
+          ticks: [...data.ticks, `presence:${payload.timeoutId}`],
+        }),
+      1000,
+    ),
+
+    sync: debounce(
+      (data, payload, { update }) =>
+        update({
+          ...data,
+          ticks: [...data.ticks, `sync:${payload.timeoutId}`],
+        }),
+      2000,
+    ),
+  }),
+})
+```
+
+Each wrapped branch keeps its own debounce or throttle state. Wrapping `presence` does not affect `sync`, even though both branches live inside the same `whichInterval(...)` matcher.
+
+If you need throttle options, use the object form: `throttle(handler, { delay: 1000, leading: true, trailing: false })`.
+
 ## Restarting intervals with `restartInterval`
 
 `restartInterval` is useful when you want to replace an active interval with a new cadence. If the interval is already running, Fizz cancels it first and starts a fresh one with the new delay.

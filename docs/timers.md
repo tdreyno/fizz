@@ -2,7 +2,7 @@
 
 Fizz timers let a state schedule a future action without leaving the state machine model. You start, restart, or cancel a timer from a state handler, and the runtime feeds the timer lifecycle back into the same state as regular actions.
 
-Timers are a good fit for delayed transitions, debounce behavior, autosave, and temporary UI state such as dismissing a banner after a delay.
+Timers are a good fit for delayed transitions, debounced handlers, autosave, and temporary UI state such as dismissing a banner after a delay.
 
 ## How timers work
 
@@ -143,7 +143,81 @@ const Editing = state<Enter, Data, TimeoutId>({
 
 Use `whichTimeout<TimeoutId>({...})` directly, even when the surrounding state also declares a separate interval-id union.
 
-## Debouncing with `restartTimer`
+## Debouncing handlers
+
+Use `debounce(...)` when you want to delay a handler body until calls stop for a given window. The short form is the default: pass the delay as the second argument.
+
+```typescript
+import { Enter, debounce, state, whichTimeout } from "@tdreyno/fizz"
+
+type TimeoutId = "autosave" | "flashSaved"
+
+type Data = {
+  events: string[]
+}
+
+const appendEvent = (data: Data, event: string): Data => ({
+  ...data,
+  events: [...data.events, event],
+})
+
+const Editing = state<Enter, Data, TimeoutId>({
+  Enter: (data, _, { startTimer, update }) => [
+    update(appendEvent(data, "enter")),
+    startTimer("autosave", 1000),
+    startTimer("flashSaved", 300),
+  ],
+
+  TimerCompleted: whichTimeout<TimeoutId>({
+    autosave: debounce((data, payload, { update }) => {
+      const timeoutId: "autosave" = payload.timeoutId
+
+      return update(appendEvent(data, `debounced:${timeoutId}`))
+    }, 300),
+
+    flashSaved: (data, payload, { update }) => {
+      const timeoutId: "flashSaved" = payload.timeoutId
+
+      return update(appendEvent(data, `completed:${timeoutId}`))
+    },
+  }),
+})
+```
+
+The wrapper is attached to the individual branch, not the whole `whichTimeout(...)` matcher. Each wrapped branch keeps its own debounce state.
+
+If you need the long form, `debounce(handler, { delay: 300 })` is equivalent to `debounce(handler, 300)`.
+
+## Throttling handlers
+
+Use `throttle(...)` when a handler should run at most once per window. The short form is `throttle(handler, 1000)`. If you need lodash-style options such as `leading` or `trailing`, use the object form.
+
+```typescript
+import { createAction, throttle, state } from "@tdreyno/fizz"
+
+const save = createAction<"Save", { content: string }>("Save")
+
+type Save = ReturnType<typeof save>
+
+type Data = {
+  content: string
+  saveCount: number
+}
+
+const Editing = state<Save, Data>({
+  Save: throttle(
+    (data, { content }, { update }) =>
+      update({
+        ...data,
+        content,
+        saveCount: data.saveCount + 1,
+      }),
+    1000,
+  ),
+})
+```
+
+## Manual debounce with `restartTimer`
 
 `restartTimer` is the usual choice when you want debounce behavior. If the timer is already running, Fizz cancels it first and starts a fresh one with the new delay.
 

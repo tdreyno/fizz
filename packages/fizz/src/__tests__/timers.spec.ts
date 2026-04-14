@@ -1,11 +1,29 @@
 import { describe, expect, test } from "@jest/globals"
 
-import type { ActionCreatorType, Enter, OnFrame } from "../action"
+import type {
+  Action,
+  ActionCreatorType,
+  Enter,
+  OnFrame,
+  TimerCancelled,
+  TimerCompleted,
+  TimerPayload,
+  TimerStarted,
+} from "../action"
 import { createAction, enter } from "../action"
 import { createInitialContext } from "../context"
+import type { Effect } from "../effect"
 import { noop } from "../effect"
 import { createControlledTimerDriver, createRuntime } from "../runtime"
-import { isState, state, whichInterval, whichTimeout } from "../state"
+import type { HandlerReturn, StateTransition } from "../state"
+import {
+  debounce,
+  isState,
+  state,
+  throttle,
+  whichInterval,
+  whichTimeout,
+} from "../state"
 
 type TimeoutId = "autosave" | "flashSaved"
 type IntervalId = "heartbeat" | "sync"
@@ -18,6 +36,24 @@ const appendEvent = (data: Data, event: string): Data => ({
   ...data,
   events: [...data.events, event],
 })
+
+type SaveTimerActions =
+  | Action<"Save", string>
+  | Enter
+  | TimerStarted<TimeoutId>
+  | TimerCompleted<TimeoutId>
+  | TimerCancelled<TimeoutId>
+
+type SaveTimerState = StateTransition<string, SaveTimerActions, Data>
+type BranchTimerState = StateTransition<string, Action<string, unknown>, Data>
+type BranchIntervalState = StateTransition<
+  string,
+  Action<string, unknown>,
+  {
+    events: string[]
+    syncCount: number
+  }
+>
 
 const expectTimeoutId = (timeoutId: TimeoutId): TimeoutId => timeoutId
 const expectIntervalId = (intervalId: IntervalId): IntervalId => intervalId
@@ -681,6 +717,220 @@ describe("timers", () => {
       // @ts-expect-error unknown interval id should be rejected
       autosave: () => noop(),
     })
+  })
+
+  test("should debounce a direct handler without leaking internal timer events", async () => {
+    const save = createAction<"Save", string>("Save")
+    type Save = ActionCreatorType<typeof save>
+
+    const Editing = state<Enter | Save, Data, TimeoutId>(
+      {
+        Enter: noop,
+
+        Save: debounce(
+          (
+            data: Data,
+            payload: string,
+            {
+              update,
+            }: {
+              update: (data: Data) => SaveTimerState
+            },
+          ): SaveTimerState => {
+            return update(appendEvent(data, `save:${payload}`))
+          },
+          20,
+        ),
+
+        TimerStarted: (data, { timeoutId }, { update }) => {
+          return update(appendEvent(data, `timer-started:${timeoutId}`))
+        },
+
+        TimerCompleted: (data, { timeoutId }, { update }) => {
+          return update(appendEvent(data, `timer-completed:${timeoutId}`))
+        },
+
+        TimerCancelled: (data, { timeoutId }, { update }) => {
+          return update(appendEvent(data, `timer-cancelled:${timeoutId}`))
+        },
+      },
+      { name: "Editing" },
+    )
+
+    const context = createInitialContext([Editing({ events: [] })])
+    const timerDriver = createControlledTimerDriver()
+    const runtime = createRuntime(context, { save }, {}, { timerDriver })
+
+    await runtime.run(enter())
+    await runtime.run(save("a"))
+    await runtime.run(save("ab"))
+    await runtime.run(save("abc"))
+    await timerDriver.advanceBy(20)
+
+    const currentState = runtime.currentState()
+
+    if (!isState(currentState, Editing)) {
+      throw new Error("Expected Editing state")
+    }
+
+    expect(currentState.data.events).toEqual(["save:abc"])
+  })
+
+  test("should debounce whichTimeout branches independently from immediate branches", async () => {
+    const Editing = state<Enter, Data, TimeoutId>(
+      {
+        Enter: (data, _, { startTimer, update }) => [
+          update(appendEvent(data, "enter")),
+          startTimer("autosave", 10),
+          startTimer("flashSaved", 20),
+        ],
+
+        TimerCompleted: whichTimeout<TimeoutId>({
+          autosave: debounce(
+            (
+              data: Data,
+              payload: TimerPayload<"autosave">,
+              {
+                update,
+              }: {
+                update: (data: Data) => BranchTimerState
+              },
+            ): BranchTimerState => {
+              const timeoutId: "autosave" = payload.timeoutId
+
+              return update(appendEvent(data, `debounced:${timeoutId}`))
+            },
+            20,
+          ),
+
+          flashSaved: (
+            data: Data,
+            payload: TimerPayload<"flashSaved">,
+            {
+              update,
+            }: {
+              update: (data: Data) => BranchTimerState
+            },
+          ): BranchTimerState => {
+            const timeoutId: "flashSaved" = payload.timeoutId
+
+            return update(appendEvent(data, `completed:${timeoutId}`))
+          },
+        }),
+      },
+      { name: "Editing" },
+    )
+
+    const context = createInitialContext([Editing({ events: [] })])
+    const timerDriver = createControlledTimerDriver()
+    const runtime = createRuntime(context, {}, {}, { timerDriver })
+
+    await runtime.run(enter())
+    await timerDriver.advanceBy(40)
+
+    const currentState = runtime.currentState()
+
+    if (!isState(currentState, Editing)) {
+      throw new Error("Expected Editing state")
+    }
+
+    expect(currentState.data.events).toEqual([
+      "enter",
+      "completed:flashSaved",
+      "debounced:autosave",
+    ])
+  })
+
+  test("should throttle whichInterval branches independently", async () => {
+    type BranchData = {
+      events: string[]
+      syncCount: number
+    }
+
+    const Polling = state<Enter, BranchData, never, IntervalId>(
+      {
+        Enter: (_, __, { startInterval }) => [
+          startInterval("heartbeat", 5),
+          startInterval("sync", 5),
+        ],
+
+        IntervalTriggered: whichInterval<IntervalId>({
+          heartbeat: throttle(
+            (
+              data: BranchData,
+              payload: TimerPayload<"heartbeat">,
+              {
+                update,
+              }: {
+                update: (data: BranchData) => BranchIntervalState
+              },
+            ): BranchIntervalState => {
+              const intervalId: "heartbeat" = payload.timeoutId
+
+              return update({
+                ...data,
+                events: [...data.events, `heartbeat:${intervalId}`],
+              })
+            },
+            20,
+          ),
+
+          sync: throttle(
+            (
+              data: BranchData,
+              payload: TimerPayload<"sync">,
+              {
+                cancelInterval,
+                update,
+              }: {
+                cancelInterval: (intervalId: "sync") => Effect
+                update: (data: BranchData) => BranchIntervalState
+              },
+            ): HandlerReturn => {
+              const intervalId: "sync" = payload.timeoutId
+              const syncCount = data.syncCount + 1
+              const nextData = {
+                ...data,
+                syncCount,
+                events: [...data.events, `sync:${intervalId}:${syncCount}`],
+              }
+
+              return syncCount >= 2
+                ? [update(nextData), cancelInterval(intervalId)]
+                : update(nextData)
+            },
+            20,
+          ),
+        }),
+      },
+      { name: "Polling" },
+    )
+
+    const context = createInitialContext([
+      Polling({
+        events: [],
+        syncCount: 0,
+      }),
+    ])
+    const timerDriver = createControlledTimerDriver()
+    const runtime = createRuntime(context, {}, {}, { timerDriver })
+
+    await runtime.run(enter())
+    await timerDriver.advanceBy(45)
+
+    const currentState = runtime.currentState()
+
+    if (!isState(currentState, Polling)) {
+      throw new Error("Expected Polling state")
+    }
+
+    expect(currentState.data.events).toEqual([
+      "heartbeat:heartbeat",
+      "sync:sync:1",
+      "heartbeat:heartbeat",
+      "sync:sync:2",
+      "heartbeat:heartbeat",
+    ])
   })
 
   test("should dispatch OnFrame repeatedly until cancelled", async () => {

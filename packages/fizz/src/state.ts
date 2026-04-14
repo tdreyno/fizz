@@ -105,13 +105,71 @@ type Handler<
   utils: StateUtils<Name, Actions, Data, TimeoutId, IntervalId>,
 ) => HandlerReturn
 
+type WrappedHandlerMode = "debounce" | "throttle"
+
+type DebounceHandlerOptions = {
+  delay: number
+}
+
+type ThrottleHandlerOptions = {
+  delay: number
+  leading?: boolean
+  trailing?: boolean
+}
+
+type NormalizedWrappedHandlerOptions = {
+  delay: number
+  leading: boolean
+  trailing: boolean
+}
+
+type WrappedHandlerRuntimeState = {
+  active: boolean
+  hasPendingPayload: boolean
+  pendingPayload: unknown
+}
+
+const wrappedHandlerSymbol = Symbol("wrapped handler")
+const scheduledMatcherSymbol = Symbol("scheduled matcher")
+
+type WrappedHandler<T extends (...args: any[]) => HandlerReturn> = {
+  kind: "wrapped-handler"
+  handler: T
+  mode: WrappedHandlerMode
+  options: NormalizedWrappedHandlerOptions
+  [wrappedHandlerSymbol]: {
+    id: number
+    runtimeStates: WeakMap<Runtime<any, any>, WrappedHandlerRuntimeState>
+  }
+}
+
+type AnyWrappedHandler = WrappedHandler<(...args: any[]) => HandlerReturn>
+
+type AnyHandler = (...args: any[]) => HandlerReturn
+
+type AnyHandlerValue = AnyHandler | AnyWrappedHandler
+
+type HandlerValue<
+  Name extends string,
+  Actions extends Action<string, unknown>,
+  Data,
+  TimeoutId extends string,
+  IntervalId extends string,
+  A extends WithScheduledActions<Actions, TimeoutId, IntervalId>,
+> =
+  | Handler<Name, Actions, Data, TimeoutId, IntervalId, A>
+  | WrappedHandler<
+      Handler<Name, Actions, Data, TimeoutId, IntervalId, A> &
+        ((...args: any[]) => HandlerReturn)
+    >
+
 type StateHandlers<
   Actions extends Action<string, unknown>,
   Data,
   TimeoutId extends string,
   IntervalId extends string,
 > = {
-  [A in Actions as ActionName<A>]: Handler<
+  [A in Actions as ActionName<A>]: HandlerValue<
     string,
     Actions,
     Data,
@@ -120,7 +178,10 @@ type StateHandlers<
     A
   >
 } & {
-  [A in ScheduledActions<TimeoutId, IntervalId> as ActionName<A>]?: Handler<
+  [A in ScheduledActions<
+    TimeoutId,
+    IntervalId
+  > as ActionName<A>]?: HandlerValue<
     string,
     Actions,
     Data,
@@ -146,12 +207,24 @@ type ScheduledBranch<
   utils: StateUtils<string, any, any, TimeoutId, IntervalId>,
 ) => HandlerReturn
 
+type ScheduledBranchValue<
+  Id extends string,
+  TimeoutId extends string,
+  IntervalId extends string,
+  K extends Id,
+> =
+  | ScheduledBranch<Id, TimeoutId, IntervalId, K>
+  | WrappedHandler<
+      ScheduledBranch<Id, TimeoutId, IntervalId, K> &
+        ((...args: any[]) => HandlerReturn)
+    >
+
 type ScheduledBranchMap<
   Id extends string,
   TimeoutId extends string,
   IntervalId extends string,
 > = {
-  [K in Id]: ScheduledBranch<Id, TimeoutId, IntervalId, K>
+  [K in Id]: ScheduledBranchValue<Id, TimeoutId, IntervalId, K>
 }
 
 type ScheduledHandler<
@@ -166,6 +239,271 @@ type ScheduledHandler<
 
 type SyncHandlerReturn = void | StateReturn | Array<StateReturn>
 export type HandlerReturn = SyncHandlerReturn | Promise<SyncHandlerReturn>
+
+let wrappedHandlerCounter = 1
+
+const normalizeDebounceOptions = (
+  options: number | DebounceHandlerOptions,
+): NormalizedWrappedHandlerOptions => ({
+  delay: typeof options === "number" ? options : options.delay,
+  leading: false,
+  trailing: true,
+})
+
+const normalizeThrottleOptions = (
+  options: number | ThrottleHandlerOptions,
+): NormalizedWrappedHandlerOptions => {
+  if (typeof options === "number") {
+    return {
+      delay: options,
+      leading: true,
+      trailing: true,
+    }
+  }
+
+  return {
+    delay: options.delay,
+    leading: options.leading ?? true,
+    trailing: options.trailing ?? true,
+  }
+}
+
+const createWrappedHandler = <T extends (...args: any[]) => HandlerReturn>(
+  handler: T,
+  mode: WrappedHandlerMode,
+  options: NormalizedWrappedHandlerOptions,
+): WrappedHandler<T> => ({
+  kind: "wrapped-handler",
+  handler,
+  mode,
+  options,
+  [wrappedHandlerSymbol]: {
+    id: wrappedHandlerCounter++,
+    runtimeStates: new WeakMap<Runtime<any, any>, WrappedHandlerRuntimeState>(),
+  },
+})
+
+export const debounce = <T extends (...args: any[]) => HandlerReturn>(
+  handler: T,
+  options: number | DebounceHandlerOptions,
+): WrappedHandler<T> =>
+  createWrappedHandler(handler, "debounce", normalizeDebounceOptions(options))
+
+export const throttle = <T extends (...args: any[]) => HandlerReturn>(
+  handler: T,
+  options: number | ThrottleHandlerOptions,
+): WrappedHandler<T> =>
+  createWrappedHandler(handler, "throttle", normalizeThrottleOptions(options))
+
+const isWrappedHandler = (
+  handler: AnyHandlerValue,
+): handler is AnyWrappedHandler =>
+  typeof handler === "object" &&
+  handler !== null &&
+  "kind" in handler &&
+  handler.kind === "wrapped-handler"
+
+type ScheduledMatcherMetadata = {
+  wrappedHandlers: AnyWrappedHandler[]
+}
+
+type ScheduledMatcher<
+  Id extends string,
+  TimeoutId extends string,
+  IntervalId extends string,
+> = ScheduledHandler<Id, TimeoutId, IntervalId> & {
+  [scheduledMatcherSymbol]?: ScheduledMatcherMetadata
+}
+
+type AnyScheduledMatcher = ScheduledMatcher<string, string, string>
+
+const isScheduledMatcher = (
+  handler: AnyHandlerValue,
+): handler is ScheduledMatcher<string, string, string> =>
+  typeof handler === "function" && scheduledMatcherSymbol in handler
+
+const hasWrappedTimerPayload = (
+  payload: unknown,
+): payload is { timeoutId: string } =>
+  typeof payload === "object" && payload !== null && "timeoutId" in payload
+
+const toStateReturns = (result: SyncHandlerReturn): StateReturn[] => {
+  if (!result) {
+    return []
+  }
+
+  return Array.isArray(result) ? result : [result]
+}
+
+const prependStateReturns = (
+  result: HandlerReturn,
+  ...prefix: StateReturn[]
+): HandlerReturn =>
+  result instanceof Promise
+    ? result.then(resolved => [...prefix, ...toStateReturns(resolved)])
+    : [...prefix, ...toStateReturns(result)]
+
+const getWrappedHandlerTimeoutId = (handler: AnyWrappedHandler) =>
+  `__fizz_wrapped_handler__${handler[wrappedHandlerSymbol].id}`
+
+const getWrappedHandlerRuntimeState = (
+  handler: AnyWrappedHandler,
+  runtime: Runtime<any, any>,
+): WrappedHandlerRuntimeState => {
+  const current = handler[wrappedHandlerSymbol].runtimeStates.get(runtime)
+
+  if (current) {
+    return current
+  }
+
+  const created: WrappedHandlerRuntimeState = {
+    active: false,
+    hasPendingPayload: false,
+    pendingPayload: undefined,
+  }
+
+  handler[wrappedHandlerSymbol].runtimeStates.set(runtime, created)
+
+  return created
+}
+
+const resetWrappedHandlerRuntimeState = (
+  handler: AnyWrappedHandler,
+  runtime: Runtime<any, any>,
+) => {
+  handler[wrappedHandlerSymbol].runtimeStates.delete(runtime)
+}
+
+const collectWrappedHandlers = (
+  handlers: Record<string, AnyHandlerValue>,
+): AnyWrappedHandler[] =>
+  Object.values(handlers).reduce<AnyWrappedHandler[]>((wrapped, handler) => {
+    if (isWrappedHandler(handler)) {
+      return [...wrapped, handler]
+    }
+
+    if (typeof handler === "function" && isScheduledMatcher(handler)) {
+      const scheduledMatcher = handler as AnyScheduledMatcher
+
+      return [
+        ...wrapped,
+        ...(scheduledMatcher[scheduledMatcherSymbol]?.wrappedHandlers ?? []),
+      ]
+    }
+
+    return wrapped
+  }, [])
+
+const runWrappedHandler = (
+  handler: AnyWrappedHandler,
+  data: unknown,
+  payload: unknown,
+  utils: StateUtils<string, Action<string, unknown>, unknown, string, string>,
+  runtime?: Runtime<any, any>,
+): HandlerReturn => {
+  if (!runtime) {
+    return handler.handler(data, payload, utils)
+  }
+
+  const runtimeState = getWrappedHandlerRuntimeState(handler, runtime)
+  const timerId = getWrappedHandlerTimeoutId(handler)
+
+  if (handler.mode === "debounce") {
+    runtimeState.active = true
+    runtimeState.hasPendingPayload = true
+    runtimeState.pendingPayload = payload
+
+    return restartTimerEffect(timerId, handler.options.delay)
+  }
+
+  if (!runtimeState.active) {
+    runtimeState.active = true
+
+    if (handler.options.leading) {
+      runtimeState.hasPendingPayload = false
+      runtimeState.pendingPayload = undefined
+
+      return prependStateReturns(
+        handler.handler(data, payload, utils),
+        startTimerEffect(timerId, handler.options.delay),
+      )
+    }
+
+    if (handler.options.trailing) {
+      runtimeState.hasPendingPayload = true
+      runtimeState.pendingPayload = payload
+    }
+
+    return startTimerEffect(timerId, handler.options.delay)
+  }
+
+  if (handler.options.trailing) {
+    runtimeState.hasPendingPayload = true
+    runtimeState.pendingPayload = payload
+  }
+
+  return undefined
+}
+
+const runWrappedHandlerTimerAction = (
+  handler: AnyWrappedHandler,
+  actionType: string,
+  data: unknown,
+  utils: StateUtils<string, Action<string, unknown>, unknown, string, string>,
+  runtime?: Runtime<any, any>,
+): HandlerReturn => {
+  if (actionType !== "TimerCompleted" || !runtime) {
+    return undefined
+  }
+
+  const runtimeState = getWrappedHandlerRuntimeState(handler, runtime)
+
+  if (handler.mode === "debounce") {
+    if (!runtimeState.hasPendingPayload) {
+      runtimeState.active = false
+      return undefined
+    }
+
+    runtimeState.active = false
+    runtimeState.hasPendingPayload = false
+
+    return handler.handler(data, runtimeState.pendingPayload, utils)
+  }
+
+  if (!runtimeState.hasPendingPayload) {
+    runtimeState.active = false
+    runtimeState.pendingPayload = undefined
+    return undefined
+  }
+
+  const pendingPayload = runtimeState.pendingPayload
+
+  runtimeState.active = true
+  runtimeState.hasPendingPayload = false
+  runtimeState.pendingPayload = undefined
+
+  return prependStateReturns(
+    handler.handler(data, pendingPayload, utils),
+    startTimerEffect(
+      getWrappedHandlerTimeoutId(handler),
+      handler.options.delay,
+    ),
+  )
+}
+
+const runHandlerValue = (
+  handler: AnyHandlerValue,
+  data: unknown,
+  payload: unknown,
+  utils: StateUtils<string, Action<string, unknown>, unknown, string, string>,
+  runtime?: Runtime<any, any>,
+): HandlerReturn => {
+  if (isWrappedHandler(handler)) {
+    return runWrappedHandler(handler, data, payload, utils, runtime)
+  }
+
+  return handler(data, payload, utils, runtime)
+}
 
 /**
  * State handlers are objects which contain a serializable list of bound
@@ -266,6 +604,7 @@ export const stateWrapper = <
       startFrame: () => Effect
       cancelFrame: () => Effect
     },
+    runtime?: Runtime<any, any>,
   ) => HandlerReturn,
 ): BoundStateFn<Name, A, Data> => {
   const fn = (data: Data) => ({
@@ -283,26 +622,31 @@ export const stateWrapper = <
           : undefined
 
       // Run state executor
-      return executor(action, data, {
-        update,
-        trigger: (a: A) => {
-          void runtime?.run(a)
+      return executor(
+        action,
+        data,
+        {
+          update,
+          trigger: (a: A) => {
+            void runtime?.run(a)
+          },
+          startTimer: (timeoutId: TimeoutId, delay: number) =>
+            startTimerEffect(timeoutId, delay),
+          cancelTimer: (timeoutId: TimeoutId) => cancelTimerEffect(timeoutId),
+          restartTimer: (timeoutId: TimeoutId, delay: number) =>
+            restartTimerEffect(timeoutId, delay),
+          startInterval: (intervalId: IntervalId, delay: number) =>
+            startIntervalEffect(intervalId, delay),
+          cancelInterval: (intervalId: IntervalId) =>
+            cancelIntervalEffect(intervalId),
+          restartInterval: (intervalId: IntervalId, delay: number) =>
+            restartIntervalEffect(intervalId, delay),
+          startFrame: () => startFrameEffect(),
+          cancelFrame: () => cancelFrameEffect(),
+          ...(parentRuntime ? { parentRuntime } : {}),
         },
-        startTimer: (timeoutId: TimeoutId, delay: number) =>
-          startTimerEffect(timeoutId, delay),
-        cancelTimer: (timeoutId: TimeoutId) => cancelTimerEffect(timeoutId),
-        restartTimer: (timeoutId: TimeoutId, delay: number) =>
-          restartTimerEffect(timeoutId, delay),
-        startInterval: (intervalId: IntervalId, delay: number) =>
-          startIntervalEffect(intervalId, delay),
-        cancelInterval: (intervalId: IntervalId) =>
-          cancelIntervalEffect(intervalId),
-        restartInterval: (intervalId: IntervalId, delay: number) =>
-          restartIntervalEffect(intervalId, delay),
-        startFrame: () => startFrameEffect(),
-        cancelFrame: () => cancelFrameEffect(),
-        ...(parentRuntime ? { parentRuntime } : {}),
-      })
+        runtime,
+      )
     },
 
     state: fn,
@@ -333,23 +677,58 @@ const matchAction =
     action: WithScheduledActions<Actions, TimeoutId, IntervalId>,
     data: Data,
     utils: StateUtils<string, Actions, Data, TimeoutId, IntervalId>,
+    runtime?: Runtime<any, any>,
   ): HandlerReturn => {
+    const wrappedHandlers = collectWrappedHandlers(
+      handlers as Record<string, AnyHandlerValue>,
+    )
+    const wrappedTimerPayload = hasWrappedTimerPayload(action.payload)
+      ? action.payload
+      : undefined
+
+    if (runtime && (action.type === "Enter" || action.type === "BeforeEnter")) {
+      wrappedHandlers.forEach(handler => {
+        resetWrappedHandlerRuntimeState(handler, runtime)
+      })
+    }
+
+    if (
+      (action.type === "TimerStarted" ||
+        action.type === "TimerCancelled" ||
+        action.type === "TimerCompleted") &&
+      wrappedTimerPayload
+    ) {
+      const wrappedHandler = wrappedHandlers.find(
+        handler =>
+          getWrappedHandlerTimeoutId(handler) === wrappedTimerPayload.timeoutId,
+      )
+
+      if (wrappedHandler) {
+        return runWrappedHandlerTimerAction(
+          wrappedHandler,
+          action.type,
+          data,
+          utils as never,
+          runtime,
+        )
+      }
+    }
+
     const handler = (handlers as never)[action.type] as
-      | Handler<
-          string,
-          Actions,
-          Data,
-          TimeoutId,
-          IntervalId,
-          WithScheduledActions<Actions, TimeoutId, IntervalId>
-        >
+      | AnyHandlerValue
       | undefined
 
     if (!handler) {
       return undefined
     }
 
-    return handler(data, action.payload as never, utils)
+    return runHandlerValue(
+      handler,
+      data,
+      action.payload as never,
+      utils as never,
+      runtime,
+    )
   }
 
 let counter = 1
@@ -509,16 +888,31 @@ const createScheduledMatcher = <
   IntervalId extends string,
 >(
   handlers: ScheduledBranchMap<Id, TimeoutId, IntervalId>,
-): ScheduledHandler<Id, TimeoutId, IntervalId> => {
-  return (data, payload, utils) => {
-    const handler = handlers[payload.timeoutId] as ScheduledHandler<
-      Id,
+): ScheduledMatcher<Id, TimeoutId, IntervalId> => {
+  const matcher = ((
+    data: unknown,
+    payload: ScheduledPayload<Id>,
+    utils: StateUtils<
+      string,
+      Action<string, unknown>,
+      unknown,
       TimeoutId,
       IntervalId
-    >
+    >,
+    runtime?: Runtime<any, any>,
+  ) => {
+    const handler = handlers[payload.timeoutId] as AnyHandlerValue
 
-    return handler(data, payload, utils)
+    return runHandlerValue(handler, data, payload, utils as never, runtime)
+  }) as ScheduledMatcher<Id, TimeoutId, IntervalId>
+
+  matcher[scheduledMatcherSymbol] = {
+    wrappedHandlers: collectWrappedHandlers(
+      handlers as Record<string, AnyHandlerValue>,
+    ),
   }
+
+  return matcher
 }
 
 export const whichTimeout = <TimeoutId extends string>(
