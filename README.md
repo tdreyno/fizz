@@ -20,12 +20,4 @@ See [Testing](https://fizz.tdreyno.com/testing) for the current recommended Fizz
 
 See [Custom Effects](https://fizz.tdreyno.com/custom-effects) for the low-level `effect(...)` API and [Complex Actions](https://fizz.tdreyno.com/complex-actions) for larger handler patterns.
 
-### AI Skills
-
-Fizz also ships an installable agent skill for `@tdreyno/fizz` and `@tdreyno/fizz-react` via [skills.sh](https://skills.sh/).
-
-```bash
-npx skills add tdreyno/fizz
-```
-
 See [AI Skills](https://fizz.tdreyno.com/ai-skills) for scope, usage, and what the skill teaches agents.
