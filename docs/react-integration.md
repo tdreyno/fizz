@@ -129,11 +129,10 @@ const CounterMachine = createMachine({
     increment,
     reset,
   },
-  name: "CounterMachine",
   states: {
     Counter,
   },
-})
+}, "CounterMachine")
 
 const { Provider: CounterProvider, useMachineContext: useCounterMachine } =
   createMachineContext(CounterMachine)
@@ -253,11 +252,10 @@ const TimeoutMachine = createMachine({
     arm,
     cancel,
   },
-  name: "TimeoutMachine",
   states: {
     TimeoutDemo,
   },
-})
+}, "TimeoutMachine")
 
 export const useTimeoutMachine = () => {
   return useMachine(

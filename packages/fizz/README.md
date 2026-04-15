@@ -258,7 +258,13 @@ If you are using Svelte, you can create a machine provider and access the curren
 ```typescript
 import { createMachine } from "@tdreyno/fizz-svelte"
 
-const machine = createMachine(states, actions, initialState)
+const machine = createMachine(
+  {
+    actions,
+    states,
+  },
+  "AppMachine",
+)
 
 $: {
   console.log($machine.currentState)

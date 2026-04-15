@@ -149,13 +149,15 @@ const MachineActions = {
   reset,
 }
 
-export const TimeoutMachine = createMachine({
-  actions: MachineActions,
-  name: "TimeoutMachine",
-  states: {
-    TimeoutDemo,
+export const TimeoutMachine = createMachine(
+  {
+    actions: MachineActions,
+    states: {
+      TimeoutDemo,
+    },
   },
-})
+  "TimeoutMachine",
+)
 
 export default TimeoutMachine
 

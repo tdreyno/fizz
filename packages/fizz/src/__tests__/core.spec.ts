@@ -1,5 +1,6 @@
 import type { Enter } from "../action"
 import { createInitialContext } from "../context"
+import { createMachine } from "../createMachine"
 import { noop } from "../effect"
 import { isState, state } from "../state"
 
@@ -21,6 +22,17 @@ describe("Fizz core", () => {
 
       expect(isState(result, Entry)).toBeTruthy()
       expect(result.isNamed("Entry")).toBeTruthy()
+    })
+
+    test("should allow an optional machine name argument", () => {
+      const machine = createMachine(
+        {
+          states: { Entry },
+        },
+        "EntryMachine",
+      )
+
+      expect(machine.name).toBe("EntryMachine")
     })
   })
 

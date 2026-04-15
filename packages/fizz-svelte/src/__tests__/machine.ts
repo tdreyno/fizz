@@ -30,12 +30,14 @@ const Initializing = state<Enter | World, Data>(
 export const Actions = { world }
 export const OutputActions = { hello }
 export const States = { Initializing, Ready }
-export const Machine = createMachine({
-  actions: Actions,
-  name: "SvelteTestMachine",
-  outputActions: OutputActions,
-  states: States,
-})
+export const Machine = createMachine(
+  {
+    actions: Actions,
+    outputActions: OutputActions,
+    states: States,
+  },
+  "SvelteTestMachine",
+)
 
 export const machine = createStore(
   Machine,

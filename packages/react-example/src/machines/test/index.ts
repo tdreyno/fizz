@@ -3,11 +3,13 @@ import { useMachine } from "@tdreyno/fizz-react"
 import * as Actions from "./actions"
 import States from "./states"
 
-const TestMachine = createMachine({
-  actions: Actions,
-  name: "TestMachine",
-  states: States,
-})
+const TestMachine = createMachine(
+  {
+    actions: Actions,
+    states: States,
+  },
+  "TestMachine",
+)
 
 export default TestMachine
 

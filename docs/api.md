@@ -13,15 +13,17 @@ Dedicated guides already cover the deeper scheduling and testing APIs:
 
 ### `createMachine`
 
-Create an explicit machine root that groups your top-level states, actions, and optional output actions in one value.
+Create an explicit machine root that groups your top-level states, actions, and optional output actions in one value. Pass an optional second `name` argument when you want a stable machine name for CLI discovery, logging, or debugging.
 
 ```ts
-const EditorMachine = createMachine({
-  actions: { saveDraft, startEditing },
-  name: "EditorMachine",
-  outputActions: { draftSaved },
-  states: { Editing, Idle },
-})
+const EditorMachine = createMachine(
+  {
+    actions: { saveDraft, startEditing },
+    outputActions: { draftSaved },
+    states: { Editing, Idle },
+  },
+  "EditorMachine",
+)
 ```
 
 Use `createMachine(...)` when you want one stable root for integrations, examples, or CLI discovery. The CLI only discovers default-exported machine roots created this way.

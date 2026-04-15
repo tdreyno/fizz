@@ -144,17 +144,19 @@ The nested child states stay plain `state(...)` values. Once the parent machine 
 ```typescript
 import { createMachine } from "@tdreyno/fizz"
 
-const EntryMachine = createMachine({
-  actions: {
-    completedForm,
-    setName,
+const EntryMachine = createMachine(
+  {
+    actions: {
+      completedForm,
+      setName,
+    },
+    states: {
+      Complete,
+      Entry,
+    },
   },
-  name: "EntryMachine",
-  states: {
-    Complete,
-    Entry,
-  },
-})
+  "EntryMachine",
+)
 
 export default EntryMachine
 ```

@@ -15,4 +15,8 @@ export const createMachine = <
   OutputActions = Record<string, never>,
 >(
   definition: MachineDefinition<States, Actions, OutputActions>,
-): MachineDefinition<States, Actions, OutputActions> => definition
+  name?: string,
+): MachineDefinition<States, Actions, OutputActions> => ({
+  ...definition,
+  name: name ?? definition.name,
+})

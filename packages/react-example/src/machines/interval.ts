@@ -137,13 +137,15 @@ const MachineActions = {
   resume,
 }
 
-export const IntervalMachine = createMachine({
-  actions: MachineActions,
-  name: "IntervalMachine",
-  states: {
-    IntervalDemo,
+export const IntervalMachine = createMachine(
+  {
+    actions: MachineActions,
+    states: {
+      IntervalDemo,
+    },
   },
-})
+  "IntervalMachine",
+)
 
 export default IntervalMachine
 

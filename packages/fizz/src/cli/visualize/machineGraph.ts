@@ -228,6 +228,15 @@ const getMachineStateIndexPath = (
 }
 
 const getMachineName = (sourceFile: SourceFile): string => {
+  const callExpression = getDefaultCreateMachineCall(sourceFile)
+  const [, nameArgument] = callExpression?.getArguments() ?? []
+
+  const explicitName = getStringLiteralValue(nameArgument)
+
+  if (explicitName) {
+    return explicitName
+  }
+
   const definitionObject = getMachineDefinitionObject(sourceFile)
 
   if (!definitionObject || !Node.isObjectLiteralExpression(definitionObject)) {

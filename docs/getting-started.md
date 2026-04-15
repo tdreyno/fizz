@@ -71,11 +71,13 @@ const Editing = state<Enter | SaveDraft, EditorData>(
   { name: "Editing" },
 )
 
-const EditorMachine = createMachine({
-  actions: { saveDraft, startEditing },
-  name: "EditorMachine",
-  states: { Editing, Idle },
-})
+const EditorMachine = createMachine(
+  {
+    actions: { saveDraft, startEditing },
+    states: { Editing, Idle },
+  },
+  "EditorMachine",
+)
 
 const context = createInitialContext([
   EditorMachine.states.Idle({ savedDrafts: [] }),
