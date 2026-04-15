@@ -2,6 +2,7 @@
 
 - [Introduction](README.md)
 - [Getting Started](docs/getting-started.md)
+- [CLI](docs/cli.md)
 - [React Integration](docs/react-integration.md)
 - [Architecture](docs/architecture.md)
 - [Custom Effects](docs/custom-effects.md)

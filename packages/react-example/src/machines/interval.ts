@@ -1,6 +1,7 @@
 import {
   type ActionCreatorType,
   action,
+  createMachine,
   type Enter,
   state,
 } from "@tdreyno/fizz"
@@ -129,17 +130,26 @@ const IntervalDemo = state<Actions, IntervalDemoData, IntervalId>(
   { name: "IntervalDemo" },
 )
 
+const MachineActions = {
+  faster,
+  pause,
+  reset,
+  resume,
+}
+
+export const IntervalMachine = createMachine({
+  actions: MachineActions,
+  name: "IntervalMachine",
+  states: {
+    IntervalDemo,
+  },
+})
+
+export default IntervalMachine
+
 export const useIntervalMachine = () => {
   return useMachine(
-    {
-      IntervalDemo,
-    },
-    {
-      faster,
-      pause,
-      reset,
-      resume,
-    },
-    IntervalDemo(initialData()),
+    IntervalMachine,
+    IntervalMachine.states.IntervalDemo(initialData()),
   )
 }

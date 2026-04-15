@@ -1,5 +1,5 @@
 import type { ActionCreatorType, Enter } from "@tdreyno/fizz"
-import { action, output, state } from "@tdreyno/fizz"
+import { action, createMachine, output, state } from "@tdreyno/fizz"
 
 type Data = {
   didWorld: boolean
@@ -28,3 +28,9 @@ const Initializing = state<Enter | World, Data>(
 export const Actions = { world }
 export const OutputActions = { hello }
 export const States = { Initializing, Ready }
+export const Machine = createMachine({
+  actions: Actions,
+  name: "ReactTestMachine",
+  outputActions: OutputActions,
+  states: States,
+})

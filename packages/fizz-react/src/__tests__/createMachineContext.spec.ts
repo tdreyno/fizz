@@ -13,15 +13,11 @@ import {
 import { createElement } from "react"
 
 import { createMachineContext } from "../createMachineContext"
-import { Actions, OutputActions, States } from "./machine"
+import { Machine, States } from "./machine"
 
 describe("createMachineContext", () => {
   test("shares a runtime across child consumers", async () => {
-    const { Provider, useMachineContext } = createMachineContext(
-      States,
-      Actions,
-      OutputActions,
-    )
+    const { Provider, useMachineContext } = createMachineContext(Machine)
 
     const DispatchWorld = () => {
       const machine = useMachineContext()
@@ -85,11 +81,7 @@ describe("createMachineContext", () => {
   })
 
   test("throws when consumed outside the matching provider", () => {
-    const { useMachineContext } = createMachineContext(
-      States,
-      Actions,
-      OutputActions,
-    )
+    const { useMachineContext } = createMachineContext(Machine)
 
     expect(() => renderHook(() => useMachineContext())).toThrow(
       "useMachineContext must be used within the matching machine Provider",

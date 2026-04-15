@@ -2,6 +2,7 @@ import { defineConfig } from "tsdown"
 
 export default defineConfig({
   entry: {
+    cli: "src/cli.ts",
     index: "src/index.ts",
     test: "src/test.ts",
   },
@@ -12,4 +13,12 @@ export default defineConfig({
   dts: true,
   sourcemap: true,
   unbundle: true,
+  deps: {
+    neverBundle: [
+      "node:fs/promises",
+      "node:readline/promises",
+      "node:path",
+      "node:process",
+    ],
+  },
 })

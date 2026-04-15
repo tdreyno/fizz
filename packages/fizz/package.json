@@ -15,6 +15,9 @@
     "CHANGELOG.md",
     "LICENSE"
   ],
+  "bin": {
+    "fizz": "./dist/cli.cjs"
+  },
   "license": "Hippocratic-2.1",
   "engines": {
     "node": ">= 20"
@@ -45,7 +48,9 @@
     "dev": "npm run build -- --watch",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
     "test:ci": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand",
-    "test:npm": "bash bin/test-npm-version"
+    "test:npm": "bash bin/test-npm-version",
+    "visualize:loading-machine": "npm run build && node ./dist/cli.cjs visualize --source ./src/loadingMachine/index.ts --format text --format svg --output-dir ./src/loadingMachine",
+    "visualize:loading-machine:check": "npm run visualize:loading-machine && git diff --exit-code -- ./src/loadingMachine/visualization.txt ./src/loadingMachine/visualization.svg"
   },
   "devDependencies": {
     "@repo/eslint-config": "*",
@@ -62,5 +67,8 @@
     "tsdown": "^0.21.0",
     "typescript": "^5.9.3",
     "zod": "^4.3.6"
+  },
+  "dependencies": {
+    "ts-morph": "^28.0.0"
   }
 }

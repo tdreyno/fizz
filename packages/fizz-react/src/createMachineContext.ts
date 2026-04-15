@@ -1,3 +1,4 @@
+import type { MachineDefinition } from "@tdreyno/fizz"
 import type { ReactNode } from "react"
 import { createContext, createElement, useContext } from "react"
 
@@ -20,9 +21,7 @@ export const createMachineContext = <
   AM extends ActionMap,
   OAM extends ActionMap,
 >(
-  _states: SM,
-  actions: AM,
-  outputActions: OAM = {} as OAM,
+  machine: MachineDefinition<SM, AM, OAM>,
 ) => {
   const MachineContext = createContext<ContextValue<SM, AM, OAM> | undefined>(
     undefined,
@@ -34,9 +33,9 @@ export const createMachineContext = <
     options = {},
   }: MachineProviderProps<SM>) => {
     const value = useMachineValue<SM, AM, OAM>(
-      actions,
+      (machine.actions ?? {}) as AM,
       initialState,
-      outputActions,
+      (machine.outputActions ?? {}) as OAM,
       options,
     )
 

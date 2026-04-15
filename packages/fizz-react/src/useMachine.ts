@@ -1,3 +1,4 @@
+import type { MachineDefinition } from "@tdreyno/fizz"
 import type {
   ActionMap,
   AnyBoundState,
@@ -11,10 +12,13 @@ export const useMachine = <
   AM extends ActionMap,
   OAM extends ActionMap,
 >(
-  _states: SM,
-  actions: AM,
+  machine: MachineDefinition<SM, AM, OAM>,
   initialState: ReturnType<SM[keyof SM]>,
-  outputActions: OAM = {} as OAM,
   options: Partial<Options> = {},
 ): ContextValue<SM, AM, OAM> =>
-  useMachineValue<SM, AM, OAM>(actions, initialState, outputActions, options)
+  useMachineValue<SM, AM, OAM>(
+    (machine.actions ?? {}) as AM,
+    initialState,
+    (machine.outputActions ?? {}) as OAM,
+    options,
+  )

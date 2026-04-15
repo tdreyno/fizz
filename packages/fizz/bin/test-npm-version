@@ -1,3 +1,20 @@
 #! /bin/bash
 
-npm run build && npm link && cd test-npm-version && npm install && npm link "@tdreyno/fizz" && npm run build
+set -euo pipefail
+
+package_root="$(cd "$(dirname "$0")/.." && pwd)"
+fixture_dir="$package_root/test-npm-version"
+
+cleanup() {
+	rm -rf "$fixture_dir/node_modules"
+}
+
+trap cleanup EXIT
+
+cd "$package_root"
+npm run build
+npm link
+cd "$fixture_dir"
+npm install
+npm link "@tdreyno/fizz"
+npm run build

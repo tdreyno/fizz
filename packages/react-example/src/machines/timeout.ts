@@ -1,6 +1,7 @@
 import {
   type ActionCreatorType,
   action,
+  createMachine,
   type Enter,
   state,
 } from "@tdreyno/fizz"
@@ -141,17 +142,26 @@ const TimeoutDemo = state<Actions, TimeoutDemoData, TimeoutId>(
   { name: "TimeoutDemo" },
 )
 
+const MachineActions = {
+  arm,
+  cancel,
+  faster,
+  reset,
+}
+
+export const TimeoutMachine = createMachine({
+  actions: MachineActions,
+  name: "TimeoutMachine",
+  states: {
+    TimeoutDemo,
+  },
+})
+
+export default TimeoutMachine
+
 export const useTimeoutMachine = () => {
   return useMachine(
-    {
-      TimeoutDemo,
-    },
-    {
-      arm,
-      cancel,
-      faster,
-      reset,
-    },
-    TimeoutDemo(initialData()),
+    TimeoutMachine,
+    TimeoutMachine.states.TimeoutDemo(initialData()),
   )
 }

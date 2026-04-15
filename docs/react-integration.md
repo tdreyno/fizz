@@ -20,16 +20,16 @@ npm install --save @tdreyno/fizz @tdreyno/fizz-react
 The isolated hook shape is:
 
 ```typescript
-useMachine(states, actions, initialState, outputActions?, options?)
+useMachine(machine, initialState, options?)
 ```
 
 The parameters are:
 
-- `states`: an object of bound Fizz states, usually the same state object your app already uses
-- `actions`: the internal action creators the runtime should accept
+- `machine`: the result of `createMachine(...)`, which groups the top-level states, actions, and optional output actions
 - `initialState`: the bound starting state, for example `Editing(initialData())`
-- `outputActions`: optional action creators the machine may emit through `output(...)`
 - `options`: optional runtime setup such as history size and logging
+
+The hook reads `machine.actions` and `machine.outputActions` from that root value, so your component only needs to provide the machine and the initial bound state.
 
 Under the hood, the hook:
 
@@ -45,7 +45,7 @@ Component / hook / runtime flow
 React component
   |
   v
-useMachine(states, actions, initialState, ...)
+useMachine(machine, initialState, ...)
   |
   +--> createInitialContext(...)
   |
@@ -68,11 +68,7 @@ When multiple components should observe and dispatch against the same machine in
 The shared API shape is:
 
 ```typescript
-const { Provider, useMachineContext } = createMachineContext(
-  states,
-  actions,
-  outputActions?,
-)
+const { Provider, useMachineContext } = createMachineContext(machine)
 ```
 
 The Provider accepts:
@@ -94,6 +90,7 @@ The consumer hook returns the same shape as `useMachine(...)`:
 import {
   type ActionCreatorType,
   action,
+  createMachine,
   type Enter,
   state,
 } from "@tdreyno/fizz"
@@ -127,16 +124,19 @@ const Counter = state<Enter | Increment | Reset, Data>(
   { name: "Counter" },
 )
 
+const CounterMachine = createMachine({
+  actions: {
+    increment,
+    reset,
+  },
+  name: "CounterMachine",
+  states: {
+    Counter,
+  },
+})
+
 const { Provider: CounterProvider, useMachineContext: useCounterMachine } =
-  createMachineContext(
-    {
-      Counter,
-    },
-    {
-      increment,
-      reset,
-    },
-  )
+  createMachineContext(CounterMachine)
 
 const CounterToolbar = () => {
   const machine = useCounterMachine()
@@ -157,7 +157,7 @@ const CounterLabel = () => {
 
 const CounterScreen = () => {
   return (
-    <CounterProvider initialState={Counter({ count: 2 })}>
+    <CounterProvider initialState={CounterMachine.states.Counter({ count: 2 })}>
       <CounterToolbar />
       <CounterLabel />
     </CounterProvider>
@@ -195,6 +195,7 @@ This example mirrors the shape used in the React example app: the machine is def
 import {
   type ActionCreatorType,
   action,
+  createMachine,
   type Enter,
   state,
 } from "@tdreyno/fizz"
@@ -247,16 +248,21 @@ const initialData = (): Data => ({
   status: "idle",
 })
 
+const TimeoutMachine = createMachine({
+  actions: {
+    arm,
+    cancel,
+  },
+  name: "TimeoutMachine",
+  states: {
+    TimeoutDemo,
+  },
+})
+
 export const useTimeoutMachine = () => {
   return useMachine(
-    {
-      TimeoutDemo,
-    },
-    {
-      arm,
-      cancel,
-    },
-    TimeoutDemo(initialData()),
+    TimeoutMachine,
+    TimeoutMachine.states.TimeoutDemo(initialData()),
   )
 }
 
@@ -320,7 +326,7 @@ That pattern is useful when a component needs to coordinate follow-up UI work af
 
 ## Output actions
 
-If your machine returns `output(...)`, pass an `outputActions` object as the fourth `useMachine(...)` argument so the runtime knows that output action surface.
+If your machine returns `output(...)`, define those action creators on `machine.outputActions` when you create the machine root. `useMachine(...)` and `createMachineContext(...)` will pass that output surface through to the runtime automatically.
 
 In more advanced integrations, you can subscribe through `runtime.onOutput(...)` or `runtime.respondToOutput(...)`, but most components should start with `currentState` plus `actions` and only reach for runtime access when they really need it.
 
@@ -338,7 +344,7 @@ In the current implementation:
 - `enableLogging` is used when creating the initial context
 - `restartOnInitialStateChange` exists in the type but is not currently used by the hook implementation
 
-There is one important behavior to keep in mind: the runtime is created once with `useMemo(..., [])`. That means changes to `initialState`, `actions`, `outputActions`, or `options` after mount do not rebuild the runtime automatically.
+There is one important behavior to keep in mind: the runtime is created once with `useMemo(..., [])`. That means changes to `machine`, `initialState`, or `options` after mount do not rebuild the runtime automatically.
 
 ```text
 Lifetime of the hosted runtime

@@ -1,5 +1,5 @@
 import type { ActionCreatorType, Enter } from "@tdreyno/fizz"
-import { action, output, state } from "@tdreyno/fizz"
+import { action, createMachine, output, state } from "@tdreyno/fizz"
 
 import { createStore } from "../createStore.js"
 
@@ -30,10 +30,14 @@ const Initializing = state<Enter | World, Data>(
 export const Actions = { world }
 export const OutputActions = { hello }
 export const States = { Initializing, Ready }
+export const Machine = createMachine({
+  actions: Actions,
+  name: "SvelteTestMachine",
+  outputActions: OutputActions,
+  states: States,
+})
 
 export const machine = createStore(
-  States,
-  Actions,
-  States.Initializing({ didWorld: false }),
-  OutputActions,
+  Machine,
+  Machine.states.Initializing({ didWorld: false }),
 )

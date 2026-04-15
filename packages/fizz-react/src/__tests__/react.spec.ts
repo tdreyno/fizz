@@ -5,17 +5,12 @@
 import { act, renderHook } from "@testing-library/react"
 
 import { useMachine } from "../useMachine"
-import { Actions, OutputActions, States } from "./machine"
+import { Machine, States } from "./machine"
 
 describe("React integration", () => {
   test("inital render", async () => {
     const { result } = renderHook(() =>
-      useMachine(
-        States,
-        Actions,
-        States.Initializing({ didWorld: false }),
-        OutputActions,
-      ),
+      useMachine(Machine, Machine.states.Initializing({ didWorld: false })),
     )
     const typedWorld: () => { asPromise: () => Promise<void> } =
       result.current.actions.world

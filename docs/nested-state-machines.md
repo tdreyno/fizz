@@ -137,6 +137,28 @@ const FormValid = state<Enter, FormData>(
 )
 ```
 
+### Wrap the top-level root
+
+The nested child states stay plain `state(...)` values. Once the parent machine is assembled, wrap the top-level states and actions in `createMachine(...)` so integrations and CLI tools can consume a single root value.
+
+```typescript
+import { createMachine } from "@tdreyno/fizz"
+
+const EntryMachine = createMachine({
+  actions: {
+    completedForm,
+    setName,
+  },
+  name: "EntryMachine",
+  states: {
+    Complete,
+    Entry,
+  },
+})
+
+export default EntryMachine
+```
+
 ### Build the parent state
 
 The parent owns the larger workflow. It forwards only the actions listed in the third argument.

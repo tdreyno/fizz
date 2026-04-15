@@ -46,6 +46,32 @@ Use the harness when a machine test needs any of the following:
 
 See [Testing](../../docs/testing.md) for the full testing guide.
 
+## CLI
+
+Fizz now ships a small `fizz` CLI for machine discovery and checked diagram generation.
+
+```bash
+npx fizz machines --cwd .
+```
+
+`fizz machines` lists machine roots declared with `createMachine(...)`.
+
+```bash
+npx fizz visualize \
+  --cwd . \
+  --source ./src/loadingMachine/index.ts \
+  --format text \
+  --format svg \
+  --output-dir ./src/loadingMachine \
+  --no-interactive
+```
+
+Use `fizz visualize --help` to see all options. When `--machine`, `--source`, or `--format` are omitted, the command can prompt interactively. When all flags are provided, it runs without prompts and writes deterministic artifacts to disk.
+
+Inside this repository, `npm run visualize:loading-machine` regenerates the checked diagrams for `src/loadingMachine`, and `npm run visualize:loading-machine:check` verifies they are current.
+
+See the full guide in [CLI](../../docs/cli.md), which uses the checked LoadingMachine text and SVG artifacts as the reference examples.
+
 ## Let's play pong
 
 This example shows how we would model something like a game of Pong.

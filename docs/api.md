@@ -9,6 +9,23 @@ Dedicated guides already cover the deeper scheduling and testing APIs:
 - [Intervals And Frames](./intervals.md)
 - [Testing](./testing.md)
 
+## Machines
+
+### `createMachine`
+
+Create an explicit machine root that groups your top-level states, actions, and optional output actions in one value.
+
+```ts
+const EditorMachine = createMachine({
+  actions: { saveDraft, startEditing },
+  name: "EditorMachine",
+  outputActions: { draftSaved },
+  states: { Editing, Idle },
+})
+```
+
+Use `createMachine(...)` when you want one stable root for integrations, examples, or CLI discovery. The CLI only discovers default-exported machine roots created this way.
+
 ## Actions
 
 ### `action`

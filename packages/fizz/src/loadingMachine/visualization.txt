@@ -1,0 +1,45 @@
+Fizz Machine Diagram
+Machine: LoadingMachine
+Source: src/loadingMachine/index.ts
+Entry: Initializing
+
+States
+- Initializing
+- Loading
+- Ready
+
+Details
+- Initializing
+  transitions:
+    - StartLoading -> Loading
+  notes:
+    - Enter: dispatches StartLoading
+- Loading
+  transitions:
+    - FinishedLoading -> Ready
+    - Update -> Loading
+- Ready
+  transitions:
+    - Reset -> History (history back)
+    - World -> Ready
+  outputs: Hello
+  notes:
+    - Enter: emits output
+    - Reset: uses goBack
+- History
+  notes:
+    - Synthetic node for goBack transitions
+
+Outputs
+- Hello
+
+State Graph
+[Initializing]
+  StartLoading -> [Loading]
+[Loading]
+  FinishedLoading -> [Ready]
+  Update -> [Loading]
+[Ready]
+  Reset -> [History]
+  World -> [Ready]
+[History]

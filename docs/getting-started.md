@@ -3,6 +3,7 @@
 Fizz is a small TypeScript-first library for modeling workflows as explicit states and actions. The core loop is simple:
 
 - define states with `state(...)`
+- group the top-level states and actions with `createMachine(...)`
 - define events with `action(...)`
 - run the machine through a runtime
 - return transitions, outputs, or effects from handlers
@@ -32,6 +33,7 @@ import {
   ActionCreatorType,
   Enter,
   action,
+  createMachine,
   createInitialContext,
   createRuntime,
   enter,
@@ -69,8 +71,16 @@ const Editing = state<Enter | SaveDraft, EditorData>(
   { name: "Editing" },
 )
 
-const context = createInitialContext([Idle({ savedDrafts: [] })])
-const runtime = createRuntime(context, { saveDraft, startEditing })
+const EditorMachine = createMachine({
+  actions: { saveDraft, startEditing },
+  name: "EditorMachine",
+  states: { Editing, Idle },
+})
+
+const context = createInitialContext([
+  EditorMachine.states.Idle({ savedDrafts: [] }),
+])
+const runtime = createRuntime(context, EditorMachine.actions)
 
 await runtime.run(enter())
 await runtime.run(startEditing())
@@ -82,6 +92,7 @@ console.log(runtime.currentState().data.savedDrafts)
 The important part is not the example itself. It is the shape:
 
 - actions are explicit values with stable names
+- the machine root is an explicit value you can share with hooks, contexts, docs, and CLI tooling
 - state handlers receive `data`, the action payload, and helper utils
 - handlers return the next state work instead of directly mutating the outside world
 
@@ -104,8 +115,10 @@ The runtime is the piece that feeds actions into the current state and applies t
 ```typescript
 import { createInitialContext, createRuntime, enter } from "@tdreyno/fizz"
 
-const context = createInitialContext([Idle({ savedDrafts: [] })])
-const runtime = createRuntime(context, { saveDraft, startEditing })
+const context = createInitialContext([
+  EditorMachine.states.Idle({ savedDrafts: [] }),
+])
+const runtime = createRuntime(context, EditorMachine.actions)
 
 await runtime.run(enter())
 await runtime.run(startEditing())
@@ -123,9 +136,8 @@ If you are using React, `@tdreyno/fizz-react` lets you keep the machine model an
 import { useMachine } from "@tdreyno/fizz-react"
 
 const machine = useMachine(
-  { Idle, Editing },
-  { saveDraft, startEditing },
-  Idle({
+  EditorMachine,
+  EditorMachine.states.Idle({
     savedDrafts: [],
   }),
 )
@@ -133,7 +145,7 @@ const machine = useMachine(
 const currentState = machine.currentState
 ```
 
-Keep the component thin. Let the machine own the workflow logic and let React render the current state.
+Keep the component thin. Let the machine root own the workflow logic and let React render the current state.
 
 See [React Integration](./react-integration.md) for the full `useMachine(...)` hook guide, including bound actions, runtime access, and current implementation caveats.
 

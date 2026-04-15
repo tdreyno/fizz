@@ -1,4 +1,4 @@
-import type { Action, BoundStateFn } from "@tdreyno/fizz"
+import type { Action, BoundStateFn, MachineDefinition } from "@tdreyno/fizz"
 import {
   Context,
   createInitialContext,
@@ -61,13 +61,13 @@ export const createStore = <
   AM extends ActionMap,
   OAM extends ActionMap,
 >(
-  _states: SM,
-  actions: AM,
+  machine: MachineDefinition<SM, AM, OAM>,
   initialState: ReturnType<SM[keyof SM]>,
-  outputActions: OAM = {} as OAM,
   options: Partial<Options> = {},
 ): MachineStore<SM, AM, OAM> => {
   const { maxHistory = 5, enableLogging = false } = options
+  const actions = (machine.actions ?? {}) as AM
+  const outputActions = (machine.outputActions ?? {}) as OAM
 
   const defaultContext = createInitialContext([initialState], {
     maxHistory,
