@@ -17,6 +17,8 @@ type StartAsyncOperationOptions<Resolved> = {
   data: StartAsyncEffectData<Resolved, string>
   isAbortError: (error: unknown, signal: AbortSignal) => boolean
   nextToken: () => number
+  onReject?: (asyncId: string, error: unknown) => void
+  onResolve?: (asyncId: string, value: Resolved) => void
   run: (action: Action<string, unknown>) => Promise<void>
   runAsyncOperation: (
     run: StartAsyncEffectData<Resolved, string>["run"],
@@ -43,6 +45,8 @@ export const startAsyncOperation = <Resolved>({
   data,
   isAbortError,
   nextToken,
+  onReject,
+  onResolve,
   run,
   runAsyncOperation,
 }: StartAsyncOperationOptions<Resolved>): void => {
@@ -64,6 +68,8 @@ export const startAsyncOperation = <Resolved>({
 
       asyncOperations.delete(asyncId)
 
+      onReject?.(asyncId, error)
+
       if (isAbortError(error, controller.signal)) {
         return
       }
@@ -82,6 +88,8 @@ export const startAsyncOperation = <Resolved>({
       }
 
       asyncOperations.delete(asyncId)
+
+      onResolve?.(asyncId, value)
 
       const action = data.handlers.resolve?.(value)
 

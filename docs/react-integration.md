@@ -341,6 +341,7 @@ In the current implementation:
 - `maxHistory` is used when creating the initial context
 - `enableLogging` is used when creating the initial context
 - `restartOnInitialStateChange` exists in the type but is not currently used by the hook implementation
+- runtime `monitor` options are not currently forwarded through the hook setup
 
 There is one important behavior to keep in mind: the runtime is created once with `useMemo(..., [])`. That means changes to `machine`, `initialState`, or `options` after mount do not rebuild the runtime automatically.
 
@@ -370,6 +371,9 @@ The same caveat applies to `createMachineContext(...)`: each mounted Provider cr
 - Render from `currentState` instead of duplicating machine data in component state.
 - Prefer `actions` over reaching into `runtime.run(...)` directly from components.
 - Let the machine coordinate timers, async work, and outputs rather than rebuilding those flows with separate React effects.
+- Use `runtime` for targeted inspection and subscriptions, not as a replacement for the bound `actions` surface.
+
+If you need browser console debugging today, use `runtime.onContextChange(...)` and `runtime.onOutput(...)` from the returned `runtime`, or create the runtime directly when you need the full structured monitor. See [Debugging](./debugging.md).
 
 ## Example app
 
@@ -379,6 +383,7 @@ For a larger reference, see the React example app in [packages/react-example/src
 
 - [Getting Started](./getting-started.md)
 - [Architecture](./architecture.md)
+- [Debugging](./debugging.md)
 - [Complex Actions](./complex-actions.md)
 - [Async](./async.md)
 - [Testing](./testing.md)

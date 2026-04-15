@@ -72,6 +72,7 @@ export { createControlledTimerDriver } from "./runtime/timerDriver.js"
 
 export type RuntimeOptions = {
   asyncDriver?: RuntimeAsyncDriver
+  monitor?: RuntimeMonitor
   timerDriver?: RuntimeTimerDriver
 }
 
@@ -94,7 +95,7 @@ type OutputSubscriber<
 
 type RuntimeQueueValue = RuntimeAction | RuntimeState | Effect<unknown>
 
-type RuntimeCommand =
+export type RuntimeDebugCommand =
   | {
       kind: "action"
       action: RuntimeAction
@@ -108,10 +109,108 @@ type RuntimeCommand =
       effect: Effect<unknown>
     }
 
+export type RuntimeDebugCancellationReason = "cleanup" | "effect" | "restart"
+
+export type RuntimeDebugEvent =
+  | {
+      action: RuntimeAction
+      queueSize: number
+      type: "action-enqueued"
+    }
+  | {
+      command: RuntimeDebugCommand
+      queueSize: number
+      type: "command-started"
+    }
+  | {
+      command: RuntimeDebugCommand
+      generatedCommands: RuntimeDebugCommand[]
+      type: "command-completed"
+    }
+  | {
+      output: RuntimeAction
+      type: "output-emitted"
+    }
+  | {
+      context: Context
+      currentState: RuntimeState
+      previousState: RuntimeState | undefined
+      type: "context-changed"
+    }
+  | {
+      command: RuntimeDebugCommand
+      error: unknown
+      type: "runtime-error"
+    }
+  | {
+      asyncId: string
+      type: "async-started"
+    }
+  | {
+      asyncId: string
+      value: unknown
+      type: "async-resolved"
+    }
+  | {
+      asyncId: string
+      error: unknown
+      type: "async-rejected"
+    }
+  | {
+      asyncId: string
+      reason: RuntimeDebugCancellationReason
+      type: "async-cancelled"
+    }
+  | {
+      delay: number
+      timeoutId: string
+      type: "timer-started"
+    }
+  | {
+      delay: number
+      timeoutId: string
+      type: "timer-completed"
+    }
+  | {
+      delay: number
+      reason: RuntimeDebugCancellationReason
+      timeoutId: string
+      type: "timer-cancelled"
+    }
+  | {
+      delay: number
+      intervalId: string
+      type: "interval-started"
+    }
+  | {
+      delay: number
+      intervalId: string
+      type: "interval-triggered"
+    }
+  | {
+      delay: number
+      intervalId: string
+      reason: RuntimeDebugCancellationReason
+      type: "interval-cancelled"
+    }
+  | {
+      type: "frame-started"
+    }
+  | {
+      timestamp: number
+      type: "frame-triggered"
+    }
+  | {
+      reason: RuntimeDebugCancellationReason
+      type: "frame-cancelled"
+    }
+
+export type RuntimeMonitor = (event: RuntimeDebugEvent) => void
+
 type QueueItem = {
   onComplete: () => void
   onError: (e: unknown) => void
-  item: RuntimeCommand
+  item: RuntimeDebugCommand
 }
 
 export class Runtime<
@@ -121,6 +220,8 @@ export class Runtime<
   readonly #asyncDriver: RuntimeAsyncDriver
   readonly #asyncOperations = new Map<string, ActiveAsync>()
   readonly #contextChangeSubscribers = new Set<ContextChangeSubscriber>()
+  #lastContextState: RuntimeState | undefined
+  readonly #monitor: RuntimeMonitor | undefined
   readonly #outputSubscribers = new Set<OutputSubscriber<OAM>>()
   readonly #validActions: Set<string>
   readonly #timerDriver: RuntimeTimerDriver
@@ -145,6 +246,8 @@ export class Runtime<
       new Set<string>(),
     )
     this.#asyncDriver = options.asyncDriver ?? createDefaultAsyncDriver()
+    this.#lastContextState = context.currentState as RuntimeState | undefined
+    this.#monitor = options.monitor
     this.#timerDriver = options.timerDriver ?? createDefaultTimerDriver()
   }
 
@@ -229,6 +332,12 @@ export class Runtime<
         onError: reject,
         item: this.#toCommand(action),
       })
+
+      this.#emitMonitor({
+        action,
+        queueSize: this.#queue.length,
+        type: "action-enqueued",
+      })
     })
 
     if (!this.#isRunning) {
@@ -252,9 +361,19 @@ export class Runtime<
     const { item, onComplete, onError } = head
 
     this.#validateCurrentState()
+    this.#emitMonitor({
+      command: item,
+      queueSize: this.#queue.length,
+      type: "command-started",
+    })
 
     try {
       const commands = await this.#executeCommand(item)
+      this.#emitMonitor({
+        command: item,
+        generatedCommands: commands,
+        type: "command-completed",
+      })
       const { promise, items } = this.#commandsToQueueItems(commands)
 
       this.#queue = [...items, ...this.#queue]
@@ -265,13 +384,20 @@ export class Runtime<
         void this.#processQueueHead()
       }, 0)
     } catch (e) {
+      this.#emitMonitor({
+        command: item,
+        error: e,
+        type: "runtime-error",
+      })
       onError(e)
       this.#isRunning = false
       this.#queue.length = 0
     }
   }
 
-  async #executeCommand(item: QueueItem["item"]): Promise<RuntimeCommand[]> {
+  async #executeCommand(
+    item: QueueItem["item"],
+  ): Promise<RuntimeDebugCommand[]> {
     if (item.kind === "action") {
       return this.#executeAction(item.action)
     }
@@ -287,7 +413,7 @@ export class Runtime<
     throw new UnknownStateReturnType(item)
   }
 
-  #toCommand(item: RuntimeQueueValue): RuntimeCommand {
+  #toCommand(item: RuntimeQueueValue): RuntimeDebugCommand {
     if (isAction(item)) {
       return this.#actionCommand(item)
     }
@@ -303,54 +429,62 @@ export class Runtime<
     throw new UnknownStateReturnType(item)
   }
 
-  #actionCommand(action: RuntimeAction): RuntimeCommand {
+  #actionCommand(action: RuntimeAction): RuntimeDebugCommand {
     return {
       action,
       kind: "action",
     }
   }
 
-  #stateCommand(state: RuntimeState): RuntimeCommand {
+  #stateCommand(state: RuntimeState): RuntimeDebugCommand {
     return {
       kind: "state",
       state,
     }
   }
 
-  #effectCommand(effectValue: Effect<unknown>): RuntimeCommand {
+  #effectCommand(effectValue: Effect<unknown>): RuntimeDebugCommand {
     return {
       effect: effectValue,
       kind: "effect",
     }
   }
 
-  #handleEffectItem(item: Effect<unknown>): RuntimeCommand[] {
-    return dispatchEffect<RuntimeCommand, ReturnType<OAM[keyof OAM]>>(item, {
-      emitOutput: output => {
-        this.#outputSubscribers.forEach(sub => {
-          void sub(output)
-        })
+  #handleEffectItem(item: Effect<unknown>): RuntimeDebugCommand[] {
+    return dispatchEffect<RuntimeDebugCommand, ReturnType<OAM[keyof OAM]>>(
+      item,
+      {
+        emitOutput: output => {
+          this.#emitMonitor({
+            output,
+            type: "output-emitted",
+          })
+
+          this.#outputSubscribers.forEach(sub => {
+            void sub(output)
+          })
+        },
+        handleCancelAsync: data => this.#handleCancelAsync(data),
+        handleCancelFrame: () => this.#handleCancelFrame(),
+        handleCancelInterval: data => this.#handleCancelInterval(data),
+        handleCancelTimer: data => this.#handleCancelTimer(data),
+        handleGoBack: () => this.#handleGoBack(),
+        handleRestartInterval: data => this.#handleRestartInterval(data),
+        handleRestartTimer: data => this.#handleRestartTimer(data),
+        handleStartAsync: data => this.#handleStartAsync(data),
+        handleStartFrame: () => this.#handleStartFrame(),
+        handleStartInterval: data => this.#handleStartInterval(data),
+        handleStartTimer: data => this.#handleStartTimer(data),
+        runEffect: effectItem => this.#runEffect(effectItem),
       },
-      handleCancelAsync: data => this.#handleCancelAsync(data),
-      handleCancelFrame: () => this.#handleCancelFrame(),
-      handleCancelInterval: data => this.#handleCancelInterval(data),
-      handleCancelTimer: data => this.#handleCancelTimer(data),
-      handleGoBack: () => this.#handleGoBack(),
-      handleRestartInterval: data => this.#handleRestartInterval(data),
-      handleRestartTimer: data => this.#handleRestartTimer(data),
-      handleStartAsync: data => this.#handleStartAsync(data),
-      handleStartFrame: () => this.#handleStartFrame(),
-      handleStartInterval: data => this.#handleStartInterval(data),
-      handleStartTimer: data => this.#handleStartTimer(data),
-      runEffect: effectItem => this.#runEffect(effectItem),
-    })
+    )
   }
 
-  #stateReturnsToCommands(stateReturns: StateReturn[]): RuntimeCommand[] {
+  #stateReturnsToCommands(stateReturns: StateReturn[]): RuntimeDebugCommand[] {
     return stateReturns.map(item => this.#toCommand(item))
   }
 
-  #commandsToQueueItems(commands: RuntimeCommand[]): {
+  #commandsToQueueItems(commands: RuntimeDebugCommand[]): {
     items: QueueItem[]
     promise: Promise<void[]>
   } {
@@ -377,7 +511,22 @@ export class Runtime<
   }
 
   #contextDidChange() {
+    const currentState = this.currentState()
+
+    this.#emitMonitor({
+      context: this.context,
+      currentState,
+      previousState: this.#lastContextState,
+      type: "context-changed",
+    })
+
+    this.#lastContextState = currentState
+
     this.#contextChangeSubscribers.forEach(sub => sub(this.context))
+  }
+
+  #emitMonitor(event: RuntimeDebugEvent) {
+    this.#monitor?.(event)
   }
 
   #validateCurrentState() {
@@ -401,8 +550,21 @@ export class Runtime<
 
   #handleStartAsync<Resolved>(
     data: StartAsyncEffectData<Resolved, string>,
-  ): RuntimeCommand[] {
+  ): RuntimeDebugCommand[] {
     const asyncId = data.asyncId ?? `__fizz_async__${this.#asyncIdCounter++}`
+
+    if (this.#asyncOperations.has(asyncId)) {
+      this.#emitMonitor({
+        asyncId,
+        reason: "restart",
+        type: "async-cancelled",
+      })
+    }
+
+    this.#emitMonitor({
+      asyncId,
+      type: "async-started",
+    })
 
     startAsyncOperation({
       asyncDriver: this.#asyncDriver,
@@ -412,6 +574,20 @@ export class Runtime<
       data,
       isAbortError,
       nextToken: () => this.#asyncCounter++,
+      onReject: (eventAsyncId: string, error: unknown) => {
+        this.#emitMonitor({
+          asyncId: eventAsyncId,
+          error,
+          type: "async-rejected",
+        })
+      },
+      onResolve: (eventAsyncId: string, value: Resolved) => {
+        this.#emitMonitor({
+          asyncId: eventAsyncId,
+          type: "async-resolved",
+          value,
+        })
+      },
       run: action => this.run(action),
       runAsyncOperation: (run, signal) =>
         runAsyncOperation(this.context, run, signal),
@@ -422,12 +598,20 @@ export class Runtime<
 
   #handleCancelAsync<AsyncId extends string>(
     data: CancelAsyncEffectData<AsyncId>,
-  ): RuntimeCommand[] {
+  ): RuntimeDebugCommand[] {
     const cancelled = cancelActiveAsyncOperation({
       asyncDriver: this.#asyncDriver,
       asyncId: data.asyncId,
       asyncOperations: this.#asyncOperations,
     })
+
+    if (cancelled) {
+      this.#emitMonitor({
+        asyncId: data.asyncId,
+        reason: "effect",
+        type: "async-cancelled",
+      })
+    }
 
     return cancelled
       ? [this.#actionCommand(asyncCancelled({ asyncId: data.asyncId }))]
@@ -436,7 +620,18 @@ export class Runtime<
 
   #handleStartTimer<TimeoutId extends string>(
     data: StartTimerEffectData<TimeoutId>,
-  ): RuntimeCommand[] {
+  ): RuntimeDebugCommand[] {
+    const replacedTimer = this.#timers.get(data.timeoutId)
+
+    if (replacedTimer) {
+      this.#emitMonitor({
+        delay: replacedTimer.delay,
+        reason: "restart",
+        timeoutId: data.timeoutId,
+        type: "timer-cancelled",
+      })
+    }
+
     replaceTimerOperation({
       timeoutId: data.timeoutId,
       timerDriver: this.#timerDriver,
@@ -454,6 +649,11 @@ export class Runtime<
         }
 
         this.#timers.delete(data.timeoutId)
+        this.#emitMonitor({
+          delay: data.delay,
+          timeoutId: data.timeoutId,
+          type: "timer-completed",
+        })
         await this.run(timerCompleted(data))
       },
       timeoutId: data.timeoutId,
@@ -461,12 +661,18 @@ export class Runtime<
       timers: this.#timers,
     })
 
+    this.#emitMonitor({
+      delay: data.delay,
+      timeoutId: data.timeoutId,
+      type: "timer-started",
+    })
+
     return [this.#actionCommand(timerStarted(data))]
   }
 
   #handleCancelTimer<TimeoutId extends string>(
     data: CancelTimerEffectData<TimeoutId>,
-  ): RuntimeCommand[] {
+  ): RuntimeDebugCommand[] {
     const cancelled = cancelActiveTimerOperation({
       timeoutId: data.timeoutId,
       timerDriver: this.#timerDriver,
@@ -477,6 +683,13 @@ export class Runtime<
       return []
     }
 
+    this.#emitMonitor({
+      delay: cancelled.delay,
+      reason: "effect",
+      timeoutId: data.timeoutId,
+      type: "timer-cancelled",
+    })
+
     return [
       this.#actionCommand(
         timerCancelled({ timeoutId: data.timeoutId, delay: cancelled.delay }),
@@ -486,7 +699,7 @@ export class Runtime<
 
   #handleRestartTimer<TimeoutId extends string>(
     data: RestartTimerEffectData<TimeoutId>,
-  ): RuntimeCommand[] {
+  ): RuntimeDebugCommand[] {
     const cancelled = cancelActiveTimerOperation({
       timeoutId: data.timeoutId,
       timerDriver: this.#timerDriver,
@@ -510,7 +723,18 @@ export class Runtime<
 
   #handleStartInterval<IntervalId extends string>(
     data: StartIntervalEffectData<IntervalId>,
-  ): RuntimeCommand[] {
+  ): RuntimeDebugCommand[] {
+    const replacedInterval = this.#intervals.get(data.intervalId)
+
+    if (replacedInterval) {
+      this.#emitMonitor({
+        delay: replacedInterval.delay,
+        intervalId: data.intervalId,
+        reason: "restart",
+        type: "interval-cancelled",
+      })
+    }
+
     replaceIntervalOperation({
       intervalId: data.intervalId,
       intervals: this.#intervals,
@@ -529,9 +753,20 @@ export class Runtime<
           return
         }
 
+        this.#emitMonitor({
+          delay: data.delay,
+          intervalId: data.intervalId,
+          type: "interval-triggered",
+        })
         await this.run(intervalTriggered(data))
       },
       timerDriver: this.#timerDriver,
+    })
+
+    this.#emitMonitor({
+      delay: data.delay,
+      intervalId: data.intervalId,
+      type: "interval-started",
     })
 
     return [this.#actionCommand(intervalStarted(data))]
@@ -539,7 +774,7 @@ export class Runtime<
 
   #handleCancelInterval<IntervalId extends string>(
     data: CancelIntervalEffectData<IntervalId>,
-  ): RuntimeCommand[] {
+  ): RuntimeDebugCommand[] {
     const cancelled = cancelActiveIntervalOperation({
       intervalId: data.intervalId,
       intervals: this.#intervals,
@@ -549,6 +784,13 @@ export class Runtime<
     if (!cancelled) {
       return []
     }
+
+    this.#emitMonitor({
+      delay: cancelled.delay,
+      intervalId: data.intervalId,
+      reason: "effect",
+      type: "interval-cancelled",
+    })
 
     return [
       this.#actionCommand(
@@ -562,7 +804,7 @@ export class Runtime<
 
   #handleRestartInterval<IntervalId extends string>(
     data: RestartIntervalEffectData<IntervalId>,
-  ): RuntimeCommand[] {
+  ): RuntimeDebugCommand[] {
     const cancelled = cancelActiveIntervalOperation({
       intervalId: data.intervalId,
       intervals: this.#intervals,
@@ -584,8 +826,8 @@ export class Runtime<
     ]
   }
 
-  #handleStartFrame(): RuntimeCommand[] {
-    this.#cancelActiveFrame()
+  #handleStartFrame(): RuntimeDebugCommand[] {
+    this.#cancelActiveFrame("restart")
 
     this.#frame = startFrameOperation({
       nextToken: () => this.#timerCounter++,
@@ -594,21 +836,36 @@ export class Runtime<
           return
         }
 
+        this.#emitMonitor({
+          timestamp,
+          type: "frame-triggered",
+        })
         await this.run(onFrame(timestamp))
       },
       timerDriver: this.#timerDriver,
     })
 
-    return []
-  }
-
-  #handleCancelFrame(): RuntimeCommand[] {
-    this.#cancelActiveFrame()
+    this.#emitMonitor({
+      type: "frame-started",
+    })
 
     return []
   }
 
-  #cancelActiveFrame() {
+  #handleCancelFrame(): RuntimeDebugCommand[] {
+    this.#cancelActiveFrame("effect")
+
+    return []
+  }
+
+  #cancelActiveFrame(reason: RuntimeDebugCancellationReason) {
+    if (this.#frame) {
+      this.#emitMonitor({
+        reason,
+        type: "frame-cancelled",
+      })
+    }
+
     cancelActiveFrameOperation({
       frame: this.#frame,
       timerDriver: this.#timerDriver,
@@ -618,6 +875,31 @@ export class Runtime<
   }
 
   #clearTimers() {
+    this.#timers.forEach((timer, timeoutId) => {
+      this.#emitMonitor({
+        delay: timer.delay,
+        reason: "cleanup",
+        timeoutId,
+        type: "timer-cancelled",
+      })
+    })
+
+    this.#intervals.forEach((interval, intervalId) => {
+      this.#emitMonitor({
+        delay: interval.delay,
+        intervalId,
+        reason: "cleanup",
+        type: "interval-cancelled",
+      })
+    })
+
+    if (this.#frame) {
+      this.#emitMonitor({
+        reason: "cleanup",
+        type: "frame-cancelled",
+      })
+    }
+
     clearScheduledOperations({
       frame: this.#frame,
       intervals: this.#intervals,
@@ -629,6 +911,14 @@ export class Runtime<
   }
 
   #clearAsync() {
+    this.#asyncOperations.forEach((_activeAsync, asyncId) => {
+      this.#emitMonitor({
+        asyncId,
+        reason: "cleanup",
+        type: "async-cancelled",
+      })
+    })
+
     clearAsyncOperations({
       asyncDriver: this.#asyncDriver,
       asyncOperations: this.#asyncOperations,
@@ -637,7 +927,7 @@ export class Runtime<
 
   async #executeAction<A extends RuntimeAction>(
     action: A,
-  ): Promise<RuntimeCommand[]> {
+  ): Promise<RuntimeDebugCommand[]> {
     if (action.type === enter.type && !this.#hasEnteredInitialState) {
       this.#hasEnteredInitialState = true
 
@@ -658,7 +948,7 @@ export class Runtime<
     return this.#stateReturnsToCommands(arraySingleton(result))
   }
 
-  #handleState(targetState: RuntimeState): RuntimeCommand[] {
+  #handleState(targetState: RuntimeState): RuntimeDebugCommand[] {
     return buildStateTransitionCommands({
       actionCommand: action => this.#actionCommand(action),
       clearAsync: () => this.#clearAsync(),
@@ -671,7 +961,7 @@ export class Runtime<
     })
   }
 
-  #handleGoBack(): RuntimeCommand[] {
+  #handleGoBack(): RuntimeDebugCommand[] {
     return buildGoBackCommands({
       actionCommand: action => this.#actionCommand(action),
       clearAsync: () => this.#clearAsync(),

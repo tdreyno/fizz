@@ -154,6 +154,7 @@ See [React Integration](./react-integration.md) for the full `useMachine(...)` h
 ## What to read next
 
 - Read [Architecture](./architecture.md) for the mental model behind states, actions, transitions, outputs, and effects.
+- Read [Debugging](./debugging.md) when you want to inspect transitions, outputs, async work, or scheduler lifecycles in Node or the browser.
 - Read [React Integration](./react-integration.md) if you are using React and want the full hook API and integration patterns.
 - Read [Complex Actions](./complex-actions.md) when a state starts handling larger action surfaces, lifecycle actions, or debounced and throttled branches.
 - Read [Nested State Machines](./nested-state-machines.md) when one state needs to own a smaller workflow with its own local transitions.
@@ -163,6 +164,7 @@ See [React Integration](./react-integration.md) for the full `useMachine(...)` h
 ## Related Docs
 
 - [Architecture](./architecture.md)
+- [Debugging](./debugging.md)
 - [React Integration](./react-integration.md)
 - [Custom Effects](./custom-effects.md)
 - [Complex Actions](./complex-actions.md)

@@ -41,6 +41,7 @@ export { createMachine } from "./createMachine.js"
 export * from "./effect.js"
 export * from "./errors.js"
 export * from "./runtime.js"
+export * from "./runtimeDebug.js"
 export type {
   BoundStateFn,
   GetStateData,

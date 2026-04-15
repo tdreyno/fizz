@@ -22,11 +22,16 @@ See [AI Skills](./ai-skills.md) for the exact scope.
 
 ## How do I debug state machine transitions?
 
-Start by keeping the machine logic explicit and inspecting transitions at the state boundary instead of scattering behavior across callbacks.
+Start by keeping the machine logic explicit and inspecting transitions at the runtime boundary instead of scattering `console.log(...)` calls across callbacks.
 
-In practice, the most useful approach is to model intermediate states clearly, enable runtime logging when needed, and inspect `currentState` and runtime context changes while reproducing the problem. If debugging requires more than that, the machine usually wants another named state or a clearer action boundary.
+In practice, the most useful progression is:
 
-The core transition model is described in [Architecture](./architecture.md).
+- inspect `currentState`
+- watch `runtime.onContextChange(...)`
+- watch `runtime.onOutput(...)`
+- attach a structured runtime monitor when you need async, timer, interval, or frame lifecycle visibility
+
+See [Debugging](./debugging.md) for the current Node and browser debugging patterns, and [Architecture](./architecture.md) for the transition model itself.
 
 ## What happens to timers and intervals when I leave a state?
 
@@ -88,6 +93,7 @@ Compared with Redux or Zustand, Fizz leans harder into named states and transiti
 
 - [Getting Started](./getting-started.md)
 - [Architecture](./architecture.md)
+- [Debugging](./debugging.md)
 - [React Integration](./react-integration.md)
 - [Nested State Machines](./nested-state-machines.md)
 - [Async](./async.md)
