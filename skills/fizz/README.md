@@ -14,6 +14,7 @@ npx skills add tdreyno/fizz
 
 - `@tdreyno/fizz` runtime setup and state-machine modeling
 - `@tdreyno/fizz` async, timers, intervals, and cancellation helpers
+- `@tdreyno/fizz` testing guidance for controlled drivers and deterministic runtime tests
 - `@tdreyno/fizz-react` integration through `useMachine(...)`
 
 ## What It Excludes
@@ -33,6 +34,7 @@ skills/fizz/
     core-runtime.md
     examples.md
     react-integration.md
+    testing.md
 ```
 
 `SKILL.md` is the trigger surface and short working guide. The files in `references/` are deeper, on-demand material for agents that need more detail.
@@ -42,5 +44,6 @@ skills/fizz/
 - `skills/fizz/SKILL.md`
 - `skills/fizz/references/core-runtime.md`
 - `skills/fizz/references/async-and-scheduling.md`
+- `skills/fizz/references/testing.md`
 - `skills/fizz/references/react-integration.md`
 - `skills/fizz/references/examples.md`

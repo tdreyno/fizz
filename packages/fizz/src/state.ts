@@ -414,7 +414,7 @@ type AnyScheduledMatcher =
 
 const isScheduledMatcher = (
   handler: AnyHandlerValue,
-): handler is ScheduledMatcher<string, string, string, string> =>
+): handler is AnyScheduledMatcher =>
   typeof handler === "function" && scheduledMatcherSymbol in handler
 
 const hasWrappedTimerPayload = (

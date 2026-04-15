@@ -10,6 +10,36 @@ Fizz is a small library for building state machines that can effectively manage 
 npm install --save @tdreyno/fizz
 ```
 
+## Testing
+
+Fizz also ships test helpers on a dedicated subpath so app tests can compose the real runtime with deterministic drivers.
+
+```typescript
+import { createTestHarness, deferred } from "@tdreyno/fizz/test"
+
+const loadProfile = deferred<string>()
+
+const harness = createTestHarness({
+  history: [Loading({ events: [] })],
+  internalActions: { profileLoaded },
+})
+
+await harness.start()
+
+loadProfile.resolve("Ada")
+
+await harness.flushAsync()
+
+expect(harness.currentState().data.profileName).toBe("Ada")
+```
+
+Use the harness when a machine test needs any of the following:
+
+- deterministic async control via `flushAsync()` and `runAllAsync()`
+- virtual time via `advanceBy()`, `advanceFrames()`, and `runAllTimers()`
+- recorded outputs and state snapshots for assertions
+- `respondToOutput(...)` when an emitted output should feed a runtime action during a test
+
 ## Let's play pong
 
 This example shows how we would model something like a game of Pong.

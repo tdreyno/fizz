@@ -1,6 +1,6 @@
 ---
 name: fizz
-description: Fizz state machine modeling guidance for the @tdreyno/fizz runtime and @tdreyno/fizz-react hook integration. Use this skill when designing or refactoring Fizz machines, wiring createRuntime or createInitialContext, modeling async and scheduled transitions, reviewing action and effect flows, or integrating a machine with useMachine in React.
+description: Fizz state machine modeling and testing guidance for the @tdreyno/fizz runtime and @tdreyno/fizz-react hook integration. Use this skill when designing or refactoring Fizz machines, wiring createRuntime or createInitialContext, modeling async and scheduled transitions, writing or reviewing Fizz tests, reviewing action and effect flows, or integrating a machine with useMachine in React.
 license: Hippocratic-2.1
 metadata:
   author: tdreyno
@@ -19,6 +19,7 @@ Use this skill when the task involves:
 - Creating or refactoring a runtime with `createInitialContext(...)`, `createRuntime(...)`, `beforeEnter(...)`, or `enter()`
 - Adding async work with `startAsync(...)` or `requestJSONAsync(...)`
 - Adding timers, intervals, or frame-driven behavior from a state handler
+- Writing or reviewing deterministic tests for Fizz machines or runtimes
 - Debugging stale async completions, cancellation, or state-entry behavior
 - Integrating a Fizz machine into React with `useMachine(...)`
 - Reviewing Fizz or fizz-react code for correctness, predictability, or API usage
@@ -93,6 +94,16 @@ If the task is about runtime behavior, read `references/core-runtime.md`.
 
 If the task is about request flows, cancellation, or timing, read `references/async-and-scheduling.md`.
 
+### Testing
+
+- Prefer deterministic tests that drive the real runtime with controlled drivers.
+- Use `createControlledAsyncDriver()` for promise-backed work.
+- Use `createControlledTimerDriver()` for timers, intervals, and frames.
+- Assert state identity, machine-visible data, and emitted outputs before reaching for lower-level runtime details.
+- Use the `@tdreyno/fizz/test` entrypoint when a task needs reusable Fizz testing helpers.
+
+If the task is about machine tests or consumer-facing test helpers, read `references/testing.md`.
+
 ### React usage
 
 - Use `useMachine(...)` to bind an existing Fizz machine into React.
@@ -104,7 +115,7 @@ If the task is about React integration, read `references/react-integration.md`.
 
 ## Suggested Workflow
 
-1. Identify whether the task is core runtime work, async/scheduling work, or React integration work.
+1. Identify whether the task is core runtime work, async/scheduling work, testing work, or React integration work.
 2. Read the matching reference file before making changes.
 3. Preserve the existing public API unless the task explicitly asks for a change.
 4. When changing behavior, prefer updating or adding behavior-focused tests in the touched package.
@@ -114,6 +125,7 @@ If the task is about React integration, read `references/react-integration.md`.
 
 - `references/core-runtime.md` for states, actions, effects, runtime setup, and nested machines
 - `references/async-and-scheduling.md` for `startAsync(...)`, `requestJSONAsync(...)`, cancellation, timers, intervals, and frames
+- `references/testing.md` for deterministic machine testing, controlled drivers, and the `@tdreyno/fizz/test` subpath
 - `references/react-integration.md` for `useMachine(...)` behavior and React-specific guidance
 - `references/examples.md` for short copyable usage patterns
 
@@ -126,5 +138,6 @@ Use these repository files as the source of truth when answering implementation 
 - `packages/fizz/src/effect.ts`
 - `packages/fizz/src/runtime.ts`
 - `packages/fizz-react/src/useMachine.ts`
+- `docs/testing.md`
 - `docs/async.md`
 - `packages/fizz/README.md`

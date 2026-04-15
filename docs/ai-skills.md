@@ -40,6 +40,7 @@ Agents should reach for this skill when a task involves:
 - reviewing Fizz transitions, actions, or effects
 - wiring a runtime correctly
 - adding async request flows or scheduled behavior
+- writing or reviewing tests for Fizz machines and runtimes
 - integrating an existing machine into React with `useMachine(...)`
 
 The skill keeps the top-level guidance short and points agents to deeper reference files only when they need more detail.
@@ -51,10 +52,12 @@ After the skill is installed, compatible agents can use it automatically when a 
 - model workflows with explicit Fizz states and actions
 - preserve the runtime lifecycle Fizz expects
 - use the built-in async and scheduling helpers instead of ad-hoc alternatives
+- prefer controlled runtime drivers for deterministic async and timer tests
 - keep React components thin when a Fizz machine is already the source of truth
 
 ## Related Docs
 
 - [Introduction](../README.md)
-- [Async](async.md)
-- [API](api.md)
+- [Testing](./testing.md)
+- [Async](./async.md)
+- [API](./api.md)

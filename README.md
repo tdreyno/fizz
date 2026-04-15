@@ -20,4 +20,6 @@ npx skills add tdreyno/fizz
 
 See [AI Skills](./docs/ai-skills.md) for scope, usage, and what the skill teaches agents.
 
+See [Testing](./docs/testing.md) for the current recommended Fizz testing workflow and the planned dedicated testing entrypoint.
+
 See the [Fizz Package README](./packages/fizz/README.md) for more details and examples.
