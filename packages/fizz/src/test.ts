@@ -1,5 +1,5 @@
 import type { Action } from "./action.js"
-import { beforeEnter, enter } from "./action.js"
+import { enter } from "./action.js"
 import type { Context, History } from "./context.js"
 import { createInitialContext } from "./context.js"
 import type {
@@ -164,7 +164,6 @@ export const createTestHarness = <
     asyncDriver,
     timerDriver,
     start: async () => {
-      await runtime.run(beforeEnter(runtime))
       await runtime.run(enter())
     },
     run: action => runtime.run(action),

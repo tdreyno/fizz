@@ -1,6 +1,5 @@
 import type { Action, BoundStateFn } from "@tdreyno/fizz"
 import {
-  beforeEnter,
   Context,
   createInitialContext,
   createRuntime,
@@ -83,7 +82,6 @@ export const useMachine = <
       }))
     })
 
-    void runtime.run(beforeEnter(runtime))
     void runtime.run(enter())
 
     return unsub

@@ -1,4 +1,4 @@
-import { beforeEnter, enter } from "../action"
+import { enter } from "../action"
 import { createInitialContext } from "../context"
 import { createRuntime } from "../runtime"
 import { isState, NESTED } from "../state"
@@ -16,7 +16,6 @@ const init = async () => {
 
   const runtime = createRuntime(context, Actions)
 
-  await runtime.run(beforeEnter(runtime))
   await runtime.run(enter())
 
   return runtime

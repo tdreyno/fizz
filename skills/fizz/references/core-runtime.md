@@ -68,21 +68,15 @@ Use these helpers instead of manually reproducing runtime behavior.
 When building a runtime manually, follow the same lifecycle used by the public examples and React hook:
 
 ```typescript
-import {
-  beforeEnter,
-  createInitialContext,
-  createRuntime,
-  enter,
-} from "@tdreyno/fizz"
+import { createInitialContext, createRuntime, enter } from "@tdreyno/fizz"
 
 const context = createInitialContext([InitialState(initialData)])
 const runtime = createRuntime(context, actions, outputActions)
 
-await runtime.run(beforeEnter(runtime))
 await runtime.run(enter())
 ```
 
-This matters because `beforeEnter(runtime)` lets the machine know about the runtime before `Enter` handlers run.
+This matters because the first `enter()` automatically performs Fizz's pre-entry bootstrap before any `Enter` handlers run.
 
 ## Effects
 
@@ -111,6 +105,6 @@ When reviewing Fizz code, check these first:
 - Are transitions explicit and easy to trace?
 - Is side-effect work represented through effects or async helpers?
 - Is nested state composition justified?
-- Is runtime bootstrapping done with `beforeEnter(runtime)` and `enter()`?
+- Is runtime bootstrapping done with `enter()`?
 
 If the task shifts into async work or cancellation semantics, continue with `async-and-scheduling.md`.

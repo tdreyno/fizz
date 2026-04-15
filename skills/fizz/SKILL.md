@@ -16,7 +16,7 @@ Agent-oriented guidance for working with Fizz state machines and the React integ
 Use this skill when the task involves:
 
 - Modeling a workflow as Fizz states, transitions, actions, or effects
-- Creating or refactoring a runtime with `createInitialContext(...)`, `createRuntime(...)`, `beforeEnter(...)`, or `enter()`
+- Creating or refactoring a runtime with `createInitialContext(...)`, `createRuntime(...)`, or `enter()`
 - Adding async work with `startAsync(...)` or `requestJSONAsync(...)`
 - Adding timers, intervals, or frame-driven behavior from a state handler
 - Writing or reviewing deterministic tests for Fizz machines or runtimes
@@ -49,7 +49,7 @@ State handlers should describe transitions and effects. Avoid burying side effec
 
 ### 3. Start runtimes the Fizz way
 
-Create the initial context, create the runtime, then run `beforeEnter(runtime)` and `enter()` to bootstrap the machine.
+Create the initial context, create the runtime, then run `enter()` to bootstrap the machine.
 
 ### 4. Use async helpers instead of ad-hoc fetch orchestration
 
@@ -79,8 +79,7 @@ Follow this sequence when wiring a machine manually:
 1. Define the states and action creators.
 2. Create the initial context with the initial state transition.
 3. Create the runtime with runtime actions and any output actions.
-4. Run `beforeEnter(runtime)`.
-5. Run `enter()`.
+4. Run `enter()`.
 
 If the task is about runtime behavior, read `references/core-runtime.md`.
 

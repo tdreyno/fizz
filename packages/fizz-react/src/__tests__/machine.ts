@@ -1,8 +1,6 @@
 import type { ActionCreatorType, Enter } from "@tdreyno/fizz"
 import { action, output, state } from "@tdreyno/fizz"
 
-import { createStore } from "../createStore.js"
-
 type Data = {
   didWorld: boolean
 }
@@ -30,10 +28,3 @@ const Initializing = state<Enter | World, Data>(
 export const Actions = { world }
 export const OutputActions = { hello }
 export const States = { Initializing, Ready }
-
-export const machine = createStore(
-  States,
-  Actions,
-  States.Initializing({ didWorld: false }),
-  OutputActions,
-)

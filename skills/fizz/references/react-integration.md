@@ -12,7 +12,7 @@ The current hook implementation in `packages/fizz-react/src/useMachine.ts`:
 - creates the runtime with `createRuntime(...)`
 - binds actions through `runtime.bindActions(actions)`
 - subscribes to runtime context changes with `runtime.onContextChange(...)`
-- runs `beforeEnter(runtime)` and `enter()` in an effect after mount
+- runs `enter()` in an effect after mount
 
 ## What The Hook Returns
 

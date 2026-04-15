@@ -5,9 +5,9 @@ Short copyable examples for common Fizz and fizz-react tasks.
 ## Simple state transition
 
 ```typescript
-import { Enter, createAction, state } from "@tdreyno/fizz"
+import { Enter, action, state } from "@tdreyno/fizz"
 
-const finish = createAction("Finish")
+const finish = action("Finish")
 
 const Start = state<Enter | ReturnType<typeof finish>>({
   Enter: () => undefined,
@@ -22,33 +22,31 @@ const Done = state<Enter>({
 ## Runtime bootstrapping
 
 ```typescript
-import {
-  beforeEnter,
-  createInitialContext,
-  createRuntime,
-  enter,
-} from "@tdreyno/fizz"
+import { createInitialContext, createRuntime, enter } from "@tdreyno/fizz"
 
 const context = createInitialContext([Start()])
 const runtime = createRuntime(context, { finish }, {})
 
-await runtime.run(beforeEnter(runtime))
 await runtime.run(enter())
 ```
 
 ## JSON request mapped back into actions
 
 ```typescript
-import { Enter, createAction, requestJSONAsync, state } from "@tdreyno/fizz"
+import { Enter, action, requestJSONAsync, state } from "@tdreyno/fizz"
 
-const profileLoaded = createAction("ProfileLoaded")
-const profileFailed = createAction("ProfileFailed")
+type Profile = {
+  id: string
+}
+
+const profileLoaded = action("ProfileLoaded").withPayload<Profile>()
+const profileFailed = action("ProfileFailed").withPayload<string>()
 
 const Loading = state({
   Enter: () =>
     requestJSONAsync("/api/profile", { asyncId: "profile" })
       .validate(assertProfile)
-      .chainToAction(profileLoaded, profileFailed),
+      .chainToAction(profileLoaded, error => profileFailed(String(error))),
 })
 ```
 

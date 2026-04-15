@@ -1,6 +1,8 @@
 import type { Action } from "./action.js"
 import {
   asyncCancelled,
+  beforeEnter,
+  enter,
   intervalCancelled,
   intervalStarted,
   intervalTriggered,
@@ -122,6 +124,7 @@ export class Runtime<
   #frame: ActiveFrame | undefined
   #asyncCounter = 1
   #asyncIdCounter = 1
+  #hasEnteredInitialState = false
   #queue: QueueItem[] = []
   #isRunning = false
   #timerCounter = 1
@@ -632,6 +635,15 @@ export class Runtime<
   async #executeAction<A extends RuntimeAction>(
     action: A,
   ): Promise<RuntimeCommand[]> {
+    if (action.type === enter.type && !this.#hasEnteredInitialState) {
+      this.#hasEnteredInitialState = true
+
+      return [
+        this.#actionCommand(beforeEnter(this)),
+        this.#actionCommand(action),
+      ]
+    }
+
     const targetState = this.context.currentState
 
     if (!targetState) {
