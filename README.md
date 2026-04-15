@@ -10,13 +10,17 @@ Fizz is a small library for building state machines that can effectively manage 
 npm install --save @tdreyno/fizz
 ```
 
-Start with [Getting Started](./docs/getting-started.md) for installation, a minimal runtime demo, and where to go next.
+Start with [Getting Started](https://fizz.tdreyno.com/getting-started) for installation, a minimal runtime demo, and where to go next.
 
-See [React Integration](./docs/react-integration.md) if you are using `@tdreyno/fizz-react` and want the full `useMachine(...)` guide.
+See [React Integration](https://fizz.tdreyno.com/react-integration) if you are using `@tdreyno/fizz-react` and want the full `useMachine(...)` guide.
 
-Read [Architecture](./docs/architecture.md) for the core model behind states, actions, transitions, outputs, and effects.
+Read [Architecture](https://fizz.tdreyno.com/architecture) for the core model behind states, actions, transitions, outputs, and effects.
 
-## AI Skills
+See [Testing](https://fizz.tdreyno.com/testing) for the current recommended Fizz testing workflow and the planned dedicated testing entrypoint.
+
+See [Custom Effects](https://fizz.tdreyno.com/custom-effects) for the low-level `effect(...)` API and [Complex Actions](https://fizz.tdreyno.com/complex-actions) for larger handler patterns.
+
+### AI Skills
 
 Fizz also ships an installable agent skill for `@tdreyno/fizz` and `@tdreyno/fizz-react` via [skills.sh](https://skills.sh/).
 
@@ -24,10 +28,4 @@ Fizz also ships an installable agent skill for `@tdreyno/fizz` and `@tdreyno/fiz
 npx skills add tdreyno/fizz
 ```
 
-See [AI Skills](./docs/ai-skills.md) for scope, usage, and what the skill teaches agents.
-
-See [Testing](./docs/testing.md) for the current recommended Fizz testing workflow and the planned dedicated testing entrypoint.
-
-See [Custom Effects](./docs/custom-effects.md) for the low-level `effect(...)` API and [Complex Actions](./docs/complex-actions.md) for larger handler patterns.
-
-See the [Fizz Package README](./packages/fizz/README.md) for more details and examples.
+See [AI Skills](https://fizz.tdreyno.com/ai-skills) for scope, usage, and what the skill teaches agents.
