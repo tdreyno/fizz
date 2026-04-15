@@ -29,6 +29,33 @@ Each action carries the same payload shape:
 
 The important difference from timers is that intervals do not complete. A timer fires once and emits `TimerCompleted`, while an interval keeps emitting `IntervalTriggered` until it is cancelled or the state exits.
 
+```text
+Interval lifecycle
+
+startInterval("healthCheck", 1000)
+         |
+         v
+  IntervalStarted
+         |
+         v
+      wait 1000ms, then trigger
+         |
+         v
+       IntervalTriggered
+         |
+         +--> wait again
+         |
+         v
+       IntervalTriggered
+         |
+         +--> continues until cancelled
+
+cancelInterval("healthCheck")
+         |
+         v
+       IntervalCancelled
+```
+
 ## Basic example
 
 This example starts an interval when the state is entered and stops it after three ticks.
@@ -84,6 +111,31 @@ const Polling = state<Enter, Data, never, IntervalId>(
 ```
 
 This is the core interval pattern: `Enter` starts the schedule, `IntervalTriggered` handles each repetition, and cancellation is explicit. `whichInterval(...)` is exhaustive over the declared interval id union, so every interval id must be handled.
+
+```text
+Basic interval flow
+
+Enter
+  |
+  +--> startInterval("healthCheck", 1000)
+     |
+     v
+   IntervalStarted
+     |
+     v
+   IntervalTriggered #1
+     |
+     v
+   IntervalTriggered #2
+     |
+     v
+   IntervalTriggered #3
+     |
+     +--> cancelInterval("healthCheck")
+          |
+          v
+        IntervalCancelled
+```
 
 ## Matching with `whichInterval`
 
@@ -228,6 +280,25 @@ const Refreshing = state<Enter | Faster, Data, never, IntervalId>(
 ```
 
 In the runtime, `restartInterval` behaves like cancel plus start. If the interval is active, the state will see `IntervalCancelled` followed by `IntervalStarted`.
+
+```text
+restartInterval behavior
+
+restartInterval("refresh", nextDelay)
+       |
+       +--> cancel current interval
+       |        |
+       |        v
+       |   IntervalCancelled
+       |
+       +--> start new interval
+          |
+          v
+        IntervalStarted
+          |
+          v
+        next IntervalTriggered cadence
+```
 
 ## Multiple intervals in one state
 

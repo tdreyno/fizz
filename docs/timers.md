@@ -27,6 +27,26 @@ Each action carries the same payload shape:
 }
 ```
 
+```text
+Timer lifecycle
+
+startTimer("autosave", 1000)
+    |
+    v
+  TimerStarted
+    |
+    v
+  waiting 1000ms
+    |
+    v
+     TimerCompleted
+
+cancelTimer("autosave") before completion
+    |
+    v
+  TimerCancelled
+```
+
 If a state uses both timers and intervals, you can keep their id spaces separate by passing an interval id union as the fourth generic parameter:
 
 ```typescript
@@ -92,6 +112,23 @@ const Editing = state<Enter, Data, TimeoutId>(
 ```
 
 The important part is that `TimerCompleted` is handled inside the same state definition. You do not wire a separate callback system into the runtime. `whichTimeout(...)` is exhaustive over the declared timer id union, so every timer id must be handled.
+
+```text
+Basic timer flow
+
+Enter
+  |
+  +--> startTimer("autosave", 1000)
+     |
+     v
+   TimerStarted
+     |
+     v
+   TimerCompleted
+     |
+     v
+    Done(...)
+```
 
 ## Matching with `whichTimeout`
 
@@ -254,6 +291,26 @@ const Editing = state<Save, EditorData, TimeoutId>(
 ```
 
 Every `Save` action resets the clock. The autosave only happens after three seconds of inactivity.
+
+```text
+Manual debounce with restartTimer
+
+Save
+  |
+  +--> update({ status: "dirty" })
+  |
+  +--> restartTimer("autosave", 3000)
+     |
+     +--> cancel old timer if active
+     |
+     +--> start fresh 3000ms timer
+        |
+        v
+      TimerCompleted("autosave")
+        |
+        v
+       update({ status: "saved" })
+```
 
 ## Multiple timers in one state
 

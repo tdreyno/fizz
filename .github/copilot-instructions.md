@@ -66,3 +66,17 @@
 - Keep public API changes intentional and documented.
 - Preserve backward compatibility unless explicitly asked to introduce a breaking change.
 - Update docs/examples when behavior or API changes materially.
+
+## Docs Authoring
+
+- Prefer practical, explanatory prose over reference-style dumping. Start by naming the problem the page solves, then introduce the pattern or API, then walk through an example.
+- When possible, base docs examples on real source, tests, or example apps already in the repository so the guide stays aligned with actual behavior.
+- For conceptual pages, favor one worked example with a clear narrative over many disconnected snippets.
+- Keep examples runnable in shape: include the imports, state or action definitions, and enough surrounding code that the example can be followed without guessing missing pieces.
+- Avoid duplicating full API-reference detail in narrative docs when an API page already exists. Summarize the concept and link to the reference page for exact signatures.
+- Add or update discoverability links when introducing an important guide: update `SUMMARY.md` when needed, add cross-links from adjacent docs, and keep `Related Docs` sections current.
+- Use relative markdown links between docs pages and keep “What to read next” or “Related Docs” sections focused on the most relevant follow-up pages.
+- For conceptual or workflow-heavy documentation, prefer adding small ASCII diagrams or flow charts in fenced `text` code blocks when they materially improve comprehension.
+- Use diagrams especially for state transitions, nested state boundaries, runtime lifecycle, scheduling flows, and event propagation where prose alone is harder to follow.
+- Keep diagrams compact, readable in monospaced font, and placed near the paragraph or example they clarify.
+- Do not add decorative diagrams. Add them only when they explain structure, sequence, or boundaries more clearly than text alone.

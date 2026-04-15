@@ -27,6 +27,28 @@ The `handlers` object maps the settled result to your own actions:
 
 If you provide an `asyncId`, the state can later cancel that specific operation with `cancelAsync(asyncId)`. If you omit the id, Fizz generates one internally so the operation still participates in stale-completion protection and state-exit cleanup, but you cannot target it later with manual cancellation.
 
+```text
+Async lifecycle
+
+startAsync(...) or requestJSONAsync(...)
+        |
+        v
+       [running]
+        |
+    +---------+---------+
+    |                   |
+    v                   v
+  resolve(value)      reject(reason)
+    |                   |
+    v                   v
+resolve handler       reject handler
+    |                   |
+    +---------+---------+
+        |
+        v
+    mapped action enters runtime
+```
+
 When an active async operation is explicitly cancelled, Fizz dispatches `AsyncCancelled` with this payload shape:
 
 ```typescript
@@ -58,6 +80,32 @@ It supports two valid shapes:
 Use `validate(...)` when you want to assert that the parsed JSON matches the payload shape your action expects. The validator should throw when the payload is invalid. If it throws, that exact thrown value becomes the value received by the `reject` handler.
 
 If you return `requestJSONAsync(...)` directly without chaining `validate(...)` or `chainToAction(...)`, Fizz still treats it as a side-effect and starts the request. In that fire-and-forget form, the response value is ignored.
+
+```text
+requestJSONAsync(...) flow
+
+requestJSONAsync(input, init)
+       |
+       v
+   fetch(...)
+       |
+       v
+      response.ok ?
+   |       |
+  yes      no
+   |       |
+   v       v
+ response.json  reject(error)
+   |
+   v
+ optional validate(...)
+   |
+   v
+ chainToAction(resolve, reject)
+   |
+   v
+ action re-enters the machine
+```
 
 ## Common request example
 
@@ -205,6 +253,27 @@ const Loading = state<Enter | typeof profileLoaded>({
 - If a state transition replaces the current state instance, Fizz cancels async work started by that instance.
 - Abort-style rejections are suppressed and do not flow into the `reject` handler.
 - If an async operation resolves after it has become stale, Fizz ignores the completion.
+
+```text
+Cancellation and stale completion behavior
+
+[running async]
+  |
+  +--> cancelAsync(asyncId)
+  |         |
+  |         v
+  |   AsyncCancelled enters runtime
+  |
+  +--> state exits before completion
+  |         |
+  |         v
+  |   async is cancelled for that state instance
+  |
+  +--> completion arrives after becoming stale
+        |
+        v
+       completion is ignored
+```
 
 ## Related Docs
 

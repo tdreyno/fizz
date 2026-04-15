@@ -36,6 +36,28 @@ Under the hood, the hook:
 - subscribes to `runtime.onContextChange(...)`
 - runs `enter()` in an effect after mount
 
+```text
+Component / hook / runtime flow
+
+React component
+  |
+  v
+useMachine(states, actions, initialState, ...)
+  |
+  +--> createInitialContext(...)
+  |
+  +--> createRuntime(...)
+  |
+  +--> bindActions(...)
+  |
+  +--> subscribe to onContextChange(...)
+  |
+  +--> run enter() after mount
+  |
+  v
+returns { currentState, context, actions, runtime }
+```
+
 ## What it returns
 
 The hook returns an object with four useful pieces:
@@ -146,6 +168,27 @@ The important part is not the JSX. It is the boundary:
 - the component renders `currentState`
 - UI events call `machine.actions.*`
 
+```text
+Rendering and dispatch boundary
+
+user clicks button
+  |
+  v
+machine.actions.arm()
+  |
+  v
+runtime.run(Arm)
+  |
+  v
+state transition happens inside the machine
+  |
+  v
+onContextChange notifies the hook
+  |
+  v
+React re-renders from currentState
+```
+
 ## Bound actions and `asPromise()`
 
 The `actions` object returned by the hook contains bound action dispatchers. Calling one dispatches the action into the runtime immediately.
@@ -183,6 +226,20 @@ In the current implementation:
 - `restartOnInitialStateChange` exists in the type but is not currently used by the hook implementation
 
 There is one important behavior to keep in mind: the runtime is created once with `useMemo(..., [])`. That means changes to `initialState`, `actions`, `outputActions`, or `options` after mount do not rebuild the runtime automatically.
+
+```text
+Lifetime of the hosted runtime
+
+first render
+  |
+  v
+create runtime once
+  |
+  v
+subsequent renders reuse same runtime
+  |
+  +--> updated props do not rebuild runtime automatically
+```
 
 Treat the machine definition and initial state as stable inputs for the life of the component instance.
 

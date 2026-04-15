@@ -10,6 +10,29 @@ At a high level, a single transition step looks like this:
 4. the runtime applies those returns in order
 5. the machine becomes ready for the next action
 
+```text
+Runtime transition cycle
+
+[Action arrives]
+  |
+  v
+[Select handler]
+  |
+  v
+[Handler returns work]
+  |
+  v
+[Apply transitions / outputs / effects]
+  |
+  v
+[Next current state is ready]
+  |
+  +---- waits for the next action ----+
+             |
+             v
+            [Action arrives]
+```
+
 ## The core pieces
 
 ### States
@@ -83,6 +106,22 @@ Common return values are:
 
 This keeps the machine deterministic at decision time: given the same state data and the same action, you can see the intended next work in one place.
 
+```text
+Handler return shapes
+
+handler(action, data)
+  |
+  +--> update(nextData) ----------> stay in same state
+  |
+  +--> OtherState(nextData) ------> move to another state
+  |
+  +--> output(action) ------------> notify integration layer
+  |
+  +--> effect(...) ---------------> runtime performs side effect
+  |
+  +--> [ ...many returns... ] ----> runtime applies each in order
+```
+
 ## Effects versus outputs
 
 Fizz uses two related but different concepts when a transition needs to touch the outside world.
@@ -114,6 +153,18 @@ Built-in examples include:
 - `log(...)`, `warn(...)`, `error(...)`
 
 The runtime understands some effect labels specially, such as `startTimer` or `output`. Any other custom effect label falls through to the effect executor you provide with `effect(...)`.
+
+```text
+Decision boundary
+
+state handler
+  |
+  +--> returns output(action) -----> subscribers react outside the machine
+  |
+  +--> returns effect(...) --------> runtime executes effect after the decision
+  |
+  +--> returns state transition ----> runtime updates current state
+```
 
 ## A complete step
 
@@ -148,6 +199,25 @@ When `Submit` arrives:
 2. the handler returns updated state data plus an output
 3. the runtime applies the state update
 4. the runtime emits the output to subscribers
+
+```text
+Complete step for Submit
+
+Submit
+  |
+  v
+Editing.Submit
+  |
+  +--> update({ status: "saving" })
+  |
+  +--> output(submitted())
+        |
+        v
+runtime applies state update first
+        |
+        v
+runtime emits Submitted to output listeners
+```
 
 Nothing about that step requires hidden callbacks or external mutable bookkeeping.
 
