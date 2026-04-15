@@ -1,0 +1,5 @@
+root: ./
+
+​structure:
+  readme: packages/fizz/README.md
+  summary: SUMMARY.md​

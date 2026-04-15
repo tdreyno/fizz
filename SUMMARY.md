@@ -1,6 +1,6 @@
 # Table of contents
 
-- [Introduction](README.md)
+- [Introduction](packages/fizz/README.md)
 - [Getting Started](docs/getting-started.md)
 - [Architecture](docs/architecture.md)
 - [React Integration](docs/react-integration.md)
