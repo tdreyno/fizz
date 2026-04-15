@@ -1,9 +1,6 @@
-import type { Action, IntervalPayload, TimerPayload } from "./action.js"
+import type { Action } from "./action.js"
 import {
   asyncCancelled,
-  beforeEnter,
-  enter,
-  exit,
   intervalCancelled,
   intervalStarted,
   intervalTriggered,
@@ -25,11 +22,56 @@ import type {
   StartIntervalEffectData,
   StartTimerEffectData,
 } from "./effect.js"
-import { effect, isEffect, log } from "./effect.js"
+import { isEffect } from "./effect.js"
 import { MissingCurrentState, UnknownStateReturnType } from "./errors.js"
+import type { RuntimeAsyncDriver } from "./runtime/asyncDriver.js"
+import { createDefaultAsyncDriver } from "./runtime/asyncDriver.js"
+import type { ActiveAsync } from "./runtime/asyncScheduler.js"
+import {
+  cancelActiveAsyncOperation,
+  clearAsyncOperations,
+  isAbortError,
+  runAsyncOperation,
+  startAsyncOperation,
+} from "./runtime/asyncScheduler.js"
+import { dispatchEffect } from "./runtime/effectDispatcher.js"
+import type { RuntimeTimerDriver } from "./runtime/timerDriver.js"
+import { createDefaultTimerDriver } from "./runtime/timerDriver.js"
+import type { ActiveFrame, ActiveTimer } from "./runtime/timerScheduler.js"
+import {
+  cancelActiveFrameOperation,
+  cancelActiveIntervalOperation,
+  cancelActiveTimerOperation,
+  clearScheduledOperations,
+  replaceIntervalOperation,
+  replaceTimerOperation,
+  startFrameOperation,
+  startIntervalOperation,
+  startTimerOperation,
+} from "./runtime/timerScheduler.js"
+import {
+  buildGoBackCommands,
+  buildStateTransitionCommands,
+} from "./runtime/transitions.js"
 import type { StateReturn, StateTransition } from "./state.js"
 import { isStateTransition } from "./state.js"
 import { arraySingleton, externalPromise } from "./util.js"
+
+export type {
+  ControlledAsyncDriver,
+  RuntimeAsyncDriver,
+} from "./runtime/asyncDriver.js"
+export { createControlledAsyncDriver } from "./runtime/asyncDriver.js"
+export type {
+  ControlledTimerDriver,
+  RuntimeTimerDriver,
+} from "./runtime/timerDriver.js"
+export { createControlledTimerDriver } from "./runtime/timerDriver.js"
+
+export type RuntimeOptions = {
+  asyncDriver?: RuntimeAsyncDriver
+  timerDriver?: RuntimeTimerDriver
+}
 
 type ContextChangeSubscriber = (context: Context) => void
 type RuntimeAction = Action<string, unknown>
@@ -63,387 +105,6 @@ type QueueItem = {
   onComplete: () => void
   onError: (e: unknown) => void
   item: RuntimeCommand
-}
-
-export interface RuntimeTimerDriver {
-  start: (delay: number, onElapsed: () => Promise<void> | void) => unknown
-  startInterval: (
-    delay: number,
-    onElapsed: () => Promise<void> | void,
-  ) => unknown
-  startFrame: (onFrame: (timestamp: number) => Promise<void> | void) => unknown
-  cancel: (handle: unknown) => void
-}
-
-export interface ControlledTimerDriver extends RuntimeTimerDriver {
-  advanceBy: (ms: number) => Promise<void>
-  advanceFrames: (count: number, frameMs?: number) => Promise<void>
-  runAll: () => Promise<void>
-}
-
-export interface RuntimeAsyncDriver {
-  cancel: (handle: unknown) => void
-  start: <T>(options: {
-    onReject: (error: unknown) => Promise<void> | void
-    onResolve: (value: T) => Promise<void> | void
-    run: () => Promise<T>
-  }) => unknown
-}
-
-export interface ControlledAsyncDriver extends RuntimeAsyncDriver {
-  flush: () => Promise<void>
-  runAll: () => Promise<void>
-}
-
-type RuntimeOptions = {
-  asyncDriver?: RuntimeAsyncDriver
-  timerDriver?: RuntimeTimerDriver
-}
-
-type ActiveTimer = {
-  delay: number
-  handle: unknown
-  token: number
-}
-
-type ActiveFrame = {
-  handle: unknown
-  token: number
-}
-
-type ActiveAsync = {
-  controller: AbortController
-  handle: unknown
-  token: number
-}
-
-type DefaultDriverHandle =
-  | {
-      handle: ReturnType<typeof setTimeout>
-      kind: "timer"
-    }
-  | {
-      handle: ReturnType<typeof setInterval>
-      kind: "interval"
-    }
-  | {
-      active: boolean
-      handle: number | null
-      kind: "frame"
-    }
-
-const createDefaultTimerDriver = (): RuntimeTimerDriver => {
-  const scheduleFrame = (
-    frameHandle: Extract<DefaultDriverHandle, { kind: "frame" }>,
-    onElapsed: (timestamp: number) => Promise<void> | void,
-  ) => {
-    frameHandle.handle = requestAnimationFrame(timestamp => {
-      if (!frameHandle.active) {
-        return
-      }
-
-      void onElapsed(timestamp)
-
-      if (frameHandle.active) {
-        scheduleFrame(frameHandle, onElapsed)
-      }
-    })
-  }
-
-  return {
-    start: (delay, onElapsed) => ({
-      handle: setTimeout(() => {
-        void onElapsed()
-      }, delay),
-      kind: "timer",
-    }),
-    startInterval: (delay, onElapsed) => ({
-      handle: setInterval(() => {
-        void onElapsed()
-      }, delay),
-      kind: "interval",
-    }),
-    startFrame: onElapsed => {
-      const handle: Extract<DefaultDriverHandle, { kind: "frame" }> = {
-        active: true,
-        handle: null,
-        kind: "frame",
-      }
-
-      scheduleFrame(handle, onElapsed)
-
-      return handle
-    },
-    cancel: handle => {
-      const driverHandle = handle as DefaultDriverHandle
-
-      if (driverHandle.kind === "timer") {
-        clearTimeout(driverHandle.handle)
-        return
-      }
-
-      if (driverHandle.kind === "interval") {
-        clearInterval(driverHandle.handle)
-        return
-      }
-
-      driverHandle.active = false
-
-      if (driverHandle.handle !== null) {
-        cancelAnimationFrame(driverHandle.handle)
-      }
-    },
-  }
-}
-
-const createDefaultAsyncDriver = (): RuntimeAsyncDriver => ({
-  cancel: handle => {
-    ;(handle as { active?: boolean }).active = false
-  },
-  start: ({ onReject, onResolve, run }) => {
-    const handle = { active: true }
-
-    void run()
-      .then(value => {
-        if (handle.active) {
-          return onResolve(value)
-        }
-      })
-      .catch(error => {
-        if (handle.active) {
-          return onReject(error)
-        }
-      })
-
-    return handle
-  },
-})
-
-export const createControlledTimerDriver = (): ControlledTimerDriver => {
-  let now = 0
-  let counter = 1
-
-  const timers = new Map<
-    number,
-    {
-      active: boolean
-      delay: number
-      dueAt: number
-      onElapsed: () => Promise<void> | void
-      repeats: boolean
-    }
-  >()
-  const frames = new Map<
-    number,
-    {
-      active: boolean
-      onFrame: (timestamp: number) => Promise<void> | void
-    }
-  >()
-
-  const driver: ControlledTimerDriver = {
-    start: (delay, onElapsed) => {
-      const id = counter++
-
-      timers.set(id, {
-        active: true,
-        delay,
-        dueAt: now + delay,
-        onElapsed,
-        repeats: false,
-      })
-
-      return id
-    },
-
-    startInterval: (delay, onElapsed) => {
-      const id = counter++
-
-      timers.set(id, {
-        active: true,
-        delay,
-        dueAt: now + delay,
-        onElapsed,
-        repeats: true,
-      })
-
-      return id
-    },
-
-    startFrame: onFrame => {
-      const id = counter++
-
-      frames.set(id, {
-        active: true,
-        onFrame,
-      })
-
-      return id
-    },
-
-    cancel: handle => {
-      const timerId = handle as number
-      const timer = timers.get(timerId)
-
-      if (timer) {
-        timer.active = false
-        timers.delete(timerId)
-        return
-      }
-
-      const frame = frames.get(timerId)
-
-      if (!frame) {
-        return
-      }
-
-      frame.active = false
-      frames.delete(timerId)
-    },
-
-    advanceBy: async ms => {
-      const target = now + ms
-
-      while (true) {
-        const next = [...timers.entries()]
-          .filter(([, timer]) => timer.active && timer.dueAt <= target)
-          .sort(([, left], [, right]) => left.dueAt - right.dueAt)[0]
-
-        if (!next) {
-          break
-        }
-
-        const [id, timer] = next
-
-        now = timer.dueAt
-
-        if (timer.repeats) {
-          timer.dueAt += timer.delay
-        } else {
-          timers.delete(id)
-        }
-
-        await timer.onElapsed()
-      }
-
-      now = target
-    },
-
-    advanceFrames: async (count, frameMs = 16) => {
-      for (let index = 0; index < count; index += 1) {
-        now += frameMs
-
-        const currentFrames = [...frames.entries()].filter(
-          ([, frame]) => frame.active,
-        )
-
-        for (const [id, frame] of currentFrames) {
-          if (!frames.has(id) || !frame.active) {
-            continue
-          }
-
-          await frame.onFrame(now)
-        }
-      }
-    },
-
-    runAll: async () => {
-      while (timers.size > 0) {
-        const nextDueAt = [...timers.values()]
-          .filter(timer => timer.active)
-          .sort((left, right) => left.dueAt - right.dueAt)[0]?.dueAt
-
-        if (nextDueAt === undefined) {
-          break
-        }
-
-        await driver.advanceBy(nextDueAt - now)
-      }
-    },
-  }
-
-  return driver
-}
-
-export const createControlledAsyncDriver = (): ControlledAsyncDriver => {
-  let counter = 1
-
-  const operations = new Map<
-    number,
-    {
-      active: boolean
-      pending: Array<() => Promise<void> | void>
-    }
-  >()
-
-  const driver: ControlledAsyncDriver = {
-    cancel: handle => {
-      const operationId = handle as number
-      const operation = operations.get(operationId)
-
-      if (!operation) {
-        return
-      }
-
-      operation.active = false
-      operation.pending = []
-      operations.delete(operationId)
-    },
-
-    start: ({ onReject, onResolve, run }) => {
-      const operationId = counter++
-
-      operations.set(operationId, {
-        active: true,
-        pending: [],
-      })
-
-      void run()
-        .then(value => {
-          const operation = operations.get(operationId)
-
-          if (!operation?.active) {
-            return
-          }
-
-          operation.pending.push(() => onResolve(value))
-        })
-        .catch(error => {
-          const operation = operations.get(operationId)
-
-          if (!operation?.active) {
-            return
-          }
-
-          operation.pending.push(() => onReject(error))
-        })
-
-      return operationId
-    },
-
-    flush: async () => {
-      await Promise.resolve()
-      await Promise.resolve()
-
-      const pending = [...operations.values()].flatMap(operation =>
-        operation.active ? operation.pending.splice(0) : [],
-      )
-
-      for (const task of pending) {
-        await task()
-      }
-    },
-
-    runAll: async () => {
-      while (
-        [...operations.values()].some(operation => operation.pending.length > 0)
-      ) {
-        await driver.flush()
-      }
-    },
-  }
-
-  return driver
 }
 
 export class Runtime<
@@ -532,7 +193,6 @@ export class Runtime<
   }
 
   bindActions<
-    AM extends RuntimeActionMap,
     PM = {
       [K in keyof AM]: (...args: Parameters<AM[K]>) => {
         asPromise: () => Promise<void>
@@ -585,15 +245,12 @@ export class Runtime<
 
     const { item, onComplete, onError } = head
 
-    // Make sure we're in a valid state.
     this.#validateCurrentState()
 
     try {
       const commands = await this.#executeCommand(item)
-
       const { promise, items } = this.#commandsToQueueItems(commands)
 
-      // New items go to front of queue
       this.#queue = [...items, ...this.#queue]
 
       void promise.then(() => onComplete()).catch(e => onError(e))
@@ -621,8 +278,6 @@ export class Runtime<
       return this.#handleEffectItem(item.effect)
     }
 
-    // Should be impossible to get here with TypeScript,
-    // but could happen with plain JS.
     throw new UnknownStateReturnType(item)
   }
 
@@ -644,8 +299,8 @@ export class Runtime<
 
   #actionCommand(action: RuntimeAction): RuntimeCommand {
     return {
-      kind: "action",
       action,
+      kind: "action",
     }
   }
 
@@ -658,77 +313,31 @@ export class Runtime<
 
   #effectCommand(effectValue: Effect<unknown>): RuntimeCommand {
     return {
-      kind: "effect",
       effect: effectValue,
+      kind: "effect",
     }
   }
 
   #handleEffectItem(item: Effect<unknown>): RuntimeCommand[] {
-    if (item.label === "goBack") {
-      return this.#handleGoBack()
-    }
-
-    if (item.label === "output") {
-      this.#outputSubscribers.forEach(sub => {
-        void sub(item.data as ReturnType<OAM[keyof OAM]>)
-      })
-
-      return []
-    }
-
-    if (item.label === "startTimer") {
-      return this.#handleStartTimer(item.data as StartTimerEffectData<string>)
-    }
-
-    if (item.label === "startAsync") {
-      return this.#handleStartAsync(
-        item.data as StartAsyncEffectData<unknown, string>,
-      )
-    }
-
-    if (item.label === "cancelTimer") {
-      return this.#handleCancelTimer(item.data as CancelTimerEffectData<string>)
-    }
-
-    if (item.label === "cancelAsync") {
-      return this.#handleCancelAsync(item.data as CancelAsyncEffectData<string>)
-    }
-
-    if (item.label === "restartTimer") {
-      return this.#handleRestartTimer(
-        item.data as RestartTimerEffectData<string>,
-      )
-    }
-
-    if (item.label === "startInterval") {
-      return this.#handleStartInterval(
-        item.data as StartIntervalEffectData<string>,
-      )
-    }
-
-    if (item.label === "cancelInterval") {
-      return this.#handleCancelInterval(
-        item.data as CancelIntervalEffectData<string>,
-      )
-    }
-
-    if (item.label === "restartInterval") {
-      return this.#handleRestartInterval(
-        item.data as RestartIntervalEffectData<string>,
-      )
-    }
-
-    if (item.label === "startFrame") {
-      return this.#handleStartFrame()
-    }
-
-    if (item.label === "cancelFrame") {
-      return this.#handleCancelFrame()
-    }
-
-    this.#runEffect(item)
-
-    return []
+    return dispatchEffect<RuntimeCommand, ReturnType<OAM[keyof OAM]>>(item, {
+      emitOutput: output => {
+        this.#outputSubscribers.forEach(sub => {
+          void sub(output)
+        })
+      },
+      handleCancelAsync: data => this.#handleCancelAsync(data),
+      handleCancelFrame: () => this.#handleCancelFrame(),
+      handleCancelInterval: data => this.#handleCancelInterval(data),
+      handleCancelTimer: data => this.#handleCancelTimer(data),
+      handleGoBack: () => this.#handleGoBack(),
+      handleRestartInterval: data => this.#handleRestartInterval(data),
+      handleRestartTimer: data => this.#handleRestartTimer(data),
+      handleStartAsync: data => this.#handleStartAsync(data),
+      handleStartFrame: () => this.#handleStartFrame(),
+      handleStartInterval: data => this.#handleStartInterval(data),
+      handleStartTimer: data => this.#handleStartTimer(data),
+      runEffect: effectItem => this.#runEffect(effectItem),
+    })
   }
 
   #stateReturnsToCommands(stateReturns: StateReturn[]): RuntimeCommand[] {
@@ -736,30 +345,29 @@ export class Runtime<
   }
 
   #commandsToQueueItems(commands: RuntimeCommand[]): {
-    promise: Promise<void[]>
     items: QueueItem[]
+    promise: Promise<void[]>
   } {
     const { promises, items } = commands.reduce(
       (acc, item) => {
-        const { promise, resolve, reject } = externalPromise<void>()
+        const { promise, reject, resolve } = externalPromise<void>()
 
         acc.promises.push(promise)
-
         acc.items.push({
+          item,
           onComplete: resolve,
           onError: reject,
-          item,
         })
 
         return acc
       },
       {
-        promises: [] as Promise<void>[],
         items: [] as QueueItem[],
+        promises: [] as Promise<void>[],
       },
     )
 
-    return { promise: Promise.all(promises), items }
+    return { items, promise: Promise.all(promises) }
   }
 
   #contextDidChange() {
@@ -781,8 +389,8 @@ export class Runtime<
     }
   }
 
-  #runEffect(e: Effect<unknown>) {
-    e.executor(this.context)
+  #runEffect(effectItem: Effect<unknown>) {
+    effectItem.executor(this.context)
   }
 
   #handleStartAsync<Resolved>(
@@ -790,52 +398,17 @@ export class Runtime<
   ): RuntimeCommand[] {
     const asyncId = data.asyncId ?? `__fizz_async__${this.#asyncIdCounter++}`
 
-    this.#replaceAsync(asyncId)
-
-    const controller = new AbortController()
-    const token = this.#asyncCounter++
-    const handle = this.#asyncDriver.start({
-      onReject: async error => {
-        const activeAsync = this.#asyncOperations.get(asyncId)
-
-        if (activeAsync?.token !== token) {
-          return
-        }
-
-        this.#asyncOperations.delete(asyncId)
-
-        if (this.#isAbortError(error, controller.signal)) {
-          return
-        }
-
-        const action = data.handlers.reject?.(error)
-
-        if (action) {
-          await this.run(action)
-        }
-      },
-      onResolve: async value => {
-        const activeAsync = this.#asyncOperations.get(asyncId)
-
-        if (activeAsync?.token !== token) {
-          return
-        }
-
-        this.#asyncOperations.delete(asyncId)
-
-        const action = data.handlers.resolve?.(value)
-
-        if (action) {
-          await this.run(action)
-        }
-      },
-      run: () => this.#runAsyncOperation(data.run, controller.signal),
-    })
-
-    this.#asyncOperations.set(asyncId, {
-      controller,
-      handle,
-      token,
+    startAsyncOperation({
+      asyncDriver: this.#asyncDriver,
+      asyncId,
+      asyncOperations: this.#asyncOperations,
+      createController: () => new AbortController(),
+      data,
+      isAbortError,
+      nextToken: () => this.#asyncCounter++,
+      run: action => this.run(action),
+      runAsyncOperation: (run, signal) =>
+        runAsyncOperation(this.context, run, signal),
     })
 
     return []
@@ -844,7 +417,11 @@ export class Runtime<
   #handleCancelAsync<AsyncId extends string>(
     data: CancelAsyncEffectData<AsyncId>,
   ): RuntimeCommand[] {
-    const cancelled = this.#cancelActiveAsync(data.asyncId)
+    const cancelled = cancelActiveAsyncOperation({
+      asyncDriver: this.#asyncDriver,
+      asyncId: data.asyncId,
+      asyncOperations: this.#asyncOperations,
+    })
 
     return cancelled
       ? [this.#actionCommand(asyncCancelled({ asyncId: data.asyncId }))]
@@ -854,24 +431,28 @@ export class Runtime<
   #handleStartTimer<TimeoutId extends string>(
     data: StartTimerEffectData<TimeoutId>,
   ): RuntimeCommand[] {
-    this.#replaceTimer(data.timeoutId)
-
-    const token = this.#timerCounter++
-    const handle = this.#timerDriver.start(data.delay, async () => {
-      const activeTimer = this.#timers.get(data.timeoutId)
-
-      if (activeTimer?.token !== token) {
-        return
-      }
-
-      this.#timers.delete(data.timeoutId)
-      await this.run(timerCompleted(data))
+    replaceTimerOperation({
+      timeoutId: data.timeoutId,
+      timerDriver: this.#timerDriver,
+      timers: this.#timers,
     })
 
-    this.#timers.set(data.timeoutId, {
+    startTimerOperation({
       delay: data.delay,
-      handle,
-      token,
+      nextToken: () => this.#timerCounter++,
+      onElapsed: async token => {
+        const activeTimer = this.#timers.get(data.timeoutId)
+
+        if (activeTimer?.token !== token) {
+          return
+        }
+
+        this.#timers.delete(data.timeoutId)
+        await this.run(timerCompleted(data))
+      },
+      timeoutId: data.timeoutId,
+      timerDriver: this.#timerDriver,
+      timers: this.#timers,
     })
 
     return [this.#actionCommand(timerStarted(data))]
@@ -880,7 +461,11 @@ export class Runtime<
   #handleCancelTimer<TimeoutId extends string>(
     data: CancelTimerEffectData<TimeoutId>,
   ): RuntimeCommand[] {
-    const cancelled = this.#cancelActiveTimer(data.timeoutId)
+    const cancelled = cancelActiveTimerOperation({
+      timeoutId: data.timeoutId,
+      timerDriver: this.#timerDriver,
+      timers: this.#timers,
+    })
 
     if (!cancelled) {
       return []
@@ -896,7 +481,11 @@ export class Runtime<
   #handleRestartTimer<TimeoutId extends string>(
     data: RestartTimerEffectData<TimeoutId>,
   ): RuntimeCommand[] {
-    const cancelled = this.#cancelActiveTimer(data.timeoutId)
+    const cancelled = cancelActiveTimerOperation({
+      timeoutId: data.timeoutId,
+      timerDriver: this.#timerDriver,
+      timers: this.#timers,
+    })
 
     return [
       ...(cancelled
@@ -916,23 +505,27 @@ export class Runtime<
   #handleStartInterval<IntervalId extends string>(
     data: StartIntervalEffectData<IntervalId>,
   ): RuntimeCommand[] {
-    this.#replaceInterval(data.intervalId)
-
-    const token = this.#timerCounter++
-    const handle = this.#timerDriver.startInterval(data.delay, async () => {
-      const activeInterval = this.#intervals.get(data.intervalId)
-
-      if (activeInterval?.token !== token) {
-        return
-      }
-
-      await this.run(intervalTriggered(data))
+    replaceIntervalOperation({
+      intervalId: data.intervalId,
+      intervals: this.#intervals,
+      timerDriver: this.#timerDriver,
     })
 
-    this.#intervals.set(data.intervalId, {
+    startIntervalOperation({
       delay: data.delay,
-      handle,
-      token,
+      intervalId: data.intervalId,
+      intervals: this.#intervals,
+      nextToken: () => this.#timerCounter++,
+      onElapsed: async token => {
+        const activeInterval = this.#intervals.get(data.intervalId)
+
+        if (activeInterval?.token !== token) {
+          return
+        }
+
+        await this.run(intervalTriggered(data))
+      },
+      timerDriver: this.#timerDriver,
     })
 
     return [this.#actionCommand(intervalStarted(data))]
@@ -941,7 +534,11 @@ export class Runtime<
   #handleCancelInterval<IntervalId extends string>(
     data: CancelIntervalEffectData<IntervalId>,
   ): RuntimeCommand[] {
-    const cancelled = this.#cancelActiveInterval(data.intervalId)
+    const cancelled = cancelActiveIntervalOperation({
+      intervalId: data.intervalId,
+      intervals: this.#intervals,
+      timerDriver: this.#timerDriver,
+    })
 
     if (!cancelled) {
       return []
@@ -960,7 +557,11 @@ export class Runtime<
   #handleRestartInterval<IntervalId extends string>(
     data: RestartIntervalEffectData<IntervalId>,
   ): RuntimeCommand[] {
-    const cancelled = this.#cancelActiveInterval(data.intervalId)
+    const cancelled = cancelActiveIntervalOperation({
+      intervalId: data.intervalId,
+      intervals: this.#intervals,
+      timerDriver: this.#timerDriver,
+    })
 
     return [
       ...(cancelled
@@ -978,21 +579,19 @@ export class Runtime<
   }
 
   #handleStartFrame(): RuntimeCommand[] {
-    this.#replaceFrame()
+    this.#cancelActiveFrame()
 
-    const token = this.#timerCounter++
-    const handle = this.#timerDriver.startFrame(async timestamp => {
-      if (this.#frame?.token !== token) {
-        return
-      }
+    this.#frame = startFrameOperation({
+      nextToken: () => this.#timerCounter++,
+      onFrame: async (timestamp, token) => {
+        if (this.#frame?.token !== token) {
+          return
+        }
 
-      await this.run(onFrame(timestamp))
+        await this.run(onFrame(timestamp))
+      },
+      timerDriver: this.#timerDriver,
     })
-
-    this.#frame = {
-      handle,
-      token,
-    }
 
     return []
   }
@@ -1003,144 +602,31 @@ export class Runtime<
     return []
   }
 
-  #cancelActiveAsync(asyncId: string): boolean {
-    const activeAsync = this.#asyncOperations.get(asyncId)
-
-    if (!activeAsync) {
-      return false
-    }
-
-    activeAsync.controller.abort()
-    this.#asyncDriver.cancel(activeAsync.handle)
-    this.#asyncOperations.delete(asyncId)
-
-    return true
-  }
-
-  #cancelActiveTimer(timeoutId: string): TimerPayload<string> | undefined {
-    const activeTimer = this.#timers.get(timeoutId)
-
-    if (!activeTimer) {
-      return
-    }
-
-    this.#timerDriver.cancel(activeTimer.handle)
-    this.#timers.delete(timeoutId)
-
-    return {
-      timeoutId,
-      delay: activeTimer.delay,
-    }
-  }
-
-  #replaceTimer(timeoutId: string) {
-    const activeTimer = this.#timers.get(timeoutId)
-
-    if (!activeTimer) {
-      return
-    }
-
-    this.#timerDriver.cancel(activeTimer.handle)
-    this.#timers.delete(timeoutId)
-  }
-
-  #replaceAsync(asyncId: string) {
-    this.#cancelActiveAsync(asyncId)
-  }
-
-  #cancelActiveInterval(
-    intervalId: string,
-  ): IntervalPayload<string> | undefined {
-    const activeInterval = this.#intervals.get(intervalId)
-
-    if (!activeInterval) {
-      return
-    }
-
-    this.#timerDriver.cancel(activeInterval.handle)
-    this.#intervals.delete(intervalId)
-
-    return {
-      intervalId,
-      delay: activeInterval.delay,
-    }
-  }
-
-  #replaceInterval(intervalId: string) {
-    const activeInterval = this.#intervals.get(intervalId)
-
-    if (!activeInterval) {
-      return
-    }
-
-    this.#timerDriver.cancel(activeInterval.handle)
-    this.#intervals.delete(intervalId)
-  }
-
   #cancelActiveFrame() {
-    if (!this.#frame) {
-      return
-    }
+    cancelActiveFrameOperation({
+      frame: this.#frame,
+      timerDriver: this.#timerDriver,
+    })
 
-    this.#timerDriver.cancel(this.#frame.handle)
     this.#frame = undefined
   }
 
-  #replaceFrame() {
-    this.#cancelActiveFrame()
-  }
-
   #clearTimers() {
-    this.#timers.forEach(timer => {
-      this.#timerDriver.cancel(timer.handle)
+    clearScheduledOperations({
+      frame: this.#frame,
+      intervals: this.#intervals,
+      timerDriver: this.#timerDriver,
+      timers: this.#timers,
     })
 
-    this.#intervals.forEach(interval => {
-      this.#timerDriver.cancel(interval.handle)
-    })
-
-    if (this.#frame) {
-      this.#timerDriver.cancel(this.#frame.handle)
-    }
-
-    this.#timers.clear()
-    this.#intervals.clear()
     this.#frame = undefined
   }
 
   #clearAsync() {
-    this.#asyncOperations.forEach(activeAsync => {
-      activeAsync.controller.abort()
-      this.#asyncDriver.cancel(activeAsync.handle)
+    clearAsyncOperations({
+      asyncDriver: this.#asyncDriver,
+      asyncOperations: this.#asyncOperations,
     })
-
-    this.#asyncOperations.clear()
-  }
-
-  #isAbortError(error: unknown, signal: AbortSignal): boolean {
-    if (signal.aborted) {
-      return true
-    }
-
-    return (
-      typeof error === "object" &&
-      error !== null &&
-      "name" in error &&
-      (error as { name?: unknown }).name === "AbortError"
-    )
-  }
-
-  async #runAsyncOperation<Resolved>(
-    run: StartAsyncEffectData<Resolved, string>["run"],
-    signal: AbortSignal,
-  ): Promise<Resolved> {
-    try {
-      return typeof run === "function"
-        ? await run(signal, this.context)
-        : await run
-    } catch (error) {
-      throw error instanceof Error ? error : new Error(String(error))
-    }
   }
 
   async #executeAction<A extends RuntimeAction>(
@@ -1158,76 +644,27 @@ export class Runtime<
   }
 
   #handleState(targetState: RuntimeState): RuntimeCommand[] {
-    const exitState = this.context.currentState
-
-    if (exitState) {
-      this.#clearAsync()
-    }
-
-    const isUpdating =
-      exitState?.name === targetState.name && targetState.mode === "update"
-
-    return isUpdating
-      ? this.#updateState(targetState)
-      : this.#enterState(targetState)
-  }
-
-  #updateState(targetState: RuntimeState): RuntimeCommand[] {
-    return [
-      this.#effectCommand(
-        effect("nextState", targetState, () => {
-          this.context.history.pop()
-          this.context.history.push(
-            targetState as typeof this.context.currentState,
-          )
-          this.#contextDidChange()
-        }),
-      ),
-      this.#effectCommand(log(`Update: ${targetState.name}`, targetState.data)),
-    ]
-  }
-
-  #enterState(targetState: RuntimeState): RuntimeCommand[] {
-    const exitState = this.context.currentState
-
-    if (exitState && exitState.name !== targetState.name) {
-      this.#clearTimers()
-    }
-
-    const effects: RuntimeCommand[] = [
-      this.#effectCommand(
-        effect("nextState", targetState, () =>
-          this.context.history.push(
-            targetState as typeof this.context.currentState,
-          ),
-        ),
-      ),
-      this.#effectCommand(log(`Enter: ${targetState.name}`, targetState.data)),
-      this.#actionCommand(beforeEnter(this)),
-      this.#actionCommand(enter()),
-    ]
-
-    // Run exit on prior state first
-    if (exitState) {
-      effects.unshift(this.#actionCommand(exit()))
-    }
-
-    return effects
+    return buildStateTransitionCommands({
+      actionCommand: action => this.#actionCommand(action),
+      clearAsync: () => this.#clearAsync(),
+      clearTimers: () => this.#clearTimers(),
+      context: this.context,
+      effectCommand: effectItem => this.#effectCommand(effectItem),
+      notifyContextDidChange: () => this.#contextDidChange(),
+      runtime: this,
+      targetState,
+    })
   }
 
   #handleGoBack(): RuntimeCommand[] {
-    this.#clearAsync()
-    this.#clearTimers()
-
-    return [
-      this.#effectCommand(
-        effect("updateHistory", undefined, () => {
-          this.context.history.pop()
-        }),
-      ),
-      this.#actionCommand(beforeEnter(this)),
-      this.#actionCommand(enter()),
-    ]
+    return buildGoBackCommands({
+      actionCommand: action => this.#actionCommand(action),
+      clearAsync: () => this.#clearAsync(),
+      clearTimers: () => this.#clearTimers(),
+      context: this.context,
+      effectCommand: effectItem => this.#effectCommand(effectItem),
+      runtime: this,
+    })
   }
 }
 

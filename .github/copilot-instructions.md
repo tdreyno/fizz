@@ -55,8 +55,7 @@
 
 - For any generated or edited code, run formatting, linting, tests, and SonarQube checks before finalizing.
 - Prefer scoped validation for speed and signal:
-  - Prettier: `npx prettier --check <changed-files>`
-  - If Prettier fails: `npx prettier --write <changed-files>` then re-run `--check`
+  - Prettier: `npm exec -- prettier -- --write <changed-files>`
   - ESLint (from touched package): `npm run lint -- <changed-files-or-folder>`
   - Tests (from touched package): `npm run test` or `npm run test -- <spec-file-pattern>`
 - For SonarQube scope and fallback rules, and `.github` Prettier exceptions, follow `preferences.md`.
