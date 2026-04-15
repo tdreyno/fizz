@@ -205,3 +205,10 @@ const Loading = state<Enter | typeof profileLoaded>({
 - If a state transition replaces the current state instance, Fizz cancels async work started by that instance.
 - Abort-style rejections are suppressed and do not flow into the `reject` handler.
 - If an async operation resolves after it has become stale, Fizz ignores the completion.
+
+## Related Docs
+
+- [Architecture](./architecture.md)
+- [Custom Effects](./custom-effects.md)
+- [Complex Actions](./complex-actions.md)
+- [Testing](./testing.md)

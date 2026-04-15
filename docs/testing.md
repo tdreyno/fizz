@@ -13,6 +13,8 @@ The current testing story in Fizz is built from the existing public runtime APIs
 
 This page documents the current recommended testing workflow and the dedicated testing entrypoint built on top of it.
 
+For React components that use `useMachine(...)`, the usual split is: test the machine behavior with the runtime patterns in this guide, then test the React component as a thin rendering layer on top. See [React Integration](./react-integration.md) for the hook API itself.
+
 ## Recommended Strategy Today
 
 Model the machine as usual, then test it by composing the runtime with controlled drivers.
@@ -186,6 +188,10 @@ Agents should use the testing guidance when a task involves:
 
 ## Related Docs
 
+- [Getting Started](./getting-started.md)
+- [Architecture](./architecture.md)
+- [React Integration](./react-integration.md)
+- [Complex Actions](./complex-actions.md)
 - [Async](./async.md)
 - [Timers](./timers.md)
 - [Intervals](./intervals.md)

@@ -327,3 +327,10 @@ This pattern is intentionally different from the older recursive `onFrame()` exa
 - Interval actions are available automatically once the state declares an `IntervalId` generic in the fourth `state(...)` slot.
 - Frame loops dispatch `OnFrame` until `cancelFrame()` is called or the state exits.
 - Frame loops do not use ids or emit separate started or cancelled actions.
+
+## Related Docs
+
+- [Architecture](./architecture.md)
+- [Complex Actions](./complex-actions.md)
+- [Timers](./timers.md)
+- [Testing](./testing.md)

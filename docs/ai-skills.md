@@ -58,6 +58,10 @@ After the skill is installed, compatible agents can use it automatically when a 
 ## Related Docs
 
 - [Introduction](../README.md)
+- [Getting Started](./getting-started.md)
+- [React Integration](./react-integration.md)
+- [Architecture](./architecture.md)
+- [Complex Actions](./complex-actions.md)
 - [Testing](./testing.md)
 - [Async](./async.md)
 - [API](./api.md)

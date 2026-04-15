@@ -219,6 +219,8 @@ const Parent = stateWithNested(
 
 Use this when nested composition makes the machine easier to reason about, not just to avoid a few repeated handlers.
 
+See [Nested State Machines](./nested-state-machines.md) for a practical walkthrough of parent and child communication.
+
 ### `debounce`
 
 Wrap a handler so it only runs after a quiet period.

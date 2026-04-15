@@ -10,6 +10,10 @@ Fizz is a small library for building state machines that can effectively manage 
 npm install --save @tdreyno/fizz
 ```
 
+Start with the main docs [Getting Started](../../docs/getting-started.md) page for a minimal setup and runtime demo.
+
+See [React Integration](../../docs/react-integration.md), [Architecture](../../docs/architecture.md), [Custom Effects](../../docs/custom-effects.md), and [Complex Actions](../../docs/complex-actions.md) for the deeper conceptual guides that complement the examples below.
+
 ## Testing
 
 Fizz also ships test helpers on a dedicated subpath so app tests can compose the real runtime with deterministic drivers.
@@ -39,6 +43,8 @@ Use the harness when a machine test needs any of the following:
 - virtual time via `advanceBy()`, `advanceFrames()`, and `runAllTimers()`
 - recorded outputs and state snapshots for assertions
 - `respondToOutput(...)` when an emitted output should feed a runtime action during a test
+
+See [Testing](../../docs/testing.md) for the full testing guide.
 
 ## Let's play pong
 
@@ -204,6 +210,8 @@ const Show = () => {
   )
 }
 ```
+
+For the complete `useMachine(...)` hook guide, see [React Integration](../../docs/react-integration.md).
 
 ## Svelte Runtime
 

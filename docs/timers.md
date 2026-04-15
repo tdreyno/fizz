@@ -312,3 +312,10 @@ The `timeoutId` value is narrowed to the declared timer-id member in each branch
 - `cancelTimer` is a no-op if that timer is not currently running.
 - When a state transition leaves the current state, Fizz clears any active timers owned by that state.
 - Timer actions are available automatically once the state declares a `TimeoutId` generic.
+
+## Related Docs
+
+- [Architecture](./architecture.md)
+- [Complex Actions](./complex-actions.md)
+- [Intervals](./intervals.md)
+- [Testing](./testing.md)
