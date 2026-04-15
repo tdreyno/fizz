@@ -39,6 +39,53 @@ const appendOptionValue = (
     : [String(existingValue), nextValue]
 }
 
+const isShortFlag = (value: string): boolean =>
+  value.startsWith("-") && value.length === 2
+
+const parseLongOption = (
+  rawArgs: Array<string>,
+  index: number,
+  options: Record<string, CliOptionValue>,
+): number => {
+  const value = rawArgs[index]
+
+  if (!value) {
+    return index + 1
+  }
+
+  const [rawKey, inlineValue] = value.slice(2).split("=", 2)
+  const key = rawKey.trim()
+
+  if (!key) {
+    return index + 1
+  }
+
+  if (inlineValue !== undefined) {
+    options[key] = appendOptionValue(options[key], inlineValue)
+    return index + 1
+  }
+
+  const nextValue = rawArgs[index + 1]
+
+  if (!nextValue || nextValue.startsWith("-")) {
+    options[key] = true
+    return index + 1
+  }
+
+  options[key] = appendOptionValue(options[key], nextValue)
+
+  return index + 2
+}
+
+const parseShortOption = (
+  value: string,
+  options: Record<string, CliOptionValue>,
+): void => {
+  const key = value === "-h" ? "help" : value.slice(1)
+
+  options[key] = true
+}
+
 export const parseCliArgs = (rawArgs: Array<string>): ParsedCliArgs => {
   const positionals: Array<string> = []
   const options: Record<string, CliOptionValue> = {}
@@ -59,36 +106,12 @@ export const parseCliArgs = (rawArgs: Array<string>): ParsedCliArgs => {
     }
 
     if (value.startsWith("--")) {
-      const [rawKey, inlineValue] = value.slice(2).split("=", 2)
-      const key = rawKey.trim()
-
-      if (!key) {
-        index += 1
-        continue
-      }
-
-      if (inlineValue !== undefined) {
-        options[key] = appendOptionValue(options[key], inlineValue)
-        index += 1
-        continue
-      }
-
-      const nextValue = rawArgs[index + 1]
-
-      if (!nextValue || nextValue.startsWith("-")) {
-        options[key] = true
-        index += 1
-        continue
-      }
-
-      options[key] = appendOptionValue(options[key], nextValue)
-      index += 2
+      index = parseLongOption(rawArgs, index, options)
       continue
     }
 
-    if (value.startsWith("-") && value.length === 2) {
-      const key = value === "-h" ? "help" : value.slice(1)
-      options[key] = true
+    if (isShortFlag(value)) {
+      parseShortOption(value, options)
       index += 1
       continue
     }
@@ -156,7 +179,7 @@ export const runCli = async (
 ): Promise<number> => {
   const parsedArgs = parseCliArgs(rawArgs)
 
-  if (parsedArgs.options.help || !parsedArgs.command) {
+  if (!parsedArgs.command) {
     io.write(`${ROOT_HELP}\n`)
     return 0
   }

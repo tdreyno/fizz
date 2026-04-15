@@ -6,7 +6,17 @@ import type {
 
 type LayoutNode = {
   height: number
+  isNested: boolean
   state: MachineState
+  width: number
+  x: number
+  y: number
+}
+
+type NestedGroup = {
+  height: number
+  initialChildName?: string
+  parentName: string
   width: number
   x: number
   y: number
@@ -27,7 +37,8 @@ const escapeSvg = (value: string): string =>
     .replaceAll("'", "&apos;")
 
 const orderedStates = (graph: MachineGraph): Array<MachineState> => {
-  const stateMap = new Map(graph.states.map(state => [state.name, state]))
+  const rootStates = graph.states.filter(state => !state.nestedParentState)
+  const stateMap = new Map(rootStates.map(state => [state.name, state]))
   const visited = new Set<string>()
   const queue = [graph.entryState]
   const ordered: Array<MachineState> = []
@@ -54,7 +65,7 @@ const orderedStates = (graph: MachineGraph): Array<MachineState> => {
       .forEach(transition => queue.push(transition.target))
   }
 
-  graph.states.forEach(state => {
+  rootStates.forEach(state => {
     if (!visited.has(state.name)) {
       ordered.push(state)
     }
@@ -63,18 +74,65 @@ const orderedStates = (graph: MachineGraph): Array<MachineState> => {
   return ordered
 }
 
+const getNestedChildren = (graph: MachineGraph, parentName: string) =>
+  graph.states.filter(state => state.nestedParentState === parentName)
+
 const buildLayout = (graph: MachineGraph): Array<LayoutNode> =>
-  orderedStates(graph).map((state, index) => {
+  orderedStates(graph).flatMap((state, index) => {
     const row = Math.floor(index / 4)
     const column = index % 4
-
-    return {
+    const x = PADDING + column * (NODE_WIDTH + HORIZONTAL_GAP)
+    const y = 112 + row * (NODE_HEIGHT + VERTICAL_GAP)
+    const nestedChildren = getNestedChildren(graph, state.name)
+    const parentNode: LayoutNode = {
       height: NODE_HEIGHT,
+      isNested: false,
       state,
       width: NODE_WIDTH,
-      x: PADDING + column * (NODE_WIDTH + HORIZONTAL_GAP),
-      y: 112 + row * (NODE_HEIGHT + VERTICAL_GAP),
+      x,
+      y,
     }
+
+    if (nestedChildren.length === 0) {
+      return [parentNode]
+    }
+
+    const nestedNodes = nestedChildren.map((child, childIndex) => ({
+      height: NODE_HEIGHT,
+      isNested: true,
+      state: child,
+      width: NODE_WIDTH - 22,
+      x: x + 28,
+      y: y + NODE_HEIGHT + 56 + childIndex * (NODE_HEIGHT + 18),
+    }))
+
+    return [parentNode, ...nestedNodes]
+  })
+
+const buildNestedGroups = (graph: MachineGraph, layout: Array<LayoutNode>) =>
+  layout.flatMap(node => {
+    const nestedChildren = layout.filter(
+      candidate => candidate.state.nestedParentState === node.state.name,
+    )
+
+    if (nestedChildren.length === 0) {
+      return []
+    }
+
+    const bottom = Math.max(
+      ...nestedChildren.map(child => child.y + child.height),
+    )
+
+    return [
+      {
+        height: bottom - node.y + 24,
+        initialChildName: node.state.nestedInitialState,
+        parentName: node.state.name,
+        width: node.width + 56,
+        x: node.x - 14,
+        y: node.y - 14,
+      },
+    ]
   })
 
 const nodeCenterX = (node: LayoutNode): number => node.x + node.width / 2
@@ -124,6 +182,9 @@ const renderNode = (graph: MachineGraph, node: LayoutNode): string => {
   if (isSpecial) {
     fill = "#fff7ed"
     stroke = "#c2410c"
+  } else if (node.isNested) {
+    fill = "#f0fdf4"
+    stroke = "#15803d"
   } else if (isEntry) {
     fill = "#ecfeff"
     stroke = "#0f766e"
@@ -133,7 +194,7 @@ const renderNode = (graph: MachineGraph, node: LayoutNode): string => {
   let subtitle: string | undefined
 
   if (node.state.kind === "nested-parent") {
-    subtitle = "Nested state"
+    subtitle = "Nested machine"
   } else if (node.state.kind === "nested-state") {
     subtitle = "Nested child"
   } else if (isEntry) {
@@ -147,6 +208,44 @@ const renderNode = (graph: MachineGraph, node: LayoutNode): string => {
     subtitle
       ? `    <text x="${nodeCenterX(node)}" y="${node.y + 50}" class="node-subtitle">${escapeSvg(subtitle)}</text>`
       : "",
+  ].join("\n")
+}
+
+const renderNestedGroup = (group: NestedGroup): string =>
+  [
+    `
+    <rect x="${group.x}" y="${group.y}" width="${group.width}" height="${group.height}" rx="22" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.6" stroke-dasharray="8 6" />`,
+    `    <text x="${group.x + 18}" y="${group.y + 22}" class="panel-title">Nested machine: ${escapeSvg(group.parentName)}</text>`,
+    group.initialChildName
+      ? `    <text x="${group.x + 18}" y="${group.y + 42}" class="panel-row">Entry: ${escapeSvg(group.initialChildName)}</text>`
+      : "",
+  ].join("\n")
+
+const renderNestedRelationship = (
+  nodeLookup: Map<string, LayoutNode>,
+  node: LayoutNode,
+): string => {
+  const childName = node.state.nestedInitialState
+
+  if (!childName) {
+    return ""
+  }
+
+  const childNode = nodeLookup.get(childName)
+
+  if (!childNode) {
+    return ""
+  }
+
+  const startX = nodeCenterX(node)
+  const startY = node.y + node.height
+  const endX = nodeCenterX(childNode)
+  const endY = childNode.y
+
+  return [
+    `
+    <path d="M ${startX} ${startY} L ${endX} ${endY}" fill="none" stroke="#64748b" stroke-width="1.8" stroke-dasharray="6 5" />`,
+    `    <text x="${(startX + endX) / 2}" y="${(startY + endY) / 2 - 8}" class="edge-label">contains</text>`,
   ].join("\n")
 }
 
@@ -205,14 +304,17 @@ const renderOutputsPanel = (
 
 export const renderMachineGraphSvg = (graph: MachineGraph): string => {
   const layout = buildLayout(graph)
+  const nestedGroups = buildNestedGroups(graph, layout)
   const nodeLookup = new Map(layout.map(node => [node.state.name, node]))
   const width = Math.max(
     720,
     ...layout.map(node => node.x + node.width + PADDING),
+    ...nestedGroups.map(group => group.x + group.width + PADDING),
   )
   const height = Math.max(
     340,
     ...layout.map(node => node.y + node.height + 150),
+    ...nestedGroups.map(group => group.y + group.height + 70),
   )
 
   return [
@@ -236,6 +338,8 @@ export const renderMachineGraphSvg = (graph: MachineGraph): string => {
     `  <rect x="0" y="0" width="${width}" height="${height}" fill="#ffffff" />`,
     `  <text x="${PADDING}" y="42" class="title">${escapeSvg(graph.name)}</text>`,
     `  <text x="${PADDING}" y="64" class="subtitle">Entry state: ${escapeSvg(graph.entryState)}</text>`,
+    ...nestedGroups.map(group => renderNestedGroup(group)),
+    ...layout.map(node => renderNestedRelationship(nodeLookup, node)),
     ...layout.flatMap(node =>
       node.state.transitions.map(transition =>
         renderTransition(nodeLookup, node, transition),

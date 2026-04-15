@@ -26,9 +26,6 @@ Details
   notes:
     - Enter: emits output
     - Reset: uses goBack
-- History
-  notes:
-    - Synthetic node for goBack transitions
 
 Outputs
 - Hello
@@ -42,4 +39,3 @@ State Graph
 [Ready]
   Reset -> [History]
   World -> [Ready]
-[History]

@@ -129,6 +129,8 @@ Version 1 intentionally targets explicit machine roots created with `createMachi
 - state files are still built with `state(...)`
 - nested state files are still built with `stateWithNested(...)`
 
+When a parent state owns a nested machine, the text and SVG renderers show that relationship explicitly: the parent lists its nested entry state, nested child states render inside the parent's nested boundary in SVG, and child transitions are included in the diagram output.
+
 That keeps the generated diagrams deterministic and makes it practical to use the command in automation.
 
 ## Related Docs

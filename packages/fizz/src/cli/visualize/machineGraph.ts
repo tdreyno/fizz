@@ -25,6 +25,8 @@ export type MachineState = {
   filePath: string
   kind: "nested-parent" | "nested-state" | "state"
   name: string
+  nestedInitialState?: string
+  nestedParentState?: string
   notes: Array<string>
   outputs: Array<string>
   transitions: Array<MachineTransition>
@@ -38,13 +40,9 @@ export type MachineGraph = {
   states: Array<MachineState>
 }
 
-type StateAnalysis = MachineState & {
-  nestedInitialState?: string
-}
-
 type GraphBuilderContext = {
   project: Project
-  stateCache: Map<string, StateAnalysis>
+  stateCache: Map<string, MachineState>
 }
 
 const SPECIAL_HISTORY_NODE = "History"
@@ -248,6 +246,64 @@ const getMachineName = (sourceFile: SourceFile): string => {
   )
 }
 
+const findNestedStateIndexPath = (
+  stateFilePath: string,
+): string | undefined => {
+  const nestedStateDirectory = dirname(stateFilePath)
+
+  return resolve(nestedStateDirectory, "index.ts")
+}
+
+const getNestedStateEntriesForStateFile = (
+  project: Project,
+  stateFilePath: string,
+): Array<{ filePath: string }> => {
+  const sourceFile = project.getSourceFileOrThrow(stateFilePath)
+  const callExpression = getDefaultStateCall(sourceFile)
+
+  if (!callExpression) {
+    return []
+  }
+
+  const expression = callExpression.getExpression()
+
+  if (
+    !Node.isIdentifier(expression) ||
+    expression.getText() !== "stateWithNested"
+  ) {
+    return []
+  }
+
+  const [, nestedInitialArgument] = callExpression.getArguments()
+
+  if (!nestedInitialArgument || !Node.isCallExpression(nestedInitialArgument)) {
+    return []
+  }
+
+  const nestedInitialIdentifier = nestedInitialArgument.getExpression()
+
+  if (!Node.isIdentifier(nestedInitialIdentifier)) {
+    return []
+  }
+
+  const nestedInitialStatePath = getSourceFilePathForIdentifier(
+    nestedInitialIdentifier,
+  )
+
+  if (!nestedInitialStatePath) {
+    return []
+  }
+
+  const nestedStateIndexPath = findNestedStateIndexPath(nestedInitialStatePath)
+  const nestedStateIndexFile = nestedStateIndexPath
+    ? project.getSourceFile(nestedStateIndexPath)
+    : undefined
+
+  return nestedStateIndexFile
+    ? extractStateEntriesFromStateIndex(nestedStateIndexFile)
+    : []
+}
+
 const createCandidateName = (sourceFilePath: string): string => {
   const stem = fileStem(sourceFilePath)
   const directoryName = basename(dirname(sourceFilePath))
@@ -278,21 +334,35 @@ const extractStateEntriesFromStateIndex = (
 ): Array<{ filePath: string }> => {
   const expression = getDefaultExportExpression(sourceFile)
 
-  if (!Node.isObjectLiteralExpression(expression)) {
-    return []
+  if (Node.isObjectLiteralExpression(expression)) {
+    return expression.getProperties().flatMap(property => {
+      const identifier = getNamedObjectPropertyIdentifier(property)
+
+      if (!identifier) {
+        return []
+      }
+
+      const definitionFilePath = getSourceFilePathForIdentifier(identifier)
+
+      return definitionFilePath ? [{ filePath: definitionFilePath }] : []
+    })
   }
 
-  return expression.getProperties().flatMap(property => {
-    const identifier = getNamedObjectPropertyIdentifier(property)
+  const namedExportEntries = sourceFile
+    .getExportDeclarations()
+    .flatMap(exportDeclaration =>
+      exportDeclaration.getNamedExports().flatMap(exportSpecifier => {
+        const identifier =
+          exportSpecifier.getAliasNode() ?? exportSpecifier.getNameNode()
+        const definitionFilePath = getSourceFilePathForIdentifier(identifier)
 
-    if (!identifier) {
-      return []
-    }
+        return definitionFilePath ? [{ filePath: definitionFilePath }] : []
+      }),
+    )
 
-    const definitionFilePath = getSourceFilePathForIdentifier(identifier)
-
-    return definitionFilePath ? [{ filePath: definitionFilePath }] : []
-  })
+  return Array.from(
+    new Map(namedExportEntries.map(entry => [entry.filePath, entry])).values(),
+  )
 }
 
 const getStringLiteralValue = (
@@ -450,7 +520,11 @@ const getExplicitStateName = (
 ): string => {
   const optionArgument = callExpression
     .getArguments()
-    .find(argument => Node.isObjectLiteralExpression(argument))
+    .find(
+      argument =>
+        Node.isObjectLiteralExpression(argument) &&
+        argument.getProperty("name") !== undefined,
+    )
 
   if (!optionArgument || !Node.isObjectLiteralExpression(optionArgument)) {
     return fallbackName
@@ -831,6 +905,7 @@ const analyzeStateFile = (
   stateFilePath: string,
   knownStatesByFilePath: Map<string, string>,
   kind: MachineState["kind"] = "state",
+  nestedParentState?: string,
 ): StateAnalysis => {
   const cachedState = context.stateCache.get(stateFilePath)
 
@@ -842,10 +917,11 @@ const analyzeStateFile = (
   const callExpression = getDefaultStateCall(sourceFile)
 
   if (!callExpression) {
-    const fallbackState: StateAnalysis = {
+    const fallbackState: MachineState = {
       filePath: stateFilePath,
       kind,
       name: createCandidateName(stateFilePath),
+      nestedParentState,
       notes: [],
       outputs: [],
       transitions: [],
@@ -862,10 +938,11 @@ const analyzeStateFile = (
     Node.isIdentifier(expression) && expression.getText() === "stateWithNested"
       ? "nested-parent"
       : kind
-  const analysis: StateAnalysis = {
+  const analysis: MachineState = {
     filePath: stateFilePath,
     kind: stateKind,
     name,
+    nestedParentState,
     notes: [],
     outputs: [],
     transitions: [],
@@ -925,6 +1002,7 @@ const analyzeStateFile = (
           nestedStateFilePath,
           knownStatesByFilePath,
           "nested-state",
+          name,
         )
         analysis.nestedInitialState = nestedState.name
         notes.add(`nested initial state: ${nestedState.name}`)
@@ -957,7 +1035,7 @@ const analyzeStateFile = (
 }
 
 const includeSpecialNodes = (
-  states: Array<StateAnalysis>,
+  states: Array<MachineState>,
 ): Array<MachineState> => {
   const includesHistoryNode = states.some(state =>
     state.transitions.some(
@@ -972,6 +1050,8 @@ const includeSpecialNodes = (
           filePath: "",
           kind: "state",
           name: SPECIAL_HISTORY_NODE,
+          nestedParentState: undefined,
+          nestedInitialState: undefined,
           notes: ["Synthetic node for goBack transitions"],
           outputs: [],
           transitions: [],
@@ -1016,7 +1096,7 @@ export const buildMachineGraph = (
 ): MachineGraph => {
   const context: GraphBuilderContext = {
     project,
-    stateCache: new Map<string, StateAnalysis>(),
+    stateCache: new Map<string, MachineState>(),
   }
   const stateIndexFile = project.getSourceFileOrThrow(candidate.stateIndexPath)
   const stateEntries = extractStateEntriesFromStateIndex(stateIndexFile)
@@ -1027,9 +1107,44 @@ export const buildMachineGraph = (
     ]),
   )
 
-  const analyzedStates = stateEntries.map(entry =>
-    analyzeStateFile(context, entry.filePath, knownStatesByFilePath, "state"),
-  )
+  stateEntries.forEach(entry => {
+    getNestedStateEntriesForStateFile(project, entry.filePath).forEach(
+      nestedEntry => {
+        knownStatesByFilePath.set(
+          nestedEntry.filePath,
+          getPreliminaryStateName(project, nestedEntry.filePath),
+        )
+      },
+    )
+  })
+
+  const analyzedStates = stateEntries.flatMap(entry => {
+    const analyzedState = analyzeStateFile(
+      context,
+      entry.filePath,
+      knownStatesByFilePath,
+      "state",
+    )
+
+    if (!analyzedState.nestedInitialState) {
+      return [analyzedState]
+    }
+
+    const nestedStates = getNestedStateEntriesForStateFile(
+      project,
+      entry.filePath,
+    ).map(nestedEntry =>
+      analyzeStateFile(
+        context,
+        nestedEntry.filePath,
+        knownStatesByFilePath,
+        "nested-state",
+        analyzedState.name,
+      ),
+    )
+
+    return [analyzedState, ...nestedStates]
+  })
   const graphStates = includeSpecialNodes(analyzedStates)
   const sortedStates = [...graphStates]
 

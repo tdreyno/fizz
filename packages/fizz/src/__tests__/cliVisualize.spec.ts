@@ -13,15 +13,44 @@ import {
   buildMachineGraph,
   discoverMachineCandidates,
 } from "../cli/visualize/machineGraph.js"
+import { renderMachineGraphSvg } from "../cli/visualize/renderSvg.js"
+import { renderMachineGraphText } from "../cli/visualize/renderText.js"
 
 const testDirectory = dirname(fileURLToPath(import.meta.url))
 const packageRoot = resolve(testDirectory, "..", "..")
 const loadingMachineDirectory = resolve(packageRoot, "src/loadingMachine")
 const loadingMachineSourcePath = resolve(loadingMachineDirectory, "index.ts")
+const nestedMachineDirectory = resolve(
+  packageRoot,
+  "src/__tests__/nestedMachine",
+)
+const nestedMachineSourcePath = resolve(nestedMachineDirectory, "index.ts")
+const nestedMachineStateIndexPath = resolve(
+  nestedMachineDirectory,
+  "states/index.ts",
+)
+const nestedMachineSourceFiles = [
+  resolve(nestedMachineDirectory, "index.ts"),
+  resolve(nestedMachineDirectory, "actions/index.ts"),
+  resolve(nestedMachineDirectory, "actions/CompletedForm.ts"),
+  resolve(nestedMachineDirectory, "states/index.ts"),
+  resolve(nestedMachineDirectory, "states/Complete.ts"),
+  resolve(nestedMachineDirectory, "states/Entry/index.ts"),
+  resolve(nestedMachineDirectory, "states/Entry/actions/index.ts"),
+  resolve(nestedMachineDirectory, "states/Entry/actions/SetName.ts"),
+  resolve(nestedMachineDirectory, "states/Entry/states/index.ts"),
+  resolve(nestedMachineDirectory, "states/Entry/states/FormInvalid.ts"),
+  resolve(nestedMachineDirectory, "states/Entry/states/FormValid.ts"),
+  resolve(nestedMachineDirectory, "states/Entry/types.ts"),
+]
 
 const createProjectForRoot = async (searchRoot: string): Promise<Project> => {
   const sourceFiles =
     await discoverMachineCandidates.collectSourceFiles(searchRoot)
+  return createProjectForFiles(sourceFiles)
+}
+
+const createProjectForFiles = (sourceFiles: Array<string>): Project => {
   const project = new Project({
     compilerOptions: {
       allowJs: true,
@@ -65,7 +94,73 @@ const createNonInteractiveIo = (): {
   }
 }
 
+const createPromptingIo = (
+  responses: Array<string>,
+): {
+  io: CliIo
+  prompts: Array<{ choices: Array<string>; message: string }>
+  stderr: Array<string>
+  stdout: Array<string>
+} => {
+  const stdout: Array<string> = []
+  const stderr: Array<string> = []
+  const prompts: Array<{ choices: Array<string>; message: string }> = []
+
+  return {
+    io: {
+      promptInput: async () => {
+        throw new Error("promptInput should not be called")
+      },
+      promptSelect: async (message, choices) => {
+        prompts.push({
+          choices: choices.map(choice => choice.value),
+          message,
+        })
+
+        const nextResponse = responses.shift()
+
+        if (!nextResponse) {
+          throw new Error(`No prompt response configured for: ${message}`)
+        }
+
+        return nextResponse
+      },
+      write: message => {
+        stdout.push(message)
+      },
+      writeError: message => {
+        stderr.push(message)
+      },
+    },
+    prompts,
+    stderr,
+    stdout,
+  }
+}
+
 describe("fizz visualize", () => {
+  test("shows visualize help for visualize --help", async () => {
+    const { io, stderr, stdout } = createNonInteractiveIo()
+    const exitCode = await runCli(["visualize", "--help"], io)
+
+    expect(exitCode).toBe(0)
+    expect(stderr).toEqual([])
+    expect(stdout.join("")).toContain("fizz visualize")
+    expect(stdout.join("")).toContain("--output-dir <path>")
+    expect(stdout.join("")).not.toContain("Commands:\n  machines")
+  })
+
+  test("shows machines help for machines --help", async () => {
+    const { io, stderr, stdout } = createNonInteractiveIo()
+    const exitCode = await runCli(["machines", "--help"], io)
+
+    expect(exitCode).toBe(0)
+    expect(stderr).toEqual([])
+    expect(stdout.join("")).toContain("fizz machines")
+    expect(stdout.join("")).toContain("--source <path>")
+    expect(stdout.join("")).not.toContain("Commands:\n  machines")
+  })
+
   test("does not discover machines inside node_modules", async () => {
     const searchRoot = await mkdtemp(join(tmpdir(), "fizz-visualize-scan-"))
 
@@ -213,6 +308,67 @@ describe("fizz visualize", () => {
     )
   })
 
+  test("renders nested machine relationships in graph, text, and svg output", () => {
+    const project = createProjectForFiles(nestedMachineSourceFiles)
+    const graph = buildMachineGraph(project, {
+      name: "NestedMachine",
+      sourceFilePath: nestedMachineSourcePath,
+      stateIndexPath: nestedMachineStateIndexPath,
+    })
+    const textOutput = renderMachineGraphText(graph)
+    const svgOutput = renderMachineGraphSvg(graph)
+
+    expect(graph.entryState).toBe("Entry")
+    expect(
+      graph.states.map(state => ({
+        name: state.name,
+        nestedInitialState: state.nestedInitialState,
+        nestedParentState: state.nestedParentState,
+      })),
+    ).toEqual([
+      {
+        name: "Complete",
+        nestedInitialState: undefined,
+        nestedParentState: undefined,
+      },
+      {
+        name: "Entry",
+        nestedInitialState: "FormInvalid",
+        nestedParentState: undefined,
+      },
+      {
+        name: "FormInvalid",
+        nestedInitialState: undefined,
+        nestedParentState: "Entry",
+      },
+      {
+        name: "FormValid",
+        nestedInitialState: undefined,
+        nestedParentState: "Entry",
+      },
+    ])
+    expect(
+      graph.states.find(state => state.name === "FormInvalid")?.transitions,
+    ).toEqual([
+      { action: "SetName", kind: "self", target: "FormInvalid" },
+      { action: "SetName", kind: "normal", target: "FormValid" },
+    ])
+    expect(textOutput).toContain("- Entry")
+    expect(textOutput).toContain("  nested entry: FormInvalid")
+    expect(textOutput).toContain("  nested states:")
+    expect(textOutput).toContain("    - FormInvalid")
+    expect(textOutput).toContain("    - FormValid")
+    expect(textOutput).toContain("[Entry]")
+    expect(textOutput).toContain("  contains -> [FormInvalid]")
+    expect(textOutput).toContain("[FormInvalid]")
+    expect(textOutput).toContain("  SetName -> [FormInvalid]")
+    expect(textOutput).toContain("  SetName -> [FormValid]")
+    expect(svgOutput).toContain("Nested machine: Entry")
+    expect(svgOutput).toContain(">contains</text>")
+    expect(svgOutput).toContain("FormInvalid")
+    expect(svgOutput).toContain("FormValid")
+  })
+
   test("discovers only createMachine roots outside tests", async () => {
     const project = await createProjectForRoot(packageRoot)
     const candidates = discoverMachineCandidates.findCandidates(
@@ -295,6 +451,102 @@ describe("fizz visualize", () => {
     expect(exitCode).toBe(0)
     expect(stderr).toEqual([])
     expect(stdout).toEqual(["LoadingMachine\tsrc/loadingMachine/index.ts\n"])
+  })
+
+  test("prompts for machine selection even when one machine is discovered", async () => {
+    const outputDirectory = await mkdtemp(join(tmpdir(), "fizz-visualize-one-"))
+
+    try {
+      const { io, prompts, stderr, stdout } = createPromptingIo([
+        "LoadingMachine",
+        "text",
+      ])
+      const exitCode = await runCli(
+        ["visualize", "--cwd", packageRoot, "--output-dir", outputDirectory],
+        io,
+      )
+
+      expect(exitCode).toBe(0)
+      expect(stderr).toEqual([])
+      expect(prompts.map(prompt => prompt.message)).toEqual([
+        "Choose a Fizz machine to visualize",
+        "Choose output format",
+      ])
+      expect(prompts[0]?.choices).toEqual(["LoadingMachine"])
+      expect(stdout.join("")).toContain("Wrote TEXT diagram")
+    } finally {
+      await rm(outputDirectory, { force: true, recursive: true })
+    }
+  })
+
+  test("writes output to cwd when output-dir is omitted", async () => {
+    const workspaceRoot = await mkdtemp(join(tmpdir(), "fizz-visualize-cwd-"))
+
+    try {
+      const appMachineDir = resolve(workspaceRoot, "src/machine")
+
+      await mkdir(appMachineDir, { recursive: true })
+      await writeFile(
+        resolve(appMachineDir, "Ready.ts"),
+        [
+          'import { state } from "../../state.js"',
+          "",
+          'export default state({}, { name: "Ready" })',
+          "",
+        ].join("\n"),
+        "utf8",
+      )
+      await writeFile(
+        resolve(appMachineDir, "states.ts"),
+        [
+          'import Ready from "./Ready.js"',
+          "",
+          "export default { Ready }",
+          "",
+        ].join("\n"),
+        "utf8",
+      )
+      await writeFile(
+        resolve(appMachineDir, "index.ts"),
+        [
+          'import { createMachine } from "../../createMachine.js"',
+          'import States from "./states.js"',
+          "",
+          'export default createMachine({ name: "AppMachine", states: States })',
+          "",
+        ].join("\n"),
+        "utf8",
+      )
+
+      const { io, stderr, stdout } = createNonInteractiveIo()
+      const exitCode = await runCli(
+        [
+          "visualize",
+          "--cwd",
+          workspaceRoot,
+          "--source",
+          "./src/machine/index.ts",
+          "--format",
+          "text",
+          "--no-interactive",
+        ],
+        io,
+      )
+
+      const textOutput = await readFile(
+        resolve(workspaceRoot, "visualization.txt"),
+        "utf8",
+      )
+
+      expect(exitCode).toBe(0)
+      expect(stderr).toEqual([])
+      expect(stdout.join("\n")).toContain(
+        resolve(workspaceRoot, "visualization.txt"),
+      )
+      expect(textOutput).toContain("Machine: AppMachine")
+    } finally {
+      await rm(workspaceRoot, { force: true, recursive: true })
+    }
   })
 
   test("writes deterministic text and svg output without prompting", async () => {

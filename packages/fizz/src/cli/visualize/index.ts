@@ -121,7 +121,7 @@ const resolveSelectedCandidate = async (
     }
   }
 
-  if (candidates.length === 1) {
+  if (!interactive && candidates.length === 1) {
     return candidates[0]
   }
 
@@ -205,8 +205,7 @@ export const executeVisualizeCommand = async (
 
   const outputDirectory = resolve(
     rootDir,
-    getOptionValue(parsedArgs, "output-dir") ??
-      dirname(selectedCandidate.sourceFilePath),
+    getOptionValue(parsedArgs, "output-dir") ?? ".",
   )
   const graph = buildMachineGraph(project, selectedCandidate)
   const renderedGraph: MachineGraph = {
