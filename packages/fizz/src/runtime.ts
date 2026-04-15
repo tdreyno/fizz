@@ -43,10 +43,26 @@ type OutputSubscriber<
   OA extends RuntimeAction = ReturnType<OAM[keyof OAM]>,
 > = (action: OA) => void | Promise<void>
 
+type RuntimeQueueValue = RuntimeAction | RuntimeState | Effect<unknown>
+
+type RuntimeCommand =
+  | {
+      kind: "action"
+      action: RuntimeAction
+    }
+  | {
+      kind: "state"
+      state: RuntimeState
+    }
+  | {
+      kind: "effect"
+      effect: Effect<unknown>
+    }
+
 type QueueItem = {
   onComplete: () => void
   onError: (e: unknown) => void
-  item: RuntimeAction | RuntimeState | Effect<unknown>
+  item: RuntimeCommand
 }
 
 export interface RuntimeTimerDriver {
@@ -545,7 +561,7 @@ export class Runtime<
       this.#queue.push({
         onComplete: resolve,
         onError: reject,
-        item: action,
+        item: this.#toCommand(action),
       })
     })
 
@@ -573,9 +589,9 @@ export class Runtime<
     this.#validateCurrentState()
 
     try {
-      const results = await this.#queueItemToStateReturns(item)
+      const commands = await this.#executeCommand(item)
 
-      const { promise, items } = this.#stateReturnsToQueueItems(results)
+      const { promise, items } = this.#commandsToQueueItems(commands)
 
       // New items go to front of queue
       this.#queue = [...items, ...this.#queue]
@@ -592,19 +608,17 @@ export class Runtime<
     }
   }
 
-  async #queueItemToStateReturns(
-    item: QueueItem["item"],
-  ): Promise<StateReturn[]> {
-    if (isAction(item)) {
-      return this.#executeAction(item)
+  async #executeCommand(item: QueueItem["item"]): Promise<RuntimeCommand[]> {
+    if (item.kind === "action") {
+      return this.#executeAction(item.action)
     }
 
-    if (isStateTransition(item)) {
-      return this.#handleState(item)
+    if (item.kind === "state") {
+      return this.#handleState(item.state)
     }
 
-    if (isEffect(item)) {
-      return this.#handleEffectItem(item)
+    if (item.kind === "effect") {
+      return this.#handleEffectItem(item.effect)
     }
 
     // Should be impossible to get here with TypeScript,
@@ -612,7 +626,44 @@ export class Runtime<
     throw new UnknownStateReturnType(item)
   }
 
-  #handleEffectItem(item: Effect<unknown>): StateReturn[] {
+  #toCommand(item: RuntimeQueueValue): RuntimeCommand {
+    if (isAction(item)) {
+      return this.#actionCommand(item)
+    }
+
+    if (isStateTransition(item)) {
+      return this.#stateCommand(item)
+    }
+
+    if (isEffect(item)) {
+      return this.#effectCommand(item)
+    }
+
+    throw new UnknownStateReturnType(item)
+  }
+
+  #actionCommand(action: RuntimeAction): RuntimeCommand {
+    return {
+      kind: "action",
+      action,
+    }
+  }
+
+  #stateCommand(state: RuntimeState): RuntimeCommand {
+    return {
+      kind: "state",
+      state,
+    }
+  }
+
+  #effectCommand(effectValue: Effect<unknown>): RuntimeCommand {
+    return {
+      kind: "effect",
+      effect: effectValue,
+    }
+  }
+
+  #handleEffectItem(item: Effect<unknown>): RuntimeCommand[] {
     if (item.label === "goBack") {
       return this.#handleGoBack()
     }
@@ -680,11 +731,15 @@ export class Runtime<
     return []
   }
 
-  #stateReturnsToQueueItems(stateReturns: StateReturn[]): {
+  #stateReturnsToCommands(stateReturns: StateReturn[]): RuntimeCommand[] {
+    return stateReturns.map(item => this.#toCommand(item))
+  }
+
+  #commandsToQueueItems(commands: RuntimeCommand[]): {
     promise: Promise<void[]>
     items: QueueItem[]
   } {
-    const { promises, items } = stateReturns.reduce(
+    const { promises, items } = commands.reduce(
       (acc, item) => {
         const { promise, resolve, reject } = externalPromise<void>()
 
@@ -732,7 +787,7 @@ export class Runtime<
 
   #handleStartAsync<Resolved>(
     data: StartAsyncEffectData<Resolved, string>,
-  ): StateReturn[] {
+  ): RuntimeCommand[] {
     const asyncId = data.asyncId ?? `__fizz_async__${this.#asyncIdCounter++}`
 
     this.#replaceAsync(asyncId)
@@ -788,15 +843,17 @@ export class Runtime<
 
   #handleCancelAsync<AsyncId extends string>(
     data: CancelAsyncEffectData<AsyncId>,
-  ): StateReturn[] {
+  ): RuntimeCommand[] {
     const cancelled = this.#cancelActiveAsync(data.asyncId)
 
-    return cancelled ? [asyncCancelled({ asyncId: data.asyncId })] : []
+    return cancelled
+      ? [this.#actionCommand(asyncCancelled({ asyncId: data.asyncId }))]
+      : []
   }
 
   #handleStartTimer<TimeoutId extends string>(
     data: StartTimerEffectData<TimeoutId>,
-  ): StateReturn[] {
+  ): RuntimeCommand[] {
     this.#replaceTimer(data.timeoutId)
 
     const token = this.#timerCounter++
@@ -817,12 +874,12 @@ export class Runtime<
       token,
     })
 
-    return [timerStarted(data)]
+    return [this.#actionCommand(timerStarted(data))]
   }
 
   #handleCancelTimer<TimeoutId extends string>(
     data: CancelTimerEffectData<TimeoutId>,
-  ): StateReturn[] {
+  ): RuntimeCommand[] {
     const cancelled = this.#cancelActiveTimer(data.timeoutId)
 
     if (!cancelled) {
@@ -830,22 +887,26 @@ export class Runtime<
     }
 
     return [
-      timerCancelled({ timeoutId: data.timeoutId, delay: cancelled.delay }),
+      this.#actionCommand(
+        timerCancelled({ timeoutId: data.timeoutId, delay: cancelled.delay }),
+      ),
     ]
   }
 
   #handleRestartTimer<TimeoutId extends string>(
     data: RestartTimerEffectData<TimeoutId>,
-  ): StateReturn[] {
+  ): RuntimeCommand[] {
     const cancelled = this.#cancelActiveTimer(data.timeoutId)
 
     return [
       ...(cancelled
         ? [
-            timerCancelled({
-              timeoutId: data.timeoutId,
-              delay: cancelled.delay,
-            }),
+            this.#actionCommand(
+              timerCancelled({
+                timeoutId: data.timeoutId,
+                delay: cancelled.delay,
+              }),
+            ),
           ]
         : []),
       ...this.#handleStartTimer(data),
@@ -854,7 +915,7 @@ export class Runtime<
 
   #handleStartInterval<IntervalId extends string>(
     data: StartIntervalEffectData<IntervalId>,
-  ): StateReturn[] {
+  ): RuntimeCommand[] {
     this.#replaceInterval(data.intervalId)
 
     const token = this.#timerCounter++
@@ -874,12 +935,12 @@ export class Runtime<
       token,
     })
 
-    return [intervalStarted(data)]
+    return [this.#actionCommand(intervalStarted(data))]
   }
 
   #handleCancelInterval<IntervalId extends string>(
     data: CancelIntervalEffectData<IntervalId>,
-  ): StateReturn[] {
+  ): RuntimeCommand[] {
     const cancelled = this.#cancelActiveInterval(data.intervalId)
 
     if (!cancelled) {
@@ -887,32 +948,36 @@ export class Runtime<
     }
 
     return [
-      intervalCancelled({
-        intervalId: data.intervalId,
-        delay: cancelled.delay,
-      }),
+      this.#actionCommand(
+        intervalCancelled({
+          intervalId: data.intervalId,
+          delay: cancelled.delay,
+        }),
+      ),
     ]
   }
 
   #handleRestartInterval<IntervalId extends string>(
     data: RestartIntervalEffectData<IntervalId>,
-  ): StateReturn[] {
+  ): RuntimeCommand[] {
     const cancelled = this.#cancelActiveInterval(data.intervalId)
 
     return [
       ...(cancelled
         ? [
-            intervalCancelled({
-              intervalId: data.intervalId,
-              delay: cancelled.delay,
-            }),
+            this.#actionCommand(
+              intervalCancelled({
+                intervalId: data.intervalId,
+                delay: cancelled.delay,
+              }),
+            ),
           ]
         : []),
       ...this.#handleStartInterval(data),
     ]
   }
 
-  #handleStartFrame(): StateReturn[] {
+  #handleStartFrame(): RuntimeCommand[] {
     this.#replaceFrame()
 
     const token = this.#timerCounter++
@@ -932,7 +997,7 @@ export class Runtime<
     return []
   }
 
-  #handleCancelFrame(): StateReturn[] {
+  #handleCancelFrame(): RuntimeCommand[] {
     this.#cancelActiveFrame()
 
     return []
@@ -1080,7 +1145,7 @@ export class Runtime<
 
   async #executeAction<A extends RuntimeAction>(
     action: A,
-  ): Promise<StateReturn[]> {
+  ): Promise<RuntimeCommand[]> {
     const targetState = this.context.currentState
 
     if (!targetState) {
@@ -1089,10 +1154,10 @@ export class Runtime<
 
     const result = await targetState.executor(action, this)
 
-    return arraySingleton(result)
+    return this.#stateReturnsToCommands(arraySingleton(result))
   }
 
-  #handleState(targetState: RuntimeState): StateReturn[] {
+  #handleState(targetState: RuntimeState): RuntimeCommand[] {
     const exitState = this.context.currentState
 
     if (exitState) {
@@ -1107,68 +1172,61 @@ export class Runtime<
       : this.#enterState(targetState)
   }
 
-  #updateState(targetState: RuntimeState): StateReturn[] {
+  #updateState(targetState: RuntimeState): RuntimeCommand[] {
     return [
-      // Update history
-      effect("nextState", targetState, () => {
-        this.context.history.pop()
-        this.context.history.push(
-          targetState as typeof this.context.currentState,
-        )
-        this.#contextDidChange()
-      }),
-
-      // Add a log effect.
-      log(`Update: ${targetState.name}`, targetState.data),
+      this.#effectCommand(
+        effect("nextState", targetState, () => {
+          this.context.history.pop()
+          this.context.history.push(
+            targetState as typeof this.context.currentState,
+          )
+          this.#contextDidChange()
+        }),
+      ),
+      this.#effectCommand(log(`Update: ${targetState.name}`, targetState.data)),
     ]
   }
 
-  #enterState(targetState: RuntimeState): StateReturn[] {
+  #enterState(targetState: RuntimeState): RuntimeCommand[] {
     const exitState = this.context.currentState
 
     if (exitState && exitState.name !== targetState.name) {
       this.#clearTimers()
     }
 
-    const effects: StateReturn[] = [
-      // Update history
-      effect("nextState", targetState, () =>
-        this.context.history.push(
-          targetState as typeof this.context.currentState,
+    const effects: RuntimeCommand[] = [
+      this.#effectCommand(
+        effect("nextState", targetState, () =>
+          this.context.history.push(
+            targetState as typeof this.context.currentState,
+          ),
         ),
       ),
-
-      // Add a log effect.
-      log(`Enter: ${targetState.name}`, targetState.data),
-
-      // Run enter on next state
-      beforeEnter(this),
-
-      // Run enter on next state
-      enter(),
+      this.#effectCommand(log(`Enter: ${targetState.name}`, targetState.data)),
+      this.#actionCommand(beforeEnter(this)),
+      this.#actionCommand(enter()),
     ]
 
     // Run exit on prior state first
     if (exitState) {
-      effects.unshift(exit())
+      effects.unshift(this.#actionCommand(exit()))
     }
 
     return effects
   }
 
-  #handleGoBack(): StateReturn[] {
+  #handleGoBack(): RuntimeCommand[] {
     this.#clearAsync()
     this.#clearTimers()
 
     return [
-      // Update history
-      effect("updateHistory", undefined, () => {
-        this.context.history.pop()
-      }),
-
-      beforeEnter(this),
-
-      enter(),
+      this.#effectCommand(
+        effect("updateHistory", undefined, () => {
+          this.context.history.pop()
+        }),
+      ),
+      this.#actionCommand(beforeEnter(this)),
+      this.#actionCommand(enter()),
     ]
   }
 }

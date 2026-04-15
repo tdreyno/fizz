@@ -1,5 +1,4 @@
 import { jest } from "@jest/globals"
-import serializeJavascript from "serialize-javascript"
 
 import type { ActionCreatorType, Enter, Exit } from "../action"
 import { action, enter } from "../action"
@@ -241,6 +240,40 @@ describe("Runtime", () => {
       expect(isState(runtime.currentState(), B)).toBeTruthy()
       expect(customLogger).toHaveBeenCalledWith(["Next"], "log")
     })
+
+    test("should preserve mixed transition and action results synchronously", async () => {
+      const next = action("Next")
+      type Next = ActionCreatorType<typeof next>
+
+      const C = state<Enter>(
+        {
+          Enter: noop,
+        },
+        { name: "C" },
+      )
+
+      const B = state<Enter | Next>(
+        {
+          Enter: noop,
+          Next: () => C(),
+        },
+        { name: "B" },
+      )
+
+      const A = state<Enter>(
+        {
+          Enter: () => [B(), next()],
+        },
+        { name: "A" },
+      )
+
+      const context = createInitialContext([A()])
+      const runtime = createRuntime(context, { next })
+
+      await runtime.run(enter())
+
+      expect(isState(runtime.currentState(), C)).toBeTruthy()
+    })
   })
 
   describe("Exit events", () => {
@@ -430,11 +463,9 @@ describe("Runtime", () => {
       )
 
       function serializeContext(c: Context) {
-        return serializeJavascript(
+        return JSON.stringify(
           c.history.toArray().map(({ data, name }) => ({
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             data,
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             name,
           })),
         )
@@ -443,13 +474,12 @@ describe("Runtime", () => {
       const STATES = { A, B, C }
 
       function deserializeContext(s: string) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        const unboundHistory: Array<{ data: Array<any>; name: string }> = eval(
-          "(" + s + ")",
-        )
+        const unboundHistory = JSON.parse(s) as Array<{
+          data: Array<any>
+          name: string
+        }>
 
         return createInitialContext(
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
           unboundHistory.map(({ data, name }) => {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return
             return (STATES as any)[name](data)

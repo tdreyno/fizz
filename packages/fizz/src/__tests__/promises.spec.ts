@@ -135,4 +135,30 @@ describe("Promises", () => {
 
     expect(myEffectExecutor1).toHaveBeenCalled()
   })
+
+  test("should preserve mixed transition and action results from a promise", async () => {
+    const next = action("Next")
+    type Next = ActionCreatorType<typeof next>
+
+    const C = state<Enter>({
+      Enter: noop,
+    })
+
+    const B = state<Enter | Next>({
+      Enter: noop,
+      Next: () => C(),
+    })
+
+    const A = state<Enter>({
+      Enter: async () => [B(), next()],
+    })
+
+    const context = createInitialContext([A()])
+
+    const runtime = createRuntime(context, { next })
+
+    await runtime.run(enter())
+
+    expect(isState(runtime.currentState(), C)).toBeTruthy()
+  })
 })
