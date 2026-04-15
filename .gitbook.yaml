@@ -1,0 +1,5 @@
+root: ./
+
+​structure:
+  readme: docs/getting-started.md
+  summary: SUMMARY.md​
