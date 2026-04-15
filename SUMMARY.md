@@ -1,5 +1,7 @@
 # Table of contents
 
+- [Introduction](README.md)
+- [Getting Started](docs/getting-started.md)
 - [Architecture](docs/architecture.md)
 - [React Integration](docs/react-integration.md)
 
