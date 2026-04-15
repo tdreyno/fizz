@@ -6,30 +6,45 @@ import { effect, log } from "../effect.js"
 import type { Runtime } from "../runtime.js"
 import type { StateTransition } from "../state.js"
 
-type RuntimeState = StateTransition<string, any, unknown>
+type RuntimeState = StateTransition<string, Action<string, unknown>, unknown>
+type RuntimeActionMap = {
+  [key: string]: (...args: Array<any>) => Action<string, unknown>
+}
 
 type CommandFactory<Command> = {
   actionCommand: (action: Action<string, unknown>) => Command
   effectCommand: (effect: Effect<unknown>) => Command
 }
 
-type TransitionOptions<Command> = CommandFactory<Command> & {
+type TransitionOptions<
+  Command,
+  AM extends RuntimeActionMap,
+  OAM extends RuntimeActionMap,
+> = CommandFactory<Command> & {
   clearAsync: () => void
   clearTimers: () => void
   context: Context
   notifyContextDidChange: () => void
-  runtime: Runtime<any, any>
+  runtime: Runtime<AM, OAM>
   targetState: RuntimeState
 }
 
-type GoBackOptions<Command> = CommandFactory<Command> & {
+type GoBackOptions<
+  Command,
+  AM extends RuntimeActionMap,
+  OAM extends RuntimeActionMap,
+> = CommandFactory<Command> & {
   clearAsync: () => void
   clearTimers: () => void
   context: Context
-  runtime: Runtime<any, any>
+  runtime: Runtime<AM, OAM>
 }
 
-export const buildStateTransitionCommands = <Command>({
+export const buildStateTransitionCommands = <
+  Command,
+  AM extends RuntimeActionMap,
+  OAM extends RuntimeActionMap,
+>({
   actionCommand,
   clearAsync,
   clearTimers,
@@ -38,7 +53,7 @@ export const buildStateTransitionCommands = <Command>({
   notifyContextDidChange,
   runtime,
   targetState,
-}: TransitionOptions<Command>): Command[] => {
+}: TransitionOptions<Command, AM, OAM>): Command[] => {
   const exitState = context.currentState
 
   if (exitState) {
@@ -65,14 +80,18 @@ export const buildStateTransitionCommands = <Command>({
       })
 }
 
-export const buildGoBackCommands = <Command>({
+export const buildGoBackCommands = <
+  Command,
+  AM extends RuntimeActionMap,
+  OAM extends RuntimeActionMap,
+>({
   actionCommand,
   clearAsync,
   clearTimers,
   context,
   effectCommand,
   runtime,
-}: GoBackOptions<Command>): Command[] => {
+}: GoBackOptions<Command, AM, OAM>): Command[] => {
   clearAsync()
   clearTimers()
 
@@ -92,10 +111,12 @@ const buildUpdateStateCommands = <Command>({
   effectCommand,
   notifyContextDidChange,
   targetState,
-}: Pick<
-  TransitionOptions<Command>,
-  "context" | "effectCommand" | "notifyContextDidChange" | "targetState"
->): Command[] => {
+}: {
+  context: Context
+  effectCommand: (effect: Effect<unknown>) => Command
+  notifyContextDidChange: () => void
+  targetState: RuntimeState
+}): Command[] => {
   return [
     effectCommand(
       effect("nextState", targetState, () => {
@@ -108,22 +129,25 @@ const buildUpdateStateCommands = <Command>({
   ]
 }
 
-const buildEnterStateCommands = <Command>({
+const buildEnterStateCommands = <
+  Command,
+  AM extends RuntimeActionMap,
+  OAM extends RuntimeActionMap,
+>({
   actionCommand,
   clearTimers,
   context,
   effectCommand,
   runtime,
   targetState,
-}: Pick<
-  TransitionOptions<Command>,
-  | "actionCommand"
-  | "clearTimers"
-  | "context"
-  | "effectCommand"
-  | "runtime"
-  | "targetState"
->): Command[] => {
+}: {
+  actionCommand: (action: Action<string, unknown>) => Command
+  clearTimers: () => void
+  context: Context
+  effectCommand: (effect: Effect<unknown>) => Command
+  runtime: Runtime<AM, OAM>
+  targetState: RuntimeState
+}): Command[] => {
   const exitState = context.currentState
 
   if (exitState && exitState.name !== targetState.name) {

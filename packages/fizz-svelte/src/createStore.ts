@@ -11,25 +11,43 @@ import { onMount } from "svelte"
 // eslint-disable-next-line import/no-duplicates
 import { readable } from "svelte/store"
 
-type AnyBoundState = BoundStateFn<any, any, any>
+type AnyBoundState = BoundStateFn<string, Action<string, unknown>, any>
 type ActionMap = {
   [key: string]: (...args: Array<any>) => Action<string, unknown>
+}
+type PromiseActions<AM extends ActionMap> = {
+  [K in keyof AM]: (...args: Parameters<AM[K]>) => {
+    asPromise: () => Promise<void>
+  }
 }
 
 export interface ContextValue<
   SM extends { [key: string]: AnyBoundState },
   AM extends ActionMap,
   OAM extends ActionMap,
-  PM = {
-    [K in keyof AM]: (...args: Parameters<AM[K]>) => {
-      asPromise: () => Promise<void>
-    }
-  },
+  PM = PromiseActions<AM>,
 > {
   currentState: ReturnType<SM[keyof SM]>
   context: Context
   actions: PM
   runtime?: Runtime<AM, OAM>
+}
+
+type MachineStore<
+  SM extends { [key: string]: AnyBoundState },
+  AM extends ActionMap,
+  OAM extends ActionMap,
+> = import("svelte/store").Readable<ContextValue<SM, AM, OAM>> & {
+  respondOnMount: <
+    OA extends ReturnType<OAM[keyof OAM]>,
+    T extends OA["type"],
+    A extends ReturnType<AM[keyof AM]>,
+  >(
+    type: T,
+    handler: (
+      payload: Extract<OA, { type: T }>["payload"],
+    ) => Promise<A> | A | void,
+  ) => void
 }
 
 interface Options {
@@ -42,25 +60,13 @@ export const createStore = <
   SM extends { [key: string]: AnyBoundState },
   AM extends ActionMap,
   OAM extends ActionMap,
-  R extends import("svelte/store").Readable<ContextValue<SM, AM, OAM>> & {
-    respondOnMount: <
-      OA extends ReturnType<OAM[keyof OAM]>,
-      T extends OA["type"],
-      A extends ReturnType<AM[keyof AM]>,
-    >(
-      type: T,
-      handler: (
-        payload: Extract<OA, { type: T }>["payload"],
-      ) => Promise<A> | A | void,
-    ) => void
-  },
 >(
   _states: SM,
   actions: AM,
   initialState: ReturnType<SM[keyof SM]>,
   outputActions: OAM = {} as OAM,
   options: Partial<Options> = {},
-): R => {
+): MachineStore<SM, AM, OAM> => {
   const { maxHistory = 5, enableLogging = false } = options
 
   const defaultContext = createInitialContext([initialState], {
@@ -94,7 +100,7 @@ export const createStore = <
     return unsub
   }
 
-  const store = readable(initialContext, start) as R
+  const store = readable(initialContext, start) as MachineStore<SM, AM, OAM>
 
   store.respondOnMount = <
     OA extends ReturnType<OAM[keyof OAM]>,
@@ -106,15 +112,7 @@ export const createStore = <
       payload: Extract<OA, { type: T }>["payload"],
     ) => Promise<A> | A | void,
   ) => {
-    type RuntimeRespondType = Parameters<typeof runtime.respondToOutput>[0]
-    type RuntimeRespondHandler = Parameters<typeof runtime.respondToOutput>[1]
-
-    onMount(() =>
-      runtime.respondToOutput(
-        type as unknown as RuntimeRespondType,
-        handler as RuntimeRespondHandler,
-      ),
-    )
+    onMount(() => runtime.respondToOutput(type, handler))
   }
 
   return store

@@ -8,7 +8,7 @@ import {
 } from "@tdreyno/fizz"
 import { useEffect, useMemo, useState } from "react"
 
-export type AnyBoundState = BoundStateFn<any, any, any>
+export type AnyBoundState = BoundStateFn<string, Action<string, unknown>, any>
 
 export type ActionMap = {
   [key: string]: (...args: Array<any>) => Action<string, unknown>
@@ -39,7 +39,7 @@ export interface Options {
 }
 
 const createMachineRuntime = <
-  S extends StateTransition<string, any, any>,
+  S extends StateTransition<string, Action<string, unknown>, unknown>,
   AM extends ActionMap,
   OAM extends ActionMap,
 >(

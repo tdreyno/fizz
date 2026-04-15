@@ -15,6 +15,7 @@ describe("Bound actions", () => {
 
     const multiply = action("Multiply").withPayload<number>()
     type Multiply = ActionCreatorType<typeof multiply>
+    const reset = action("Reset")
 
     const A = stateWrapper(
       "A",
@@ -38,12 +39,23 @@ describe("Bound actions", () => {
 
     const context = createInitialContext([A(0)])
 
-    const runtime = createRuntime(context, { add, multiply })
+    const runtime = createRuntime(context, { add, multiply, reset })
 
-    const boundActions = runtime.bindActions({ add, multiply })
+    const boundActions = runtime.bindActions({ add, multiply, reset })
+    const typedAdd: (payload: number) => { asPromise: () => Promise<void> } =
+      boundActions.add
+    const typedMultiply: (payload: number) => {
+      asPromise: () => Promise<void>
+    } = boundActions.multiply
+    const typedReset: () => { asPromise: () => Promise<void> } =
+      boundActions.reset
 
     const onChange = jest.fn()
     runtime.onContextChange(onChange)
+
+    expect(typeof typedAdd).toBe("function")
+    expect(typeof typedMultiply).toBe("function")
+    expect(typeof typedReset).toBe("function")
 
     await Promise.all([
       boundActions.add(2).asPromise(),

@@ -58,7 +58,10 @@ describe("Test harness", () => {
     })
 
     harness.respondToOutput("Notice", payload => {
+      const typedPayload: string = payload
+
       expect(payload).toBe("entered")
+      expect(typedPayload).toBe("entered")
 
       return acknowledge()
     })
@@ -107,14 +110,20 @@ describe("Test harness", () => {
       internalActions: { save },
       outputActions: { notice },
     })
+    const typedOutputs: Array<ReturnType<typeof notice>> = harness.outputs()
+    const typedLastOutput: ReturnType<typeof notice> | undefined =
+      harness.lastOutput()
+    const typedSave: ReturnType<typeof save> = save()
 
     expect(isState(harness.currentState(), Editing)).toBeTruthy()
+    expect(typedOutputs).toEqual([])
+    expect(typedLastOutput).toBeUndefined()
     expect(
       harness.states().map(({ currentState }) => currentState.name),
     ).toEqual(["Editing"])
 
     await harness.start()
-    await harness.run(save())
+    await harness.run(typedSave)
 
     expect(isState(harness.currentState(), Done)).toBeTruthy()
     expect(harness.outputs()).toEqual([notice("entered")])

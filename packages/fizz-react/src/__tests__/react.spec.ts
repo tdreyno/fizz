@@ -17,10 +17,15 @@ describe("React integration", () => {
         OutputActions,
       ),
     )
+    const typedWorld: () => { asPromise: () => Promise<void> } =
+      result.current.actions.world
+    const typedDidWorld: boolean = result.current.currentState.data.didWorld
 
     expect(result.current.currentState.state).toBe(States.Initializing)
     expect(result.current.currentState.name).toBe("Initializing")
     expect(result.current.currentState.data.didWorld).toBeFalsy()
+    expect(typeof typedWorld).toBe("function")
+    expect(typedDidWorld).toBeFalsy()
 
     await act(async () => {
       await result.current.actions.world().asPromise()

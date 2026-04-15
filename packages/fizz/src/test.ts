@@ -23,7 +23,11 @@ type Logger = (
   level: "error" | "warn" | "log",
 ) => void
 
-type HarnessState = StateTransition<string, any, unknown>
+type HarnessState = StateTransition<string, any, any>
+type HarnessInternalAction<AM extends TestActionMap> = ReturnType<AM[keyof AM]>
+type HarnessRunAction<AM extends TestActionMap> =
+  | HarnessInternalAction<AM>
+  | Action<string, unknown>
 
 type HarnessOutputAction<OAM extends TestActionMap> = ReturnType<OAM[keyof OAM]>
 
@@ -65,11 +69,11 @@ export type TestHarness<
   asyncDriver: ControlledAsyncDriver
   timerDriver: ControlledTimerDriver
   start: () => Promise<void>
-  run: (action: Action<string, unknown>) => Promise<void>
+  run: (action: HarnessRunAction<AM>) => Promise<void>
   respondToOutput: <
     OA extends ReturnType<OAM[keyof OAM]>,
     T extends OA["type"],
-    A extends ReturnType<AM[keyof AM]>,
+    A extends HarnessInternalAction<AM>,
   >(
     type: T,
     handler: (

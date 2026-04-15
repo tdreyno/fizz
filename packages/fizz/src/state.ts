@@ -46,7 +46,7 @@ import { createRuntime, Runtime } from "./runtime.js"
  */
 export type StateReturn =
   | Effect
-  | Action<any, any>
+  | Action<string, unknown>
   | StateTransition<any, any, any>
 
 type TimerActions<TimeoutId extends string> =
@@ -629,7 +629,7 @@ const runHandlerValue = (
  */
 export interface StateTransition<
   Name extends string,
-  A extends Action<any, any>,
+  A extends Action<string, unknown>,
   Data,
 > {
   name: Name
@@ -643,10 +643,10 @@ export interface StateTransition<
 
 export type StateTransitionToBoundStateFn<
   S extends StateTransition<string, any, any>,
-  // N = S extends StateTransition<infer N, any, any> ? N : never,
-  // A = S extends StateTransition<any, infer A, any> ? A : never,
+  N = S extends StateTransition<infer N, any, any> ? N : never,
+  A = S extends StateTransition<any, infer A, any> ? A : never,
   D = S extends StateTransition<any, any, infer D> ? D : never,
-> = BoundStateFn<any, any, D>
+> = BoundStateFn<N & string, A & Action<string, unknown>, D>
 
 export const isStateTransition = (
   a: unknown,
@@ -668,7 +668,7 @@ export const isState = <T extends BoundStateFn<any, any, any>>(
  */
 export type State<
   Name extends string,
-  Actions extends Action<any, any>,
+  Actions extends Action<string, unknown>,
   Data,
   TimeoutId extends string = string,
   IntervalId extends string = TimeoutId,
@@ -681,7 +681,7 @@ export type State<
 
 export interface BoundStateFn<
   Name extends string,
-  A extends Action<any, any>,
+  A extends Action<string, unknown>,
   Data = undefined,
 > {
   (
@@ -699,7 +699,7 @@ export const PARENT_RUNTIME = Symbol("Parent runtime")
 
 export const stateWrapper = <
   Name extends string,
-  A extends Action<any, any>,
+  A extends Action<string, unknown>,
   Data = undefined,
   TimeoutId extends string = string,
   IntervalId extends string = TimeoutId,
@@ -1108,9 +1108,9 @@ type TimedOut = ActionCreatorType<typeof timedOut>
 
 export const waitState = <
   Data,
-  ReqAC extends ActionCreator<any, any>,
+  ReqAC extends ActionCreator<string, any>,
   ReqA extends ActionCreatorType<ReqAC>,
-  RespAC extends ActionCreator<any, any> & GetActionCreatorType<any>,
+  RespAC extends ActionCreator<string, any> & GetActionCreatorType<string>,
   RespA extends ActionCreatorType<RespAC>,
 >(
   requestAction: ReqAC,

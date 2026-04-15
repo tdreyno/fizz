@@ -77,9 +77,14 @@ export type RuntimeOptions = {
 
 type ContextChangeSubscriber = (context: Context) => void
 type RuntimeAction = Action<string, unknown>
-type RuntimeState = StateTransition<string, any, unknown>
+type RuntimeState = StateTransition<string, Action<string, unknown>, unknown>
 type RuntimeActionMap = {
   [key: string]: (...args: Array<any>) => RuntimeAction
+}
+type PromiseBoundActions<AM extends RuntimeActionMap> = {
+  [K in keyof AM]: (...args: Parameters<AM[K]>) => {
+    asPromise: () => Promise<void>
+  }
 }
 
 type OutputSubscriber<
@@ -195,28 +200,26 @@ export class Runtime<
     return this.#validActions.has(action.type.toLowerCase())
   }
 
-  bindActions<
-    PM = {
-      [K in keyof AM]: (...args: Parameters<AM[K]>) => {
-        asPromise: () => Promise<void>
+  bindActions<PM = PromiseBoundActions<AM>>(actions: AM): PM {
+    const boundActions = {} as PromiseBoundActions<AM>
+
+    ;(Object.keys(actions) as Array<keyof AM>).forEach(key => {
+      const actionCreator = actions[key]
+
+      if (!actionCreator) {
+        return
       }
-    },
-  >(actions: AM): PM {
-    return Object.keys(actions).reduce(
-      (sum, key) => {
-        sum[key] = (...args: Array<any>) => {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-          const promise = this.run(actions[key]!(...args))
 
-          return {
-            asPromise: () => promise,
-          }
+      boundActions[key] = ((...args: Parameters<typeof actionCreator>) => {
+        const promise = this.run(actionCreator(...args))
+
+        return {
+          asPromise: () => promise,
         }
+      }) as PromiseBoundActions<AM>[typeof key]
+    })
 
-        return sum
-      },
-      {} as Record<string, any>,
-    ) as PM
+    return boundActions as PM
   }
 
   async run(action: RuntimeAction): Promise<void> {
@@ -290,7 +293,7 @@ export class Runtime<
     }
 
     if (isStateTransition(item)) {
-      return this.#stateCommand(item)
+      return this.#stateCommand(item as RuntimeState)
     }
 
     if (isEffect(item)) {
