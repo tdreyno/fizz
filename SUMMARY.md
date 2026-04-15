@@ -1,6 +1,5 @@
 # Table of contents
 
-- [Getting Started](docs/getting-started.md)
 - [Architecture](docs/architecture.md)
 - [React Integration](docs/react-integration.md)
 
