@@ -10,7 +10,7 @@ Fizz is a small library for building state machines that can effectively manage 
 npm install --save @tdreyno/fizz
 ```
 
-Start with [Getting Started](https://fizz.tdreyno.com/getting-started) for installation, a minimal runtime demo, and where to go next.
+Start with [Getting Started](https://fizz.tdreyno.com/) for installation, a minimal runtime demo, and where to go next.
 
 See [React Integration](https://fizz.tdreyno.com/react-integration) if you are using `@tdreyno/fizz-react` and want the full `useMachine(...)` guide.
 
