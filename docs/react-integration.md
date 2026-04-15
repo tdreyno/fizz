@@ -1,6 +1,9 @@
 # React Integration
 
-`@tdreyno/fizz-react` provides a React hook called `useMachine(...)` that hosts a Fizz runtime inside a component. It creates the runtime, subscribes to state changes, binds action creators, and gives React a machine-shaped value to render from.
+`@tdreyno/fizz-react` provides two React integration surfaces:
+
+- `useMachine(...)` hosts one Fizz runtime inside one component instance
+- `createMachineContext(...)` creates a typed Provider plus hook pair so a subtree can share one runtime
 
 The main rule is the same as the rest of Fizz: keep the workflow in states and actions, and keep the React component focused on rendering and dispatching.
 
@@ -12,9 +15,9 @@ npm install --save @tdreyno/fizz @tdreyno/fizz-react
 
 ## The hook shape
 
-`@tdreyno/fizz-react` exports `useMachine(...)` from `@tdreyno/fizz-react`.
+`@tdreyno/fizz-react` exports both `useMachine(...)` and `createMachineContext(...)`.
 
-The current public shape is:
+The isolated hook shape is:
 
 ```typescript
 useMachine(states, actions, initialState, outputActions?, options?)
@@ -57,6 +60,116 @@ useMachine(states, actions, initialState, ...)
   v
 returns { currentState, context, actions, runtime }
 ```
+
+## Shared runtime context
+
+When multiple components should observe and dispatch against the same machine instance, create a typed context wrapper once and configure the shared instance at the Provider boundary.
+
+The shared API shape is:
+
+```typescript
+const { Provider, useMachineContext } = createMachineContext(
+  states,
+  actions,
+  outputActions?,
+)
+```
+
+The Provider accepts:
+
+- `initialState`: the bound starting state for that shared runtime instance
+- `options`: optional runtime setup such as history size and logging
+- `children`: the subtree that should share the runtime
+
+The consumer hook returns the same shape as `useMachine(...)`:
+
+- `currentState`
+- `context`
+- `actions`
+- `runtime`
+
+## A shared example
+
+```typescript
+import {
+  type ActionCreatorType,
+  action,
+  type Enter,
+  state,
+} from "@tdreyno/fizz"
+import { createMachineContext } from "@tdreyno/fizz-react"
+
+const increment = action("Increment")
+type Increment = ActionCreatorType<typeof increment>
+
+const reset = action("Reset")
+type Reset = ActionCreatorType<typeof reset>
+
+type Data = {
+  count: number
+}
+
+const Counter = state<Enter | Increment | Reset, Data>(
+  {
+    Enter: data => data,
+
+    Increment: (data, _, { update }) =>
+      update({
+        ...data,
+        count: data.count + 1,
+      }),
+
+    Reset: (_, __, { update }) =>
+      update({
+        count: 0,
+      }),
+  },
+  { name: "Counter" },
+)
+
+const { Provider: CounterProvider, useMachineContext: useCounterMachine } =
+  createMachineContext(
+    {
+      Counter,
+    },
+    {
+      increment,
+      reset,
+    },
+  )
+
+const CounterToolbar = () => {
+  const machine = useCounterMachine()
+
+  return (
+    <div>
+      <button onClick={() => machine.actions.increment()}>Increment</button>
+      <button onClick={() => machine.actions.reset()}>Reset</button>
+    </div>
+  )
+}
+
+const CounterLabel = () => {
+  const machine = useCounterMachine()
+
+  return <p>Count: {machine.currentState.data.count}</p>
+}
+
+const CounterScreen = () => {
+  return (
+    <CounterProvider initialState={Counter({ count: 2 })}>
+      <CounterToolbar />
+      <CounterLabel />
+    </CounterProvider>
+  )
+}
+```
+
+That pattern gives the subtree a single runtime:
+
+- one child can dispatch through `actions`
+- sibling and nested children re-render from the same `currentState`
+- all consumers see the same `context` and `runtime`
 
 ## What it returns
 
@@ -243,9 +356,13 @@ subsequent renders reuse same runtime
 
 Treat the machine definition and initial state as stable inputs for the life of the component instance.
 
+The same caveat applies to `createMachineContext(...)`: each mounted Provider creates one runtime once for its subtree and does not rebuild that runtime automatically when Provider props change later.
+
 ## Guidance
 
 - Keep machine definitions outside the component body unless dynamic construction is truly required.
+- Use `useMachine(...)` when a component should own its own isolated runtime.
+- Use `createMachineContext(...)` when a subtree should share one runtime instance.
 - Render from `currentState` instead of duplicating machine data in component state.
 - Prefer `actions` over reaching into `runtime.run(...)` directly from components.
 - Let the machine coordinate timers, async work, and outputs rather than rebuilding those flows with separate React effects.

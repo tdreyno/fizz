@@ -168,7 +168,7 @@ import {
   ActionCreatorType,
   action,
 } from "@tdreyno/fizz"
-import { useMachine } from "@tdreyno/fizz-react"
+import { createMachineContext, useMachine } from "@tdreyno/fizz-react"
 
 const finished = action("Finished").withPayload<string>()
 type Finished = ActionCreatorType<typeof finished>
@@ -183,7 +183,6 @@ const End = state<Enter>({
 })
 
 const useShowMachine = () => {
-  // Can store in context to better share.
   return useMachine(
     {
       Start,
@@ -195,6 +194,17 @@ const useShowMachine = () => {
     Start(),
   )
 }
+
+const { Provider: ShowProvider, useMachineContext: useSharedShowMachine } =
+  createMachineContext(
+    {
+      Start,
+      End,
+    },
+    {
+      finished,
+    },
+  )
 
 const Show = () => {
   const { actions, currentState } = useShowMachine()
@@ -210,6 +220,8 @@ const Show = () => {
   )
 }
 ```
+
+Use `useMachine(...)` when one component should own its own runtime. Use `createMachineContext(...)` when a subtree should share one runtime through a Provider and consumer hook pair.
 
 For the complete `useMachine(...)` hook guide, see [React Integration](../../docs/react-integration.md).
 
