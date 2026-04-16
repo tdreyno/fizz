@@ -40,6 +40,64 @@ const commandLabel = (command: RuntimeDebugCommand): string => {
   return `effect ${command.effect.label}`
 }
 
+const toSerializableValue = (
+  value: unknown,
+  seen: WeakSet<object>,
+): unknown => {
+  if (value instanceof Error) {
+    return {
+      ...Object.fromEntries(
+        Object.entries(value).map(([key, entry]) => [
+          key,
+          toSerializableValue(entry, seen),
+        ]),
+      ),
+      message: value.message,
+      name: value.name,
+      stack: value.stack,
+    }
+  }
+
+  if (typeof value !== "object" || value === null) {
+    return value
+  }
+
+  if (seen.has(value)) {
+    return "[Circular]"
+  }
+
+  seen.add(value)
+
+  if (Array.isArray(value)) {
+    return value.map(entry => toSerializableValue(entry, seen))
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [
+      key,
+      toSerializableValue(entry, seen),
+    ]),
+  )
+}
+
+const toDefaultConsoleArg = (value: unknown): unknown => {
+  if (typeof value !== "object" || value === null) {
+    return value
+  }
+
+  return JSON.stringify(toSerializableValue(value, new WeakSet()), null, 2)
+}
+
+const toLoggedState = (
+  state: RuntimeDebugEventByType<"context-changed">["currentState"] | undefined,
+): { data: unknown; name: string } | undefined =>
+  state === undefined
+    ? undefined
+    : {
+        data: state.data,
+        name: state.name,
+      }
+
 const eventFormatters = {
   "action-enqueued": (
     event: RuntimeDebugEventByType<"action-enqueued">,
@@ -119,8 +177,8 @@ const eventFormatters = {
         `Context ${event.previousState?.name ?? "none"} -> ${event.currentState.name}`,
       ),
       {
-        currentState: event.currentState,
-        previousState: event.previousState,
+        currentState: toLoggedState(event.currentState),
+        previousState: toLoggedState(event.previousState),
       },
     ],
     level: "log",
@@ -196,10 +254,7 @@ const eventFormatters = {
     ],
     level: "error",
   }),
-  "timer-cancelled": (
-    event: RuntimeDebugEventByType<"timer-cancelled">,
-    prefix: string,
-  ): RuntimeDebugConsoleEntry => ({
+  "timer-cancelled": (event, prefix: string): RuntimeDebugConsoleEntry => ({
     args: [
       withPrefix(prefix, `Timer cancelled ${event.timeoutId}`),
       { delay: event.delay, reason: event.reason },
@@ -246,9 +301,18 @@ export const createRuntimeConsoleMonitor = (
   options: RuntimeDebugConsoleOptions = {},
 ): RuntimeMonitor => {
   const runtimeConsole = options.console ?? console
+  const useDefaultConsole = options.console === undefined
 
   return event => {
     const entry = formatRuntimeDebugEvent(event, options)
+
+    if (useDefaultConsole) {
+      runtimeConsole[entry.level](
+        ...entry.args.map(arg => toDefaultConsoleArg(arg)),
+      )
+
+      return
+    }
 
     runtimeConsole[entry.level](...entry.args)
   }

@@ -7,6 +7,43 @@ import {
 } from "../runtimeDebug"
 
 describe("runtime console monitor", () => {
+  test("should serialize deep objects when using the default console", () => {
+    const log = jest.spyOn(console, "log").mockImplementation(() => undefined)
+    const monitor = createRuntimeConsoleMonitor()
+
+    monitor({
+      action: action("Trigger")({
+        details: {
+          nested: {
+            count: 2,
+          },
+        },
+      }),
+      queueSize: 1,
+      type: "action-enqueued",
+    })
+
+    expect(log).toHaveBeenCalledWith(
+      "[Fizz] Enqueue action Trigger",
+      JSON.stringify(
+        {
+          payload: {
+            details: {
+              nested: {
+                count: 2,
+              },
+            },
+          },
+          queueSize: 1,
+        },
+        null,
+        2,
+      ),
+    )
+
+    log.mockRestore()
+  })
+
   test("should format runtime events into readable console entries", () => {
     const trigger = action("Trigger")
 
@@ -55,6 +92,73 @@ describe("runtime console monitor", () => {
     ).toEqual({
       args: ["[Fizz] Async rejected profile", error],
       level: "error",
+    })
+  })
+
+  test("should format context changes with state name and data only", () => {
+    expect(
+      formatRuntimeDebugEvent({
+        context: {
+          actionQueue: [],
+          args: undefined,
+          asyncs: {},
+          currentState: {
+            data: { count: 1 },
+            executor: () => [],
+            isNamed: () => true,
+            isStateTransition: true,
+            mode: "append",
+            name: "B",
+            state: (() => {
+              throw new Error("state should not be logged")
+            }) as never,
+          },
+          frame: undefined,
+          intervals: {},
+          outputs: [],
+          previousState: undefined,
+          schedules: [],
+          timers: {},
+        },
+        currentState: {
+          data: { count: 1 },
+          executor: () => [],
+          isNamed: () => true,
+          isStateTransition: true,
+          mode: "append",
+          name: "B",
+          state: (() => {
+            throw new Error("state should not be logged")
+          }) as never,
+        },
+        previousState: {
+          data: { count: 0 },
+          executor: () => [],
+          isNamed: () => true,
+          isStateTransition: true,
+          mode: "append",
+          name: "A",
+          state: (() => {
+            throw new Error("state should not be logged")
+          }) as never,
+        },
+        type: "context-changed",
+      }),
+    ).toEqual({
+      args: [
+        "[Fizz] Context A -> B",
+        {
+          currentState: {
+            data: { count: 1 },
+            name: "B",
+          },
+          previousState: {
+            data: { count: 0 },
+            name: "A",
+          },
+        },
+      ],
+      level: "log",
     })
   })
 

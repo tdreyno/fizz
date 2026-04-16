@@ -1,6 +1,7 @@
 package-lock.json
 build
 dist
+dist-test-app
 coverage
 .github
 .changeset

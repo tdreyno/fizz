@@ -8,8 +8,16 @@ import type { RuntimeAsyncDriver } from "./runtime/asyncDriver.js"
 import { createDefaultAsyncDriver } from "./runtime/asyncDriver.js"
 import type { RuntimeEffectHandlerRegistry } from "./runtime/effectDispatcher.js"
 import { dispatchEffect } from "./runtime/effectDispatcher.js"
-export type { RuntimeChromeDebuggerHook } from "./runtime/debugHook.js"
-export { FIZZ_CHROME_DEBUGGER_HOOK_KEY } from "./runtime/debugHook.js"
+export type {
+  RuntimeChromeDebuggerRegistry,
+  RuntimeChromeDebuggerRegistryEntry,
+} from "./runtime/debugHook.js"
+export {
+  FIZZ_CHROME_DEBUGGER_REGISTRY_KEY,
+  getOrCreateRuntimeChromeDebuggerRegistry,
+  getRuntimeChromeDebuggerRegistry,
+  listRuntimeChromeDebuggerRegistrations,
+} from "./runtime/debugHook.js"
 import {
   actionCommand,
   commandsFromStateReturns,
@@ -129,7 +137,9 @@ export class Runtime<
       actionCommand,
       asyncDriver: this.#asyncDriver,
       currentState: () => this.context.currentState as RuntimeState | undefined,
-      debugLabel: options.debugLabel,
+      ...(options.debugLabel === undefined
+        ? {}
+        : { debugLabel: options.debugLabel }),
       emitMonitor: event => this.#emitMonitor(event),
       emitOutput: output => {
         this.#emitMonitor({

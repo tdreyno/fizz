@@ -1,11 +1,11 @@
 import type {
   Action,
   Runtime,
-  RuntimeChromeDebuggerHook,
+  RuntimeChromeDebuggerRegistryEntry,
   RuntimeDebugEvent,
   RuntimeMonitor,
 } from "@tdreyno/fizz"
-import { FIZZ_CHROME_DEBUGGER_HOOK_KEY } from "@tdreyno/fizz"
+import { getRuntimeChromeDebuggerRegistry } from "@tdreyno/fizz"
 
 import type { FizzDebuggerSerializedValue } from "./serialize.js"
 import { serializeForDebugger } from "./serialize.js"
@@ -76,12 +76,13 @@ export type CreateFizzChromeDebuggerOptions = {
   transport?: FizzDebuggerTransport
 }
 
-export type InstallFizzChromeDebuggerHookOptions = {
+export type InstallFizzChromeDebuggerOptions = {
   debuggerOptions?: CreateFizzChromeDebuggerOptions
+  pollIntervalMs?: number
   target?: typeof globalThis
 }
 
-export type InstalledFizzChromeDebuggerHook = {
+export type InstalledFizzChromeDebugger = {
   chromeDebugger: ReturnType<typeof createFizzChromeDebugger>
   uninstall: () => void
 }
@@ -321,14 +322,23 @@ export const createFizzChromeDebugger = (
     runtimeId = `runtime-${runtimeCounter++}`,
   }: RegisterRuntimeOptions) => {
     const record = getRecord(runtimeId)
+    const isSameRuntime = record.runtime === runtime && record.stop.length > 0
 
-    record.runtime = runtime
-    record.label = label ?? record.label
-    record.connectedAt = now()
+    if (isSameRuntime) {
+      record.label = label ?? record.label
+
+      return () => disconnectRuntime(runtimeId)
+    }
+
+    const isFirstConnection = record.runtime === undefined
 
     record.stop.forEach(stop => {
       stop()
     })
+
+    record.runtime = runtime
+    record.label = label ?? record.label
+    record.connectedAt = now()
 
     record.stop = [
       runtime.onContextChange(() => {
@@ -347,7 +357,10 @@ export const createFizzChromeDebugger = (
       }),
     ]
 
-    emitSnapshot("runtime-connected", record)
+    emitSnapshot(
+      isFirstConnection ? "runtime-connected" : "runtime-updated",
+      record,
+    )
 
     return () => disconnectRuntime(runtimeId)
   }
@@ -404,76 +417,100 @@ export const createFizzChromeDebugger = (
   }
 }
 
-export const installFizzChromeDebuggerHook = (
-  options: InstallFizzChromeDebuggerHookOptions = {},
-): InstalledFizzChromeDebuggerHook => {
+export const installFizzChromeDebugger = (
+  options: InstallFizzChromeDebuggerOptions = {},
+): InstalledFizzChromeDebugger => {
   const chromeDebugger = createFizzChromeDebugger(options.debuggerOptions)
-  const cleanupByRuntime = new WeakMap<Runtime<any, any>, () => void>()
-  const activeCleanups = new Set<() => void>()
+  const cleanupByRuntimeId = new Map<string, () => void>()
   const hookTarget = options.target ?? globalThis
-  const target = hookTarget as typeof hookTarget & {
-    [FIZZ_CHROME_DEBUGGER_HOOK_KEY]?: RuntimeChromeDebuggerHook
-  }
-  const previousHook = target[FIZZ_CHROME_DEBUGGER_HOOK_KEY]
+  const pollIntervalMs = options.pollIntervalMs ?? 250
 
-  const hook: RuntimeChromeDebuggerHook = {
-    registerRuntime: ({ label, runtime }) => {
-      const existingCleanup = cleanupByRuntime.get(runtime)
-
-      if (existingCleanup) {
-        return existingCleanup
-      }
-
-      const resolvedLabel = label ?? runtime.currentState().name
-      const runtimeId = chromeDebugger.nextRuntimeId(resolvedLabel)
-      const stopMonitor = runtime.addMonitor(
-        chromeDebugger.createMonitor(runtimeId),
+  const attachRuntime = (
+    registration: RegisterRuntimeOptions,
+  ): (() => void) => {
+    const runtimeId =
+      registration.runtimeId ??
+      chromeDebugger.nextRuntimeId(
+        registration.label ?? registration.runtime.currentState().name,
       )
-      const stopRuntime = chromeDebugger.registerRuntime({
-        label: resolvedLabel,
-        runtime,
-        runtimeId,
-      })
+    const existingCleanup = cleanupByRuntimeId.get(runtimeId)
 
-      let cleanedUp = false
+    chromeDebugger.registerRuntime({
+      ...registration,
+      runtimeId,
+    })
 
-      const cleanup = () => {
-        if (cleanedUp) {
-          return
-        }
+    if (existingCleanup) {
+      return existingCleanup
+    }
 
-        cleanedUp = true
-        activeCleanups.delete(cleanup)
-        cleanupByRuntime.delete(runtime)
-        stopMonitor()
-        stopRuntime()
-        stopDisconnect()
+    const stopMonitor = registration.runtime.addMonitor(
+      chromeDebugger.createMonitor(runtimeId),
+    )
+
+    let cleanedUp = false
+
+    const cleanup = () => {
+      if (cleanedUp) {
+        return
       }
 
-      const stopDisconnect = runtime.onDisconnect(cleanup)
+      cleanedUp = true
+      cleanupByRuntimeId.delete(runtimeId)
+      stopMonitor()
+      stopRuntime()
+      stopDisconnect()
+    }
 
-      cleanupByRuntime.set(runtime, cleanup)
-      activeCleanups.add(cleanup)
+    const stopRuntime = chromeDebugger.registerRuntime({
+      ...registration,
+      runtimeId,
+    })
+    const stopDisconnect = registration.runtime.onDisconnect(cleanup)
 
-      return cleanup
-    },
+    cleanupByRuntimeId.set(runtimeId, cleanup)
+
+    return cleanup
   }
 
-  target[FIZZ_CHROME_DEBUGGER_HOOK_KEY] = hook
+  const syncRegistryRuntimes = () => {
+    const registry = getRuntimeChromeDebuggerRegistry(hookTarget) as
+      | {
+          runtimes: Map<string, RuntimeChromeDebuggerRegistryEntry>
+        }
+      | undefined
+    const nextRegistryRuntimeIds = new Set<string>()
+    const entries = registry ? [...registry.runtimes.values()] : []
+
+    entries.forEach((entry: RuntimeChromeDebuggerRegistryEntry) => {
+      nextRegistryRuntimeIds.add(entry.runtimeId)
+      attachRuntime({
+        label: entry.label,
+        runtime: entry.runtime,
+        runtimeId: entry.runtimeId,
+      })
+    })
+    ;[...cleanupByRuntimeId.keys()]
+      .filter(runtimeId => !nextRegistryRuntimeIds.has(runtimeId))
+      .forEach(runtimeId => {
+        cleanupByRuntimeId.get(runtimeId)?.()
+      })
+  }
+
+  syncRegistryRuntimes()
+
+  const pollHandle = globalThis.setInterval(
+    syncRegistryRuntimes,
+    pollIntervalMs,
+  )
 
   return {
     chromeDebugger,
     uninstall: () => {
-      activeCleanups.forEach(cleanup => {
+      globalThis.clearInterval(pollHandle)
+      ;[...cleanupByRuntimeId.values()].forEach(cleanup => {
         cleanup()
       })
-
-      if (previousHook) {
-        target[FIZZ_CHROME_DEBUGGER_HOOK_KEY] = previousHook
-        return
-      }
-
-      delete target[FIZZ_CHROME_DEBUGGER_HOOK_KEY]
     },
   }
 }

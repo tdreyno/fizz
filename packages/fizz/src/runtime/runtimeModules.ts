@@ -1,7 +1,7 @@
 import type { Context } from "../context.js"
 import type { Runtime } from "../runtime.js"
 import type { RuntimeAsyncDriver } from "./asyncDriver.js"
-import { attachChromeDebuggerHook } from "./debugHook.js"
+import { registerRuntimeInChromeDebuggerRegistry } from "./debugHook.js"
 import type { RuntimeEffectHandlerRegistry } from "./effectDispatcher.js"
 import {
   createEffectHandlerRegistry,
@@ -63,10 +63,16 @@ export const createRuntimeModules = <OutputAction>(
     },
     handleGoBack: () => options.handleGoBack(),
   })
-  const debugHookCleanup = attachChromeDebuggerHook({
-    label: options.debugLabel,
-    runtime: options.runtime,
-  })
+  const registryRegistration = registerRuntimeInChromeDebuggerRegistry(
+    options.debugLabel === undefined
+      ? {
+          runtime: options.runtime,
+        }
+      : {
+          label: options.debugLabel,
+          runtime: options.runtime,
+        },
+  )
 
   registerEffectHandlers(effectHandlers, asyncModule.effectHandlers)
   registerEffectHandlers(effectHandlers, schedulingModule.effectHandlers)
@@ -75,7 +81,7 @@ export const createRuntimeModules = <OutputAction>(
     disconnect: () => {
       asyncModule.clear()
       schedulingModule.clear()
-      debugHookCleanup?.()
+      registryRegistration.unregister()
     },
     effectHandlers,
     prepareForGoBack: () => {

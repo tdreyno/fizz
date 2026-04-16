@@ -6,11 +6,11 @@ A comprehensive guide for editing GitBook documentation in external environments
 
 Use this skill when working with GitBook documentation through:
 
-* Git-synced repositories (GitHub, GitLab)
-* Local markdown editors
-* IDE integrations
-* Command-line tools
-* Any environment where you're editing GitBook content as files rather than through the GitBook UI
+- Git-synced repositories (GitHub, GitLab)
+- Local markdown editors
+- IDE integrations
+- Command-line tools
+- Any environment where you're editing GitBook content as files rather than through the GitBook UI
 
 ### Quick Reference
 
@@ -18,9 +18,9 @@ Use this skill when working with GitBook documentation through:
 
 GitBook organizes content through pages, spaces, and collections:
 
-* **Pages** are individual markdown files that make up your documentation
-* **Spaces** are collections of pages organized into a documentation site
-* **Collections** are groups of spaces
+- **Pages** are individual markdown files that make up your documentation
+- **Spaces** are collections of pages organized into a documentation site
+- **Collections** are groups of spaces
 
 **File structure:**
 
@@ -52,7 +52,7 @@ vars:
   page_variable: value
 if: visitor.claims.unsigned.condition
 layout:
-  width: default  # or 'wide'
+  width: default # or 'wide'
   title:
     visible: true
   description:
@@ -70,29 +70,29 @@ layout:
 
 **Variables and expressions:**
 
-* Space variables: `/.gitbook/vars.yaml`
-* Page variables: Frontmatter `vars:`
-* Expression syntax: `<code class="expression">space.vars.variableName</code>`
+- Space variables: `/.gitbook/vars.yaml`
+- Page variables: Frontmatter `vars:`
+- Expression syntax: `<code class="expression">space.vars.variableName</code>`
 
 **Most common custom blocks:**
 
-* `{% tabs %}...{% endtabs %}` for alternatives
-* `{% hint style="..." %}...{% endhint %}` for callouts
-* `{% stepper %}...{% endstepper %}` for sequential steps
-* `<details>...<summary>...</details>` for expandable content
+- `{% tabs %}...{% endtabs %}` for alternatives
+- `{% hint style="..." %}...{% endhint %}` for callouts
+- `{% stepper %}...{% endstepper %}` for sequential steps
+- `<details>...<summary>...</details>` for expandable content
 
 **Links:**
 
-* External: `[text](https://example.com)`
-* Internal: Use relative paths like `[text](page.md)` or `[text](../folder/page.md)`
+- External: `[text](https://example.com)`
+- Internal: Use relative paths like `[text](page.md)` or `[text](../folder/page.md)`
 
 **Key reminders:**
 
-* Read SUMMARY.md first when working with existing content to understand structure
-* Test in GitBook after editing locally
-* Keep SUMMARY.md synchronized with your file structure
-* Variables are defined in `.gitbook/vars.yaml` (space-level) or page frontmatter (page-level)
-* OpenAPI specs must be uploaded via API/CLI/UI, not embedded in markdown
+- Read SUMMARY.md first when working with existing content to understand structure
+- Test in GitBook after editing locally
+- Keep SUMMARY.md synchronized with your file structure
+- Variables are defined in `.gitbook/vars.yaml` (space-level) or page frontmatter (page-level)
+- OpenAPI specs must be uploaded via API/CLI/UI, not embedded in markdown
 
 ### When to Use Which Block
 
@@ -124,14 +124,14 @@ Choose the right GitBook block for your content needs:
 When working with an existing GitBook space that's synced to Git, follow this workflow to understand the structure:
 
 1. **Read SUMMARY.md first** - This file contains the complete table of contents and navigation structure. It shows you:
-   * All pages and their hierarchy
-   * Page groups and organization
-   * The relative paths to each markdown file
+   - All pages and their hierarchy
+   - Page groups and organization
+   - The relative paths to each markdown file
 2. **If SUMMARY.md doesn't exist** - GitBook has inferred the structure from your directory layout. Browse the directory structure to understand how pages are organized.
 3. **Check .gitbook.yaml** - Review this file to understand:
-   * Where the root documentation directory is located
-   * Any custom paths for README.md or SUMMARY.md
-   * Existing redirects
+   - Where the root documentation directory is located
+   - Any custom paths for README.md or SUMMARY.md
+   - Existing redirects
 4. **Explore .gitbook/assets/** - Contains all uploaded images and files referenced in the documentation
 5. **Check .gitbook/vars.yaml** - Contains space-level variables if any are defined
 
@@ -159,10 +159,10 @@ redirects:
 
 **Configuration options:**
 
-* `root`: The root directory for your documentation (default: `./`)
-* `structure.readme`: Path to your homepage (default: `./README.md`)
-* `structure.summary`: Path to your table of contents (default: `./SUMMARY.md`)
-* `redirects`: Key-value pairs mapping old URLs to new page paths
+- `root`: The root directory for your documentation (default: `./`)
+- `structure.readme`: Path to your homepage (default: `./README.md`)
+- `structure.summary`: Path to your table of contents (default: `./SUMMARY.md`)
+- `redirects`: Key-value pairs mapping old URLs to new page paths
 
 **Monorepo support:**
 
@@ -185,10 +185,10 @@ When setting up Git Sync, configure the "Project directory" to point to the subd
 
 **Important notes:**
 
-* Paths in `.gitbook.yaml` are relative to the `root` option
-* Redirects defined here are space-specific (apply only to this space)
-* For site-wide redirects across multiple spaces, use the GitBook UI instead
-* When using Git Sync, manage the README file only through your repository to avoid conflicts
+- Paths in `.gitbook.yaml` are relative to the `root` option
+- Redirects defined here are space-specific (apply only to this space)
+- For site-wide redirects across multiple spaces, use the GitBook UI instead
+- When using Git Sync, manage the README file only through your repository to avoid conflicts
 
 ### The .gitbook Directory
 
@@ -205,13 +205,13 @@ When using Git Sync, GitBook creates a `.gitbook` directory in your repository t
 
 **Important notes about .gitbook:**
 
-* **Assets**: Images and files uploaded through the GitBook UI are stored in `.gitbook/assets/`
-* **Reusable content**: Each reusable content block is exported as a separate markdown file in `.gitbook/includes/`
-* **Variables**: Space-level variables are stored in `.gitbook/vars.yaml` as key-value pairs
-* **References**: Pages reference reusable content using `{% include "/reusable-content/rc12345" %}`
-* **Images**: Markdown pages reference images like `![alt](../.gitbook/assets/image-name.svg)`
-* **Table of contents**: The `.gitbook/includes` folder and its files may appear in your space's table of contents. You may need to manually hide them from the TOC if this happens.
-* **Location**: In monorepos, the `.gitbook` directory is created in the root of each synced space (not necessarily the repository root)
+- **Assets**: Images and files uploaded through the GitBook UI are stored in `.gitbook/assets/`
+- **Reusable content**: Each reusable content block is exported as a separate markdown file in `.gitbook/includes/`
+- **Variables**: Space-level variables are stored in `.gitbook/vars.yaml` as key-value pairs
+- **References**: Pages reference reusable content using `{% include "/reusable-content/rc12345" %}`
+- **Images**: Markdown pages reference images like `![alt](../.gitbook/assets/image-name.svg)`
+- **Table of contents**: The `.gitbook/includes` folder and its files may appear in your space's table of contents. You may need to manually hide them from the TOC if this happens.
+- **Location**: In monorepos, the `.gitbook` directory is created in the root of each synced space (not necessarily the repository root)
 
 #### SUMMARY.md
 
@@ -224,26 +224,26 @@ The `SUMMARY.md` file defines your table of contents and navigation structure. I
 
 ## Use headings to create page groups like this one
 
-* [First page's title](page1/README.md)
-    * [Some child page](page1/page1-1.md)
-    * [Some other child page](page1/page1-2.md)
-* [Second page's title](page2/README.md)
-    * [Some child page](page2/page2-1.md)
-    * [Some other child page](page2/page2-2.md)
+- [First page's title](page1/README.md)
+  - [Some child page](page1/page1-1.md)
+  - [Some other child page](page1/page1-2.md)
+- [Second page's title](page2/README.md)
+  - [Some child page](page2/page2-1.md)
+  - [Some other child page](page2/page2-2.md)
 
 ## A second page group
 
-* [Another page](another-page.md)
+- [Another page](another-page.md)
 ```
 
 **Key rules:**
 
-* Use `#` for the main title (commonly "Table of contents" or "Summary")
-* Use `##` headings to create page groups (section headers in the sidebar)
-* Use `*` for unordered lists to define pages and subpages
-* Indent with spaces (not tabs) to create nested/child pages
-* Each list item should be a markdown link: `[Link text](path/to/file.md)`
-* Paths are relative to the location specified in `.gitbook.yaml` (typically the root)
+- Use `#` for the main title (commonly "Table of contents" or "Summary")
+- Use `##` headings to create page groups (section headers in the sidebar)
+- Use `*` for unordered lists to define pages and subpages
+- Indent with spaces (not tabs) to create nested/child pages
+- Each list item should be a markdown link: `[Link text](path/to/file.md)`
+- Paths are relative to the location specified in `.gitbook.yaml` (typically the root)
 
 **Page link titles (optional):**
 
@@ -252,21 +252,21 @@ You can define a different title for the sidebar navigation versus the page itse
 ```markdown
 # Summary
 
-* [Page main title](page.md "Page link title")
+- [Page main title](page.md "Page link title")
 ```
 
 The text in quotes ("Page link title") will be used in:
 
-* The table of contents sidebar
-* Pagination buttons at the bottom of pages
-* Any relative links to that page
+- The table of contents sidebar
+- Pagination buttons at the bottom of pages
+- Any relative links to that page
 
 **Important notes:**
 
-* SUMMARY.md is optional. If not provided, GitBook infers structure from your folder hierarchy
-* You cannot reference the same markdown file twice in SUMMARY.md (each page has only one URL)
-* GitBook updates SUMMARY.md automatically when you edit through the GitBook UI
-* The file structure reflects exactly what users see in the navigation sidebar
+- SUMMARY.md is optional. If not provided, GitBook infers structure from your folder hierarchy
+- You cannot reference the same markdown file twice in SUMMARY.md (each page has only one URL)
+- GitBook updates SUMMARY.md automatically when you edit through the GitBook UI
+- The file structure reflects exactly what users see in the navigation sidebar
 
 ### Markdown Formatting
 
@@ -276,11 +276,13 @@ GitBook uses GitHub Flavored Markdown with custom extensions.
 
 ```markdown
 # Heading 1
+
 ## Heading 2
+
 ### Heading 3
 
 **bold text**
-*italic text*
+_italic text_
 `inline code`
 
 - Bullet list item
@@ -298,8 +300,8 @@ GitBook uses GitHub Flavored Markdown with custom extensions.
 
 ````markdown
 ```javascript
-const foo = 'bar';
-console.log(foo);
+const foo = "bar"
+console.log(foo)
 ```
 ````
 
@@ -307,18 +309,20 @@ console.log(foo);
 
 ````markdown
 {% code title="index.js" %}
+
 ```javascript
-const foo = 'bar';
-console.log(foo);
+const foo = "bar"
+console.log(foo)
 ```
+
 {% endcode %}
 ````
 
 **Inline links:**
 
-* External links: `[text](https://example.com)`
-* Internal pages: Use relative file paths like `[text](page.md)`, `[text](../folder/page.md)`, or `[text](subfolder/page.md)`
-* Email: `[text](mailto:email@example.com)`
+- External links: `[text](https://example.com)`
+- Internal pages: Use relative file paths like `[text](page.md)`, `[text](../folder/page.md)`, or `[text](subfolder/page.md)`
+- Email: `[text](mailto:email@example.com)`
 
 **Math/TeX:**
 
@@ -366,40 +370,42 @@ layout:
 
 **Field descriptions:**
 
-* **`description:`** - Page description text. Supports multiline with `>-` syntax:
+- **`description:`** - Page description text. Supports multiline with `>-` syntax:
 
   ```yaml
   description: >-
     This is a longer description
     that spans multiple lines
   ```
-* **`icon:`** - Icon name from Font Awesome (e.g., `book-open`, `bolt`, `stars`, `icons`, `brackets-curly`)
-* **`hidden: true`** - Hides the page from the table of contents in published documentation
-* **`vars:`** - Page-level variables (key-value pairs) that can be referenced in expressions:
+
+- **`icon:`** - Icon name from Font Awesome (e.g., `book-open`, `bolt`, `stars`, `icons`, `brackets-curly`)
+- **`hidden: true`** - Hides the page from the table of contents in published documentation
+- **`vars:`** - Page-level variables (key-value pairs) that can be referenced in expressions:
 
   ```yaml
   vars:
     version: v1.2.3
     api_key: example_key
   ```
-* **`if:`** - Adaptive content visibility condition. Controls when the page is visible based on visitor attributes:
+
+- **`if:`** - Adaptive content visibility condition. Controls when the page is visible based on visitor attributes:
 
   ```yaml
   if: visitor.claims.unsigned.isPremium
   ```
 
   **Note:** While adaptive content conditions can be set in frontmatter, it's recommended to configure them through the GitBook UI for better maintainability and team visibility.
-* **`layout:`** - Controls page layout and which elements are visible. This maps to the "Page Options" settings in the GitBook UI:
 
-  * **`width:`** - Page content width
-    * `default` - Standard content width
-    * `wide` - Wider content area (automatically widens full-width blocks like tables and code)
-  * **`title.visible:`** - Show/hide the page title (boolean: `true` or `false`)
-  * **`description.visible:`** - Show/hide the page description (boolean: `true` or `false`)
-  * **`tableOfContents.visible:`** - Show/hide the left sidebar table of contents (boolean: `true` or `false`)
-  * **`outline.visible:`** - Show/hide the right sidebar page outline/headings (boolean: `true` or `false`)
-  * **`pagination.visible:`** - Show/hide next/previous page navigation links (boolean: `true` or `false`)
-  * **`metadata.visible:`** - Show/hide page metadata section (boolean: `true` or `false`)
+- **`layout:`** - Controls page layout and which elements are visible. This maps to the "Page Options" settings in the GitBook UI:
+  - **`width:`** - Page content width
+    - `default` - Standard content width
+    - `wide` - Wider content area (automatically widens full-width blocks like tables and code)
+  - **`title.visible:`** - Show/hide the page title (boolean: `true` or `false`)
+  - **`description.visible:`** - Show/hide the page description (boolean: `true` or `false`)
+  - **`tableOfContents.visible:`** - Show/hide the left sidebar table of contents (boolean: `true` or `false`)
+  - **`outline.visible:`** - Show/hide the right sidebar page outline/headings (boolean: `true` or `false`)
+  - **`pagination.visible:`** - Show/hide next/previous page navigation links (boolean: `true` or `false`)
+  - **`metadata.visible:`** - Show/hide page metadata section (boolean: `true` or `false`)
 
   Example for a landing page with minimal chrome:
 
@@ -485,34 +491,39 @@ Expressions allow you to reference and display variable values dynamically in yo
 
 ```markdown
 <!-- Simple expression -->
+
 <code class="expression">1 + 1</code>
 
 <!-- Reference a space-level variable -->
+
 <code class="expression">space.vars.latest_version</code>
 
 <!-- String concatenation with variable -->
+
 <code class="expression">"My favorite food is " + space.vars.food</code>
 
 <!-- Reference a page-level variable -->
+
 <code class="expression">page.vars.page_food</code>
 
 <!-- Conditional logic -->
+
 <code class="expression">space.vars.latest_version === "v3.0.4" ? "Latest" : "Outdated"</code>
 ```
 
 **Variable references:**
 
-* `space.vars.variableName` - Access space-level variables defined in `/.gitbook/vars.yaml`
-* `page.vars.variableName` - Access page-level variables defined in the page's frontmatter
+- `space.vars.variableName` - Access space-level variables defined in `/.gitbook/vars.yaml`
+- `page.vars.variableName` - Access page-level variables defined in the page's frontmatter
 
 **Important notes:**
 
-* Variable definitions (the actual variable storage) are managed through:
-  * `/.gitbook/vars.yaml` for space-level variables
-  * Page frontmatter `vars:` for page-level variables
-* Expressions can contain any valid JavaScript code and are evaluated when the page is rendered
-* When editing locally, you can create space variables by editing `/.gitbook/vars.yaml` and page variables by adding them to frontmatter
-* The GitBook UI provides a visual editor for managing variables, but they are fully editable in markdown files
+- Variable definitions (the actual variable storage) are managed through:
+  - `/.gitbook/vars.yaml` for space-level variables
+  - Page frontmatter `vars:` for page-level variables
+- Expressions can contain any valid JavaScript code and are evaluated when the page is rendered
+- When editing locally, you can create space variables by editing `/.gitbook/vars.yaml` and page variables by adding them to frontmatter
+- The GitBook UI provides a visual editor for managing variables, but they are fully editable in markdown files
 
 ### GitBook Custom Blocks
 
@@ -529,17 +540,21 @@ Use tabs to present alternative content like different programming languages or 
 ````markdown
 {% tabs %}
 {% tab title="JavaScript" %}
+
 ```javascript
-const greeting = 'Hello World';
-console.log(greeting);
+const greeting = "Hello World"
+console.log(greeting)
 ```
+
 {% endtab %}
 
 {% tab title="Python" %}
+
 ```python
 greeting = "Hello World"
 print(greeting)
 ```
+
 {% endtab %}
 {% endtabs %}
 ````
@@ -555,18 +570,21 @@ Use steppers for sequential, multi-step processes where order matters.
 ```markdown
 {% stepper %}
 {% step %}
+
 ## First step
 
 Complete the initial setup by installing the required dependencies.
 {% endstep %}
 
 {% step %}
+
 ## Second step
 
 Configure your environment variables in the `.env` file.
 {% endstep %}
 
 {% step %}
+
 ## Third step
 
 Run the application with `npm start`.
@@ -619,6 +637,7 @@ advanced:
   option1: value1
   option2: value2
 ```
+
 </details>
 ````
 
@@ -633,12 +652,14 @@ Use columns to present content side-by-side (2 columns maximum).
 ```markdown
 {% columns %}
 {% column %}
+
 ### Before
 
 Old implementation that was inefficient.
 {% endcolumn %}
 
 {% column %}
+
 ### After
 
 New optimized approach with better performance.
@@ -657,12 +678,14 @@ Use updates blocks for product updates, release notes, or changelogs.
 ```markdown
 {% updates format="full" %}
 {% update date="2024-01-15" %}
+
 # Version 2.0 Released
 
 We've added new features including dark mode and improved search.
 {% endupdate %}
 
 {% update date="2024-01-01" %}
+
 # Bug Fixes
 
 Fixed several issues reported by the community.
@@ -801,9 +824,9 @@ OpenAPI specifications must be uploaded through one of these methods:
 
 **Important notes:**
 
-* You cannot embed OpenAPI spec content directly in markdown files
-* The `src` URL must point to an already-uploaded OpenAPI specification
-* For more information, see the [GitBook OpenAPI documentation](https://docs.gitbook.com/api-references/openapi)
+- You cannot embed OpenAPI spec content directly in markdown files
+- The `src` URL must point to an already-uploaded OpenAPI specification
+- For more information, see the [GitBook OpenAPI documentation](https://docs.gitbook.com/api-references/openapi)
 
 ### Nested Markdown in Custom Blocks
 
@@ -816,13 +839,14 @@ This tab contains markdown:
 
 - Bullet points work
   - Nested bullets too
-- **Bold text** and *italic text*
+- **Bold text** and _italic text_
 - `inline code`
 
 ```javascript
 // Code blocks work too
-const example = true;
+const example = true
 ```
+
 {% endtab %}
 {% endtabs %}
 ````
@@ -831,27 +855,27 @@ const example = true;
 
 **File organization:**
 
-* Don't reference the same markdown file twice in SUMMARY.md
-* Keep file paths consistent between SUMMARY.md and actual file locations
-* Use relative paths consistently
+- Don't reference the same markdown file twice in SUMMARY.md
+- Keep file paths consistent between SUMMARY.md and actual file locations
+- Use relative paths consistently
 
 **Configuration conflicts:**
 
-* When using Git Sync, manage README.md only through your repository
-* Keep .gitbook.yaml at the correct root level for your project
-* Test redirects after moving or renaming files
+- When using Git Sync, manage README.md only through your repository
+- Keep .gitbook.yaml at the correct root level for your project
+- Test redirects after moving or renaming files
 
 **Markdown formatting:**
 
-* Tables and columns are discouraged (use custom blocks instead)
-* Avoid excessive nested lists (keep hierarchy simple)
-* Don't mix tab/space indentation in SUMMARY.md
+- Tables and columns are discouraged (use custom blocks instead)
+- Avoid excessive nested lists (keep hierarchy simple)
+- Don't mix tab/space indentation in SUMMARY.md
 
 **Custom blocks:**
 
-* Always close blocks properly (`{% endtab %}`, `{% endhint %}`, etc.)
-* Match opening and closing tags exactly
-* Test custom blocks in GitBook after editing locally
+- Always close blocks properly (`{% endtab %}`, `{% endhint %}`, etc.)
+- Match opening and closing tags exactly
+- Test custom blocks in GitBook after editing locally
 
 ### Working with Git Sync
 
@@ -864,11 +888,11 @@ When GitBook is synced with Git:
 
 **Best practices:**
 
-* Make structural changes (navigation) through SUMMARY.md in Git
-* Make content changes either in Git or GitBook UI (be consistent)
-* Review auto-generated commits from GitBook
-* Use branch-based workflows for significant updates
-* Test changes in a preview before merging to main
+- Make structural changes (navigation) through SUMMARY.md in Git
+- Make content changes either in Git or GitBook UI (be consistent)
+- Review auto-generated commits from GitBook
+- Use branch-based workflows for significant updates
+- Test changes in a preview before merging to main
 
 ### Example Complete Page
 
@@ -893,9 +917,9 @@ The simplest authentication method. Include your API key in the request header:
 curl -H "X-API-Key: your-api-key" https://api.example.com/v1/users
 ```
 
-{% hint style="warning" %} 
-Never commit API keys to version control. Use environment variables instead. 
-{% endhint %} 
+{% hint style="warning" %}
+Never commit API keys to version control. Use environment variables instead.
+{% endhint %}
 {% endtab %}
 
 {% tab title="OAuth 2.0" %}
@@ -904,21 +928,21 @@ More secure for user-facing applications:
 {% stepper %}
 {% step %}
 ## Register your application
-Get your client ID and secret from the developer dashboard. 
+Get your client ID and secret from the developer dashboard.
 {% endstep %}
 
 {% step %}
 ## Request authorization
-Redirect users to our OAuth endpoint. 
+Redirect users to our OAuth endpoint.
 {% endstep %}
 
 {% step %}
 Exchange code for token
 
-Use the authorization code to get an access token. 
-{% endstep %} 
-{% endstepper %} 
-{% endtab %} 
+Use the authorization code to get an access token.
+{% endstep %}
+{% endstepper %}
+{% endtab %}
 {% endtabs %}
 
 ## Rate Limits
@@ -926,13 +950,13 @@ Use the authorization code to get an access token.
 {% column %}
 ### Free Tier
 1,000 requests/hour
-10,000 requests/day 
+10,000 requests/day
 {% endcolumn %}
 
 {% column %}
 ### Pro Tier
 10,000 requests/hour
-100,000 requests/day 
+100,000 requests/day
 {% endcolumn %}
 {% endcolumns %}
 <details>

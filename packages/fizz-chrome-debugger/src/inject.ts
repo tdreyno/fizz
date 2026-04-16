@@ -1,3 +1,9 @@
-import { installFizzChromeDebuggerHook } from "@tdreyno/fizz-chrome-debugger"
+import { installFizzChromeDebugger } from "@tdreyno/fizz-chrome-debugger"
 
-installFizzChromeDebuggerHook()
+const installedDebugger = installFizzChromeDebugger()
+
+const uninstall = () => {
+  installedDebugger.uninstall()
+}
+
+globalThis.addEventListener("pagehide", uninstall, { once: true })

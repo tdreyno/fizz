@@ -1,25 +1,27 @@
-import { describe, expect, jest, test } from "@jest/globals"
+import { describe, expect, test } from "@jest/globals"
 
 import type { ActionCreatorType, Enter, OnFrame } from "../action"
 import { action, enter } from "../action"
 import { createInitialContext } from "../context"
 import { createMachine } from "../createMachine"
 import { output } from "../effect"
-import type { RuntimeChromeDebuggerHook, RuntimeDebugEvent } from "../runtime"
+import type {
+  RuntimeChromeDebuggerRegistry,
+  RuntimeDebugEvent,
+} from "../runtime"
 import {
   createControlledAsyncDriver,
   createControlledTimerDriver,
   createRuntime,
-  FIZZ_CHROME_DEBUGGER_HOOK_KEY,
+  FIZZ_CHROME_DEBUGGER_REGISTRY_KEY,
+  getRuntimeChromeDebuggerRegistry,
   Runtime,
 } from "../runtime"
 import { state } from "../state"
 import { deferred } from "../test"
 
 describe("runtime monitor", () => {
-  test("should auto-register runtimes with a global chrome debugger hook", () => {
-    const hookCalls: Array<{ label?: string }> = []
-    const cleanup = jest.fn()
+  test("should register runtimes in the global chrome debugger registry", () => {
     const trigger = action("Trigger")
 
     const A = state<ReturnType<typeof trigger>, undefined>(
@@ -37,27 +39,120 @@ describe("runtime monitor", () => {
       "OrdersMachine",
     )
     const hookTarget = globalThis as typeof globalThis & {
-      [FIZZ_CHROME_DEBUGGER_HOOK_KEY]?: RuntimeChromeDebuggerHook
+      [FIZZ_CHROME_DEBUGGER_REGISTRY_KEY]?: RuntimeChromeDebuggerRegistry
     }
 
-    hookTarget[FIZZ_CHROME_DEBUGGER_HOOK_KEY] = {
-      registerRuntime: ({ label, runtime }) => {
-        hookCalls.push({ label })
-        expect(runtime).toBeInstanceOf(Runtime)
-
-        return cleanup
-      },
-    }
+    delete hookTarget[FIZZ_CHROME_DEBUGGER_REGISTRY_KEY]
 
     const runtime = createRuntime(machine, A(undefined))
+    const entries = [
+      ...(getRuntimeChromeDebuggerRegistry()?.runtimes.values() ?? []),
+    ]
 
-    expect(hookCalls).toEqual([{ label: "OrdersMachine" }])
+    expect(entries).toEqual([
+      expect.objectContaining({
+        label: "OrdersMachine",
+        runtime,
+        runtimeId: expect.stringMatching(/^ordersmachine-\d+$/),
+      }),
+    ])
 
     runtime.disconnect()
 
-    expect(cleanup).toHaveBeenCalledTimes(1)
+    delete hookTarget[FIZZ_CHROME_DEBUGGER_REGISTRY_KEY]
+  })
 
-    delete hookTarget[FIZZ_CHROME_DEBUGGER_HOOK_KEY]
+  test("should unregister runtimes from the global chrome debugger registry on disconnect", () => {
+    const trigger = action("Trigger")
+
+    const A = state<ReturnType<typeof trigger>, undefined>(
+      {
+        Trigger: () => undefined,
+      },
+      { name: "A" },
+    )
+
+    const machine = createMachine(
+      {
+        actions: { trigger },
+        states: { A },
+      },
+      "OrdersMachine",
+    )
+    const hookTarget = globalThis as typeof globalThis & {
+      [FIZZ_CHROME_DEBUGGER_REGISTRY_KEY]?: RuntimeChromeDebuggerRegistry
+    }
+
+    delete hookTarget[FIZZ_CHROME_DEBUGGER_REGISTRY_KEY]
+
+    const runtime = createRuntime(machine, A(undefined))
+    const registry = getRuntimeChromeDebuggerRegistry()
+
+    expect(registry?.runtimes.size).toBe(1)
+
+    runtime.disconnect()
+
+    expect(registry?.runtimes.size).toBe(0)
+
+    delete hookTarget[FIZZ_CHROME_DEBUGGER_REGISTRY_KEY]
+  })
+
+  test("should keep multiple runtimes in the global chrome debugger registry", () => {
+    const trigger = action("Trigger")
+
+    const A = state<ReturnType<typeof trigger>, undefined>(
+      {
+        Trigger: () => undefined,
+      },
+      { name: "A" },
+    )
+
+    const firstMachine = createMachine(
+      {
+        actions: { trigger },
+        states: { A },
+      },
+      "OrdersMachine",
+    )
+    const secondMachine = createMachine(
+      {
+        actions: { trigger },
+        states: { A },
+      },
+      "PaymentsMachine",
+    )
+    const hookTarget = globalThis as typeof globalThis & {
+      [FIZZ_CHROME_DEBUGGER_REGISTRY_KEY]?: RuntimeChromeDebuggerRegistry
+    }
+
+    delete hookTarget[FIZZ_CHROME_DEBUGGER_REGISTRY_KEY]
+
+    const firstRuntime = createRuntime(firstMachine, A(undefined))
+    const secondRuntime = createRuntime(secondMachine, A(undefined))
+    const entries = [
+      ...(getRuntimeChromeDebuggerRegistry()?.runtimes.values() ?? []),
+    ]
+
+    expect(entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: "OrdersMachine",
+          runtime: firstRuntime,
+          runtimeId: expect.stringMatching(/^ordersmachine-\d+$/),
+        }),
+        expect.objectContaining({
+          label: "PaymentsMachine",
+          runtime: secondRuntime,
+          runtimeId: expect.stringMatching(/^paymentsmachine-\d+$/),
+        }),
+      ]),
+    )
+    expect(new Set(entries.map(entry => entry.runtimeId)).size).toBe(2)
+
+    firstRuntime.disconnect()
+    secondRuntime.disconnect()
+
+    delete hookTarget[FIZZ_CHROME_DEBUGGER_REGISTRY_KEY]
   })
 
   test("should emit debug events for actions, outputs, and context changes", async () => {

@@ -6,8 +6,8 @@ export type {
   FizzDebuggerStateSnapshot,
   FizzDebuggerTimelineEntry,
   FizzDebuggerTransport,
-  InstalledFizzChromeDebuggerHook,
-  InstallFizzChromeDebuggerHookOptions,
+  InstalledFizzChromeDebugger,
+  InstallFizzChromeDebuggerOptions,
   RegisterRuntimeOptions,
 } from "./bridge.js"
 export {
@@ -15,7 +15,7 @@ export {
   createFizzDebuggerBridge,
   FIZZ_CHROME_DEBUGGER_EVENT_NAME,
   FIZZ_DEBUGGER_EVENT_NAME,
-  installFizzChromeDebuggerHook,
+  installFizzChromeDebugger,
 } from "./bridge.js"
 export type {
   FizzDebuggerSerializedArray,

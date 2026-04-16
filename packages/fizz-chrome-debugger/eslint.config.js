@@ -1,3 +1,20 @@
 import config from "@repo/eslint-config/eslint.config.js"
 
-export default config
+export default [
+  ...config,
+  {
+    files: ["scripts/**/*.mjs"],
+    languageOptions: {
+      globals: {
+        process: "readonly",
+      },
+    },
+    rules: {
+      "@typescript-eslint/no-unsafe-argument": "off",
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-unsafe-call": "off",
+      "@typescript-eslint/no-unsafe-member-access": "off",
+      "no-undef": "off",
+    },
+  },
+]

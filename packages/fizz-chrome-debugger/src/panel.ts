@@ -11,6 +11,7 @@ import type {
 type PanelState = {
   connected: boolean
   runtimes: Map<string, FizzDebuggerRuntimeSnapshot>
+  selectedRuntimeId: string | null
 }
 
 const root = document.querySelector<HTMLDivElement>("#app")
@@ -26,6 +27,7 @@ const tabId = rawTabId ? Number(rawTabId) : Number.NaN
 const state: PanelState = {
   connected: false,
   runtimes: new Map<string, FizzDebuggerRuntimeSnapshot>(),
+  selectedRuntimeId: null,
 }
 
 const port = chrome.runtime.connect({
@@ -45,6 +47,67 @@ const createBlock = (title: string, content: string): HTMLDivElement => {
   return block
 }
 
+const sortRuntimes = (
+  runtimes: Map<string, FizzDebuggerRuntimeSnapshot>,
+): FizzDebuggerRuntimeSnapshot[] =>
+  [...runtimes.values()].sort(
+    (left, right) =>
+      left.label.localeCompare(right.label) ||
+      left.runtimeId.localeCompare(right.runtimeId),
+  )
+
+const syncSelectedRuntime = (): FizzDebuggerRuntimeSnapshot | null => {
+  const sortedRuntimes = sortRuntimes(state.runtimes)
+
+  if (sortedRuntimes.length === 0) {
+    state.selectedRuntimeId = null
+
+    return null
+  }
+
+  const selectedRuntime = state.selectedRuntimeId
+    ? (state.runtimes.get(state.selectedRuntimeId) ?? null)
+    : null
+
+  if (selectedRuntime) {
+    return selectedRuntime
+  }
+
+  const nextSelectedRuntime = sortedRuntimes[0] ?? null
+
+  state.selectedRuntimeId = nextSelectedRuntime?.runtimeId ?? null
+
+  return nextSelectedRuntime
+}
+
+const renderTabs = (
+  runtimes: FizzDebuggerRuntimeSnapshot[],
+): HTMLDivElement => {
+  const tabs = document.createElement("div")
+
+  tabs.className = "runtime-tabs"
+
+  runtimes.forEach(runtime => {
+    const button = document.createElement("button")
+
+    button.className = "runtime-tab"
+
+    if (runtime.runtimeId === state.selectedRuntimeId) {
+      button.classList.add("runtime-tab-active")
+    }
+
+    button.textContent = runtime.label
+    button.type = "button"
+    button.addEventListener("click", () => {
+      state.selectedRuntimeId = runtime.runtimeId
+      render()
+    })
+    tabs.append(button)
+  })
+
+  return tabs
+}
+
 const renderRuntime = (snapshot: FizzDebuggerRuntimeSnapshot): HTMLElement => {
   const card = document.createElement("section")
   const header = document.createElement("header")
@@ -61,12 +124,6 @@ const renderRuntime = (snapshot: FizzDebuggerRuntimeSnapshot): HTMLElement => {
         .map(item => formatScheduledItem(item.kind, item.id, item.delay))
         .join("\n")
     : "No active scheduled work"
-  const timeline = snapshot.timeline.length
-    ? snapshot.timeline
-        .slice(-12)
-        .map(entry => `${entry.type} @ ${entry.at}`)
-        .join("\n")
-    : "No events captured yet"
 
   card.className = "runtime-card"
   title.textContent = snapshot.label
@@ -80,7 +137,6 @@ const renderRuntime = (snapshot: FizzDebuggerRuntimeSnapshot): HTMLElement => {
       JSON.stringify(snapshot.currentState.data, null, 2),
     ),
     createBlock("Scheduled Work", scheduled),
-    createBlock("Recent Timeline", timeline),
   )
 
   card.append(header, grid)
@@ -115,16 +171,14 @@ const render = (): void => {
     return
   }
 
-  const list = document.createElement("div")
-  const sortedRuntimes = [...state.runtimes.values()].sort((left, right) =>
-    left.label.localeCompare(right.label),
-  )
+  const sortedRuntimes = sortRuntimes(state.runtimes)
+  const selectedRuntime = syncSelectedRuntime()
 
-  list.className = "runtime-list"
-  sortedRuntimes.map(renderRuntime).forEach(runtime => {
-    list.append(runtime)
-  })
-  root.append(list)
+  root.append(renderTabs(sortedRuntimes))
+
+  if (selectedRuntime) {
+    root.append(renderRuntime(selectedRuntime))
+  }
 }
 
 const applyBridgeMessage = (message: FizzDebuggerMessage): void => {
@@ -141,6 +195,12 @@ const applyBridgeMessage = (message: FizzDebuggerMessage): void => {
 port.onMessage.addListener((message: BackgroundToPanelMessage) => {
   if (message.type === "connection-status") {
     state.connected = message.connected
+
+    if (!message.connected) {
+      state.runtimes.clear()
+      state.selectedRuntimeId = null
+    }
+
     render()
     return
   }

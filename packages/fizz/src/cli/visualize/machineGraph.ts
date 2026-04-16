@@ -915,7 +915,7 @@ const analyzeStateFile = (
   knownStatesByFilePath: Map<string, string>,
   kind: MachineState["kind"] = "state",
   nestedParentState?: string,
-): StateAnalysis => {
+): MachineState => {
   const cachedState = context.stateCache.get(stateFilePath)
 
   if (cachedState) {

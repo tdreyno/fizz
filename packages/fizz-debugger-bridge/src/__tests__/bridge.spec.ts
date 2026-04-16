@@ -5,7 +5,7 @@ import {
   createMachine,
   createRuntime,
   enter,
-  FIZZ_CHROME_DEBUGGER_HOOK_KEY,
+  FIZZ_CHROME_DEBUGGER_REGISTRY_KEY,
   output,
   state,
 } from "@tdreyno/fizz"
@@ -13,9 +13,11 @@ import {
 import type { FizzDebuggerMessage } from "../index.js"
 import {
   createFizzChromeDebugger,
-  installFizzChromeDebuggerHook,
+  installFizzChromeDebugger,
   serializeForDebugger,
 } from "../index.js"
+
+const registryKey = FIZZ_CHROME_DEBUGGER_REGISTRY_KEY as string
 
 describe("fizz chrome debugger", () => {
   test("serializes circular values, errors, and functions safely", () => {
@@ -162,7 +164,7 @@ describe("fizz chrome debugger", () => {
     })
   })
 
-  test("installs a global hook that auto-registers createRuntime runtimes", async () => {
+  test("installs registry polling that auto-registers createRuntime runtimes", async () => {
     const trigger = action("Trigger")
     const messages: FizzDebuggerMessage[] = []
 
@@ -184,10 +186,13 @@ describe("fizz chrome debugger", () => {
       "AutoMachine",
     )
 
-    const hookTarget = globalThis as typeof globalThis & {
-      [FIZZ_CHROME_DEBUGGER_HOOK_KEY]?: unknown
-    }
-    const { chromeDebugger, uninstall } = installFizzChromeDebuggerHook({
+    const hookTarget = globalThis as typeof globalThis & Record<string, unknown>
+
+    delete hookTarget[registryKey]
+
+    const runtime = createRuntime(machine, Ready({ count: 0 }))
+
+    const { chromeDebugger, uninstall } = installFizzChromeDebugger({
       debuggerOptions: {
         now: (() => {
           let counter = 500
@@ -200,10 +205,9 @@ describe("fizz chrome debugger", () => {
           },
         },
       },
+      pollIntervalMs: 25,
       target: hookTarget,
     })
-
-    const runtime = createRuntime(machine, Ready({ count: 0 }))
 
     await runtime.run(enter())
     await runtime.run(trigger())
@@ -239,7 +243,216 @@ describe("fizz chrome debugger", () => {
 
     runtime.disconnect()
     uninstall()
+  })
 
-    expect(hookTarget[FIZZ_CHROME_DEBUGGER_HOOK_KEY]).toBeUndefined()
+  test("does not duplicate runtime subscriptions across poll cycles", async () => {
+    const trigger = action("Trigger")
+    const messages: FizzDebuggerMessage[] = []
+
+    const Ready = state<ReturnType<typeof trigger>, { count: number }>(
+      {
+        Trigger: (data, _, { update }) =>
+          update({
+            count: data.count + 1,
+          }),
+      },
+      { name: "Ready" },
+    )
+
+    const machine = createMachine(
+      {
+        actions: { trigger },
+        states: { Ready },
+      },
+      "PollingMachine",
+    )
+    const hookTarget = globalThis as typeof globalThis & Record<string, unknown>
+
+    delete hookTarget[registryKey]
+
+    const runtime = createRuntime(machine, Ready({ count: 0 }))
+    const { chromeDebugger, uninstall } = installFizzChromeDebugger({
+      debuggerOptions: {
+        transport: {
+          emit: message => {
+            messages.push(message)
+          },
+        },
+      },
+      pollIntervalMs: 25,
+      target: hookTarget,
+    })
+
+    await new Promise(resolve => {
+      globalThis.setTimeout(resolve, 125)
+    })
+
+    const connected = messages.find(
+      message => message.kind === "runtime-connected",
+    )
+    const runtimeId =
+      connected?.kind === "runtime-connected"
+        ? connected.snapshot.runtimeId
+        : undefined
+
+    expect(runtimeId).toBeDefined()
+
+    await runtime.run(trigger())
+
+    const snapshot = runtimeId ? chromeDebugger.snapshot(runtimeId) : undefined
+    const actionEnqueuedEvents =
+      snapshot?.timeline.filter(entry => entry.type === "action-enqueued") ?? []
+
+    expect(actionEnqueuedEvents).toHaveLength(1)
+
+    runtime.disconnect()
+    uninstall()
+  })
+
+  test("disconnects installed runtimes when the bridge is uninstalled", async () => {
+    const messages: FizzDebuggerMessage[] = []
+    const Ready = state<ReturnType<typeof enter>, { count: number }>(
+      {
+        Enter: (data, _, { update }) => update(data),
+      },
+      { name: "Ready" },
+    )
+    const machine = createMachine(
+      {
+        states: { Ready },
+      },
+      "UnloadMachine",
+    )
+    const hookTarget = globalThis as typeof globalThis & Record<string, unknown>
+
+    delete hookTarget[registryKey]
+
+    createRuntime(machine, Ready({ count: 0 }))
+
+    const { uninstall } = installFizzChromeDebugger({
+      debuggerOptions: {
+        transport: {
+          emit: message => {
+            messages.push(message)
+          },
+        },
+      },
+      pollIntervalMs: 25,
+      target: hookTarget,
+    })
+
+    await new Promise(resolve => {
+      globalThis.setTimeout(resolve, 75)
+    })
+
+    uninstall()
+
+    expect(messages.some(message => message.kind === "runtime-connected")).toBe(
+      true,
+    )
+    expect(
+      messages.some(message => message.kind === "runtime-disconnected"),
+    ).toBe(true)
+  })
+
+  test("rediscovers runtimes after the registry is recreated", async () => {
+    const trigger = action("Trigger")
+    const messages: FizzDebuggerMessage[] = []
+
+    const Ready = state<ReturnType<typeof trigger>, { count: number }>(
+      {
+        Trigger: (data, _, { update }) =>
+          update({
+            count: data.count + 1,
+          }),
+      },
+      { name: "Ready" },
+    )
+
+    const machine = createMachine(
+      {
+        actions: { trigger },
+        states: { Ready },
+      },
+      "ReconnectMachine",
+    )
+    const hookTarget = globalThis as typeof globalThis & Record<string, unknown>
+
+    delete hookTarget[registryKey]
+
+    const firstRuntime = createRuntime(machine, Ready({ count: 0 }))
+    const { uninstall } = installFizzChromeDebugger({
+      debuggerOptions: {
+        transport: {
+          emit: message => {
+            messages.push(message)
+          },
+        },
+      },
+      pollIntervalMs: 25,
+      target: hookTarget,
+    })
+
+    await new Promise(resolve => {
+      globalThis.setTimeout(resolve, 75)
+    })
+
+    uninstall()
+    firstRuntime.disconnect()
+    delete hookTarget[registryKey]
+
+    const secondRuntime = createRuntime(machine, Ready({ count: 0 }))
+    const reinstalled = installFizzChromeDebugger({
+      debuggerOptions: {
+        transport: {
+          emit: message => {
+            messages.push(message)
+          },
+        },
+      },
+      pollIntervalMs: 25,
+      target: hookTarget,
+    })
+
+    await secondRuntime.run(trigger())
+    await new Promise(resolve => {
+      globalThis.setTimeout(resolve, 75)
+    })
+
+    const connectedMessages = messages.filter(
+      message => message.kind === "runtime-connected",
+    )
+    const reconnectUpdates = messages.filter(
+      message =>
+        message.kind === "runtime-updated" &&
+        message.snapshot.label === "ReconnectMachine",
+    )
+
+    expect(connectedMessages).toHaveLength(2)
+    expect(connectedMessages.at(-1)).toMatchObject({
+      kind: "runtime-connected",
+      snapshot: {
+        currentState: {
+          data: {
+            count: 0,
+          },
+        },
+        label: "ReconnectMachine",
+      },
+    })
+    expect(reconnectUpdates.at(-1)).toMatchObject({
+      kind: "runtime-updated",
+      snapshot: {
+        currentState: {
+          data: {
+            count: 1,
+          },
+        },
+        label: "ReconnectMachine",
+      },
+    })
+
+    secondRuntime.disconnect()
+    reinstalled.uninstall()
   })
 })

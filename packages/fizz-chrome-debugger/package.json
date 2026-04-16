@@ -4,22 +4,38 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "clean": "rm -rf dist && rm -rf .turbo && rm -rf node_modules",
+    "clean": "rm -rf dist && rm -rf dist-test-app && rm -rf .turbo && rm -rf node_modules",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "typecheck": "tsc --noEmit --project tsconfig.typecheck.json",
     "build": "tsdown && mkdir -p dist && cp manifest.json dist/manifest.json && cp src/devtools.html dist/devtools.html && cp src/panel.html dist/panel.html",
-    "dev": "npm run build -- --watch"
+    "build:test-app:client": "tsdown --config tsdown.test-app.client.config.ts",
+    "build:test-app:server": "tsdown --config tsdown.test-app.server.config.ts",
+    "build:test-app": "npm run build:test-app:server && npm run build:test-app:client && node scripts/copy-test-app-assets.mjs",
+    "start:test-app": "node dist-test-app/server/server.mjs",
+    "dev": "npm run build -- --watch",
+    "dev:test-app": "node scripts/dev-test-app.mjs",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
+    "test:ci": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand"
   },
   "dependencies": {
-    "@tdreyno/fizz-chrome-debugger": "*"
+    "@tdreyno/fizz-chrome-debugger": "*",
+    "@tdreyno/fizz": "*",
+    "@tdreyno/fizz-react": "*",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
   },
   "devDependencies": {
     "@repo/eslint-config": "*",
     "@repo/tsconfig": "*",
     "@types/chrome": "^0.1.29",
+    "@types/jest": "^30.0.0",
     "@types/node": "^24.11.2",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
     "eslint": "^9.39.3",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.6",
     "tsdown": "^0.21.0",
     "typescript": "^5.9.3"
   }
