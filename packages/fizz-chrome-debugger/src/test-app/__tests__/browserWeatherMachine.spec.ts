@@ -22,15 +22,106 @@ const createResponse = (json: unknown, status = 200): Response =>
     status,
   }) as unknown as Response
 
+const setGeolocation = (
+  getCurrentPosition: Geolocation["getCurrentPosition"],
+) => {
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    value: {
+      geolocation: {
+        getCurrentPosition,
+      },
+    },
+  })
+}
+
+const flushWeatherLoad = async (
+  asyncDriver: ReturnType<typeof createControlledAsyncDriver>,
+) => {
+  await asyncDriver.flush()
+  await asyncDriver.flush()
+}
+
 describe("browser weather machine", () => {
   afterEach(() => {
     jest.restoreAllMocks()
+    Reflect.deleteProperty(globalThis, "navigator")
   })
 
-  test("loads weather from the local api and transitions to Loaded", async () => {
+  test("uses browser coordinates and transitions to Loaded", async () => {
     const asyncDriver = createControlledAsyncDriver()
+    const fetchMock = jest.fn(async () =>
+      createResponse({
+        ok: true,
+        weather: {
+          city: "Current Location",
+          date: "2026-04-16",
+          forecast: "Partly cloudy",
+          precipitationProbabilityMax: 20,
+          temperatureMax: 18,
+          temperatureMin: 9,
+          timezone: "America/Los_Angeles",
+          units: {
+            precipitationProbabilityMax: "%",
+            temperatureMax: "C",
+            temperatureMin: "C",
+          },
+          weatherCode: 2,
+        },
+      }),
+    )
 
-    globalThis.fetch = jest.fn(async () =>
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+    setGeolocation(resolve => {
+      resolve({
+        coords: {
+          accuracy: 0,
+          altitude: null,
+          altitudeAccuracy: null,
+          heading: null,
+          latitude: 40.7128,
+          longitude: -74.006,
+          speed: null,
+        },
+        timestamp: 0,
+      } as GeolocationPosition)
+    })
+
+    const runtime = new Runtime(
+      createInitialContext([
+        BrowserWeatherMachine.states.Loading({
+          errorMessage: null,
+          requestCount: 0,
+          weather: null,
+        }),
+      ]),
+      BrowserWeatherMachine.actions ?? {},
+      {},
+      { asyncDriver },
+    )
+
+    await runtime.run(enter())
+    await flushWeatherLoad(asyncDriver)
+
+    const currentState = runtime.currentState()
+
+    expect(isState(currentState, Loaded)).toBe(true)
+
+    if (!isState(currentState, Loaded)) {
+      throw new Error("Expected Loaded state")
+    }
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "/api/weather?latitude=40.7128&longitude=-74.006",
+    )
+    expect(currentState.data.weather?.city).toBe("Current Location")
+    expect(currentState.data.requestCount).toBe(1)
+  })
+
+  test("falls back to Portland request path when geolocation is denied", async () => {
+    const asyncDriver = createControlledAsyncDriver()
+    const fetchMock = jest.fn(async () =>
       createResponse({
         ok: true,
         weather: {
@@ -49,7 +140,15 @@ describe("browser weather machine", () => {
           weatherCode: 2,
         },
       }),
-    ) as unknown as typeof fetch
+    )
+
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+    setGeolocation((_resolve, reject) => {
+      reject?.({
+        code: 1,
+        message: "permission denied",
+      } as GeolocationPositionError)
+    })
 
     const runtime = new Runtime(
       createInitialContext([
@@ -65,18 +164,14 @@ describe("browser weather machine", () => {
     )
 
     await runtime.run(enter())
-    await asyncDriver.flush()
+    await flushWeatherLoad(asyncDriver)
 
     const currentState = runtime.currentState()
 
     expect(isState(currentState, Loaded)).toBe(true)
 
-    if (!isState(currentState, Loaded)) {
-      throw new Error("Expected Loaded state")
-    }
-
-    expect(currentState.data.weather?.city).toBe("Portland, Oregon")
-    expect(currentState.data.requestCount).toBe(1)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/weather")
   })
 
   test("transitions to Failed when the local api request errors", async () => {
@@ -100,7 +195,7 @@ describe("browser weather machine", () => {
     )
 
     await runtime.run(enter())
-    await asyncDriver.flush()
+    await flushWeatherLoad(asyncDriver)
 
     const currentState = runtime.currentState()
 

@@ -1,5 +1,11 @@
 import type { ActionCreatorType, BoundStateFn, Enter } from "@tdreyno/fizz"
-import { action, createMachine, requestJSONAsync, state } from "@tdreyno/fizz"
+import {
+  action,
+  createMachine,
+  requestJSONAsync,
+  startAsync,
+  state,
+} from "@tdreyno/fizz"
 import { useMachine } from "@tdreyno/fizz-react"
 
 import type { WeatherApiSuccessResponse, WeatherReport } from "./weather.js"
@@ -9,6 +15,9 @@ import {
 } from "./weather.js"
 
 const refresh = action("Refresh")
+const weatherRequestReady = action("WeatherRequestReady").withPayload<{
+  requestPath: string
+}>()
 const weatherLoaded =
   action("WeatherLoaded").withPayload<WeatherApiSuccessResponse>()
 const weatherLoadFailed = action("WeatherLoadFailed").withPayload<{
@@ -17,6 +26,7 @@ const weatherLoadFailed = action("WeatherLoadFailed").withPayload<{
 
 type LoadingActions =
   | Enter
+  | ActionCreatorType<typeof weatherRequestReady>
   | ActionCreatorType<typeof weatherLoaded>
   | ActionCreatorType<typeof weatherLoadFailed>
 type ReadyActions = ActionCreatorType<typeof refresh>
@@ -37,8 +47,56 @@ const initialBrowserWeatherData = (): BrowserWeatherData => ({
   weather: null,
 })
 
-const requestWeather = () =>
-  requestJSONAsync("/api/weather")
+type BrowserCoordinates = {
+  latitude: number
+  longitude: number
+}
+
+const defaultWeatherPath = "/api/weather"
+
+const getCurrentCoordinates = (): Promise<BrowserCoordinates | null> =>
+  new Promise(resolve => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      resolve(null)
+      return
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        })
+      },
+      () => {
+        resolve(null)
+      },
+      {
+        enableHighAccuracy: false,
+        maximumAge: 5 * 60 * 1000,
+        timeout: 5000,
+      },
+    )
+  })
+
+const buildWeatherRequestPath = (coordinates: BrowserCoordinates | null) => {
+  if (coordinates === null) {
+    return defaultWeatherPath
+  }
+
+  const params = new URLSearchParams({
+    latitude: coordinates.latitude.toString(),
+    longitude: coordinates.longitude.toString(),
+  })
+
+  return `${defaultWeatherPath}?${params.toString()}`
+}
+
+const resolveWeatherRequestPath = async (): Promise<string> =>
+  buildWeatherRequestPath(await getCurrentCoordinates())
+
+const requestWeather = (requestPath: string) =>
+  requestJSONAsync(requestPath)
     .validate(assertWeatherApiSuccessResponse)
     .chainToAction(weatherLoaded, reason =>
       weatherLoadFailed({
@@ -48,7 +106,12 @@ const requestWeather = () =>
 
 const Loading = state<LoadingActions, BrowserWeatherData>(
   {
-    Enter: () => requestWeather(),
+    Enter: () =>
+      startAsync(resolveWeatherRequestPath, {
+        resolve: requestPath => weatherRequestReady({ requestPath }),
+      }),
+
+    WeatherRequestReady: (_, payload) => requestWeather(payload.requestPath),
 
     WeatherLoaded: (data, payload) =>
       Loaded({
@@ -91,6 +154,7 @@ const Failed = state<ReadyActions, BrowserWeatherData>(
 
 const BrowserWeatherActions = {
   refresh,
+  weatherRequestReady,
   weatherLoaded,
   weatherLoadFailed,
 }
@@ -128,4 +192,12 @@ export const useBrowserWeatherMachine = (): BrowserWeatherMachineValue =>
     BrowserWeatherMachine.states.Loading(initialBrowserWeatherData()),
   ) as BrowserWeatherMachineValue
 
-export { Failed, Loaded, Loading, refresh, weatherLoaded, weatherLoadFailed }
+export {
+  Failed,
+  Loaded,
+  Loading,
+  refresh,
+  weatherLoaded,
+  weatherLoadFailed,
+  weatherRequestReady,
+}

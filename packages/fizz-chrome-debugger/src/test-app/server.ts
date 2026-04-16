@@ -13,6 +13,7 @@ import {
 import type {
   WeatherApiErrorResponse,
   WeatherApiSuccessResponse,
+  WeatherCoordinates,
 } from "./weather.js"
 
 const currentDir = fileURLToPath(new URL(".", import.meta.url))
@@ -50,8 +51,13 @@ const serveAsset = async (pathname: string, response: ServerResponse) => {
   response.end(asset)
 }
 
-const runWeatherRequest = async (requestId: string) => {
-  const runtime = createServerWeatherRuntime(requestId)
+const runWeatherRequest = async (
+  requestId: string,
+  coordinates?: WeatherCoordinates,
+) => {
+  const runtime = createServerWeatherRuntime(requestId, {
+    coordinates,
+  })
 
   return await new Promise<{
     body: WeatherApiErrorResponse | WeatherApiSuccessResponse
@@ -77,6 +83,30 @@ const runWeatherRequest = async (requestId: string) => {
   })
 }
 
+const parseCoordinate = (value: string | null): number | null => {
+  if (value === null) {
+    return null
+  }
+
+  const parsedValue = Number(value)
+
+  return Number.isFinite(parsedValue) ? parsedValue : null
+}
+
+const parseCoordinates = (url: URL): WeatherCoordinates | undefined => {
+  const latitude = parseCoordinate(url.searchParams.get("latitude"))
+  const longitude = parseCoordinate(url.searchParams.get("longitude"))
+
+  if (latitude === null || longitude === null) {
+    return undefined
+  }
+
+  return {
+    latitude,
+    longitude,
+  }
+}
+
 const handleRequest = async (
   request: IncomingMessage,
   response: ServerResponse,
@@ -93,9 +123,10 @@ const handleRequest = async (
 
   if (url.pathname === "/api/weather") {
     const requestId = `${requestCounter++}`
+    const coordinates = parseCoordinates(url)
 
     try {
-      const payload = await runWeatherRequest(requestId)
+      const payload = await runWeatherRequest(requestId, coordinates)
 
       writeJson(response, payload.statusCode, payload.body)
       return

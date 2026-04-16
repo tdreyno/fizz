@@ -66,7 +66,7 @@ export const App = () => {
                 margin: "14px 0 10px",
               }}
             >
-              Portland Weather
+              Local Weather
             </h1>
             <p
               style={{
@@ -75,11 +75,11 @@ export const App = () => {
                 maxWidth: 700,
               }}
             >
-              This page hosts two browser Fizz runtimes: one fetches weather
-              from the local Node endpoint and one counts how many seconds the
-              page has been open. Open Chrome DevTools and switch to the Fizz
-              panel to inspect both browser machines while the backend request
-              machine logs in the terminal.
+              This page hosts two browser Fizz runtimes: one asks for location
+              and fetches weather from the local Node endpoint, and one counts
+              how many seconds the page has been open. Open Chrome DevTools and
+              switch to the Fizz panel to inspect both browser machines while
+              the backend request machine logs in the terminal.
             </p>
           </div>
 

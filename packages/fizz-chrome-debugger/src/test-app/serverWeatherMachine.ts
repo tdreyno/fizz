@@ -14,13 +14,17 @@ import {
 import type {
   WeatherApiErrorResponse,
   WeatherApiSuccessResponse,
+  WeatherCoordinates,
   WeatherReport,
 } from "./weather.js"
 import {
   assertOpenMeteoForecastResponse,
+  buildOpenMeteoWeatherUrl,
+  currentLocationCityLabel,
   formatErrorMessage,
   normalizeWeatherReport,
-  portlandWeatherUrl,
+  portlandCityLabel,
+  portlandCoordinates,
 } from "./weather.js"
 
 const weatherLoaded = action("WeatherLoaded").withPayload<WeatherReport>()
@@ -51,6 +55,7 @@ type CompletedActions = Enter
 type TimeoutId = "response-delay"
 
 type LoadingWeatherData = {
+  coordinates?: WeatherCoordinates
   requestId: string
 }
 
@@ -75,18 +80,31 @@ const LoadingWeather = state<
   TimeoutId
 >(
   {
-    Enter: data => [
-      log(`request:${data.requestId}:fetching`),
-      requestJSONAsync(portlandWeatherUrl)
-        .validate(assertOpenMeteoForecastResponse)
-        .chainToAction(
-          response => weatherLoaded(normalizeWeatherReport(response)),
-          reason =>
-            weatherLoadFailed({
-              message: formatErrorMessage(reason),
-            }),
-        ),
-    ],
+    Enter: data => {
+      const coordinates = data.coordinates ?? portlandCoordinates
+      const cityLabel =
+        data.coordinates === undefined
+          ? portlandCityLabel
+          : currentLocationCityLabel
+
+      return [
+        log(`request:${data.requestId}:fetching`),
+        requestJSONAsync(buildOpenMeteoWeatherUrl(coordinates))
+          .validate(assertOpenMeteoForecastResponse)
+          .chainToAction(
+            response =>
+              weatherLoaded(
+                normalizeWeatherReport(response, {
+                  city: cityLabel,
+                }),
+              ),
+            reason =>
+              weatherLoadFailed({
+                message: formatErrorMessage(reason),
+              }),
+          ),
+      ]
+    },
 
     WeatherLoaded: (data, weather) =>
       WaitingToReturn({
@@ -173,6 +191,7 @@ export const ServerWeatherMachine = createMachine(
 )
 
 type CreateServerWeatherRuntimeOptions = Partial<CreateRuntimeOptions> & {
+  coordinates?: WeatherCoordinates
   enableConsoleMonitor?: boolean
   monitorFactory?: (requestId: string) => RuntimeMonitor
 }
@@ -222,7 +241,13 @@ export const createServerWeatherRuntime = (
 
   return new Runtime(
     createInitialContext(
-      [ServerWeatherMachine.states.LoadingWeather({ requestId })],
+      [
+        ServerWeatherMachine.states.LoadingWeather(
+          options.coordinates === undefined
+            ? { requestId }
+            : { coordinates: options.coordinates, requestId },
+        ),
+      ],
       contextOptions,
     ),
     ServerWeatherActions,

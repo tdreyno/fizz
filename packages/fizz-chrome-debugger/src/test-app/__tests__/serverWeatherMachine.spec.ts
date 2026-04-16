@@ -26,8 +26,8 @@ describe("server weather machine", () => {
     jest.restoreAllMocks()
   })
 
-  test("waits two seconds before emitting a successful response", async () => {
-    globalThis.fetch = jest.fn(async () =>
+  test("uses provided coordinates and waits two seconds before responding", async () => {
+    const fetchMock = jest.fn(async () =>
       createResponse({
         daily: {
           precipitation_probability_max: [45],
@@ -43,12 +43,18 @@ describe("server weather machine", () => {
         },
         timezone: "America/Los_Angeles",
       }),
-    ) as unknown as typeof fetch
+    )
+
+    globalThis.fetch = fetchMock as unknown as typeof fetch
 
     const asyncDriver = createControlledAsyncDriver()
     const timerDriver = createControlledTimerDriver()
     const runtime = createServerWeatherRuntime("req-1", {
       asyncDriver,
+      coordinates: {
+        latitude: 37.7749,
+        longitude: -122.4194,
+      },
       timerDriver,
     })
 
@@ -74,11 +80,15 @@ describe("server weather machine", () => {
 
     const outputAction = await outputPromise
 
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "https://api.open-meteo.com/v1/forecast?daily=weather_code%2Ctemperature_2m_max%2Ctemperature_2m_min%2Cprecipitation_probability_max&forecast_days=1&latitude=37.7749&longitude=-122.4194&timezone=auto",
+    )
     expect(outputAction.payload.statusCode).toBe(200)
     expect(outputAction.payload.body).toMatchObject({
       ok: true,
       weather: {
-        city: "Portland, Oregon",
+        city: "Current Location",
       },
     })
 
@@ -152,7 +162,7 @@ describe("server weather machine", () => {
   })
 
   test("stays in loading until the async response resolves", async () => {
-    globalThis.fetch = jest.fn(async () =>
+    const fetchMock = jest.fn(async () =>
       createResponse({
         daily: {
           precipitation_probability_max: [0],
@@ -168,7 +178,9 @@ describe("server weather machine", () => {
         },
         timezone: "America/Los_Angeles",
       }),
-    ) as unknown as typeof fetch
+    )
+
+    globalThis.fetch = fetchMock as unknown as typeof fetch
 
     const asyncDriver = createControlledAsyncDriver()
     const runtime = createServerWeatherRuntime("req-4", { asyncDriver })
@@ -176,6 +188,10 @@ describe("server weather machine", () => {
     await runtime.run(enter())
 
     expect(isState(runtime.currentState(), LoadingWeather)).toBe(true)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "https://api.open-meteo.com/v1/forecast?daily=weather_code%2Ctemperature_2m_max%2Ctemperature_2m_min%2Cprecipitation_probability_max&forecast_days=1&latitude=45.5231&longitude=-122.6765&timezone=auto",
+    )
 
     await asyncDriver.flush()
 

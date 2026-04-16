@@ -42,8 +42,34 @@ export type WeatherApiErrorResponse = {
   ok: false
 }
 
-export const portlandWeatherUrl =
-  "https://api.open-meteo.com/v1/forecast?latitude=45.5231&longitude=-122.6765&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=America%2FLos_Angeles&forecast_days=1"
+export type WeatherCoordinates = {
+  latitude: number
+  longitude: number
+}
+
+export const currentLocationCityLabel = "Current Location"
+export const portlandCityLabel = "Portland, Oregon"
+export const portlandCoordinates: WeatherCoordinates = {
+  latitude: 45.5231,
+  longitude: -122.6765,
+}
+
+const openMeteoBaseUrl = "https://api.open-meteo.com/v1/forecast"
+
+export const buildOpenMeteoWeatherUrl = (
+  coordinates: WeatherCoordinates = portlandCoordinates,
+): string => {
+  const params = new URLSearchParams({
+    daily:
+      "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
+    forecast_days: "1",
+    latitude: coordinates.latitude.toString(),
+    longitude: coordinates.longitude.toString(),
+    timezone: "auto",
+  })
+
+  return `${openMeteoBaseUrl}?${params.toString()}`
+}
 
 const weatherDescriptions = {
   0: "Clear sky",
@@ -164,8 +190,9 @@ export const assertWeatherApiSuccessResponse = (
 
 export const normalizeWeatherReport = (
   response: OpenMeteoForecastResponse,
+  options: { city?: string } = {},
 ): WeatherReport => ({
-  city: "Portland, Oregon",
+  city: options.city ?? currentLocationCityLabel,
   date: response.daily.time[0] ?? "unknown",
   forecast: describeWeatherCode(response.daily.weather_code[0] ?? -1),
   precipitationProbabilityMax:
