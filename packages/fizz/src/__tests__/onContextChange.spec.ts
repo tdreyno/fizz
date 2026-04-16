@@ -4,7 +4,7 @@ import type { ActionCreatorType, Enter } from "../action"
 import { action, enter } from "../action"
 import { Context, createInitialContext } from "../context"
 import { noop } from "../effect"
-import { createRuntime } from "../runtime"
+import { Runtime } from "../runtime"
 import { state } from "../state"
 
 describe("onContextChange", () => {
@@ -18,7 +18,7 @@ describe("onContextChange", () => {
 
     const context = createInitialContext([A("Test")])
 
-    const runtime = createRuntime(context)
+    const runtime = new Runtime(context)
 
     const onChange = jest.fn()
 
@@ -43,7 +43,7 @@ describe("onContextChange", () => {
 
     const context = createInitialContext([A(1)])
 
-    const runtime = createRuntime(context, { trigger })
+    const runtime = new Runtime(context, { trigger })
 
     let i = 0
     const onChange = jest.fn((context: Context) => {

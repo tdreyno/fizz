@@ -5,7 +5,7 @@ import type { ActionCreatorType, Enter } from "../action"
 import { action, enter } from "../action"
 import { createInitialContext } from "../context"
 import { noop, requestJSONAsync, startAsync } from "../effect"
-import { createControlledAsyncDriver, createRuntime } from "../runtime"
+import { createControlledAsyncDriver, Runtime } from "../runtime"
 import { isState, state } from "../state"
 
 type Deferred<T> = {
@@ -96,12 +96,7 @@ describe("Async scheduled operations", () => {
 
     const context = createInitialContext([Loading({ events: [] })])
     const asyncDriver = createControlledAsyncDriver()
-    const runtime = createRuntime(
-      context,
-      { profileLoaded },
-      {},
-      { asyncDriver },
-    )
+    const runtime = new Runtime(context, { profileLoaded }, {}, { asyncDriver })
 
     await runtime.run(enter())
 
@@ -157,7 +152,7 @@ describe("Async scheduled operations", () => {
 
     const context = createInitialContext([Loading({ events: [] })])
     const asyncDriver = createControlledAsyncDriver()
-    const runtime = createRuntime(context, { cancelLoad }, {}, { asyncDriver })
+    const runtime = new Runtime(context, { cancelLoad }, {}, { asyncDriver })
 
     await runtime.run(enter())
     await runtime.run(cancelLoad())
@@ -213,11 +208,13 @@ describe("Async scheduled operations", () => {
 
     const context = createInitialContext([Loading({ events: [] })])
     const asyncDriver = createControlledAsyncDriver()
-    const runtime = createRuntime(
+    const runtime = new Runtime(
       context,
       { leave, profileLoaded },
       {},
-      { asyncDriver },
+      {
+        asyncDriver,
+      },
     )
 
     await runtime.run(enter())
@@ -267,12 +264,7 @@ describe("Async scheduled operations", () => {
 
     const context = createInitialContext([Loading({ events: [] })])
     const asyncDriver = createControlledAsyncDriver()
-    const runtime = createRuntime(
-      context,
-      { profileLoaded },
-      {},
-      { asyncDriver },
-    )
+    const runtime = new Runtime(context, { profileLoaded }, {}, { asyncDriver })
 
     await runtime.run(enter())
 
@@ -391,11 +383,13 @@ describe("Async scheduled operations", () => {
 
     const context = createInitialContext([Loading({ events: [] })])
     const asyncDriver = createControlledAsyncDriver()
-    const runtime = createRuntime(
+    const runtime = new Runtime(
       context,
       { profileFailed, profileLoaded },
       {},
-      { asyncDriver },
+      {
+        asyncDriver,
+      },
     )
 
     await runtime.run(enter())
@@ -446,7 +440,7 @@ describe("Async scheduled operations", () => {
 
     const context = createInitialContext([Loading({ events: [] })])
     const asyncDriver = createControlledAsyncDriver()
-    const runtime = createRuntime(context, {}, {}, { asyncDriver })
+    const runtime = new Runtime(context, {}, {}, { asyncDriver })
 
     await runtime.run(enter())
     await asyncDriver.flush()
@@ -496,7 +490,7 @@ describe("Async scheduled operations", () => {
 
     const context = createInitialContext([Loading({ events: [] })])
     const asyncDriver = createControlledAsyncDriver()
-    const runtime = createRuntime(context, {}, {}, { asyncDriver })
+    const runtime = new Runtime(context, {}, {}, { asyncDriver })
 
     await runtime.run(enter())
     await asyncDriver.flush()
@@ -561,11 +555,13 @@ describe("Async scheduled operations", () => {
 
     const context = createInitialContext([Loading({ events: [] })])
     const asyncDriver = createControlledAsyncDriver()
-    const runtime = createRuntime(
+    const runtime = new Runtime(
       context,
       { profileFailed, profileLoaded },
       {},
-      { asyncDriver },
+      {
+        asyncDriver,
+      },
     )
 
     await runtime.run(enter())
@@ -618,11 +614,13 @@ describe("Async scheduled operations", () => {
 
     const context = createInitialContext([Loading({ events: [] })])
     const asyncDriver = createControlledAsyncDriver()
-    const runtime = createRuntime(
+    const runtime = new Runtime(
       context,
       { profileFailed, profileLoaded },
       {},
-      { asyncDriver },
+      {
+        asyncDriver,
+      },
     )
 
     await runtime.run(enter())
@@ -696,7 +694,7 @@ describe("Async scheduled operations", () => {
 
     const context = createInitialContext([Loading({ events: [] })])
     const asyncDriver = createControlledAsyncDriver()
-    const runtime = createRuntime(context, { cancelLoad }, {}, { asyncDriver })
+    const runtime = new Runtime(context, { cancelLoad }, {}, { asyncDriver })
 
     await runtime.run(enter())
     await runtime.run(cancelLoad())
@@ -749,11 +747,13 @@ describe("Async scheduled operations", () => {
 
     const context = createInitialContext([Loading({ events: [] })])
     const asyncDriver = createControlledAsyncDriver()
-    const runtime = createRuntime(
+    const runtime = new Runtime(
       context,
       { profileFailed, profileLoaded },
       {},
-      { asyncDriver },
+      {
+        asyncDriver,
+      },
     )
 
     await runtime.run(enter())

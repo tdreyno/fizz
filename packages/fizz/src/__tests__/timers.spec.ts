@@ -15,7 +15,7 @@ import { action, enter } from "../action"
 import { createInitialContext } from "../context"
 import type { Effect } from "../effect"
 import { noop } from "../effect"
-import { createControlledTimerDriver, createRuntime } from "../runtime"
+import { createControlledTimerDriver, Runtime } from "../runtime"
 import type { HandlerReturn, StateTransition } from "../state"
 import {
   debounce,
@@ -108,7 +108,7 @@ describe("timers", () => {
 
     const context = createInitialContext([Editing({ events: [] })])
     const timerDriver = createControlledTimerDriver()
-    const runtime = createRuntime(context, { save }, {}, { timerDriver })
+    const runtime = new Runtime(context, { save }, {}, { timerDriver })
 
     await runtime.run(enter())
     await runtime.run(save())
@@ -165,7 +165,7 @@ describe("timers", () => {
 
     const context = createInitialContext([Editing({ events: [] })])
     const timerDriver = createControlledTimerDriver()
-    const runtime = createRuntime(context, { save }, {}, { timerDriver })
+    const runtime = new Runtime(context, { save }, {}, { timerDriver })
 
     await runtime.run(enter())
     await runtime.run(save())
@@ -208,7 +208,7 @@ describe("timers", () => {
     )
 
     const context = createInitialContext([Editing({ events: [] })])
-    const runtime = createRuntime(
+    const runtime = new Runtime(
       context,
       { cancelNow },
       {},
@@ -258,7 +258,7 @@ describe("timers", () => {
 
     const context = createInitialContext([Editing({ events: [] })])
     const timerDriver = createControlledTimerDriver()
-    const runtime = createRuntime(context, { leave }, {}, { timerDriver })
+    const runtime = new Runtime(context, { leave }, {}, { timerDriver })
 
     await runtime.run(enter())
     await runtime.run(leave())
@@ -356,7 +356,7 @@ describe("timers", () => {
 
     const context = createInitialContext([Editing({ events: [] })])
     const timerDriver = createControlledTimerDriver()
-    const runtime = createRuntime(context, {}, {}, { timerDriver })
+    const runtime = new Runtime(context, {}, {}, { timerDriver })
 
     await runtime.run(enter())
     await timerDriver.advanceBy(20)
@@ -439,7 +439,7 @@ describe("timers", () => {
 
     const context = createInitialContext([Editing({ events: [] })])
     const timerDriver = createControlledTimerDriver()
-    const runtime = createRuntime(context, {}, {}, { timerDriver })
+    const runtime = new Runtime(context, {}, {}, { timerDriver })
 
     await runtime.run(enter())
     await timerDriver.advanceBy(35)
@@ -498,7 +498,7 @@ describe("timers", () => {
 
     const context = createInitialContext([Editing({ events: [] })])
     const timerDriver = createControlledTimerDriver()
-    const runtime = createRuntime(context, { save }, {}, { timerDriver })
+    const runtime = new Runtime(context, { save }, {}, { timerDriver })
 
     await runtime.run(enter())
     await runtime.run(save())
@@ -542,7 +542,7 @@ describe("timers", () => {
     )
 
     const context = createInitialContext([Editing({ events: [] })])
-    const runtime = createRuntime(
+    const runtime = new Runtime(
       context,
       { cancelNow },
       {},
@@ -592,7 +592,7 @@ describe("timers", () => {
 
     const context = createInitialContext([Editing({ events: [] })])
     const timerDriver = createControlledTimerDriver()
-    const runtime = createRuntime(context, { leave }, {}, { timerDriver })
+    const runtime = new Runtime(context, { leave }, {}, { timerDriver })
 
     await runtime.run(enter())
     await runtime.run(leave())
@@ -672,7 +672,7 @@ describe("timers", () => {
 
     const context = createInitialContext([Editing({ events: [] })])
     const timerDriver = createControlledTimerDriver()
-    const runtime = createRuntime(context, {}, {}, { timerDriver })
+    const runtime = new Runtime(context, {}, {}, { timerDriver })
 
     await runtime.run(enter())
     await timerDriver.advanceBy(15)
@@ -762,7 +762,7 @@ describe("timers", () => {
 
     const context = createInitialContext([Editing({ events: [] })])
     const timerDriver = createControlledTimerDriver()
-    const runtime = createRuntime(context, { save }, {}, { timerDriver })
+    const runtime = new Runtime(context, { save }, {}, { timerDriver })
 
     await runtime.run(enter())
     await runtime.run(save("a"))
@@ -826,7 +826,7 @@ describe("timers", () => {
 
     const context = createInitialContext([Editing({ events: [] })])
     const timerDriver = createControlledTimerDriver()
-    const runtime = createRuntime(context, {}, {}, { timerDriver })
+    const runtime = new Runtime(context, {}, {}, { timerDriver })
 
     await runtime.run(enter())
     await timerDriver.advanceBy(40)
@@ -916,7 +916,7 @@ describe("timers", () => {
       }),
     ])
     const timerDriver = createControlledTimerDriver()
-    const runtime = createRuntime(context, {}, {}, { timerDriver })
+    const runtime = new Runtime(context, {}, {}, { timerDriver })
 
     await runtime.run(enter())
     await timerDriver.advanceBy(45)
@@ -961,7 +961,7 @@ describe("timers", () => {
       Animating({ frameCount: 0, lastTimestamp: 0 }),
     ])
     const timerDriver = createControlledTimerDriver()
-    const runtime = createRuntime(context, {}, {}, { timerDriver })
+    const runtime = new Runtime(context, {}, {}, { timerDriver })
 
     await runtime.run(enter())
     await timerDriver.advanceFrames(5, 10)
@@ -997,7 +997,7 @@ describe("timers", () => {
 
     const context = createInitialContext([Idle({ events: [] })])
     const timerDriver = createControlledTimerDriver()
-    const runtime = createRuntime(context, { stop }, {}, { timerDriver })
+    const runtime = new Runtime(context, { stop }, {}, { timerDriver })
 
     await runtime.run(enter())
     await runtime.run(stop())
@@ -1043,7 +1043,7 @@ describe("timers", () => {
 
     const context = createInitialContext([Animating({ frameCount: 0 })])
     const timerDriver = createControlledTimerDriver()
-    const runtime = createRuntime(context, { leave }, {}, { timerDriver })
+    const runtime = new Runtime(context, { leave }, {}, { timerDriver })
 
     await runtime.run(enter())
     await runtime.run(leave())

@@ -107,11 +107,19 @@ The `history` array must start with at least one state transition.
 Create a runtime that can execute actions, transitions, and effects.
 
 ```ts
-const context = createInitialContext([Initial()])
-const runtime = createRuntime(context, actions, outputActions)
+const machine = createMachine({
+  actions,
+  outputActions,
+  states: { Initial },
+})
+const runtime = createRuntime(machine, Initial(), {
+  maxHistory: 10,
+})
 
 await runtime.run(enter())
 ```
+
+For low-level usage where you already have a `Context`, construct `new Runtime(...)` directly.
 
 The returned `Runtime` is the main execution object. The most commonly used methods are:
 

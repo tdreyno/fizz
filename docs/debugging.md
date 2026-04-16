@@ -37,7 +37,7 @@ In a Node.js runtime, attach the console monitor directly when you create the ru
 ```ts
 import {
   action,
-  createInitialContext,
+  createMachine,
   createRuntime,
   createRuntimeConsoleMonitor,
   enter,
@@ -61,17 +61,16 @@ const Idle = state(
   { name: "Idle" },
 )
 
-const context = createInitialContext([Idle({ orderId: "o-1" })])
-const runtime = createRuntime(
-  context,
-  { loadOrder },
-  {},
-  {
-    monitor: createRuntimeConsoleMonitor({
-      prefix: "[Orders]",
-    }),
-  },
-)
+const OrdersMachine = createMachine({
+  actions: { loadOrder },
+  states: { Idle },
+})
+
+const runtime = createRuntime(OrdersMachine, Idle({ orderId: "o-1" }), {
+  monitor: createRuntimeConsoleMonitor({
+    prefix: "[Orders]",
+  }),
+})
 
 await runtime.run(enter())
 await runtime.run(loadOrder())
@@ -95,7 +94,7 @@ For browser runtimes that create the Fizz runtime directly, the same monitor wor
 ```ts
 import {
   action,
-  createInitialContext,
+  createMachine,
   createRuntime,
   createRuntimeConsoleMonitor,
   enter,
@@ -126,16 +125,16 @@ const TimeoutDemo = state(
   { name: "TimeoutDemo" },
 )
 
-const context = createInitialContext([
+const TimeoutMachine = createMachine({
+  actions: { arm, cancel },
+  states: { TimeoutDemo },
+})
+
+const runtime = createRuntime(
+  TimeoutMachine,
   TimeoutDemo({
     status: "idle",
   }),
-])
-
-const runtime = createRuntime(
-  context,
-  { arm, cancel },
-  {},
   {
     monitor: createRuntimeConsoleMonitor({
       prefix: "[TimeoutDemo]",

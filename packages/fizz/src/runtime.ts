@@ -13,6 +13,8 @@ import {
   timerStarted,
 } from "./action.js"
 import type { Context } from "./context.js"
+import { createInitialContext } from "./context.js"
+import type { MachineDefinition } from "./createMachine.js"
 import type {
   CancelAsyncEffectData,
   CancelIntervalEffectData,
@@ -76,11 +78,25 @@ export type RuntimeOptions = {
   timerDriver?: RuntimeTimerDriver
 }
 
+export type RuntimeContextOptions = {
+  customLogger?: (
+    msgs: readonly unknown[],
+    level: "error" | "warn" | "log",
+  ) => void
+  enableLogging?: boolean
+  maxHistory?: number
+}
+
+export type CreateRuntimeOptions = RuntimeContextOptions & RuntimeOptions
+
 type ContextChangeSubscriber = (context: Context) => void
 type RuntimeAction = Action<string, unknown>
 type RuntimeState = StateTransition<string, Action<string, unknown>, unknown>
 type RuntimeActionMap = {
   [key: string]: (...args: Array<any>) => RuntimeAction
+}
+type RuntimeStateMap = {
+  [key: string]: (...args: Array<any>) => RuntimeState
 }
 type PromiseBoundActions<AM extends RuntimeActionMap> = {
   [K in keyof AM]: (...args: Parameters<AM[K]>) => {
@@ -237,8 +253,8 @@ export class Runtime<
 
   constructor(
     public context: Context,
-    public internalActions: AM,
-    public outputActions: OAM,
+    public internalActions: AM = {} as AM,
+    public outputActions: OAM = {} as OAM,
     options: RuntimeOptions = {},
   ) {
     this.#validActions = Object.keys(internalActions).reduce(
@@ -973,12 +989,71 @@ export class Runtime<
   }
 }
 
-export const createRuntime = <
+const splitCreateRuntimeOptions = (options: CreateRuntimeOptions = {}) => {
+  const context: RuntimeContextOptions = {}
+  const runtime: RuntimeOptions = {}
+
+  if (options.customLogger) {
+    context.customLogger = options.customLogger
+  }
+
+  if ("enableLogging" in options) {
+    context.enableLogging = options.enableLogging
+  }
+
+  if ("maxHistory" in options) {
+    context.maxHistory = options.maxHistory
+  }
+
+  if (options.asyncDriver) {
+    runtime.asyncDriver = options.asyncDriver
+  }
+
+  if (options.monitor) {
+    runtime.monitor = options.monitor
+  }
+
+  if (options.timerDriver) {
+    runtime.timerDriver = options.timerDriver
+  }
+
+  return {
+    context,
+    runtime,
+  }
+}
+
+export function createRuntime<
+  SM extends RuntimeStateMap,
   AM extends RuntimeActionMap,
   OAM extends RuntimeActionMap,
 >(
-  context: Context,
-  internalActions: AM = {} as AM,
-  outputActions: OAM = {} as OAM,
-  options?: RuntimeOptions,
-) => new Runtime(context, internalActions, outputActions, options)
+  machine: MachineDefinition<SM, AM, OAM>,
+  initialState: ReturnType<SM[keyof SM]>,
+  options?: CreateRuntimeOptions,
+): Runtime<AM, OAM>
+
+export function createRuntime<
+  SM extends RuntimeStateMap,
+  AM extends RuntimeActionMap,
+  OAM extends RuntimeActionMap,
+>(
+  machine: MachineDefinition<SM, AM, OAM>,
+  initialState: ReturnType<SM[keyof SM]>,
+  options?: CreateRuntimeOptions,
+): Runtime<AM, OAM> {
+  if (!initialState) {
+    throw new Error(
+      "createRuntime(machine, initialState) requires an initial state",
+    )
+  }
+
+  const { context, runtime } = splitCreateRuntimeOptions(options)
+
+  return new Runtime(
+    createInitialContext([initialState], context),
+    (machine.actions ?? {}) as AM,
+    (machine.outputActions ?? {}) as OAM,
+    runtime,
+  )
+}

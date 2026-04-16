@@ -1,14 +1,16 @@
 import { describe, expect, test } from "@jest/globals"
 
-import type { ActionCreatorType, Enter } from "../action"
+import type { ActionCreatorType, Enter, OnFrame } from "../action"
 import { action, enter } from "../action"
 import { createInitialContext } from "../context"
+import { createMachine } from "../createMachine"
 import { output } from "../effect"
 import type { RuntimeDebugEvent } from "../runtime"
 import {
   createControlledAsyncDriver,
   createControlledTimerDriver,
   createRuntime,
+  Runtime,
 } from "../runtime"
 import { state } from "../state"
 import { deferred } from "../test"
@@ -33,17 +35,16 @@ describe("runtime monitor", () => {
     )
 
     const events: RuntimeDebugEvent[] = []
-    const context = createInitialContext([A({ events: [] })])
-    const runtime = createRuntime(
-      context,
-      { trigger },
-      { notice },
-      {
-        monitor: event => {
-          events.push(event)
-        },
+    const machine = createMachine({
+      actions: { trigger },
+      outputActions: { notice },
+      states: { A },
+    })
+    const runtime = createRuntime(machine, A({ events: [] }), {
+      monitor: event => {
+        events.push(event)
       },
-    )
+    })
 
     await runtime.run(trigger())
 
@@ -126,17 +127,15 @@ describe("runtime monitor", () => {
     )
 
     const events: RuntimeDebugEvent[] = []
-    const context = createInitialContext([A(undefined)])
-    const runtime = createRuntime(
-      context,
-      { explode },
-      {},
-      {
-        monitor: event => {
-          events.push(event)
-        },
+    const machine = createMachine({
+      actions: { explode },
+      states: { A },
+    })
+    const runtime = createRuntime(machine, A(undefined), {
+      monitor: event => {
+        events.push(event)
       },
-    )
+    })
 
     await expect(runtime.run(explode())).rejects.toThrow("boom")
 
@@ -169,7 +168,7 @@ describe("runtime monitor", () => {
     const events: RuntimeDebugEvent[] = []
     const context = createInitialContext([Loading(undefined)])
     const asyncDriver = createControlledAsyncDriver()
-    const runtime = createRuntime(
+    const runtime = new Runtime(
       context,
       {},
       {},
@@ -241,7 +240,7 @@ describe("runtime monitor", () => {
     const events: RuntimeDebugEvent[] = []
     const context = createInitialContext([Loading(undefined)])
     const asyncDriver = createControlledAsyncDriver()
-    const runtime = createRuntime(
+    const runtime = new Runtime(
       context,
       { cancelSettings },
       {},
@@ -271,7 +270,7 @@ describe("runtime monitor", () => {
 
   test("should emit timer, interval, and frame lifecycle events", async () => {
     const Polling = state<
-      Enter,
+      Enter | OnFrame,
       { frameCount: number; intervalCount: number },
       "autosave",
       "poll"
@@ -318,7 +317,7 @@ describe("runtime monitor", () => {
       Polling({ frameCount: 0, intervalCount: 0 }),
     ])
     const timerDriver = createControlledTimerDriver()
-    const runtime = createRuntime(
+    const runtime = new Runtime(
       context,
       {},
       {},

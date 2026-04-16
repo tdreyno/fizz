@@ -10,7 +10,7 @@ import type {
 import {
   createControlledAsyncDriver,
   createControlledTimerDriver,
-  createRuntime,
+  Runtime as FizzRuntime,
 } from "./runtime.js"
 import type { StateTransition } from "./state.js"
 
@@ -140,7 +140,7 @@ export const createTestHarness = <
     enableLogging: options.enableLogging ?? false,
     maxHistory: options.maxHistory ?? Infinity,
   })
-  const runtime = createRuntime(
+  const runtime = new FizzRuntime(
     context,
     (options.internalActions ?? {}) as AM,
     (options.outputActions ?? {}) as OAM,

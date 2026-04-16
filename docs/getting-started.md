@@ -34,7 +34,6 @@ import {
   Enter,
   action,
   createMachine,
-  createInitialContext,
   createRuntime,
   enter,
   state,
@@ -79,10 +78,10 @@ const EditorMachine = createMachine(
   "EditorMachine",
 )
 
-const context = createInitialContext([
+const runtime = createRuntime(
+  EditorMachine,
   EditorMachine.states.Idle({ savedDrafts: [] }),
-])
-const runtime = createRuntime(context, EditorMachine.actions)
+)
 
 await runtime.run(enter())
 await runtime.run(startEditing())
@@ -115,12 +114,12 @@ That gives you a single place to read the machine logic instead of scattering ca
 The runtime is the piece that feeds actions into the current state and applies the returned work.
 
 ```typescript
-import { createInitialContext, createRuntime, enter } from "@tdreyno/fizz"
+import { createRuntime, enter } from "@tdreyno/fizz"
 
-const context = createInitialContext([
+const runtime = createRuntime(
+  EditorMachine,
   EditorMachine.states.Idle({ savedDrafts: [] }),
-])
-const runtime = createRuntime(context, EditorMachine.actions)
+)
 
 await runtime.run(enter())
 await runtime.run(startEditing())

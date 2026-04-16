@@ -4,7 +4,7 @@ import type { Enter } from "../action"
 import { enter } from "../action"
 import { createInitialContext } from "../context"
 import { output } from "../effect"
-import { createRuntime } from "../runtime"
+import { Runtime } from "../runtime"
 import { isState, state } from "../state"
 
 describe("onOutput", () => {
@@ -20,7 +20,7 @@ describe("onOutput", () => {
 
     const context = createInitialContext([A()])
 
-    const runtime = createRuntime(context, {}, { enter })
+    const runtime = new Runtime(context, {}, { enter })
 
     const fn = jest.fn()
 

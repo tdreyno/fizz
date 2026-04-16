@@ -32,12 +32,7 @@ export const createMachineContext = <
     initialState,
     options = {},
   }: MachineProviderProps<SM>) => {
-    const value = useMachineValue<SM, AM, OAM>(
-      (machine.actions ?? {}) as AM,
-      initialState,
-      (machine.outputActions ?? {}) as OAM,
-      options,
-    )
+    const value = useMachineValue<SM, AM, OAM>(machine, initialState, options)
 
     return createElement(MachineContext.Provider, { value }, children)
   }

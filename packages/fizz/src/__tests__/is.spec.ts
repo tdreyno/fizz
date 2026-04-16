@@ -2,7 +2,7 @@ import type { Enter } from "../action"
 import { enter } from "../action"
 import { createInitialContext } from "../context"
 import { noop } from "../effect"
-import { createRuntime } from "../runtime"
+import { Runtime } from "../runtime"
 import { isState, state, switch_ } from "../state"
 
 const expectNumber = (value: number): number => value
@@ -23,7 +23,7 @@ describe("Type narrowing", () => {
 
     const context = createInitialContext([A(1)])
 
-    const runtime = createRuntime(context)
+    const runtime = new Runtime(context)
     await runtime.run(enter())
 
     const result = runtime.currentState()

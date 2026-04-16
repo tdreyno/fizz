@@ -1,7 +1,7 @@
 import type { Enter } from "../action"
 import { enter } from "../action"
 import { createInitialContext } from "../context"
-import { createRuntime } from "../runtime"
+import { Runtime } from "../runtime"
 import { isState, state } from "../state"
 
 describe("Default data", () => {
@@ -22,7 +22,7 @@ describe("Default data", () => {
 
     const context = createInitialContext([A([1])])
 
-    const runtime = createRuntime(context)
+    const runtime = new Runtime(context)
 
     await runtime.run(enter())
 

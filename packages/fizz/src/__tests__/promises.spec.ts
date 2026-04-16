@@ -4,7 +4,7 @@ import type { ActionCreatorType, Enter } from "../action"
 import { action, enter } from "../action"
 import { createInitialContext } from "../context"
 import { effect, noop } from "../effect"
-import { createRuntime } from "../runtime"
+import { Runtime } from "../runtime"
 import { isState, state } from "../state"
 
 describe("Promises", () => {
@@ -24,7 +24,7 @@ describe("Promises", () => {
 
     const context = createInitialContext([A()])
 
-    const runtime = createRuntime(context, { trigger })
+    const runtime = new Runtime(context, { trigger })
 
     await runtime.run(enter())
 
@@ -42,7 +42,7 @@ describe("Promises", () => {
 
     const context = createInitialContext([A()])
 
-    const runtime = createRuntime(context, { trigger })
+    const runtime = new Runtime(context, { trigger })
 
     expect.assertions(1)
 
@@ -58,7 +58,7 @@ describe("Promises", () => {
 
     const context = createInitialContext([A()])
 
-    const runtime = createRuntime(context)
+    const runtime = new Runtime(context)
 
     await runtime.run(enter())
 
@@ -75,7 +75,7 @@ describe("Promises", () => {
 
     const context = createInitialContext([A()])
 
-    const runtime = createRuntime(context)
+    const runtime = new Runtime(context)
 
     await runtime.run(enter())
 
@@ -95,7 +95,7 @@ describe("Promises", () => {
 
     const context = createInitialContext([A()])
 
-    const runtime = createRuntime(context)
+    const runtime = new Runtime(context)
 
     await runtime.run(enter())
 
@@ -110,7 +110,7 @@ describe("Promises", () => {
 
     const context = createInitialContext([A("Test")])
 
-    const runtime = createRuntime(context)
+    const runtime = new Runtime(context)
 
     expect(context.currentState.data).toBe("Test")
 
@@ -129,7 +129,7 @@ describe("Promises", () => {
 
     const context = createInitialContext([A("Test")])
 
-    const runtime = createRuntime(context)
+    const runtime = new Runtime(context)
 
     await runtime.run(enter())
 
@@ -155,7 +155,7 @@ describe("Promises", () => {
 
     const context = createInitialContext([A()])
 
-    const runtime = createRuntime(context, { next })
+    const runtime = new Runtime(context, { next })
 
     await runtime.run(enter())
 

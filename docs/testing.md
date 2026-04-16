@@ -4,8 +4,8 @@ Fizz machines are easiest to test when you keep the machine pure and drive the r
 
 The current testing story in Fizz is built from the existing public runtime APIs:
 
-- `createInitialContext(...)`
-- `createRuntime(...)`
+- `createMachine(...)`
+- `createRuntime(machine, initialState, options?)`
 - `createControlledAsyncDriver()`
 - `createControlledTimerDriver()`
 - `runtime.onContextChange(...)`
@@ -32,15 +32,13 @@ This keeps tests deterministic and avoids real timers, real network timing, and 
 For machines that only react to actions synchronously, the minimal pattern is:
 
 ```ts
-import {
-  createInitialContext,
-  createRuntime,
-  enter,
-  isState,
-} from "@tdreyno/fizz"
+import { createMachine, createRuntime, enter, isState } from "@tdreyno/fizz"
 
-const context = createInitialContext([Editing({ events: [] })])
-const runtime = createRuntime(context, { save })
+const machine = createMachine({
+  actions: { save },
+  states: { Editing },
+})
+const runtime = createRuntime(machine, Editing({ events: [] }))
 
 await runtime.run(enter())
 await runtime.run(save())
@@ -58,14 +56,17 @@ Use `createControlledAsyncDriver()` whenever a state starts work through `startA
 ```ts
 import {
   createControlledAsyncDriver,
-  createInitialContext,
+  createMachine,
   createRuntime,
   enter,
 } from "@tdreyno/fizz"
 
-const context = createInitialContext([Loading({ events: [] })])
+const machine = createMachine({
+  actions: { profileLoaded },
+  states: { Loading },
+})
 const asyncDriver = createControlledAsyncDriver()
-const runtime = createRuntime(context, { profileLoaded }, {}, { asyncDriver })
+const runtime = createRuntime(machine, Loading({ events: [] }), { asyncDriver })
 
 await runtime.run(enter())
 
@@ -108,14 +109,17 @@ Use `createControlledTimerDriver()` when a machine uses `startTimer(...)`, `rest
 ```ts
 import {
   createControlledTimerDriver,
-  createInitialContext,
+  createMachine,
   createRuntime,
   enter,
 } from "@tdreyno/fizz"
 
-const context = createInitialContext([Editing({ events: [] })])
+const machine = createMachine({
+  actions: { save },
+  states: { Editing },
+})
 const timerDriver = createControlledTimerDriver()
-const runtime = createRuntime(context, { save }, {}, { timerDriver })
+const runtime = createRuntime(machine, Editing({ events: [] }), { timerDriver })
 
 await runtime.run(enter())
 await runtime.run(save())

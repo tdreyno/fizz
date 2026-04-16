@@ -1,6 +1,6 @@
 import { enter } from "../action"
 import { createInitialContext } from "../context"
-import { createRuntime } from "../runtime"
+import { Runtime } from "../runtime"
 import { isState, NESTED } from "../state"
 import { Actions, States } from "./nestedMachine"
 import { setName } from "./nestedMachine/actions"
@@ -14,7 +14,7 @@ const init = async () => {
     States.Entry({ targetName: CORRECT_TEST_NAME }),
   ])
 
-  const runtime = createRuntime(context, Actions)
+  const runtime = new Runtime(context, Actions)
 
   await runtime.run(enter())
 

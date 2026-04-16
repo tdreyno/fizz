@@ -2,7 +2,7 @@ import type { Enter } from "../action"
 import { action, enter } from "../action"
 import { createInitialContext } from "../context"
 import { noop } from "../effect"
-import { createRuntime } from "../runtime"
+import { Runtime } from "../runtime"
 import { isState, state, waitState } from "../state"
 import { timeout } from "./util"
 
@@ -50,7 +50,7 @@ describe("waitState", () => {
       }),
     ])
 
-    const runtime = createRuntime(context, {}, { fetchThing })
+    const runtime = new Runtime(context, {}, { fetchThing })
 
     runtime.onOutput(action => {
       if (action.type === "FetchThing") {
@@ -109,7 +109,7 @@ describe("waitState", () => {
       }),
     ])
 
-    const runtime = createRuntime(context, {}, { fetchThing })
+    const runtime = new Runtime(context, {}, { fetchThing })
 
     expect(isState(runtime.currentState(), BeforeThing)).toBeTruthy()
 
@@ -158,7 +158,7 @@ describe("waitState", () => {
       }),
     ])
 
-    const runtime = createRuntime(context, {}, { fetchThing })
+    const runtime = new Runtime(context, {}, { fetchThing })
 
     expect(isState(runtime.currentState(), BeforeThing)).toBeTruthy()
 
@@ -197,7 +197,7 @@ describe("waitState", () => {
       }),
     ])
 
-    const runtime = createRuntime(context, { thingFetched }, { fetchThing })
+    const runtime = new Runtime(context, { thingFetched }, { fetchThing })
 
     runtime.respondToOutput("FetchThing", async payload => {
       await timeout(250)

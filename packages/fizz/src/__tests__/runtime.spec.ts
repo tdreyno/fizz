@@ -4,9 +4,10 @@ import type { ActionCreatorType, Enter, Exit } from "../action"
 import { action, enter } from "../action"
 import type { Context } from "../context"
 import { createInitialContext } from "../context"
+import { createMachine } from "../createMachine"
 import { goBack, log, noop } from "../effect"
 import { UnknownStateReturnType } from "../errors"
-import { createRuntime } from "../runtime"
+import { createRuntime, Runtime } from "../runtime"
 import { isState, state } from "../state"
 
 describe("Runtime", () => {
@@ -27,11 +28,42 @@ describe("Runtime", () => {
 
     const context = createInitialContext([A()])
 
-    const runtime = createRuntime(context)
+    const runtime = new Runtime(context)
 
     expect(isState(runtime.currentState(), A)).toBeTruthy()
 
     await runtime.run(enter())
+
+    expect(isState(runtime.currentState(), B)).toBeTruthy()
+  })
+
+  test("should create a runtime from a machine definition", async () => {
+    const trigger = action("Trigger")
+    type Trigger = ActionCreatorType<typeof trigger>
+
+    const A = state<Enter | Trigger>(
+      {
+        Enter: noop,
+        Trigger: () => B(),
+      },
+      { name: "A" },
+    )
+
+    const B = state<Enter>(
+      {
+        Enter: noop,
+      },
+      { name: "B" },
+    )
+
+    const machine = createMachine({
+      actions: { trigger },
+      states: { A, B },
+    })
+
+    const runtime = createRuntime(machine, A())
+
+    await runtime.run(trigger())
 
     expect(isState(runtime.currentState(), B)).toBeTruthy()
   })
@@ -51,7 +83,7 @@ describe("Runtime", () => {
 
     const context = createInitialContext([A()])
 
-    const runtime = createRuntime(context, { trigger })
+    const runtime = new Runtime(context, { trigger })
 
     await runtime.run(enter())
 
@@ -74,7 +106,7 @@ describe("Runtime", () => {
 
     const context = createInitialContext([A({ num: 3 })])
 
-    const runtime = createRuntime(context, { trigger })
+    const runtime = new Runtime(context, { trigger })
 
     await runtime.run(enter())
 
@@ -96,7 +128,7 @@ describe("Runtime", () => {
 
     const context = createInitialContext([A()])
 
-    const runtime = createRuntime(context, { trigger })
+    const runtime = new Runtime(context, { trigger })
 
     await runtime.run(enter())
 
@@ -112,7 +144,7 @@ describe("Runtime", () => {
 
     const context = createInitialContext([A()])
 
-    const runtime = createRuntime(context)
+    const runtime = new Runtime(context)
 
     await expect(runtime.run(enter())).resolves.toBeUndefined()
   })
@@ -132,10 +164,32 @@ describe("Runtime", () => {
         customLogger,
       })
 
-      const runtime = createRuntime(context)
+      const runtime = new Runtime(context)
       await runtime.run(enter())
 
       expect(isState(runtime.currentState(), A)).toBeTruthy()
+      expect(customLogger).toHaveBeenCalledWith(["Hello A"], "log")
+    })
+
+    test("should apply context options when creating a runtime from a machine", async () => {
+      const A = state<Enter>(
+        {
+          Enter: () => log("Hello A"),
+        },
+        { name: "A" },
+      )
+
+      const customLogger = jest.fn()
+      const machine = createMachine({
+        states: { A },
+      })
+
+      const runtime = createRuntime(machine, A(), {
+        customLogger,
+      })
+
+      await runtime.run(enter())
+
       expect(customLogger).toHaveBeenCalledWith(["Hello A"], "log")
     })
 
@@ -157,7 +211,7 @@ describe("Runtime", () => {
         customLogger,
       })
 
-      const runtime = createRuntime(context)
+      const runtime = new Runtime(context)
       await runtime.run(enter())
 
       expect(isState(runtime.currentState(), A)).toBeTruthy()
@@ -185,7 +239,7 @@ describe("Runtime", () => {
         customLogger,
       })
 
-      const runtime = createRuntime(context)
+      const runtime = new Runtime(context)
       await runtime.run(enter())
 
       expect(isState(runtime.currentState(), B)).toBeTruthy()
@@ -202,7 +256,7 @@ describe("Runtime", () => {
 
       const context = createInitialContext([A(1)])
 
-      const runtime = createRuntime(context)
+      const runtime = new Runtime(context)
       await runtime.run(enter())
 
       expect(isState(runtime.currentState(), A)).toBeTruthy()
@@ -234,7 +288,7 @@ describe("Runtime", () => {
         customLogger,
       })
 
-      const runtime = createRuntime(context)
+      const runtime = new Runtime(context)
       await runtime.run(enter())
 
       expect(isState(runtime.currentState(), B)).toBeTruthy()
@@ -268,7 +322,7 @@ describe("Runtime", () => {
       )
 
       const context = createInitialContext([A()])
-      const runtime = createRuntime(context, { next })
+      const runtime = new Runtime(context, { next })
 
       await runtime.run(enter())
 
@@ -297,7 +351,7 @@ describe("Runtime", () => {
 
       const context = createInitialContext([A()], { customLogger })
 
-      const runtime = createRuntime(context)
+      const runtime = new Runtime(context)
 
       await runtime.run(enter())
 
@@ -332,7 +386,7 @@ describe("Runtime", () => {
 
       const context = createInitialContext([A()])
 
-      const runtime = createRuntime(context)
+      const runtime = new Runtime(context)
 
       await runtime.run(enter())
 
@@ -356,7 +410,7 @@ describe("Runtime", () => {
         A(["Test", false, 5, () => "Inside"]),
       ])
 
-      const runtime = createRuntime(context)
+      const runtime = new Runtime(context)
       await runtime.run(update())
 
       const state = runtime.currentState()
@@ -405,7 +459,7 @@ describe("Runtime", () => {
         customLogger,
       })
 
-      const runtime = createRuntime(context)
+      const runtime = new Runtime(context)
 
       await runtime.run(enter())
 
@@ -427,7 +481,7 @@ describe("Runtime", () => {
 
       const context = createInitialContext([A()])
 
-      const runtime = createRuntime(context)
+      const runtime = new Runtime(context)
 
       await expect(runtime.run(enter())).rejects.toBeInstanceOf(
         UnknownStateReturnType,
@@ -489,7 +543,7 @@ describe("Runtime", () => {
 
       const context = createInitialContext([A()])
 
-      const runtime = createRuntime(context)
+      const runtime = new Runtime(context)
 
       await runtime.run(enter())
 
@@ -498,7 +552,7 @@ describe("Runtime", () => {
       const serialized = serializeContext(context)
       const newContext = deserializeContext(serialized)
 
-      const runtime2 = createRuntime(newContext)
+      const runtime2 = new Runtime(newContext)
 
       await runtime2.run(next())
 

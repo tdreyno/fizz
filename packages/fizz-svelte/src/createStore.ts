@@ -1,11 +1,5 @@
 import type { Action, BoundStateFn, MachineDefinition } from "@tdreyno/fizz"
-import {
-  Context,
-  createInitialContext,
-  createRuntime,
-  enter,
-  Runtime,
-} from "@tdreyno/fizz"
+import { Context, createRuntime, enter, Runtime } from "@tdreyno/fizz"
 // eslint-disable-next-line import/no-duplicates
 import { onMount } from "svelte"
 // eslint-disable-next-line import/no-duplicates
@@ -67,20 +61,16 @@ export const createStore = <
 ): MachineStore<SM, AM, OAM> => {
   const { maxHistory = 5, enableLogging = false } = options
   const actions = (machine.actions ?? {}) as AM
-  const outputActions = (machine.outputActions ?? {}) as OAM
-
-  const defaultContext = createInitialContext([initialState], {
-    maxHistory,
+  const runtime = createRuntime(machine, initialState, {
     enableLogging,
+    maxHistory,
   })
-
-  const runtime = createRuntime(defaultContext, actions, outputActions)
 
   const boundActions = runtime.bindActions(actions)
 
   const initialContext: ContextValue<SM, AM, OAM> = {
-    context: defaultContext,
-    currentState: defaultContext.currentState as ReturnType<SM[keyof SM]>,
+    context: runtime.context,
+    currentState: runtime.context.currentState as ReturnType<SM[keyof SM]>,
     actions: boundActions,
     runtime,
   }

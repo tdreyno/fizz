@@ -1,11 +1,10 @@
-import type { Action, BoundStateFn, StateTransition } from "@tdreyno/fizz"
-import {
-  Context,
-  createInitialContext,
-  createRuntime,
-  enter,
-  Runtime,
+import type {
+  Action,
+  BoundStateFn,
+  MachineDefinition,
+  StateTransition,
 } from "@tdreyno/fizz"
+import { Context, createRuntime, enter, Runtime } from "@tdreyno/fizz"
 import { useEffect, useMemo, useState } from "react"
 
 export type AnyBoundState = BoundStateFn<string, Action<string, unknown>, any>
@@ -39,28 +38,26 @@ export interface Options {
 }
 
 const createMachineRuntime = <
+  SM extends { [key: string]: AnyBoundState },
   S extends StateTransition<string, Action<string, unknown>, unknown>,
   AM extends ActionMap,
   OAM extends ActionMap,
 >(
-  actions: AM,
+  machine: MachineDefinition<SM, AM, OAM>,
   initialState: S,
-  outputActions: OAM,
   options: Partial<Options>,
 ) => {
   const { maxHistory = 5, enableLogging = false } = options
 
-  const defaultContext = createInitialContext([initialState], {
-    maxHistory,
+  const runtime = createRuntime(machine, initialState, {
     enableLogging,
+    maxHistory,
   })
 
-  const runtime = createRuntime(defaultContext, actions, outputActions)
-
   return {
-    defaultContext,
+    defaultContext: runtime.context,
     runtime,
-    boundActions: runtime.bindActions(actions),
+    boundActions: runtime.bindActions((machine.actions ?? {}) as AM),
   }
 }
 
@@ -84,13 +81,12 @@ export const useMachineValue = <
   AM extends ActionMap,
   OAM extends ActionMap,
 >(
-  actions: AM,
+  machine: MachineDefinition<SM, AM, OAM>,
   initialState: ReturnType<SM[keyof SM]>,
-  outputActions: OAM = {} as OAM,
   options: Partial<Options> = {},
 ): ContextValue<SM, AM, OAM> => {
   const { defaultContext, runtime, boundActions } = useMemo(
-    () => createMachineRuntime(actions, initialState, outputActions, options),
+    () => createMachineRuntime(machine, initialState, options),
     [],
   )
 

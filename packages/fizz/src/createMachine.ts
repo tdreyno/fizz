@@ -16,7 +16,15 @@ export const createMachine = <
 >(
   definition: MachineDefinition<States, Actions, OutputActions>,
   name?: string,
-): MachineDefinition<States, Actions, OutputActions> => ({
-  ...definition,
-  name: name ?? definition.name,
-})
+): MachineDefinition<States, Actions, OutputActions> => {
+  const machineName = name ?? definition.name
+
+  if (machineName === undefined) {
+    return definition
+  }
+
+  return {
+    ...definition,
+    name: machineName,
+  }
+}

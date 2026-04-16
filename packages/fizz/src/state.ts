@@ -35,7 +35,7 @@ import {
   startInterval as startIntervalEffect,
   startTimer as startTimerEffect,
 } from "./effect.js"
-import { createRuntime, Runtime } from "./runtime.js"
+import { Runtime } from "./runtime.js"
 
 /**
  * States can return either:
@@ -1045,7 +1045,7 @@ export const stateWithNested = <
       )[PARENT_RUNTIME] = parentRuntime
     }
 
-    const runtime = createRuntime(
+    const runtime = new Runtime(
       createInitialContext([initialNestedState]),
       nestedActions,
     )

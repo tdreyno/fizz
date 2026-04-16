@@ -33,8 +33,7 @@ The hook reads `machine.actions` and `machine.outputActions` from that root valu
 
 Under the hood, the hook:
 
-- creates the initial context with `createInitialContext(...)`
-- creates the runtime with `createRuntime(...)`
+- creates the runtime with `createRuntime(machine, initialState, options?)`
 - binds the action creators through `runtime.bindActions(...)`
 - subscribes to `runtime.onContextChange(...)`
 - runs `enter()` in an effect after mount
@@ -47,9 +46,7 @@ React component
   v
 useMachine(machine, initialState, ...)
   |
-  +--> createInitialContext(...)
-  |
-  +--> createRuntime(...)
+  +--> createRuntime(machine, initialState, ...)
   |
   +--> bindActions(...)
   |

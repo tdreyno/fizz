@@ -4,7 +4,7 @@ import type { ActionCreatorType, Enter } from "../action"
 import { action } from "../action"
 import { createInitialContext } from "../context"
 import { noop } from "../effect"
-import { createRuntime } from "../runtime"
+import { Runtime } from "../runtime"
 import type { StateReturn } from "../state"
 import { stateWrapper } from "../state"
 
@@ -39,7 +39,7 @@ describe("Bound actions", () => {
 
     const context = createInitialContext([A(0)])
 
-    const runtime = createRuntime(context, { add, multiply, reset })
+    const runtime = new Runtime(context, { add, multiply, reset })
 
     const boundActions = runtime.bindActions({ add, multiply, reset })
     const typedAdd: (payload: number) => { asPromise: () => Promise<void> } =
