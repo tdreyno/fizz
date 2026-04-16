@@ -21,10 +21,9 @@ type TransitionOptions<
   AM extends RuntimeActionMap,
   OAM extends RuntimeActionMap,
 > = CommandFactory<Command> & {
-  clearAsync: () => void
-  clearTimers: () => void
   context: Context
   notifyContextDidChange: () => void
+  prepareForTransition: (targetState: RuntimeState) => void
   runtime: Runtime<AM, OAM>
   targetState: RuntimeState
 }
@@ -34,9 +33,8 @@ type GoBackOptions<
   AM extends RuntimeActionMap,
   OAM extends RuntimeActionMap,
 > = CommandFactory<Command> & {
-  clearAsync: () => void
-  clearTimers: () => void
   context: Context
+  prepareForGoBack: () => void
   runtime: Runtime<AM, OAM>
 }
 
@@ -46,19 +44,16 @@ export const buildStateTransitionCommands = <
   OAM extends RuntimeActionMap,
 >({
   actionCommand,
-  clearAsync,
-  clearTimers,
   context,
   effectCommand,
   notifyContextDidChange,
+  prepareForTransition,
   runtime,
   targetState,
 }: TransitionOptions<Command, AM, OAM>): Command[] => {
-  const exitState = context.currentState
+  prepareForTransition(targetState)
 
-  if (exitState) {
-    clearAsync()
-  }
+  const exitState = context.currentState
 
   const isUpdating =
     exitState?.name === targetState.name && targetState.mode === "update"
@@ -72,7 +67,6 @@ export const buildStateTransitionCommands = <
       })
     : buildEnterStateCommands({
         actionCommand,
-        clearTimers,
         context,
         effectCommand,
         runtime,
@@ -86,14 +80,12 @@ export const buildGoBackCommands = <
   OAM extends RuntimeActionMap,
 >({
   actionCommand,
-  clearAsync,
-  clearTimers,
   context,
   effectCommand,
+  prepareForGoBack,
   runtime,
 }: GoBackOptions<Command, AM, OAM>): Command[] => {
-  clearAsync()
-  clearTimers()
+  prepareForGoBack()
 
   return [
     effectCommand(
@@ -135,24 +127,18 @@ const buildEnterStateCommands = <
   OAM extends RuntimeActionMap,
 >({
   actionCommand,
-  clearTimers,
   context,
   effectCommand,
   runtime,
   targetState,
 }: {
   actionCommand: (action: Action<string, unknown>) => Command
-  clearTimers: () => void
   context: Context
   effectCommand: (effect: Effect<unknown>) => Command
   runtime: Runtime<AM, OAM>
   targetState: RuntimeState
 }): Command[] => {
   const exitState = context.currentState
-
-  if (exitState && exitState.name !== targetState.name) {
-    clearTimers()
-  }
 
   const commands = [
     effectCommand(

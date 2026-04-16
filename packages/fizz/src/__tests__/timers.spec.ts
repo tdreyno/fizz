@@ -275,6 +275,46 @@ describe("timers", () => {
     expect(currentState.data.events).toEqual(["enter", "leave"])
   })
 
+  test("should keep running timers across a same-state update", async () => {
+    const save = action("Save")
+    type Save = ActionCreatorType<typeof save>
+
+    const Editing = state<Enter | Save, Data, TimeoutId>(
+      {
+        Enter: (data, _, { startTimer, update }) => [
+          update(appendEvent(data, "enter")),
+          startTimer("autosave", 25),
+        ],
+
+        Save: (data, _, { update }) => update(appendEvent(data, "save")),
+
+        TimerCompleted: (data, { timeoutId }, { update }) =>
+          update(appendEvent(data, `completed:${timeoutId}`)),
+      },
+      { name: "Editing" },
+    )
+
+    const context = createInitialContext([Editing({ events: [] })])
+    const timerDriver = createControlledTimerDriver()
+    const runtime = new Runtime(context, { save }, {}, { timerDriver })
+
+    await runtime.run(enter())
+    await runtime.run(save())
+    await timerDriver.advanceBy(25)
+
+    const currentState = runtime.currentState()
+
+    if (!isState(currentState, Editing)) {
+      throw new Error("Expected Editing state")
+    }
+
+    expect(currentState.data.events).toEqual([
+      "enter",
+      "save",
+      "completed:autosave",
+    ])
+  })
+
   test("should type timer helpers to the timeout id union independently from interval ids", () => {
     state<Enter, undefined, TimeoutId, IntervalId>({
       Enter: (

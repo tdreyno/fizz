@@ -232,6 +232,72 @@ describe("Async scheduled operations", () => {
     expect(currentState.data.events).toEqual(["left"])
   })
 
+  test("should cancel in-flight async work across a same-state update", async () => {
+    const refresh = action("Refresh")
+    type Refresh = ActionCreatorType<typeof refresh>
+
+    const profileLoaded = action("ProfileLoaded").withPayload<{
+      id: string
+      name: string
+    }>()
+    type ProfileLoaded = ActionCreatorType<typeof profileLoaded>
+
+    const loadProfile = deferred<{ id: string; name: string }>()
+
+    const Loading = state<
+      Enter | Refresh | ProfileLoaded,
+      Data,
+      string,
+      string,
+      AsyncId
+    >(
+      {
+        Enter: () =>
+          startAsync(
+            () => loadProfile.promise,
+            {
+              resolve: profileLoaded,
+            },
+            "profile",
+          ),
+
+        Refresh: (data, _, { update }) => update(appendEvent(data, "refresh")),
+
+        ProfileLoaded: (data, profile, { update }) =>
+          update({
+            ...appendEvent(data, `loaded:${profile.id}`),
+            profileName: profile.name,
+          }),
+      },
+      { name: "Loading" },
+    )
+
+    const context = createInitialContext([Loading({ events: [] })])
+    const asyncDriver = createControlledAsyncDriver()
+    const runtime = new Runtime(
+      context,
+      { profileLoaded, refresh },
+      {},
+      { asyncDriver },
+    )
+
+    await runtime.run(enter())
+    await runtime.run(refresh())
+
+    loadProfile.resolve({ id: "3", name: "Lin" })
+    await asyncDriver.flush()
+
+    const currentState = runtime.currentState()
+
+    if (!isState(currentState, Loading)) {
+      throw new Error("Expected Loading state")
+    }
+
+    expect(currentState.data).toEqual({
+      events: ["refresh"],
+    })
+  })
+
   test("should accept an already in-flight promise", async () => {
     const profileLoaded = action("ProfileLoaded").withPayload<{
       id: string
