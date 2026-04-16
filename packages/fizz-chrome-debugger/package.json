@@ -1,0 +1,26 @@
+{
+  "name": "@repo/fizz-chrome-debugger",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "clean": "rm -rf dist && rm -rf .turbo && rm -rf node_modules",
+    "lint": "eslint",
+    "lint:fix": "eslint --fix",
+    "typecheck": "tsc --noEmit --project tsconfig.typecheck.json",
+    "build": "tsdown && mkdir -p dist && cp manifest.json dist/manifest.json && cp src/devtools.html dist/devtools.html && cp src/panel.html dist/panel.html",
+    "dev": "npm run build -- --watch"
+  },
+  "dependencies": {
+    "@tdreyno/fizz-chrome-debugger": "*"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "*",
+    "@repo/tsconfig": "*",
+    "@types/chrome": "^0.1.29",
+    "@types/node": "^24.11.2",
+    "eslint": "^9.39.3",
+    "tsdown": "^0.21.0",
+    "typescript": "^5.9.3"
+  }
+}

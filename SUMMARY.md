@@ -15,6 +15,7 @@
 ## Advanced
 
 - [Debugging](docs/debugging.md)
+- [Chrome Debugger](docs/chrome-debugger.md)
 - [Custom Effects](docs/custom-effects.md)
 - [Complex Actions](docs/complex-actions.md)
 - [Nested State Machines](docs/nested-state-machines.md)

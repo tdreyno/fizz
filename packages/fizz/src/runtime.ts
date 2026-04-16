@@ -74,6 +74,7 @@ export { createControlledTimerDriver } from "./runtime/timerDriver.js"
 
 export type RuntimeOptions = {
   asyncDriver?: RuntimeAsyncDriver
+  debugLabel?: string
   monitor?: RuntimeMonitor
   timerDriver?: RuntimeTimerDriver
 }
@@ -223,6 +224,28 @@ export type RuntimeDebugEvent =
 
 export type RuntimeMonitor = (event: RuntimeDebugEvent) => void
 
+export const FIZZ_CHROME_DEBUGGER_HOOK_KEY =
+  "__FIZZ_CHROME_DEBUGGER_HOOK__" as const
+
+export type RuntimeChromeDebuggerHookRegistration = {
+  label?: string
+  runtime: Runtime<any, any>
+}
+
+export type RuntimeChromeDebuggerHook = {
+  registerRuntime: (
+    registration: RuntimeChromeDebuggerHookRegistration,
+  ) => void | (() => void)
+}
+
+const getRuntimeChromeDebuggerHook = () => {
+  const hookTarget = globalThis as typeof globalThis & {
+    [FIZZ_CHROME_DEBUGGER_HOOK_KEY]?: RuntimeChromeDebuggerHook
+  }
+
+  return hookTarget[FIZZ_CHROME_DEBUGGER_HOOK_KEY]
+}
+
 type QueueItem = {
   onComplete: () => void
   onError: (e: unknown) => void
@@ -236,8 +259,9 @@ export class Runtime<
   readonly #asyncDriver: RuntimeAsyncDriver
   readonly #asyncOperations = new Map<string, ActiveAsync>()
   readonly #contextChangeSubscribers = new Set<ContextChangeSubscriber>()
+  readonly #disconnectSubscribers = new Set<() => void>()
   #lastContextState: RuntimeState | undefined
-  readonly #monitor: RuntimeMonitor | undefined
+  readonly #monitors = new Set<RuntimeMonitor>()
   readonly #outputSubscribers = new Set<OutputSubscriber<OAM>>()
   readonly #validActions: Set<string>
   readonly #timerDriver: RuntimeTimerDriver
@@ -263,8 +287,13 @@ export class Runtime<
     )
     this.#asyncDriver = options.asyncDriver ?? createDefaultAsyncDriver()
     this.#lastContextState = context.currentState as RuntimeState | undefined
-    this.#monitor = options.monitor
     this.#timerDriver = options.timerDriver ?? createDefaultTimerDriver()
+
+    if (options.monitor) {
+      this.#monitors.add(options.monitor)
+    }
+
+    this.#attachChromeDebuggerHook(options.debugLabel)
   }
 
   currentState(): RuntimeState {
@@ -285,6 +314,18 @@ export class Runtime<
     this.#outputSubscribers.add(fn)
 
     return () => this.#outputSubscribers.delete(fn)
+  }
+
+  onDisconnect(fn: () => void): () => void {
+    this.#disconnectSubscribers.add(fn)
+
+    return () => this.#disconnectSubscribers.delete(fn)
+  }
+
+  addMonitor(fn: RuntimeMonitor): () => void {
+    this.#monitors.add(fn)
+
+    return () => this.#monitors.delete(fn)
   }
 
   respondToOutput<
@@ -312,7 +353,14 @@ export class Runtime<
 
   disconnect(): void {
     this.#clearAsync()
+    this.#clearTimers()
     this.#contextChangeSubscribers.clear()
+    this.#outputSubscribers.clear()
+
+    this.#disconnectSubscribers.forEach(disconnect => {
+      disconnect()
+    })
+    this.#disconnectSubscribers.clear()
   }
 
   canHandle(action: RuntimeAction): boolean {
@@ -542,7 +590,32 @@ export class Runtime<
   }
 
   #emitMonitor(event: RuntimeDebugEvent) {
-    this.#monitor?.(event)
+    this.#monitors.forEach(monitor => {
+      monitor(event)
+    })
+  }
+
+  #attachChromeDebuggerHook(label?: string) {
+    const hook = getRuntimeChromeDebuggerHook()
+
+    if (!hook) {
+      return
+    }
+
+    const cleanup = hook.registerRuntime(
+      label === undefined
+        ? {
+            runtime: this as Runtime<any, any>,
+          }
+        : {
+            label,
+            runtime: this as Runtime<any, any>,
+          },
+    )
+
+    if (cleanup) {
+      this.onDisconnect(cleanup)
+    }
   }
 
   #validateCurrentState() {
@@ -1009,6 +1082,10 @@ const splitCreateRuntimeOptions = (options: CreateRuntimeOptions = {}) => {
     runtime.asyncDriver = options.asyncDriver
   }
 
+  if (options.debugLabel) {
+    runtime.debugLabel = options.debugLabel
+  }
+
   if (options.monitor) {
     runtime.monitor = options.monitor
   }
@@ -1054,6 +1131,11 @@ export function createRuntime<
     createInitialContext([initialState], context),
     (machine.actions ?? {}) as AM,
     (machine.outputActions ?? {}) as OAM,
-    runtime,
+    machine.name === undefined
+      ? runtime
+      : {
+          ...runtime,
+          debugLabel: machine.name,
+        },
   )
 }

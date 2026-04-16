@@ -1,21 +1,65 @@
-import { describe, expect, test } from "@jest/globals"
+import { describe, expect, jest, test } from "@jest/globals"
 
 import type { ActionCreatorType, Enter, OnFrame } from "../action"
 import { action, enter } from "../action"
 import { createInitialContext } from "../context"
 import { createMachine } from "../createMachine"
 import { output } from "../effect"
-import type { RuntimeDebugEvent } from "../runtime"
+import type { RuntimeChromeDebuggerHook, RuntimeDebugEvent } from "../runtime"
 import {
   createControlledAsyncDriver,
   createControlledTimerDriver,
   createRuntime,
+  FIZZ_CHROME_DEBUGGER_HOOK_KEY,
   Runtime,
 } from "../runtime"
 import { state } from "../state"
 import { deferred } from "../test"
 
 describe("runtime monitor", () => {
+  test("should auto-register runtimes with a global chrome debugger hook", () => {
+    const hookCalls: Array<{ label?: string }> = []
+    const cleanup = jest.fn()
+    const trigger = action("Trigger")
+
+    const A = state<ReturnType<typeof trigger>, undefined>(
+      {
+        Trigger: () => undefined,
+      },
+      { name: "A" },
+    )
+
+    const machine = createMachine(
+      {
+        actions: { trigger },
+        states: { A },
+      },
+      "OrdersMachine",
+    )
+    const hookTarget = globalThis as typeof globalThis & {
+      [FIZZ_CHROME_DEBUGGER_HOOK_KEY]?: RuntimeChromeDebuggerHook
+    }
+
+    hookTarget[FIZZ_CHROME_DEBUGGER_HOOK_KEY] = {
+      registerRuntime: ({ label, runtime }) => {
+        hookCalls.push({ label })
+        expect(runtime).toBeInstanceOf(Runtime)
+
+        return cleanup
+      },
+    }
+
+    const runtime = createRuntime(machine, A(undefined))
+
+    expect(hookCalls).toEqual([{ label: "OrdersMachine" }])
+
+    runtime.disconnect()
+
+    expect(cleanup).toHaveBeenCalledTimes(1)
+
+    delete hookTarget[FIZZ_CHROME_DEBUGGER_HOOK_KEY]
+  })
+
   test("should emit debug events for actions, outputs, and context changes", async () => {
     const trigger = action("Trigger")
     type Trigger = ActionCreatorType<typeof trigger>

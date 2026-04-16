@@ -6,6 +6,8 @@ That means starting with explicit state names, current state data, output action
 
 This page covers the current runtime debugging tools in `@tdreyno/fizz`, with examples for Node.js runtimes and browser runtimes.
 
+If you want a dedicated DevTools workflow for browser machines, read [Chrome Debugger](./chrome-debugger.md). That guide covers the debugger package, runtime registration, extension loading, and the current browser-specific limitations.
+
 ## The current debugging surfaces
 
 Fizz exposes a few different layers of runtime visibility:
@@ -242,6 +244,7 @@ That makes it the right tool when a bug lives in runtime timing or lifecycle beh
 
 ## Related Docs
 
+- [Chrome Debugger](./chrome-debugger.md)
 - [Getting Started](./getting-started.md)
 - [Architecture](./architecture.md)
 - [React Integration](./react-integration.md)
