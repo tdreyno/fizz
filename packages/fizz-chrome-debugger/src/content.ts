@@ -1,6 +1,5 @@
-import type { FizzDebuggerMessage } from "@tdreyno/fizz-chrome-debugger"
-import { FIZZ_CHROME_DEBUGGER_EVENT_NAME } from "@tdreyno/fizz-chrome-debugger"
-
+import type { FizzDebuggerMessage } from "./bridge.js"
+import { FIZZ_CHROME_DEBUGGER_EVENT_NAME } from "./bridge.js"
 import type { ContentToBackgroundMessage } from "./messages.js"
 
 const injectChromeDebuggerHook = () => {

@@ -1,4 +1,4 @@
-import type { FizzDebuggerMessage } from "@tdreyno/fizz-chrome-debugger"
+import type { FizzDebuggerMessage } from "./bridge.js"
 
 export type ContentToBackgroundMessage = {
   message: FizzDebuggerMessage

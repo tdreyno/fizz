@@ -48,17 +48,17 @@ export type FizzDebuggerMessage =
   | {
       kind: "runtime-connected"
       snapshot: FizzDebuggerRuntimeSnapshot
-      source: "@tdreyno/fizz-chrome-debugger"
+      source: "@repo/fizz-chrome-debugger"
     }
   | {
       kind: "runtime-disconnected"
       runtimeId: string
-      source: "@tdreyno/fizz-chrome-debugger"
+      source: "@repo/fizz-chrome-debugger"
     }
   | {
       kind: "runtime-updated"
       snapshot: FizzDebuggerRuntimeSnapshot
-      source: "@tdreyno/fizz-chrome-debugger"
+      source: "@repo/fizz-chrome-debugger"
     }
 
 export type FizzDebuggerTransport = {
@@ -100,7 +100,7 @@ type RuntimeRecord = {
   timeline: FizzDebuggerTimelineEntry[]
 }
 
-const debuggerSource = "@tdreyno/fizz-chrome-debugger" as const
+const debuggerSource = "@repo/fizz-chrome-debugger" as const
 
 const createBrowserTransport = (): FizzDebuggerTransport => ({
   emit: message => {
@@ -521,7 +521,7 @@ export const installFizzChromeDebugger = (
     entries.forEach((entry: RuntimeChromeDebuggerRegistryEntry) => {
       nextRegistryRuntimeIds.add(entry.runtimeId)
       attachRuntime({
-        label: entry.label,
+        ...(entry.label === undefined ? {} : { label: entry.label }),
         runtime: entry.runtime,
         runtimeId: entry.runtimeId,
       })

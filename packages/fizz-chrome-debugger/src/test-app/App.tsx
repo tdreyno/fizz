@@ -25,7 +25,7 @@ export const App = () => {
   const pageOpenState = pageOpenMachine.currentState
   const currentData: BrowserWeatherData = currentState.data
   const weather = currentData.weather
-  const isLoading = Boolean(currentState.is(machine.states.Loading))
+  const isLoading = currentState.name === "Loading"
 
   return (
     <main

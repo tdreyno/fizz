@@ -1,4 +1,4 @@
-import { installFizzChromeDebugger } from "@tdreyno/fizz-chrome-debugger"
+import { installFizzChromeDebugger } from "./bridge.js"
 
 const installedDebugger = installFizzChromeDebugger()
 

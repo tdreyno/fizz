@@ -14,10 +14,7 @@ const sharedConfig = {
   platform: "browser" as const,
   format: ["esm"] as const,
   deps: {
-    alwaysBundle: [
-      /^@tdreyno\/fizz-chrome-debugger(\/.*)?$/,
-      /^@tdreyno\/fizz(\/.*)?$/,
-    ],
+    alwaysBundle: [/^@tdreyno\/fizz(\/.*)?$/],
   },
   dts: false,
   sourcemap: true,

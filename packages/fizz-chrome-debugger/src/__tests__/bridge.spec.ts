@@ -203,7 +203,7 @@ describe("fizz chrome debugger", () => {
     expect(messages.at(-1)).toEqual({
       kind: "runtime-disconnected",
       runtimeId,
-      source: "@tdreyno/fizz-chrome-debugger",
+      source: "@repo/fizz-chrome-debugger",
     })
   })
 

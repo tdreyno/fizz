@@ -1,8 +1,7 @@
 import type {
   FizzDebuggerMessage,
   FizzDebuggerRuntimeSnapshot,
-} from "@tdreyno/fizz-chrome-debugger"
-
+} from "./bridge.js"
 import type {
   BackgroundToPanelMessage,
   PanelToBackgroundMessage,
@@ -146,7 +145,7 @@ const toMessage = (value: unknown): string | undefined => {
   }
 
   const record = asRecord(value)
-  const message = record?.message
+  const message = record?.["message"]
 
   return typeof message === "string" ? message : undefined
 }
@@ -272,10 +271,10 @@ const toActionTimelineEntry = (
   entry: FizzDebuggerRuntimeSnapshot["timeline"][0],
   payload: Record<string, unknown>,
 ): TimelineEntry | undefined => {
-  const action = asRecord(payload.action)
-  const actionType = action?.type
-  const currentState = asRecord(payload.currentState)
-  const currentStateName = currentState?.name
+  const action = asRecord(payload["action"])
+  const actionType = action?.["type"]
+  const currentState = asRecord(payload["currentState"])
+  const currentStateName = currentState?.["name"]
 
   if (typeof actionType !== "string") {
     return undefined
@@ -346,21 +345,28 @@ const toTransitionTimelineEntry = (
   entry: FizzDebuggerRuntimeSnapshot["timeline"][0],
   payload: Record<string, unknown>,
 ): TimelineEntry | undefined => {
-  const context = asRecord(payload.context)
-  const contextCurrentState = asRecord(context?.currentState)
-  const history = asRecord(context?.history)
-  const historyItems = Array.isArray(history?.items) ? history.items : []
+  const context = asRecord(payload["context"])
+  const contextCurrentState = asRecord(context?.["currentState"])
+  const history = asRecord(context?.["history"])
+  const historyItems = Array.isArray(history?.["items"]) ? history["items"] : []
   const historyCurrentState = asRecord(historyItems[0])
   const historyPreviousState = asRecord(historyItems[1])
-  const currentState = asRecord(payload.currentState)
-  const previousState = asRecord(payload.previousState)
-  const currentName =
-    currentState?.name ?? contextCurrentState?.name ?? historyCurrentState?.name
-  const previousName = previousState?.name ?? historyPreviousState?.name
+  const currentState = asRecord(payload["currentState"])
+  const previousState = asRecord(payload["previousState"])
+  const resolvedCurrentName =
+    currentState?.["name"] ??
+    contextCurrentState?.["name"] ??
+    historyCurrentState?.["name"]
+  const resolvedPreviousName =
+    previousState?.["name"] ?? historyPreviousState?.["name"]
 
-  if (typeof currentName !== "string") {
+  if (typeof resolvedCurrentName !== "string") {
     return undefined
   }
+
+  const currentName = resolvedCurrentName
+  const previousName =
+    typeof resolvedPreviousName === "string" ? resolvedPreviousName : undefined
 
   const fromState = resolvePreviousTransitionState(
     previousName,
@@ -370,11 +376,11 @@ const toTransitionTimelineEntry = (
 
   // Detect same-state updates
   if (fromState === currentName) {
-    const oldData = previousState?.data ?? historyPreviousState?.data
+    const oldData = previousState?.["data"] ?? historyPreviousState?.["data"]
     const newData =
-      currentState?.data ??
-      historyCurrentState?.data ??
-      contextCurrentState?.data
+      currentState?.["data"] ??
+      historyCurrentState?.["data"] ??
+      contextCurrentState?.["data"]
     const diff = computeDataDiff(oldData, newData)
     const diffKeys = Object.keys(diff)
 
@@ -400,9 +406,9 @@ const toTransitionTimelineEntry = (
       fromState,
       toState: currentName,
       toStateData:
-        currentState?.data ??
-        historyCurrentState?.data ??
-        contextCurrentState?.data,
+        currentState?.["data"] ??
+        historyCurrentState?.["data"] ??
+        contextCurrentState?.["data"],
     },
     title: `${fromState} -> ${currentName}`,
     type: "transition",
@@ -413,8 +419,8 @@ const toOutputTimelineEntry = (
   entry: FizzDebuggerRuntimeSnapshot["timeline"][0],
   payload: Record<string, unknown>,
 ): TimelineEntry | undefined => {
-  const output = asRecord(payload.output)
-  const outputType = output?.type
+  const output = asRecord(payload["output"])
+  const outputType = output?.["type"]
 
   if (typeof outputType !== "string") {
     return undefined
@@ -435,7 +441,7 @@ const toRuntimeErrorTimelineEntry = (
   entry: FizzDebuggerRuntimeSnapshot["timeline"][0],
   payload: Record<string, unknown>,
 ): TimelineEntry => {
-  const error = payload.error
+  const error = payload["error"]
 
   return {
     at: entry.at,
@@ -453,8 +459,8 @@ const toAsyncRejectedTimelineEntry = (
   entry: FizzDebuggerRuntimeSnapshot["timeline"][0],
   payload: Record<string, unknown>,
 ): TimelineEntry => {
-  const asyncId = payload.asyncId
-  const error = payload.error
+  const asyncId = payload["asyncId"]
+  const error = payload["error"]
   const asyncLabel = typeof asyncId === "string" ? asyncId : "unknown"
 
   return {
@@ -474,7 +480,7 @@ const toTimelineEntry = (
   entry: FizzDebuggerRuntimeSnapshot["timeline"][0],
 ): TimelineEntry | undefined => {
   const payload = asRecord(entry.payload)
-  const eventType = payload?.type
+  const eventType = payload?.["type"]
 
   if (payload === null || typeof eventType !== "string") {
     return undefined
@@ -568,13 +574,13 @@ const captureTimelineAnchorFromStack = (
   state.timelineScrollTops.set(runtimeId, stackContainer.scrollTop)
   state.timelinePinnedToTop.set(runtimeId, isPinnedToTop)
 
-  if (!anchorEntry?.dataset.entryId) {
+  if (!anchorEntry?.dataset["entryId"]) {
     state.timelineAnchorIds.delete(runtimeId)
     state.timelineAnchorOffsets.delete(runtimeId)
     return
   }
 
-  state.timelineAnchorIds.set(runtimeId, anchorEntry.dataset.entryId)
+  state.timelineAnchorIds.set(runtimeId, anchorEntry.dataset["entryId"])
   const anchorRect = anchorEntry.getBoundingClientRect()
 
   state.timelineAnchorOffsets.set(runtimeId, anchorRect.top - stackRect.top)
@@ -612,7 +618,7 @@ const restoreTimelineAnchor = (runtimeId: string): void => {
   if (anchorId) {
     const anchorEntry = [
       ...stackContainer.querySelectorAll<HTMLDivElement>(".timeline-entry"),
-    ].find(entry => entry.dataset.entryId === anchorId)
+    ].find(entry => entry.dataset["entryId"] === anchorId)
 
     if (anchorEntry) {
       const stackRect = stackContainer.getBoundingClientRect()
@@ -688,7 +694,7 @@ const renderTimelineEntry = (
   const details = document.createElement("div")
 
   container.className = `timeline-entry timeline-entry-${entry.type}`
-  container.dataset.entryId = entry.id
+  container.dataset["entryId"] = entry.id
   header.className = "timeline-entry-header"
   title.className = "timeline-entry-type"
   timestamp.className = "timeline-entry-time"
@@ -699,9 +705,9 @@ const renderTimelineEntry = (
   subtitle.textContent = entry.subtitle ?? entry.type
 
   const entryPayload = asRecord(entry.payload)
-  const action = entryPayload?.action
-  const actionPayload = asRecord(action)?.payload
-  const transitionToStateData = entryPayload?.toStateData
+  const action = entryPayload?.["action"]
+  const actionPayload = asRecord(action)?.["payload"]
+  const transitionToStateData = entryPayload?.["toStateData"]
   const hasActionPayload = !isSerializedUndefined(actionPayload)
   let detailData: unknown = entry.payload
 
@@ -795,7 +801,7 @@ const renderTimelineStack = (
   clearButton.className = "timeline-clear-btn"
   pauseButton.className = "timeline-pause-btn"
   stackContainer.className = "timeline-stack"
-  stackContainer.dataset.runtimeId = runtimeId
+  stackContainer.dataset["runtimeId"] = runtimeId
 
   heading.textContent = "Timeline"
   filterLabel.textContent = "Filter:"
@@ -1080,7 +1086,7 @@ const render = (): void => {
 
     empty.className = "empty"
     empty.textContent =
-      "Register a runtime with @tdreyno/fizz-chrome-debugger to populate this panel."
+      "Register a runtime with @repo/fizz-chrome-debugger to populate this panel."
     root.append(empty)
 
     return

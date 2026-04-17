@@ -56,7 +56,7 @@ const runWeatherRequest = async (
   coordinates?: WeatherCoordinates,
 ) => {
   const runtime = createServerWeatherRuntime(requestId, {
-    coordinates,
+    ...(coordinates === undefined ? {} : { coordinates }),
   })
 
   return await new Promise<{

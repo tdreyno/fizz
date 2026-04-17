@@ -19,7 +19,6 @@
     "test:ci": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand"
   },
   "dependencies": {
-    "@tdreyno/fizz-chrome-debugger": "*",
     "@tdreyno/fizz": "*",
     "@tdreyno/fizz-react": "*",
     "react": "19.2.0",

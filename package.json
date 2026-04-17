@@ -5,7 +5,7 @@
     "clean": "turbo clean",
     "changeset": "changeset",
     "build": "turbo build",
-    "dev": "turbo dev --filter=!@tdreyno/fizz-chrome-debugger",
+    "dev": "turbo dev",
     "lint": "turbo lint",
     "lint:fix": "turbo lint:fix",
     "typecheck": "turbo typecheck",
