@@ -28,7 +28,6 @@ The published skill intentionally focuses on:
 
 It intentionally excludes:
 
-- `@tdreyno/fizz-svelte`
 - application-specific patterns from `react-example/`
 - general non-Fizz architecture advice
 

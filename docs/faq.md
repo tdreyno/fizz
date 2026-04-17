@@ -6,7 +6,7 @@ Use the dedicated guides for the full mental model, API details, and framework w
 
 ## Can I use Fizz without a framework?
 
-Yes. `@tdreyno/fizz` is the core runtime and does not require React, Svelte, or any other UI framework.
+Yes. `@tdreyno/fizz` is the core runtime and does not require React or any other UI framework.
 
 You can create a context, create a runtime, and run actions directly from application code. The framework packages are integration layers on top of the core runtime, not a requirement for using it.
 

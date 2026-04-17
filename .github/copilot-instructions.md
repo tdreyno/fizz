@@ -11,7 +11,6 @@
 - Primary packages are:
   - `packages/fizz`: core state-machine runtime
   - `packages/fizz-react`: React hook integration (`useMachine`)
-  - `packages/fizz-svelte`: Svelte store integration
 - Prefer minimal, package-scoped changes. Avoid broad refactors unless requested.
 
 ## Language and Style

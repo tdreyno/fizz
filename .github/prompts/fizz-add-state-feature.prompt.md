@@ -9,7 +9,7 @@ Implement the requested state-machine feature with minimal, package-scoped chang
 
 Requirements:
 
-- Identify the target package (`@tdreyno/fizz`, `@tdreyno/fizz-react`, or `@tdreyno/fizz-svelte`).
+- Identify the target package (`@tdreyno/fizz` or `@tdreyno/fizz-react`).
 - Follow existing TypeScript and runtime conventions in that package.
 - Preserve backward compatibility unless the request explicitly allows breaking changes.
 - Optimize generated code for human readability and simplicity.

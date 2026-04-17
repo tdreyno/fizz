@@ -33,7 +33,6 @@ This skill covers:
 
 This skill does not cover:
 
-- `@tdreyno/fizz-svelte`
 - Next.js or app-specific patterns from `react-example/`
 - Generic state machine theory that is not grounded in the Fizz APIs in this repository
 

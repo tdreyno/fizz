@@ -1,6 +1,6 @@
 import { access, mkdir, readFile, writeFile } from "node:fs/promises"
 
-const PACKAGES = ["fizz", "fizz-react", "fizz-svelte"]
+const PACKAGES = ["fizz", "fizz-react"]
 
 const candidateReportPaths = ({ packageName }) => [
   `packages/${packageName}/coverage/lcov.info`,

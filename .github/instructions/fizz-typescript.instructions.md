@@ -1,5 +1,5 @@
 ---
-description: "Use when editing TypeScript source in fizz, fizz-react, or fizz-svelte packages. Covers strict typing, ESM import style, state-machine patterns, and package-local coding conventions."
+description: "Use when editing TypeScript source in fizz or fizz-react packages. Covers strict typing, ESM import style, state-machine patterns, and package-local coding conventions."
 name: "Fizz TypeScript Source Rules"
 applyTo: "packages/*/src/**/*.{ts,tsx}"
 ---

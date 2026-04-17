@@ -19,7 +19,6 @@ npx skills add tdreyno/fizz
 
 ## What It Excludes
 
-- `@tdreyno/fizz-svelte`
 - Example-app specific guidance from `react-example/`
 - Generic non-Fizz state-management advice
 

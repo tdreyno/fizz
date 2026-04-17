@@ -24,7 +24,6 @@
     "@repo/tsconfig": "*",
     "@tdreyno/fizz": "*",
     "@tdreyno/fizz-react": "*",
-    "@tdreyno/fizz-svelte": "*",
     "prettier": "^3.8.1",
     "turbo": "^2.8.13"
   },
