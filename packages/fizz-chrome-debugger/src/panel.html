@@ -159,6 +159,280 @@
       .empty {
         color: var(--muted);
       }
+
+      /* Timeline Stack Styles */
+      .timeline-block {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-direction: column;
+        min-height: 200px;
+        max-height: 500px;
+      }
+
+      .timeline-controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 12px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid rgba(139, 155, 180, 0.18);
+      }
+
+      .timeline-filter-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+      }
+
+      .timeline-filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        flex: 1;
+      }
+
+      .timeline-pending-count {
+        border: 1px solid rgba(126, 231, 135, 0.28);
+        border-radius: 999px;
+        background: rgba(126, 231, 135, 0.12);
+        color: var(--accent);
+        font-size: 11px;
+        line-height: 1;
+        padding: 6px 10px;
+        white-space: nowrap;
+      }
+
+      .timeline-window-info {
+        border: 1px solid rgba(139, 155, 180, 0.28);
+        border-radius: 999px;
+        background: rgba(139, 155, 180, 0.12);
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 1;
+        padding: 6px 10px;
+        white-space: nowrap;
+      }
+
+      .timeline-filter-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .timeline-filter-item input[type="checkbox"] {
+        cursor: pointer;
+        accent-color: var(--accent);
+      }
+
+      .timeline-clear-btn {
+        appearance: none;
+        border: 1px solid rgba(139, 155, 180, 0.25);
+        border-radius: 6px;
+        background: rgba(13, 17, 23, 0.45);
+        color: var(--muted);
+        cursor: pointer;
+        font: inherit;
+        padding: 6px 12px;
+        font-size: 12px;
+        transition:
+          border-color 120ms ease,
+          color 120ms ease,
+          background 120ms ease;
+      }
+
+      .timeline-pause-btn {
+        appearance: none;
+        border: 1px solid rgba(121, 192, 255, 0.25);
+        border-radius: 6px;
+        background: rgba(13, 17, 23, 0.45);
+        color: var(--accent-alt);
+        cursor: pointer;
+        font: inherit;
+        padding: 6px 12px;
+        font-size: 12px;
+        transition:
+          border-color 120ms ease,
+          color 120ms ease,
+          background 120ms ease;
+      }
+
+      .timeline-pause-btn:hover {
+        border-color: rgba(121, 192, 255, 0.5);
+        color: var(--text);
+        background: rgba(121, 192, 255, 0.08);
+      }
+
+      .timeline-pause-btn-active {
+        border-color: rgba(126, 231, 135, 0.45);
+        color: var(--accent);
+        background: rgba(126, 231, 135, 0.08);
+      }
+
+      .timeline-clear-btn:hover {
+        border-color: rgba(255, 108, 114, 0.45);
+        color: #ffe5e7;
+        background: #4f161c;
+      }
+
+      .timeline-stack {
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+      }
+
+      .timeline-stack::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      .timeline-stack::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .timeline-stack::-webkit-scrollbar-thumb {
+        background: rgba(126, 231, 135, 0.25);
+        border-radius: 4px;
+      }
+
+      .timeline-stack::-webkit-scrollbar-thumb:hover {
+        background: rgba(126, 231, 135, 0.45);
+      }
+
+      .timeline-entry {
+        border-bottom: 1px solid rgba(139, 155, 180, 0.1);
+        padding: 8px;
+        transition: background 120ms ease;
+      }
+
+      .timeline-entry:hover {
+        background: rgba(126, 231, 135, 0.05);
+      }
+
+      .timeline-entry-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        padding: 4px 0;
+        user-select: none;
+      }
+
+      .timeline-entry-header::before {
+        content: "▶";
+        display: inline-block;
+        margin-right: 8px;
+        color: var(--accent-alt);
+        font-size: 10px;
+        transition: transform 120ms ease;
+      }
+
+      .timeline-entry-expanded .timeline-entry-header::before {
+        transform: rotate(90deg);
+      }
+
+      .timeline-entry-type {
+        font-weight: 600;
+        color: var(--accent-alt);
+        font-size: 12px;
+      }
+
+      .timeline-entry-subtitle {
+        color: var(--muted);
+        font-size: 11px;
+        margin-left: 8px;
+      }
+
+      .timeline-entry-time {
+        color: var(--muted);
+        font-size: 11px;
+        margin-left: auto;
+        margin-right: 8px;
+      }
+
+      .timeline-entry-details {
+        margin-top: 8px;
+        padding: 8px 12px;
+        background: rgba(13, 17, 23, 0.6);
+        border-radius: 6px;
+        border-left: 3px solid rgba(126, 231, 135, 0.35);
+      }
+
+      .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+        border: 1px solid rgba(139, 155, 180, 0.2);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+
+      .data-table th,
+      .data-table td {
+        padding: 6px 8px;
+        border-bottom: 1px solid rgba(139, 155, 180, 0.12);
+        text-align: left;
+        vertical-align: top;
+        word-break: break-word;
+      }
+
+      .data-table th {
+        width: 42%;
+        color: var(--accent-alt);
+        font-weight: 600;
+      }
+
+      .data-table tr:last-child th,
+      .data-table tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .diff-table thead th {
+        width: auto;
+        background: rgba(121, 192, 255, 0.08);
+        color: var(--text);
+      }
+
+      .diff-table tbody th {
+        width: 28%;
+      }
+
+      .timeline-entry-payload {
+        margin: 0;
+        font-size: 11px;
+        white-space: pre-wrap;
+        word-break: break-word;
+        color: var(--text);
+      }
+
+      .timeline-entry-empty-detail {
+        margin: 0;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .timeline-entry-update .timeline-entry-type {
+        color: var(--accent);
+      }
+
+      .timeline-entry-update .timeline-entry-header::before {
+        content: "◆";
+        transform: none;
+      }
+
+      .timeline-entry-update .timeline-entry-details {
+        border-left-color: rgba(126, 231, 135, 0.55);
+      }
+
+      .timeline-empty {
+        color: var(--muted);
+        font-size: 12px;
+        margin: 20px 0;
+        text-align: center;
+      }
     </style>
   </head>
   <body>

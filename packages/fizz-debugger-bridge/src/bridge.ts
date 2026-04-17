@@ -12,6 +12,7 @@ import { serializeForDebugger } from "./serialize.js"
 
 export const FIZZ_CHROME_DEBUGGER_EVENT_NAME = "fizz:chrome-debugger"
 export const FIZZ_DEBUGGER_EVENT_NAME = FIZZ_CHROME_DEBUGGER_EVENT_NAME
+export const DEFAULT_MAX_TIMELINE_ENTRIES = 1000
 
 export type FizzDebuggerScheduledItem = {
   delay?: number
@@ -195,7 +196,8 @@ export const createFizzChromeDebugger = (
   options: CreateFizzChromeDebuggerOptions = {},
 ) => {
   const now = options.now ?? (() => Date.now())
-  const maxTimelineEntries = options.maxTimelineEntries ?? 200
+  const maxTimelineEntries =
+    options.maxTimelineEntries ?? DEFAULT_MAX_TIMELINE_ENTRIES
   const transport = options.transport ?? createBrowserTransport()
   const records = new Map<string, RuntimeRecord>()
   let runtimeCounter = 1
@@ -274,6 +276,40 @@ export const createFizzChromeDebugger = (
     record.timeline = [...record.timeline, nextEntry].slice(-maxTimelineEntries)
   }
 
+  const toTimelinePayload = (
+    record: RuntimeRecord,
+    event: RuntimeDebugEvent,
+  ): unknown => {
+    switch (event.type) {
+      case "action-enqueued": {
+        return {
+          action: event.action,
+          currentState:
+            record.runtime === undefined
+              ? undefined
+              : serializeForDebugger(record.runtime.currentState()),
+          queueSize: event.queueSize,
+          type: event.type,
+        }
+      }
+
+      case "context-changed": {
+        return {
+          currentState: serializeForDebugger(event.currentState),
+          previousState:
+            event.previousState === undefined
+              ? undefined
+              : serializeForDebugger(event.previousState),
+          type: event.type,
+        }
+      }
+
+      default: {
+        return event
+      }
+    }
+  }
+
   const createMonitor = (runtimeId: string): RuntimeMonitor => {
     const record = getRecord(runtimeId)
 
@@ -281,7 +317,7 @@ export const createFizzChromeDebugger = (
 
     return event => {
       updateScheduled(record.scheduled, event)
-      appendTimeline(record, event.type, event)
+      appendTimeline(record, event.type, toTimelinePayload(record, event))
 
       if (event.type === "output-emitted") {
         emitSnapshot("runtime-updated", record)

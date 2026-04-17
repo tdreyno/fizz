@@ -10,7 +10,10 @@ import {
   state,
 } from "@tdreyno/fizz"
 
-import type { FizzDebuggerMessage } from "../index.js"
+import type {
+  FizzDebuggerMessage,
+  FizzDebuggerTimelineEntry,
+} from "../index.js"
 import {
   createFizzChromeDebugger,
   installFizzChromeDebugger,
@@ -134,6 +137,46 @@ describe("fizz chrome debugger", () => {
         "timer-started",
       ]),
     )
+
+    const latestActionEnqueued = snapshotAfterTrigger?.timeline.reduce<
+      FizzDebuggerTimelineEntry | undefined
+    >(
+      (latest, entry) => (entry.type === "action-enqueued" ? entry : latest),
+      undefined,
+    )
+
+    expect(latestActionEnqueued).toMatchObject({
+      payload: {
+        action: {
+          type: "Trigger",
+        },
+        currentState: {
+          name: "Ready",
+        },
+        type: "action-enqueued",
+      },
+      type: "action-enqueued",
+    })
+
+    const latestContextChanged = snapshotAfterTrigger?.timeline.reduce<
+      FizzDebuggerTimelineEntry | undefined
+    >(
+      (latest, entry) => (entry.type === "context-changed" ? entry : latest),
+      undefined,
+    )
+
+    expect(latestContextChanged).toMatchObject({
+      payload: {
+        currentState: {
+          name: "Ready",
+        },
+        previousState: {
+          name: "Ready",
+        },
+        type: "context-changed",
+      },
+      type: "context-changed",
+    })
 
     await timerDriver.advanceBy(25)
 
