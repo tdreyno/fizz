@@ -5,6 +5,8 @@ This package contains two things:
 1. the Chrome extension that adds the `Fizz` DevTools panel
 2. a tiny built-in Node + React weather app for testing the extension locally
 
+The documented setup path is zero-config extension loading: create your browser runtimes normally, open DevTools, and use the `Fizz` panel.
+
 ## Extension build
 
 Build the extension bundle:
