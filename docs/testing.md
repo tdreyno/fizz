@@ -32,7 +32,7 @@ This keeps tests deterministic and avoids real timers, real network timing, and 
 For machines that only react to actions synchronously, the minimal pattern is:
 
 ```ts
-import { createMachine, createRuntime, enter, isState } from "@tdreyno/fizz"
+import { createMachine, createRuntime, enter } from "@tdreyno/fizz"
 
 const machine = createMachine({
   actions: { save },
@@ -43,7 +43,7 @@ const runtime = createRuntime(machine, Editing({ events: [] }))
 await runtime.run(enter())
 await runtime.run(save())
 
-expect(isState(runtime.currentState(), Editing)).toBeTruthy()
+expect(runtime.currentState().is(machine.states.Editing)).toBeTruthy()
 expect(runtime.currentState().data.events).toEqual(["enter", "save"])
 ```
 

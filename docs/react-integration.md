@@ -55,7 +55,7 @@ useMachine(machine, initialState, ...)
   +--> run enter() after mount
   |
   v
-returns { currentState, context, actions, runtime }
+returns { currentState, states, context, actions, runtime }
 ```
 
 ## Shared runtime context
@@ -77,6 +77,7 @@ The Provider accepts:
 The consumer hook returns the same shape as `useMachine(...)`:
 
 - `currentState`
+- `states`
 - `context`
 - `actions`
 - `runtime`
@@ -169,16 +170,18 @@ That pattern gives the subtree a single runtime:
 
 ## What it returns
 
-The hook returns an object with four useful pieces:
+The hook returns an object with five useful pieces:
 
 - `currentState`
+- `states`
 - `context`
 - `actions`
 - `runtime`
 
 In practice:
 
-- use `currentState` to decide what to render
+- use `currentState.is(machine.states.SomeState)` to branch on state identity
+- use `currentState` and `currentState.data` to render state labels and data
 - use `actions` to dispatch events from the component
 - use `context` when you need runtime history or lower-level inspection
 - use `runtime` only for advanced cases such as output subscriptions or manual inspection
@@ -264,9 +267,11 @@ export const useTimeoutMachine = () => {
 const TimeoutPanel = () => {
   const machine = useTimeoutMachine()
   const data = machine.currentState.data
+  const isTimeoutDemo = machine.currentState.is(machine.states.TimeoutDemo)
 
   return (
     <div>
+      <p>{isTimeoutDemo ? "TimeoutDemo" : "Other"}</p>
       <p>{machine.currentState.name}</p>
       <p>Status: {data.status}</p>
       <button onClick={() => machine.actions.arm()}>Arm</button>
@@ -280,6 +285,7 @@ The important part is not the JSX. It is the boundary:
 
 - the machine owns the transition logic
 - the component renders `currentState`
+- the component checks state identity through `currentState.is(machine.states.SomeState)`
 - UI events call `machine.actions.*`
 
 ```text

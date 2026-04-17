@@ -6,7 +6,7 @@ import { action, enter } from "../action"
 import { createInitialContext } from "../context"
 import { noop, requestJSONAsync, startAsync } from "../effect"
 import { createControlledAsyncDriver, Runtime } from "../runtime"
-import { isState, state } from "../state"
+import { state } from "../state"
 
 type Deferred<T> = {
   promise: Promise<T>
@@ -105,7 +105,7 @@ describe("Async scheduled operations", () => {
 
     const currentState = runtime.currentState()
 
-    if (!isState(currentState, Loading)) {
+    if (!currentState.is(Loading)) {
       throw new Error("Expected Loading state")
     }
 
@@ -160,7 +160,7 @@ describe("Async scheduled operations", () => {
 
     const currentState = runtime.currentState()
 
-    if (!isState(currentState, Loading)) {
+    if (!currentState.is(Loading)) {
       throw new Error("Expected Loading state")
     }
 
@@ -225,7 +225,7 @@ describe("Async scheduled operations", () => {
 
     const currentState = runtime.currentState()
 
-    if (!isState(currentState, Done)) {
+    if (!currentState.is(Done)) {
       throw new Error("Expected Done state")
     }
 
@@ -289,7 +289,7 @@ describe("Async scheduled operations", () => {
 
     const currentState = runtime.currentState()
 
-    if (!isState(currentState, Loading)) {
+    if (!currentState.is(Loading)) {
       throw new Error("Expected Loading state")
     }
 
@@ -339,7 +339,7 @@ describe("Async scheduled operations", () => {
 
     const currentState = runtime.currentState()
 
-    if (!isState(currentState, Loading)) {
+    if (!currentState.is(Loading)) {
       throw new Error("Expected Loading state")
     }
 
@@ -463,7 +463,7 @@ describe("Async scheduled operations", () => {
 
     const currentState = runtime.currentState()
 
-    if (!isState(currentState, Loading)) {
+    if (!currentState.is(Loading)) {
       throw new Error("Expected Loading state")
     }
 
@@ -513,7 +513,7 @@ describe("Async scheduled operations", () => {
 
     const currentState = runtime.currentState()
 
-    if (!isState(currentState, Loading)) {
+    if (!currentState.is(Loading)) {
       throw new Error("Expected Loading state")
     }
 
@@ -563,7 +563,7 @@ describe("Async scheduled operations", () => {
 
     const currentState = runtime.currentState()
 
-    if (!isState(currentState, Loading)) {
+    if (!currentState.is(Loading)) {
       throw new Error("Expected Loading state")
     }
 
@@ -635,7 +635,7 @@ describe("Async scheduled operations", () => {
 
     const currentState = runtime.currentState()
 
-    if (!isState(currentState, Loading)) {
+    if (!currentState.is(Loading)) {
       throw new Error("Expected Loading state")
     }
 
@@ -694,7 +694,7 @@ describe("Async scheduled operations", () => {
 
     const currentState = runtime.currentState()
 
-    if (!isState(currentState, Loading)) {
+    if (!currentState.is(Loading)) {
       throw new Error("Expected Loading state")
     }
 
@@ -768,7 +768,7 @@ describe("Async scheduled operations", () => {
 
     const currentState = runtime.currentState()
 
-    if (!isState(currentState, Loading)) {
+    if (!currentState.is(Loading)) {
       throw new Error("Expected Loading state")
     }
 
@@ -827,7 +827,7 @@ describe("Async scheduled operations", () => {
 
     const currentState = runtime.currentState()
 
-    if (!isState(currentState, Loading)) {
+    if (!currentState.is(Loading)) {
       throw new Error("Expected Loading state")
     }
 

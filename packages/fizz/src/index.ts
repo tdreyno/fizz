@@ -53,7 +53,6 @@ export type {
 } from "./state.js"
 export {
   debounce,
-  isState,
   isStateTransition,
   NESTED,
   PARENT_RUNTIME,

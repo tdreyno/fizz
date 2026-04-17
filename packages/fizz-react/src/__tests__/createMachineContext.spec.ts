@@ -45,11 +45,34 @@ describe("createMachineContext", () => {
 
     const WorldStatus = () => {
       const machine = useMachineContext()
+      const data = machine.currentState.data as { didWorld: boolean }
 
       return createElement(
         "div",
         { "data-testid": "world-status" },
-        machine.currentState.data.didWorld ? "world" : "waiting",
+        data.didWorld ? "world" : "waiting",
+      )
+    }
+
+    const IsInitializing = () => {
+      const machine = useMachineContext()
+
+      return createElement(
+        "div",
+        { "data-testid": "is-initializing" },
+        machine.currentState.is(machine.states.Initializing)
+          ? "initializing"
+          : "not-initializing",
+      )
+    }
+
+    const IsReady = () => {
+      const machine = useMachineContext()
+
+      return createElement(
+        "div",
+        { "data-testid": "is-ready" },
+        machine.currentState.is(machine.states.Ready) ? "ready" : "not-ready",
       )
     }
 
@@ -63,12 +86,18 @@ describe("createMachineContext", () => {
         createElement(MachineState, { testId: "machine-a" }),
         createElement(MachineState, { testId: "machine-b" }),
         createElement(WorldStatus),
+        createElement(IsInitializing),
+        createElement(IsReady),
       ),
     )
 
     expect(screen.getByTestId("machine-a").textContent).toBe("Initializing")
     expect(screen.getByTestId("machine-b").textContent).toBe("Initializing")
     expect(screen.getByTestId("world-status").textContent).toBe("waiting")
+    expect(screen.getByTestId("is-initializing").textContent).toBe(
+      "initializing",
+    )
+    expect(screen.getByTestId("is-ready").textContent).toBe("not-ready")
 
     fireEvent.click(screen.getByText("World"))
 
@@ -78,6 +107,10 @@ describe("createMachineContext", () => {
 
     expect(screen.getByTestId("machine-b").textContent).toBe("Ready")
     expect(screen.getByTestId("world-status").textContent).toBe("world")
+    expect(screen.getByTestId("is-initializing").textContent).toBe(
+      "not-initializing",
+    )
+    expect(screen.getByTestId("is-ready").textContent).toBe("ready")
   })
 
   test("throws when consumed outside the matching provider", () => {

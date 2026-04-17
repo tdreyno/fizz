@@ -8,7 +8,7 @@ import { createMachine } from "../createMachine"
 import { goBack, log, noop } from "../effect"
 import { UnknownStateReturnType } from "../errors"
 import { createRuntime, Runtime } from "../runtime"
-import { isState, state } from "../state"
+import { state } from "../state"
 
 describe("Runtime", () => {
   test("should transition through multiple states", async () => {
@@ -30,11 +30,11 @@ describe("Runtime", () => {
 
     const runtime = new Runtime(context)
 
-    expect(isState(runtime.currentState(), A)).toBeTruthy()
+    expect(runtime.currentState().is(A)).toBeTruthy()
 
     await runtime.run(enter())
 
-    expect(isState(runtime.currentState(), B)).toBeTruthy()
+    expect(runtime.currentState().is(B)).toBeTruthy()
   })
 
   test("should create a runtime from a machine definition", async () => {
@@ -65,7 +65,7 @@ describe("Runtime", () => {
 
     await runtime.run(trigger())
 
-    expect(isState(runtime.currentState(), B)).toBeTruthy()
+    expect(runtime.currentState().is(B)).toBeTruthy()
   })
 
   test("should run the action returned", async () => {
@@ -87,7 +87,7 @@ describe("Runtime", () => {
 
     await runtime.run(enter())
 
-    expect(isState(runtime.currentState(), B)).toBeTruthy()
+    expect(runtime.currentState().is(B)).toBeTruthy()
   })
 
   test("should run in correct order", async () => {
@@ -112,8 +112,8 @@ describe("Runtime", () => {
 
     const s = runtime.currentState()
 
-    if (!isState(s, A)) {
-      throw new Error()
+    if (!s.is(A)) {
+      throw new Error("Expected current state A")
     }
 
     expect(s.data.num).toBe(13)
@@ -167,7 +167,7 @@ describe("Runtime", () => {
       const runtime = new Runtime(context)
       await runtime.run(enter())
 
-      expect(isState(runtime.currentState(), A)).toBeTruthy()
+      expect(runtime.currentState().is(A)).toBeTruthy()
       expect(customLogger).toHaveBeenCalledWith(["Hello A"], "log")
     })
 
@@ -214,7 +214,7 @@ describe("Runtime", () => {
       const runtime = new Runtime(context)
       await runtime.run(enter())
 
-      expect(isState(runtime.currentState(), A)).toBeTruthy()
+      expect(runtime.currentState().is(A)).toBeTruthy()
       expect(customLogger).toHaveBeenCalledWith(["Hello A"], "log")
     })
 
@@ -242,7 +242,7 @@ describe("Runtime", () => {
       const runtime = new Runtime(context)
       await runtime.run(enter())
 
-      expect(isState(runtime.currentState(), B)).toBeTruthy()
+      expect(runtime.currentState().is(B)).toBeTruthy()
       expect(customLogger).toHaveBeenCalledWith(["Hello B"], "log")
     })
 
@@ -259,7 +259,7 @@ describe("Runtime", () => {
       const runtime = new Runtime(context)
       await runtime.run(enter())
 
-      expect(isState(runtime.currentState(), A)).toBeTruthy()
+      expect(runtime.currentState().is(A)).toBeTruthy()
       expect(runtime.currentState().data).toBe(2)
     })
 
@@ -291,7 +291,7 @@ describe("Runtime", () => {
       const runtime = new Runtime(context)
       await runtime.run(enter())
 
-      expect(isState(runtime.currentState(), B)).toBeTruthy()
+      expect(runtime.currentState().is(B)).toBeTruthy()
       expect(customLogger).toHaveBeenCalledWith(["Next"], "log")
     })
 
@@ -326,7 +326,7 @@ describe("Runtime", () => {
 
       await runtime.run(enter())
 
-      expect(isState(runtime.currentState(), C)).toBeTruthy()
+      expect(runtime.currentState().is(C)).toBeTruthy()
     })
   })
 
@@ -355,7 +355,7 @@ describe("Runtime", () => {
 
       await runtime.run(enter())
 
-      expect(isState(runtime.currentState(), B)).toBeTruthy()
+      expect(runtime.currentState().is(B)).toBeTruthy()
 
       expect(customLogger).toHaveBeenCalledWith(["Exit A"], "log")
     })
@@ -390,7 +390,7 @@ describe("Runtime", () => {
 
       await runtime.run(enter())
 
-      expect(isState(runtime.currentState(), C)).toBeTruthy()
+      expect(runtime.currentState().is(C)).toBeTruthy()
     })
   })
 
@@ -415,8 +415,8 @@ describe("Runtime", () => {
 
       const state = runtime.currentState()
 
-      if (!isState(state, A)) {
-        throw new Error()
+      if (!state.is(A)) {
+        throw new Error("Expected state A")
       }
 
       const [a, b, c, d] = state.data
@@ -425,7 +425,13 @@ describe("Runtime", () => {
       expect(b).toBe(false)
       expect(c).toBe(5)
 
-      expect(d()).toBe("Inside")
+      expect(typeof d).toBe("function")
+
+      if (typeof d !== "function") {
+        throw new TypeError("Expected callback function")
+      }
+
+      expect((d as () => string)()).toBe("Inside")
     })
   })
 
@@ -463,7 +469,7 @@ describe("Runtime", () => {
 
       await runtime.run(enter())
 
-      expect(isState(runtime.currentState(), A)).toBeTruthy()
+      expect(runtime.currentState().is(A)).toBeTruthy()
       expect(runtime.currentState().data).toBe("Test")
       expect(customLogger).toHaveBeenCalledWith(["Hi"], "log")
     })
@@ -547,7 +553,7 @@ describe("Runtime", () => {
 
       await runtime.run(enter())
 
-      expect(isState(context.currentState, B)).toBeTruthy()
+      expect(context.currentState.is(B)).toBeTruthy()
 
       const serialized = serializeContext(context)
       const newContext = deserializeContext(serialized)
@@ -556,7 +562,7 @@ describe("Runtime", () => {
 
       await runtime2.run(next())
 
-      expect(isState(newContext.currentState, C)).toBeTruthy()
+      expect(newContext.currentState.is(C)).toBeTruthy()
       expect(newContext.currentState.data).toBe("Test")
     })
   })

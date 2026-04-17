@@ -5,7 +5,7 @@ import { enter } from "../action"
 import { createInitialContext } from "../context"
 import { output } from "../effect"
 import { Runtime } from "../runtime"
-import { isState, state } from "../state"
+import { state } from "../state"
 
 describe("onOutput", () => {
   test("should transition through multiple states", async () => {
@@ -28,7 +28,7 @@ describe("onOutput", () => {
       fn(action)
     })
 
-    expect(isState(runtime.currentState(), A)).toBeTruthy()
+    expect(runtime.currentState().is(A)).toBeTruthy()
 
     await runtime.run(enter())
 

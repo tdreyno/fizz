@@ -3,7 +3,6 @@ import {
   createControlledAsyncDriver,
   createControlledTimerDriver,
   enter,
-  isState,
 } from "@tdreyno/fizz"
 
 import {
@@ -71,10 +70,10 @@ describe("server weather machine", () => {
     await runtime.run(enter())
     await asyncDriver.flush()
 
-    expect(isState(runtime.currentState(), WaitingToReturn)).toBe(true)
+    expect(runtime.currentState().is(WaitingToReturn)).toBe(true)
 
     await timerDriver.advanceBy(1999)
-    expect(isState(runtime.currentState(), WaitingToReturn)).toBe(true)
+    expect(runtime.currentState().is(WaitingToReturn)).toBe(true)
 
     await timerDriver.advanceBy(1)
 
@@ -120,7 +119,7 @@ describe("server weather machine", () => {
     await runtime.run(enter())
     await asyncDriver.flush()
 
-    expect(isState(runtime.currentState(), Failed)).toBe(true)
+    expect(runtime.currentState().is(Failed)).toBe(true)
 
     const outputAction = await outputPromise
 
@@ -148,9 +147,9 @@ describe("server weather machine", () => {
 
     const currentState = runtime.currentState()
 
-    expect(isState(currentState, Failed)).toBe(true)
+    expect(currentState.is(Failed)).toBe(true)
 
-    if (!isState(currentState, Failed)) {
+    if (!currentState.is(Failed)) {
       throw new Error("Expected Failed state")
     }
 
@@ -187,7 +186,7 @@ describe("server weather machine", () => {
 
     await runtime.run(enter())
 
-    expect(isState(runtime.currentState(), LoadingWeather)).toBe(true)
+    expect(runtime.currentState().is(LoadingWeather)).toBe(true)
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       "https://api.open-meteo.com/v1/forecast?daily=weather_code%2Ctemperature_2m_max%2Ctemperature_2m_min%2Cprecipitation_probability_max&forecast_days=1&latitude=45.5231&longitude=-122.6765&timezone=auto",
@@ -195,7 +194,7 @@ describe("server weather machine", () => {
 
     await asyncDriver.flush()
 
-    expect(isState(runtime.currentState(), WaitingToReturn)).toBe(true)
+    expect(runtime.currentState().is(WaitingToReturn)).toBe(true)
 
     runtime.disconnect()
   })

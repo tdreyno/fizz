@@ -19,7 +19,6 @@ import { createControlledTimerDriver, Runtime } from "../runtime"
 import type { HandlerReturn, StateTransition } from "../state"
 import {
   debounce,
-  isState,
   state,
   throttle,
   whichInterval,
@@ -116,9 +115,9 @@ describe("timers", () => {
 
     const currentState = runtime.currentState()
 
-    expect(isState(currentState, Done)).toBeTruthy()
+    expect(currentState.is(Done)).toBeTruthy()
 
-    if (!isState(currentState, Done)) {
+    if (!currentState.is(Done)) {
       throw new Error("Expected Done state")
     }
 
@@ -173,7 +172,7 @@ describe("timers", () => {
 
     const currentState = runtime.currentState()
 
-    if (!isState(currentState, Editing)) {
+    if (!currentState.is(Editing)) {
       throw new Error("Expected Editing state")
     }
 
@@ -222,7 +221,7 @@ describe("timers", () => {
 
     const currentState = runtime.currentState()
 
-    if (!isState(currentState, Editing)) {
+    if (!currentState.is(Editing)) {
       throw new Error("Expected Editing state")
     }
 
@@ -266,9 +265,9 @@ describe("timers", () => {
 
     const currentState = runtime.currentState()
 
-    expect(isState(currentState, Done)).toBeTruthy()
+    expect(currentState.is(Done)).toBeTruthy()
 
-    if (!isState(currentState, Done)) {
+    if (!currentState.is(Done)) {
       throw new Error("Expected Done state")
     }
 
@@ -304,7 +303,7 @@ describe("timers", () => {
 
     const currentState = runtime.currentState()
 
-    if (!isState(currentState, Editing)) {
+    if (!currentState.is(Editing)) {
       throw new Error("Expected Editing state")
     }
 
@@ -403,7 +402,7 @@ describe("timers", () => {
 
     const currentState = runtime.currentState()
 
-    if (!isState(currentState, Editing)) {
+    if (!currentState.is(Editing)) {
       throw new Error("Expected Editing state")
     }
 
@@ -486,7 +485,7 @@ describe("timers", () => {
 
     const currentState = runtime.currentState()
 
-    if (!isState(currentState, Editing)) {
+    if (!currentState.is(Editing)) {
       throw new Error("Expected Editing state")
     }
 
@@ -546,7 +545,7 @@ describe("timers", () => {
 
     const currentState = runtime.currentState()
 
-    if (!isState(currentState, Editing)) {
+    if (!currentState.is(Editing)) {
       throw new Error("Expected Editing state")
     }
 
@@ -596,7 +595,7 @@ describe("timers", () => {
 
     const currentState = runtime.currentState()
 
-    if (!isState(currentState, Editing)) {
+    if (!currentState.is(Editing)) {
       throw new Error("Expected Editing state")
     }
 
@@ -640,9 +639,9 @@ describe("timers", () => {
 
     const currentState = runtime.currentState()
 
-    expect(isState(currentState, Done)).toBeTruthy()
+    expect(currentState.is(Done)).toBeTruthy()
 
-    if (!isState(currentState, Done)) {
+    if (!currentState.is(Done)) {
       throw new Error("Expected Done state")
     }
 
@@ -719,7 +718,7 @@ describe("timers", () => {
 
     const currentState = runtime.currentState()
 
-    if (!isState(currentState, Editing)) {
+    if (!currentState.is(Editing)) {
       throw new Error("Expected Editing state")
     }
 
@@ -812,7 +811,7 @@ describe("timers", () => {
 
     const currentState = runtime.currentState()
 
-    if (!isState(currentState, Editing)) {
+    if (!currentState.is(Editing)) {
       throw new Error("Expected Editing state")
     }
 
@@ -873,7 +872,7 @@ describe("timers", () => {
 
     const currentState = runtime.currentState()
 
-    if (!isState(currentState, Editing)) {
+    if (!currentState.is(Editing)) {
       throw new Error("Expected Editing state")
     }
 
@@ -963,7 +962,7 @@ describe("timers", () => {
 
     const currentState = runtime.currentState()
 
-    if (!isState(currentState, Polling)) {
+    if (!currentState.is(Polling)) {
       throw new Error("Expected Polling state")
     }
 
@@ -1008,7 +1007,7 @@ describe("timers", () => {
 
     const currentState = runtime.currentState()
 
-    if (!isState(currentState, Animating)) {
+    if (!currentState.is(Animating)) {
       throw new Error("Expected Animating state")
     }
 
@@ -1045,7 +1044,7 @@ describe("timers", () => {
 
     const currentState = runtime.currentState()
 
-    if (!isState(currentState, Idle)) {
+    if (!currentState.is(Idle)) {
       throw new Error("Expected Idle state")
     }
 
@@ -1091,7 +1090,7 @@ describe("timers", () => {
 
     const currentState = runtime.currentState()
 
-    if (!isState(currentState, Done)) {
+    if (!currentState.is(Done)) {
       throw new Error("Expected Done state")
     }
 

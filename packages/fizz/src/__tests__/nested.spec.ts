@@ -1,7 +1,7 @@
 import { enter } from "../action"
 import { createInitialContext } from "../context"
 import { Runtime } from "../runtime"
-import { isState, NESTED } from "../state"
+import { NESTED } from "../state"
 import { Actions, States } from "./nestedMachine"
 import { setName } from "./nestedMachine/actions"
 import { timeout } from "./util"
@@ -25,7 +25,7 @@ describe("Nested Machines", () => {
   test("should boot top-level machine and initialize sub machine", async () => {
     const runtime = await init()
 
-    expect(isState(runtime.currentState(), States.Entry)).toBeTruthy()
+    expect(runtime.currentState().is(States.Entry)).toBeTruthy()
 
     expect(
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call

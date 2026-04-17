@@ -2,7 +2,7 @@ import type { Enter } from "../action"
 import { createInitialContext } from "../context"
 import { createMachine } from "../createMachine"
 import { noop } from "../effect"
-import { isState, state } from "../state"
+import { state } from "../state"
 
 describe("Fizz core", () => {
   describe("States", () => {
@@ -20,7 +20,7 @@ describe("Fizz core", () => {
     test("should start in the state last in the history list", () => {
       const result = createInitialContext([Entry()]).currentState
 
-      expect(isState(result, Entry)).toBeTruthy()
+      expect(result.is(Entry)).toBeTruthy()
       expect(result.isNamed("Entry")).toBeTruthy()
     })
 

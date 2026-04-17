@@ -14,11 +14,23 @@ describe("React integration", () => {
     )
     const typedWorld: () => { asPromise: () => Promise<void> } =
       result.current.actions.world
-    const typedDidWorld: boolean = result.current.currentState.data.didWorld
 
-    expect(result.current.currentState.state).toBe(States.Initializing)
+    expect(result.current.states).toBe(Machine.states)
+    expect(
+      result.current.currentState.is(result.current.states.Initializing),
+    ).toBe(true)
+
+    if (!result.current.currentState.is(result.current.states.Initializing)) {
+      throw new Error("Expected Initializing state")
+    }
+
+    const initializingData = result.current.currentState.data as {
+      didWorld: boolean
+    }
+    const typedDidWorld: boolean = initializingData.didWorld
+
     expect(result.current.currentState.name).toBe("Initializing")
-    expect(result.current.currentState.data.didWorld).toBeFalsy()
+    expect(initializingData.didWorld).toBeFalsy()
     expect(typeof typedWorld).toBe("function")
     expect(typedDidWorld).toBeFalsy()
 
@@ -26,8 +38,12 @@ describe("React integration", () => {
       await result.current.actions.world().asPromise()
     })
 
-    expect(result.current.currentState.state).toBe(States.Ready)
+    const readyData = result.current.currentState.data as {
+      didWorld: boolean
+    }
+
+    expect(result.current.currentState.is(States.Ready)).toBe(true)
     expect(result.current.currentState.name).toBe("Ready")
-    expect(result.current.currentState.data.didWorld).toBeTruthy()
+    expect(readyData.didWorld).toBeTruthy()
   })
 })

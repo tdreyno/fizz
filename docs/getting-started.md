@@ -144,6 +144,7 @@ const machine = useMachine(
 )
 
 const currentState = machine.currentState
+const isIdle = machine.currentState.is(machine.states.Idle)
 ```
 
 Keep the component thin. Let the machine root own the workflow logic and let React render the current state.

@@ -107,7 +107,8 @@ If the task is about machine tests or consumer-facing test helpers, read `refere
 
 - Use `useMachine(...)` to bind an existing Fizz machine into React.
 - Keep machine definition and transition logic outside the React component body when possible.
-- Treat the hook as an adapter that exposes `currentState`, `context`, `actions`, and `runtime`.
+- Treat the hook as an adapter that exposes `currentState`, `states`, `context`, `actions`, and `runtime`.
+- Compare states with `currentState.is(machine.states.SomeState)`.
 - Avoid shifting business logic from the machine into component-local React state unless the task explicitly requires it.
 
 If the task is about React integration, read `references/react-integration.md`.

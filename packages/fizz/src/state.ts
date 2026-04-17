@@ -732,7 +732,7 @@ export interface StateTransition<
   isStateTransition: true
   mode: "append" | "update"
   executor: (action: A, runtime?: InternalRuntime) => HandlerReturn
-  state: BoundStateFn<Name, A, Data>
+  is<T extends BoundStateFn<any, A, any>>(state: T): this is ReturnType<T>
   isNamed(name: string): boolean
 }
 
@@ -754,7 +754,7 @@ export const isStateTransition = (
 export const isState = <T extends BoundStateFn<any, any, any>>(
   current: StateTransition<any, any, any>,
   state: T,
-): current is ReturnType<T> => current.state === state
+): current is ReturnType<T> => current.is(state)
 
 /**
  * A State function as written by the user. It accepts
@@ -822,54 +822,59 @@ export const stateWrapper = <
     runtime?: InternalRuntime,
   ) => HandlerReturn,
 ): BoundStateFn<Name, A, Data> => {
-  const fn = (data: Data) => ({
-    name,
-    data,
-    isStateTransition: true,
-    mode: "append",
+  const fn = (data: Data) => {
+    const isCurrentState: StateTransition<Name, A, Data>["is"] = testState =>
+      testState === fn
 
-    executor: (action: A, runtime?: InternalRuntime) => {
-      const parentRuntime: InternalRuntime | undefined =
-        typeof data === "object" && data !== null && PARENT_RUNTIME in data
-          ? ((data as { [PARENT_RUNTIME]?: ActionPayload<BeforeEnter> })[
-              PARENT_RUNTIME
-            ] as InternalRuntime | undefined)
-          : undefined
+    return {
+      name,
+      data,
+      isStateTransition: true,
+      mode: "append",
 
-      // Run state executor
-      return executor(
-        action,
-        data,
-        {
-          update,
-          trigger: (a: A) => {
-            void runtime?.run(a)
+      executor: (action: A, runtime?: InternalRuntime) => {
+        const parentRuntime: InternalRuntime | undefined =
+          typeof data === "object" && data !== null && PARENT_RUNTIME in data
+            ? ((data as { [PARENT_RUNTIME]?: ActionPayload<BeforeEnter> })[
+                PARENT_RUNTIME
+              ] as InternalRuntime | undefined)
+            : undefined
+
+        // Run state executor
+        return executor(
+          action,
+          data,
+          {
+            update,
+            trigger: (a: A) => {
+              void runtime?.run(a)
+            },
+            cancelAsync: (asyncId: AsyncId) => cancelAsyncEffect(asyncId),
+            startAsync: (run, handlers, asyncId) =>
+              startAsyncEffect(run, handlers, asyncId),
+            startTimer: (timeoutId: TimeoutId, delay: number) =>
+              startTimerEffect(timeoutId, delay),
+            cancelTimer: (timeoutId: TimeoutId) => cancelTimerEffect(timeoutId),
+            restartTimer: (timeoutId: TimeoutId, delay: number) =>
+              restartTimerEffect(timeoutId, delay),
+            startInterval: (intervalId: IntervalId, delay: number) =>
+              startIntervalEffect(intervalId, delay),
+            cancelInterval: (intervalId: IntervalId) =>
+              cancelIntervalEffect(intervalId),
+            restartInterval: (intervalId: IntervalId, delay: number) =>
+              restartIntervalEffect(intervalId, delay),
+            startFrame: () => startFrameEffect(),
+            cancelFrame: () => cancelFrameEffect(),
+            ...(parentRuntime ? { parentRuntime } : {}),
           },
-          cancelAsync: (asyncId: AsyncId) => cancelAsyncEffect(asyncId),
-          startAsync: (run, handlers, asyncId) =>
-            startAsyncEffect(run, handlers, asyncId),
-          startTimer: (timeoutId: TimeoutId, delay: number) =>
-            startTimerEffect(timeoutId, delay),
-          cancelTimer: (timeoutId: TimeoutId) => cancelTimerEffect(timeoutId),
-          restartTimer: (timeoutId: TimeoutId, delay: number) =>
-            restartTimerEffect(timeoutId, delay),
-          startInterval: (intervalId: IntervalId, delay: number) =>
-            startIntervalEffect(intervalId, delay),
-          cancelInterval: (intervalId: IntervalId) =>
-            cancelIntervalEffect(intervalId),
-          restartInterval: (intervalId: IntervalId, delay: number) =>
-            restartIntervalEffect(intervalId, delay),
-          startFrame: () => startFrameEffect(),
-          cancelFrame: () => cancelFrameEffect(),
-          ...(parentRuntime ? { parentRuntime } : {}),
-        },
-        runtime,
-      )
-    },
+          runtime,
+        )
+      },
 
-    state: fn,
-    isNamed: (testName: string): boolean => testName === name,
-  })
+      is: isCurrentState,
+      isNamed: (testName: string): boolean => testName === name,
+    }
+  }
 
   Object.defineProperty(fn, "name", { value: name })
 
@@ -1116,11 +1121,15 @@ class Matcher<S extends AnyStateTransition, T> {
   }
 
   run(): T | undefined {
-    const handler = this.handlers.get(this.state.state as MatcherStateKey)
+    const entry = [...this.handlers.entries()].find(([state]) =>
+      this.state.is(state),
+    )
 
-    if (!handler) {
+    if (!entry) {
       return
     }
+
+    const [, handler] = entry
 
     return handler(this.state.data)
   }

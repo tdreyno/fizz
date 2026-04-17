@@ -3,7 +3,7 @@ import { enter } from "../action"
 import { createInitialContext } from "../context"
 import { noop } from "../effect"
 import { Runtime } from "../runtime"
-import { isState, state, switch_ } from "../state"
+import { state, switch_ } from "../state"
 
 const expectNumber = (value: number): number => value
 const expectString = (value: string): string => value
@@ -28,8 +28,8 @@ describe("Type narrowing", () => {
 
     const result = runtime.currentState()
 
-    if (!isState(result, B)) {
-      throw new Error()
+    if (!result.is(B)) {
+      throw new Error("Expected state B")
     }
 
     result.data = "5"

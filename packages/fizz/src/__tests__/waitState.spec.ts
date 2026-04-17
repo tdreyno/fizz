@@ -3,7 +3,7 @@ import { action, enter } from "../action"
 import { createInitialContext } from "../context"
 import { noop } from "../effect"
 import { Runtime } from "../runtime"
-import { isState, state, waitState } from "../state"
+import { state, waitState } from "../state"
 import { timeout } from "./util"
 
 const INITIAL_COUNT = 5
@@ -60,15 +60,15 @@ describe("waitState", () => {
       }
     })
 
-    expect(isState(runtime.currentState(), BeforeThing)).toBeTruthy()
+    expect(runtime.currentState().is(BeforeThing)).toBeTruthy()
 
     await runtime.run(enter())
 
-    expect(isState(runtime.currentState(), WaitForThing)).toBeTruthy()
+    expect(runtime.currentState().is(WaitForThing)).toBeTruthy()
 
     await timeout(500)
 
-    expect(isState(runtime.currentState(), AfterThing)).toBeTruthy()
+    expect(runtime.currentState().is(AfterThing)).toBeTruthy()
     expect((runtime.currentState().data as D).count).toBe(
       INITIAL_COUNT + RETURN_COUNT,
     )
@@ -111,15 +111,15 @@ describe("waitState", () => {
 
     const runtime = new Runtime(context, {}, { fetchThing })
 
-    expect(isState(runtime.currentState(), BeforeThing)).toBeTruthy()
+    expect(runtime.currentState().is(BeforeThing)).toBeTruthy()
 
     await runtime.run(enter())
 
-    expect(isState(runtime.currentState(), WaitForThing)).toBeTruthy()
+    expect(runtime.currentState().is(WaitForThing)).toBeTruthy()
 
     await timeout(2000)
 
-    expect(isState(runtime.currentState(), TimedOutState)).toBeTruthy()
+    expect(runtime.currentState().is(TimedOutState)).toBeTruthy()
     expect((runtime.currentState().data as D).count).toBe(INITIAL_COUNT)
   })
 
@@ -160,15 +160,15 @@ describe("waitState", () => {
 
     const runtime = new Runtime(context, {}, { fetchThing })
 
-    expect(isState(runtime.currentState(), BeforeThing)).toBeTruthy()
+    expect(runtime.currentState().is(BeforeThing)).toBeTruthy()
 
     await runtime.run(enter())
 
-    expect(isState(runtime.currentState(), WaitForThing)).toBeTruthy()
+    expect(runtime.currentState().is(WaitForThing)).toBeTruthy()
 
     await timeout(2000)
 
-    expect(isState(runtime.currentState(), TimedOutState)).toBeTruthy()
+    expect(runtime.currentState().is(TimedOutState)).toBeTruthy()
     expect((runtime.currentState().data as D).count).toBe(INITIAL_COUNT)
   })
 
@@ -204,15 +204,15 @@ describe("waitState", () => {
       return thingFetched(payload)
     })
 
-    expect(isState(runtime.currentState(), BeforeThing)).toBeTruthy()
+    expect(runtime.currentState().is(BeforeThing)).toBeTruthy()
 
     await runtime.run(enter())
 
-    expect(isState(runtime.currentState(), WaitForThing)).toBeTruthy()
+    expect(runtime.currentState().is(WaitForThing)).toBeTruthy()
 
     await timeout(500)
 
-    expect(isState(runtime.currentState(), AfterThing)).toBeTruthy()
+    expect(runtime.currentState().is(AfterThing)).toBeTruthy()
     expect((runtime.currentState().data as D).count).toBe(
       INITIAL_COUNT + RETURN_COUNT,
     )

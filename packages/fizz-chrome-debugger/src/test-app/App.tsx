@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react"
 
+import type { BrowserWeatherData } from "./browserWeatherMachine.js"
 import { useBrowserWeatherMachine } from "./browserWeatherMachine.js"
 import { usePageOpenMachine } from "./pageOpenMachine.js"
 
@@ -22,8 +23,9 @@ export const App = () => {
   const pageOpenMachine = usePageOpenMachine()
   const currentState = machine.currentState
   const pageOpenState = pageOpenMachine.currentState
-  const weather = currentState.data.weather
-  const isLoading = currentState.name === "Loading"
+  const currentData: BrowserWeatherData = currentState.data
+  const weather = currentData.weather
+  const isLoading = Boolean(currentState.is(machine.states.Loading))
 
   return (
     <main

@@ -19,7 +19,7 @@ Prefer these building blocks:
 
 Prefer assertions against:
 
-- the current state identity via `isState(...)`
+- the current state identity via `currentState.is(machine.states.SomeState)`
 - the machine-visible state data
 - emitted output actions
 - ordered intermediate states when the sequence matters

@@ -205,6 +205,8 @@ const TimeoutPanel = () => {
 
 That keeps browser debugging console-only for now while still giving components a clear path to inspect transitions and outputs.
 
+Use `currentState.name` for display and logs. For control flow, prefer identity checks such as `machine.currentState.is(machine.states.TimeoutDemo)`.
+
 ## Using your own logger
 
 If the default console monitor format is close but not quite right, format the event yourself and send it somewhere else.

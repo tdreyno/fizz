@@ -3,7 +3,6 @@ import {
   createControlledTimerDriver,
   createInitialContext,
   enter,
-  isState,
   Runtime,
 } from "@tdreyno/fizz"
 
@@ -26,11 +25,11 @@ describe("page open machine", () => {
     await runtime.run(enter())
     await timerDriver.advanceBy(3200)
 
-    const currentState = runtime.currentState()
+    const currentState = runtime.currentState() as ReturnType<typeof Running>
 
-    expect(isState(currentState, Running)).toBe(true)
+    expect(currentState.is(Running)).toBe(true)
 
-    if (!isState(currentState, Running)) {
+    if (!currentState.is(Running)) {
       throw new Error("Expected Running state")
     }
 
@@ -54,11 +53,11 @@ describe("page open machine", () => {
     await timerDriver.advanceBy(2200)
     await runtime.run(reset())
 
-    const currentState = runtime.currentState()
+    const currentState = runtime.currentState() as ReturnType<typeof Running>
 
-    expect(isState(currentState, Running)).toBe(true)
+    expect(currentState.is(Running)).toBe(true)
 
-    if (!isState(currentState, Running)) {
+    if (!currentState.is(Running)) {
       throw new Error("Expected Running state")
     }
 

@@ -2,7 +2,7 @@ import type { Enter } from "../action"
 import { enter } from "../action"
 import { createInitialContext } from "../context"
 import { Runtime } from "../runtime"
-import { isState, state } from "../state"
+import { state } from "../state"
 
 describe("Default data", () => {
   test("should empty tuple data", async () => {
@@ -30,8 +30,8 @@ describe("Default data", () => {
 
     expect(s.isNamed("B")).toBeTruthy()
 
-    if (!isState(s, B)) {
-      throw new Error()
+    if (!s.is(B)) {
+      throw new Error("Expected state B")
     }
 
     expect(s.data[1]).toBe("2")

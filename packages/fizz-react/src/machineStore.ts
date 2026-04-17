@@ -7,7 +7,12 @@ import type {
 import { Context, createRuntime, enter, Runtime } from "@tdreyno/fizz"
 import { useEffect, useMemo, useState } from "react"
 
-export type AnyBoundState = BoundStateFn<string, Action<string, unknown>, any>
+export type AnyBoundState = {
+  (
+    ...data: never[]
+  ): ReturnType<BoundStateFn<string, Action<string, unknown>, never>>
+  name: string
+}
 
 export type ActionMap = {
   [key: string]: (...args: Array<any>) => Action<string, unknown>
@@ -26,6 +31,7 @@ export interface ContextValue<
   PM = PromiseActions<AM>,
 > {
   currentState: ReturnType<SM[keyof SM]>
+  states: SM
   context: Context
   actions: PM
   runtime?: Runtime<AM, OAM>
@@ -66,10 +72,12 @@ const createMachineValue = <
   AM extends ActionMap,
   OAM extends ActionMap,
 >(
+  states: SM,
   context: Context,
   runtime: Runtime<AM, OAM>,
   actions: PromiseActions<AM>,
 ): ContextValue<SM, AM, OAM> => ({
+  states,
   context,
   currentState: context.currentState as ReturnType<SM[keyof SM]>,
   actions,
@@ -91,7 +99,12 @@ export const useMachineValue = <
   )
 
   const [value, setValue] = useState<ContextValue<SM, AM, OAM>>(() =>
-    createMachineValue<SM, AM, OAM>(defaultContext, runtime, boundActions),
+    createMachineValue<SM, AM, OAM>(
+      machine.states,
+      defaultContext,
+      runtime,
+      boundActions,
+    ),
   )
 
   useEffect(() => {

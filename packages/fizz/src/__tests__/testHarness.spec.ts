@@ -3,7 +3,7 @@ import { describe, expect, test } from "@jest/globals"
 import type { ActionCreatorType, Enter } from "../action"
 import { action } from "../action"
 import { noop, output } from "../effect"
-import { isState, state } from "../state"
+import { state } from "../state"
 import { createTestHarness, deferred } from "../test"
 
 type Data = {
@@ -50,7 +50,7 @@ describe("Test harness", () => {
 
     const reachedDone = new Promise<void>(resolve => {
       const unsubscribe = harness.runtime.onContextChange(context => {
-        if (isState(context.currentState, Done)) {
+        if (context.currentState.is(Done)) {
           unsubscribe()
           resolve()
         }
@@ -71,9 +71,9 @@ describe("Test harness", () => {
 
     const currentState = harness.currentState()
 
-    expect(isState(currentState, Done)).toBeTruthy()
+    expect(currentState.is(Done)).toBeTruthy()
 
-    if (!isState(currentState, Done)) {
+    if (!currentState.is(Done)) {
       throw new Error("Expected Done state")
     }
 
@@ -115,7 +115,7 @@ describe("Test harness", () => {
       harness.lastOutput()
     const typedSave: ReturnType<typeof save> = save()
 
-    expect(isState(harness.currentState(), Editing)).toBeTruthy()
+    expect(harness.currentState().is(Editing)).toBeTruthy()
     expect(typedOutputs).toEqual([])
     expect(typedLastOutput).toBeUndefined()
     expect(
@@ -125,7 +125,7 @@ describe("Test harness", () => {
     await harness.start()
     await harness.run(typedSave)
 
-    expect(isState(harness.currentState(), Done)).toBeTruthy()
+    expect(harness.currentState().is(Done)).toBeTruthy()
     expect(harness.outputs()).toEqual([notice("entered")])
     expect(harness.lastOutput()).toEqual(notice("entered"))
     expect(
@@ -190,7 +190,7 @@ describe("Test harness", () => {
 
     const currentState = harness.currentState()
 
-    if (!isState(currentState, Loading)) {
+    if (!currentState.is(Loading)) {
       throw new Error("Expected Loading state")
     }
 

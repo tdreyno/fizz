@@ -176,6 +176,7 @@ export type BrowserWeatherMachineValue = {
     }
   }
   currentState: BrowserWeatherRuntimeState
+  states: typeof BrowserWeatherStates
 }
 
 export const BrowserWeatherMachine = createMachine(

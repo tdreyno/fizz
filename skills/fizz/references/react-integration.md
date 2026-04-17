@@ -19,6 +19,7 @@ The current hook implementation in `packages/fizz-react/src/useMachine.ts`:
 The hook returns an object shaped around:
 
 - `currentState`
+- `states`
 - `context`
 - `actions`
 - `runtime`
@@ -32,6 +33,7 @@ Treat that return value as the bridge between React rendering and the machine ru
 Business workflow belongs in Fizz states and actions. React components should mostly:
 
 - render from `currentState` or `context`
+- branch on state identity with `currentState.is(machine.states.SomeState)`
 - call bound actions in response to user input
 - avoid re-implementing transition logic in local component state
 

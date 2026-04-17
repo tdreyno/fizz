@@ -55,9 +55,10 @@ const Loading = state({
 ```typescript
 import { useMachine } from "@tdreyno/fizz-react"
 
-const machine = useMachine({ Start, Done }, { finish }, Start())
+const machine = useMachine(FlowMachine, FlowMachine.states.Start())
 
 const current = machine.currentState
+const isDone = machine.currentState.is(machine.states.Done)
 ```
 
 ## Practical reminders

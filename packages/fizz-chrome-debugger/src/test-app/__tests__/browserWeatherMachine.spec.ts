@@ -3,7 +3,6 @@ import {
   createControlledAsyncDriver,
   createInitialContext,
   enter,
-  isState,
   Runtime,
 } from "@tdreyno/fizz"
 
@@ -105,18 +104,23 @@ describe("browser weather machine", () => {
 
     const currentState = runtime.currentState()
 
-    expect(isState(currentState, Loaded)).toBe(true)
+    expect(currentState.is(Loaded)).toBe(true)
 
-    if (!isState(currentState, Loaded)) {
+    if (!currentState.is(Loaded)) {
       throw new Error("Expected Loaded state")
+    }
+
+    const loadedData = currentState.data as {
+      requestCount: number
+      weather: { city: string } | null
     }
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       "/api/weather?latitude=40.7128&longitude=-74.006",
     )
-    expect(currentState.data.weather?.city).toBe("Current Location")
-    expect(currentState.data.requestCount).toBe(1)
+    expect(loadedData.weather?.city).toBe("Current Location")
+    expect(loadedData.requestCount).toBe(1)
   })
 
   test("falls back to Portland request path when geolocation is denied", async () => {
@@ -168,7 +172,7 @@ describe("browser weather machine", () => {
 
     const currentState = runtime.currentState()
 
-    expect(isState(currentState, Loaded)).toBe(true)
+    expect(currentState.is(Loaded)).toBe(true)
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/weather")
@@ -199,9 +203,9 @@ describe("browser weather machine", () => {
 
     const currentState = runtime.currentState()
 
-    expect(isState(currentState, Failed)).toBe(true)
+    expect(currentState.is(Failed)).toBe(true)
 
-    if (!isState(currentState, Failed)) {
+    if (!currentState.is(Failed)) {
       throw new Error("Expected Failed state")
     }
 
@@ -239,6 +243,6 @@ describe("browser weather machine", () => {
 
     await runtime.run(refresh())
 
-    expect(isState(runtime.currentState(), Loading)).toBe(true)
+    expect(runtime.currentState().is(Loading)).toBe(true)
   })
 })
