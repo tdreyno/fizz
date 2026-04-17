@@ -10,7 +10,7 @@
     "noUnusedParameters": true,
     "forceConsistentCasingInFileNames": true,
     "module": "esnext",
-    "moduleResolution": "node",
+    "moduleResolution": "node16",
     "isolatedModules": false,
     "allowJs": false,
     "noEmit": false,
