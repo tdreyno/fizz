@@ -8,6 +8,7 @@ import {
 } from "@tdreyno/fizz"
 import { useMachine } from "@tdreyno/fizz-react"
 
+import { registerFizzDebuggerMachineGraph } from "../index.js"
 import type { WeatherApiSuccessResponse, WeatherReport } from "./weather.js"
 import {
   assertWeatherApiSuccessResponse,
@@ -186,6 +187,41 @@ export const BrowserWeatherMachine = createMachine(
   },
   "BrowserWeatherMachine",
 )
+
+registerFizzDebuggerMachineGraph({
+  graph: {
+    entryState: "Loading",
+    name: "BrowserWeatherMachine",
+    nodes: [
+      { id: "Loading", x: 0, y: 0 },
+      { id: "Loaded", x: 260, y: 0 },
+      { id: "Failed", x: 520, y: 0 },
+    ],
+    transitions: [
+      {
+        action: "WeatherLoaded",
+        from: "Loading",
+        to: "Loaded",
+      },
+      {
+        action: "WeatherLoadFailed",
+        from: "Loading",
+        to: "Failed",
+      },
+      {
+        action: "Refresh",
+        from: "Loaded",
+        to: "Loading",
+      },
+      {
+        action: "Refresh",
+        from: "Failed",
+        to: "Loading",
+      },
+    ],
+  },
+  label: "BrowserWeatherMachine",
+})
 
 export const useBrowserWeatherMachine = (): BrowserWeatherMachineValue =>
   useMachine(

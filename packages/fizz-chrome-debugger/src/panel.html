@@ -123,11 +123,12 @@
         display: grid;
         gap: 12px;
         padding: 16px;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       }
 
       .panel-block {
-        border: 1px solid rgba(139, 155, 180, 0.18);
-        border-radius: 14px;
+        border: 1px solid rgba(139, 155, 180, 0.2);
+        border-radius: 10px;
         background: rgba(13, 17, 23, 0.45);
         padding: 12px;
       }
@@ -138,22 +139,6 @@
         letter-spacing: 0.08em;
         text-transform: uppercase;
         color: var(--accent-alt);
-      }
-
-      pre {
-        margin: 0;
-        white-space: pre-wrap;
-        word-break: break-word;
-        color: var(--text);
-      }
-
-      ul {
-        margin: 0;
-        padding-left: 18px;
-      }
-
-      li + li {
-        margin-top: 6px;
       }
 
       .empty {
@@ -432,6 +417,216 @@
         font-size: 12px;
         margin: 20px 0;
         text-align: center;
+      }
+
+      .machine-graph-block {
+        grid-column: 1 / -1;
+      }
+
+      .machine-graph-canvas {
+        border: 1px solid rgba(139, 155, 180, 0.2);
+        border-radius: 10px;
+        background: radial-gradient(
+          circle at top,
+          rgba(121, 192, 255, 0.06),
+          rgba(13, 17, 23, 0.4) 42%
+        );
+        max-height: 700px;
+        overflow: auto;
+        padding: 10px;
+      }
+
+      .machine-graph-canvas svg {
+        display: block;
+        min-width: 100%;
+        width: 100%;
+      }
+
+      .machine-graph-empty {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      .machine-graph-edge {
+        fill: none;
+        stroke: rgba(139, 155, 180, 0.5);
+        stroke-width: 2;
+        transition:
+          stroke 70ms linear,
+          stroke-width 70ms linear,
+          filter 70ms linear;
+      }
+
+      .machine-graph-edge-special {
+        stroke-dasharray: 7 5;
+      }
+
+      .machine-graph-edge-active {
+        stroke: rgba(
+          126,
+          231,
+          135,
+          calc(0.2 + var(--machine-edge-pulse-strength, 0) * 0.8)
+        );
+        stroke-width: calc(2 + var(--machine-edge-pulse-strength, 0) * 1.6);
+        filter: drop-shadow(
+          0 0 calc(2px + var(--machine-edge-pulse-strength, 0) * 9px)
+            rgba(126, 231, 135, 0.65)
+        );
+      }
+
+      .machine-graph-arrow {
+        fill: rgba(139, 155, 180, 0.75);
+      }
+
+      .machine-graph-edge-label {
+        fill: rgba(191, 208, 230, 0.92);
+        font-size: 10px;
+        dominant-baseline: middle;
+        text-anchor: middle;
+      }
+
+      .machine-graph-edge-label-bg {
+        fill: rgba(8, 16, 28, 0.88);
+        stroke: rgba(139, 155, 180, 0.45);
+        stroke-width: 1;
+        transition:
+          fill 70ms linear,
+          stroke 70ms linear;
+      }
+
+      .machine-graph-edge-label-active {
+        fill: #c8ffe1;
+        font-weight: 700;
+      }
+
+      .machine-graph-node-shape {
+        fill: rgba(13, 17, 23, 0.8);
+        stroke: rgba(121, 192, 255, 0.35);
+        stroke-width: 1.4;
+      }
+
+      .machine-graph-node-label {
+        fill: var(--text);
+        font-size: 11px;
+        font-weight: 700;
+        text-anchor: middle;
+      }
+
+      .machine-graph-node-caption {
+        fill: var(--muted);
+        font-size: 9px;
+        letter-spacing: 0.08em;
+        text-anchor: middle;
+        text-transform: uppercase;
+      }
+
+      .machine-graph-node-active .machine-graph-node-shape {
+        fill: rgba(126, 231, 135, 0.14);
+        stroke: rgba(126, 231, 135, 0.95);
+      }
+
+      .machine-graph-node-entry .machine-graph-node-shape {
+        stroke: rgba(121, 192, 255, 0.82);
+      }
+
+      .machine-graph-node-special .machine-graph-node-shape {
+        fill: rgba(251, 191, 36, 0.12);
+        stroke: rgba(251, 191, 36, 0.85);
+      }
+
+      .machine-graph-node-nested-parent .machine-graph-node-shape {
+        fill: rgba(125, 211, 252, 0.1);
+      }
+
+      .machine-graph-node-nested-state .machine-graph-node-shape {
+        fill: rgba(74, 222, 128, 0.12);
+      }
+
+      .machine-graph-legend {
+        margin: 8px 2px 0;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .machine-graph-internal {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      .machine-graph-internal-chip {
+        border: 1px solid rgba(139, 155, 180, 0.28);
+        border-radius: 999px;
+        color: var(--text);
+        font-size: 10px;
+        letter-spacing: 0.04em;
+        opacity: 0.65;
+        padding: 4px 9px;
+        text-transform: uppercase;
+        transition:
+          opacity 120ms ease,
+          transform 120ms ease,
+          box-shadow 120ms ease;
+      }
+
+      .machine-graph-internal-chip-active {
+        animation: machine-graph-internal-chip-pulse 420ms ease-out 1;
+        opacity: 1;
+        transform: translateY(-1px);
+      }
+
+      .machine-graph-internal-chip-async {
+        background: rgba(121, 192, 255, 0.14);
+        border-color: rgba(121, 192, 255, 0.45);
+      }
+
+      .machine-graph-internal-chip-timer {
+        background: rgba(244, 198, 79, 0.14);
+        border-color: rgba(244, 198, 79, 0.45);
+      }
+
+      .machine-graph-internal-chip-interval {
+        background: rgba(255, 149, 128, 0.14);
+        border-color: rgba(255, 149, 128, 0.45);
+      }
+
+      .machine-graph-internal-chip-frame {
+        background: rgba(139, 155, 180, 0.14);
+        border-color: rgba(139, 155, 180, 0.45);
+      }
+
+      .machine-graph-internal-chip-command {
+        background: rgba(126, 231, 135, 0.14);
+        border-color: rgba(126, 231, 135, 0.45);
+      }
+
+      @keyframes machine-graph-internal-chip-pulse {
+        0% {
+          box-shadow: 0 0 0 rgba(126, 231, 135, 0);
+          transform: translateY(0);
+        }
+
+        45% {
+          box-shadow: 0 0 12px rgba(126, 231, 135, 0.45);
+          transform: translateY(-2px);
+        }
+
+        100% {
+          box-shadow: 0 0 0 rgba(126, 231, 135, 0);
+          transform: translateY(-1px);
+        }
+      }
+
+      @media (max-width: 900px) {
+        .machine-graph-canvas {
+          max-height: 520px;
+        }
+
+        .timeline-controls {
+          align-items: flex-start;
+        }
       }
     </style>
   </head>

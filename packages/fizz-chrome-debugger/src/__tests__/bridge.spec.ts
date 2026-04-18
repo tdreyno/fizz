@@ -11,12 +11,14 @@ import {
 } from "@tdreyno/fizz"
 
 import type {
+  FizzDebuggerMachineGraph,
   FizzDebuggerMessage,
   FizzDebuggerTimelineEntry,
 } from "../index.js"
 import {
   createFizzChromeDebugger,
   installFizzChromeDebugger,
+  registerFizzDebuggerMachineGraph,
   serializeForDebugger,
 } from "../index.js"
 
@@ -205,6 +207,222 @@ describe("fizz chrome debugger", () => {
       runtimeId,
       source: "@repo/fizz-chrome-debugger",
     })
+  })
+
+  test("includes registered machine graph metadata in runtime snapshots", async () => {
+    const trigger = action("Trigger")
+    const Ready = state<ReturnType<typeof trigger>, { count: number }>(
+      {
+        Trigger: (data, _, { update }) =>
+          update({
+            count: data.count + 1,
+          }),
+      },
+      { name: "Ready" },
+    )
+    const machine = createMachine(
+      {
+        actions: { trigger },
+        states: { Ready },
+      },
+      "GraphMachine",
+    )
+    const graph: FizzDebuggerMachineGraph = {
+      entryState: "Ready",
+      name: "GraphMachine",
+      nodes: [{ id: "Ready" }],
+      transitions: [
+        {
+          action: "Trigger",
+          from: "Ready",
+          to: "Ready",
+        },
+      ],
+    }
+    const unregisterGraph = registerFizzDebuggerMachineGraph({
+      graph,
+      label: "GraphMachine",
+    })
+    const chromeDebugger = createFizzChromeDebugger()
+    const runtimeId = chromeDebugger.nextRuntimeId("GraphMachine")
+    const runtime = createRuntime(machine, Ready({ count: 0 }), {
+      monitor: chromeDebugger.createMonitor(runtimeId),
+    })
+    const stop = chromeDebugger.registerRuntime({
+      label: "GraphMachine",
+      runtime,
+      runtimeId,
+    })
+
+    const initialSnapshot = chromeDebugger.snapshot(runtimeId)
+
+    expect(initialSnapshot?.machineGraph).toEqual(graph)
+
+    await runtime.run(trigger())
+
+    const updatedSnapshot = chromeDebugger.snapshot(runtimeId)
+
+    expect(updatedSnapshot?.machineGraph).toEqual(graph)
+
+    stop()
+    unregisterGraph()
+  })
+
+  test("tracks short-lived action pulses in snapshots", async () => {
+    let nowValue = 100
+    const trigger = action("Trigger")
+    const Ready = state<ReturnType<typeof trigger>, { count: number }>(
+      {
+        Trigger: (data, _, { update }) =>
+          update({
+            count: data.count + 1,
+          }),
+      },
+      { name: "Ready" },
+    )
+    const machine = createMachine(
+      {
+        actions: { trigger },
+        states: { Ready },
+      },
+      "PulseMachine",
+    )
+    const chromeDebugger = createFizzChromeDebugger({
+      actionPulseDurationMs: 300,
+      now: () => nowValue,
+    })
+    const runtimeId = chromeDebugger.nextRuntimeId("PulseMachine")
+    const runtime = createRuntime(machine, Ready({ count: 0 }), {
+      monitor: chromeDebugger.createMonitor(runtimeId),
+    })
+    const stop = chromeDebugger.registerRuntime({
+      label: "PulseMachine",
+      runtime,
+      runtimeId,
+    })
+
+    await runtime.run(trigger())
+
+    const activePulseSnapshot = chromeDebugger.snapshot(runtimeId)
+
+    expect(activePulseSnapshot?.actionPulseDurationMs).toBe(300)
+    expect(activePulseSnapshot?.actionPulse).toEqual({
+      actionType: "Trigger",
+      at: 100,
+      fromState: "Ready",
+    })
+    expect(activePulseSnapshot?.actionPulses).toEqual([
+      {
+        actionType: "Trigger",
+        at: 100,
+        fromState: "Ready",
+      },
+    ])
+
+    nowValue = 220
+    await runtime.run(trigger())
+
+    const overlapSnapshot = chromeDebugger.snapshot(runtimeId)
+
+    expect(overlapSnapshot?.actionPulses).toEqual([
+      {
+        actionType: "Trigger",
+        at: 100,
+        fromState: "Ready",
+      },
+      {
+        actionType: "Trigger",
+        at: 220,
+        fromState: "Ready",
+      },
+    ])
+    expect(overlapSnapshot?.actionPulse).toEqual({
+      actionType: "Trigger",
+      at: 220,
+      fromState: "Ready",
+    })
+
+    nowValue = 450
+
+    const partialPulseSnapshot = chromeDebugger.snapshot(runtimeId)
+
+    expect(partialPulseSnapshot?.actionPulses).toEqual([
+      {
+        actionType: "Trigger",
+        at: 220,
+        fromState: "Ready",
+      },
+    ])
+
+    nowValue = 560
+
+    const expiredPulseSnapshot = chromeDebugger.snapshot(runtimeId)
+
+    expect(expiredPulseSnapshot?.actionPulse).toBeUndefined()
+    expect(expiredPulseSnapshot?.actionPulses).toBeUndefined()
+
+    stop()
+  })
+
+  test("registers machine graph metadata on custom global target", async () => {
+    const trigger = action("Trigger")
+    const Ready = state<ReturnType<typeof trigger>, { count: number }>(
+      {
+        Trigger: (data, _, { update }) =>
+          update({
+            count: data.count + 1,
+          }),
+      },
+      { name: "Ready" },
+    )
+    const machine = createMachine(
+      {
+        actions: { trigger },
+        states: { Ready },
+      },
+      "TargetedGraphMachine",
+    )
+    const graph: FizzDebuggerMachineGraph = {
+      entryState: "Ready",
+      name: "TargetedGraphMachine",
+      nodes: [{ id: "Ready" }],
+      transitions: [
+        {
+          action: "Trigger",
+          from: "Ready",
+          to: "Ready",
+        },
+      ],
+    }
+    const customTarget = {} as typeof globalThis
+    const unregisterGraph = registerFizzDebuggerMachineGraph({
+      graph,
+      label: "TargetedGraphMachine",
+      target: customTarget,
+    })
+    const chromeDebugger = createFizzChromeDebugger()
+    const runtimeId = chromeDebugger.nextRuntimeId("TargetedGraphMachine")
+    const runtime = createRuntime(machine, Ready({ count: 0 }), {
+      monitor: chromeDebugger.createMonitor(runtimeId),
+    })
+    const stop = chromeDebugger.registerRuntime({
+      label: "TargetedGraphMachine",
+      runtime,
+      runtimeId,
+    })
+
+    expect(chromeDebugger.snapshot(runtimeId)?.machineGraph).toBeUndefined()
+
+    const unregisterGlobalGraph = registerFizzDebuggerMachineGraph({
+      graph,
+      label: "TargetedGraphMachine",
+    })
+
+    expect(chromeDebugger.snapshot(runtimeId)?.machineGraph).toEqual(graph)
+
+    stop()
+    unregisterGraph()
+    unregisterGlobalGraph()
   })
 
   test("installs registry polling that auto-registers createRuntime runtimes", async () => {

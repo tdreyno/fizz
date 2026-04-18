@@ -2,6 +2,8 @@ import type { ActionCreatorType, BoundStateFn, Enter } from "@tdreyno/fizz"
 import { action, createMachine, state } from "@tdreyno/fizz"
 import { useMachine } from "@tdreyno/fizz-react"
 
+import { registerFizzDebuggerMachineGraph } from "../index.js"
+
 type IntervalId = "page-open"
 
 const reset = action("Reset")
@@ -46,6 +48,16 @@ export const PageOpenMachine = createMachine(
   },
   "PageOpenMachine",
 )
+
+registerFizzDebuggerMachineGraph({
+  graph: {
+    entryState: "Running",
+    name: "PageOpenMachine",
+    nodes: [{ id: "Running", x: 0, y: 0 }],
+    transitions: [{ action: "Reset", from: "Running", to: "Running" }],
+  },
+  label: "PageOpenMachine",
+})
 
 export type PageOpenRuntimeState = ReturnType<typeof Running>
 

@@ -1,5 +1,9 @@
 export type {
   CreateFizzChromeDebuggerOptions,
+  FizzDebuggerActionPulse,
+  FizzDebuggerMachineGraph,
+  FizzDebuggerMachineGraphNode,
+  FizzDebuggerMachineGraphTransition,
   FizzDebuggerMessage,
   FizzDebuggerRuntimeSnapshot,
   FizzDebuggerScheduledItem,
@@ -8,14 +12,18 @@ export type {
   FizzDebuggerTransport,
   InstalledFizzChromeDebugger,
   InstallFizzChromeDebuggerOptions,
+  RegisterMachineGraphOptions,
   RegisterRuntimeOptions,
 } from "./bridge.js"
 export {
   createFizzChromeDebugger,
   createFizzDebuggerBridge,
+  DEFAULT_ACTION_PULSE_DURATION_MS,
   FIZZ_CHROME_DEBUGGER_EVENT_NAME,
+  FIZZ_CHROME_DEBUGGER_MACHINE_GRAPH_REGISTRY_KEY,
   FIZZ_DEBUGGER_EVENT_NAME,
   installFizzChromeDebugger,
+  registerFizzDebuggerMachineGraph,
 } from "./bridge.js"
 export type {
   BackgroundToPanelMessage,

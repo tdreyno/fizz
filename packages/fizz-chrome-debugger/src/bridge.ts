@@ -13,6 +13,39 @@ import { serializeForDebugger } from "./serialize.js"
 export const FIZZ_CHROME_DEBUGGER_EVENT_NAME = "fizz:chrome-debugger"
 export const FIZZ_DEBUGGER_EVENT_NAME = FIZZ_CHROME_DEBUGGER_EVENT_NAME
 export const DEFAULT_MAX_TIMELINE_ENTRIES = 1000
+export const DEFAULT_ACTION_PULSE_DURATION_MS = 1000
+export const FIZZ_CHROME_DEBUGGER_MACHINE_GRAPH_REGISTRY_KEY =
+  "__FIZZ_CHROME_DEBUGGER_MACHINE_GRAPH_REGISTRY__" as const
+
+export type FizzDebuggerMachineGraphNode = {
+  id: string
+  kind?: "nested-parent" | "nested-state" | "special" | "state"
+  label?: string
+  x?: number
+  y?: number
+}
+
+export type FizzDebuggerMachineGraphTransition = {
+  action: string
+  from: string
+  id?: string
+  kind?: "normal" | "self" | "special"
+  label?: string
+  to: string
+}
+
+export type FizzDebuggerMachineGraph = {
+  entryState?: string
+  name: string
+  nodes: FizzDebuggerMachineGraphNode[]
+  transitions: FizzDebuggerMachineGraphTransition[]
+}
+
+export type FizzDebuggerActionPulse = {
+  actionType: string
+  at: number
+  fromState?: string
+}
 
 export type FizzDebuggerScheduledItem = {
   delay?: number
@@ -33,11 +66,15 @@ export type FizzDebuggerTimelineEntry = {
 }
 
 export type FizzDebuggerRuntimeSnapshot = {
+  actionPulse?: FizzDebuggerActionPulse
+  actionPulseDurationMs: number
+  actionPulses?: FizzDebuggerActionPulse[]
   connectedAt: number
   currentState: FizzDebuggerStateSnapshot
   hasMonitor: boolean
   history: FizzDebuggerStateSnapshot[]
   label: string
+  machineGraph?: FizzDebuggerMachineGraph
   runtimeId: string
   scheduled: FizzDebuggerScheduledItem[]
   timeline: FizzDebuggerTimelineEntry[]
@@ -72,9 +109,26 @@ export type RegisterRuntimeOptions = {
 }
 
 export type CreateFizzChromeDebuggerOptions = {
+  actionPulseDurationMs?: number
   maxTimelineEntries?: number
   now?: () => number
   transport?: FizzDebuggerTransport
+}
+
+export type RegisterMachineGraphOptions = {
+  graph: FizzDebuggerMachineGraph
+  label?: string
+  runtimeId?: string
+  target?: typeof globalThis
+}
+
+type FizzDebuggerMachineGraphRegistry = {
+  byLabel: Map<string, FizzDebuggerMachineGraph>
+  byRuntimeId: Map<string, FizzDebuggerMachineGraph>
+}
+
+type FizzDebuggerMachineGraphTarget = typeof globalThis & {
+  [FIZZ_CHROME_DEBUGGER_MACHINE_GRAPH_REGISTRY_KEY]?: FizzDebuggerMachineGraphRegistry
 }
 
 export type InstallFizzChromeDebuggerOptions = {
@@ -89,6 +143,8 @@ export type InstalledFizzChromeDebugger = {
 }
 
 type RuntimeRecord = {
+  actionPulse?: FizzDebuggerActionPulse
+  actionPulses: FizzDebuggerActionPulse[]
   connectedAt: number
   eventCounter: number
   hasMonitor: boolean
@@ -101,6 +157,95 @@ type RuntimeRecord = {
 }
 
 const debuggerSource = "@repo/fizz-chrome-debugger" as const
+
+const getOrCreateMachineGraphRegistry = (
+  target: typeof globalThis = globalThis,
+): FizzDebuggerMachineGraphRegistry => {
+  const graphTarget = target as FizzDebuggerMachineGraphTarget
+  const existing = graphTarget[FIZZ_CHROME_DEBUGGER_MACHINE_GRAPH_REGISTRY_KEY]
+
+  if (existing) {
+    return existing
+  }
+
+  const created: FizzDebuggerMachineGraphRegistry = {
+    byLabel: new Map<string, FizzDebuggerMachineGraph>(),
+    byRuntimeId: new Map<string, FizzDebuggerMachineGraph>(),
+  }
+
+  graphTarget[FIZZ_CHROME_DEBUGGER_MACHINE_GRAPH_REGISTRY_KEY] = created
+
+  return created
+}
+
+const readMachineGraphRegistry = (
+  target: typeof globalThis = globalThis,
+): FizzDebuggerMachineGraphRegistry | undefined => {
+  const graphTarget = target as FizzDebuggerMachineGraphTarget
+
+  return graphTarget[FIZZ_CHROME_DEBUGGER_MACHINE_GRAPH_REGISTRY_KEY]
+}
+
+const resolveMachineGraph = (
+  runtimeId: string,
+  label: string,
+): FizzDebuggerMachineGraph | undefined => {
+  const registry = readMachineGraphRegistry()
+
+  if (!registry) {
+    return undefined
+  }
+
+  const byRuntimeId = registry.byRuntimeId.get(runtimeId)
+
+  if (byRuntimeId !== undefined) {
+    return byRuntimeId
+  }
+
+  return registry.byLabel.get(label)
+}
+
+export const registerFizzDebuggerMachineGraph = (
+  options: RegisterMachineGraphOptions,
+): (() => void) => {
+  if (!options.label && !options.runtimeId) {
+    throw new Error(
+      "registerFizzDebuggerMachineGraph requires either label or runtimeId",
+    )
+  }
+
+  const registry = getOrCreateMachineGraphRegistry(options.target)
+
+  if (options.label) {
+    registry.byLabel.set(options.label, options.graph)
+  }
+
+  if (options.runtimeId) {
+    registry.byRuntimeId.set(options.runtimeId, options.graph)
+  }
+
+  return () => {
+    const nextRegistry = readMachineGraphRegistry(options.target)
+
+    if (!nextRegistry) {
+      return
+    }
+
+    if (
+      options.label &&
+      nextRegistry.byLabel.get(options.label) === options.graph
+    ) {
+      nextRegistry.byLabel.delete(options.label)
+    }
+
+    if (
+      options.runtimeId &&
+      nextRegistry.byRuntimeId.get(options.runtimeId) === options.graph
+    ) {
+      nextRegistry.byRuntimeId.delete(options.runtimeId)
+    }
+  }
+}
 
 const createBrowserTransport = (): FizzDebuggerTransport => ({
   emit: message => {
@@ -196,6 +341,8 @@ export const createFizzChromeDebugger = (
   options: CreateFizzChromeDebuggerOptions = {},
 ) => {
   const now = options.now ?? (() => Date.now())
+  const actionPulseDurationMs =
+    options.actionPulseDurationMs ?? DEFAULT_ACTION_PULSE_DURATION_MS
   const maxTimelineEntries =
     options.maxTimelineEntries ?? DEFAULT_MAX_TIMELINE_ENTRIES
   const transport = options.transport ?? createBrowserTransport()
@@ -205,24 +352,39 @@ export const createFizzChromeDebugger = (
   const createSnapshot = (
     record: RuntimeRecord,
   ): FizzDebuggerRuntimeSnapshot => {
+    const snapshotTime = now()
     const currentState = record.runtime?.currentState() ?? {
       data: undefined,
       name: "disconnected",
     }
+    const machineGraph = resolveMachineGraph(record.runtimeId, record.label)
+    const activeActionPulses = record.actionPulses.filter(
+      pulse => snapshotTime - pulse.at <= actionPulseDurationMs,
+    )
+
+    record.actionPulses = activeActionPulses
+
+    const actionPulse = activeActionPulses.at(-1)
 
     const history = record.runtime
       ? record.runtime.currentHistory().toArray().map(createStateSnapshot)
       : [createStateSnapshot(currentState)]
 
     return {
+      ...(actionPulse === undefined ? {} : { actionPulse }),
+      ...(activeActionPulses.length === 0
+        ? {}
+        : { actionPulses: activeActionPulses }),
       runtimeId: record.runtimeId,
       label: record.label,
+      actionPulseDurationMs,
       connectedAt: record.connectedAt,
       currentState: createStateSnapshot(currentState),
       history,
+      ...(machineGraph === undefined ? {} : { machineGraph }),
       scheduled: [...record.scheduled.values()],
       timeline: record.timeline,
-      updatedAt: now(),
+      updatedAt: snapshotTime,
       hasMonitor: record.hasMonitor,
     }
   }
@@ -248,6 +410,7 @@ export const createFizzChromeDebugger = (
     const created: RuntimeRecord = {
       runtimeId,
       label: runtimeId,
+      actionPulses: [],
       connectedAt: now(),
       eventCounter: 0,
       hasMonitor: false,
@@ -317,6 +480,20 @@ export const createFizzChromeDebugger = (
 
     return event => {
       updateScheduled(record.scheduled, event)
+
+      if (event.type === "action-enqueued") {
+        const currentStateName = record.runtime?.currentState()?.name
+
+        record.actionPulse = {
+          actionType: event.action.type,
+          at: now(),
+          ...(currentStateName === undefined
+            ? {}
+            : { fromState: currentStateName }),
+        }
+        record.actionPulses = [...record.actionPulses, record.actionPulse]
+      }
+
       appendTimeline(record, event.type, toTimelinePayload(record, event))
 
       if (event.type === "output-emitted") {
@@ -350,6 +527,18 @@ export const createFizzChromeDebugger = (
       runtimeId,
       source: debuggerSource,
     })
+  }
+
+  const refreshRuntime = (runtimeId: string) => {
+    const record = records.get(runtimeId)
+
+    if (!record) {
+      return false
+    }
+
+    emitSnapshot("runtime-updated", record)
+
+    return true
   }
 
   const registerRuntime = ({
@@ -447,6 +636,7 @@ export const createFizzChromeDebugger = (
     createMonitor,
     disconnectRuntime,
     nextRuntimeId,
+    refreshRuntime,
     registerRuntime,
     replay,
     snapshot,
@@ -456,8 +646,17 @@ export const createFizzChromeDebugger = (
 export const installFizzChromeDebugger = (
   options: InstallFizzChromeDebuggerOptions = {},
 ): InstalledFizzChromeDebugger => {
+  const readRuntimeChromeDebuggerRegistry =
+    getRuntimeChromeDebuggerRegistry as unknown as (
+      target?: typeof globalThis,
+    ) =>
+      | {
+          runtimes: Map<string, RuntimeChromeDebuggerRegistryEntry>
+        }
+      | undefined
   const chromeDebugger = createFizzChromeDebugger(options.debuggerOptions)
   const cleanupByRuntimeId = new Map<string, () => void>()
+  const hasMachineGraphByRuntimeId = new Map<string, boolean>()
   const hookTarget = options.target ?? globalThis
   const pollIntervalMs = options.pollIntervalMs ?? 250
 
@@ -493,6 +692,7 @@ export const installFizzChromeDebugger = (
 
       cleanedUp = true
       cleanupByRuntimeId.delete(runtimeId)
+      hasMachineGraphByRuntimeId.delete(runtimeId)
       stopMonitor()
       stopRuntime()
       stopDisconnect()
@@ -510,25 +710,34 @@ export const installFizzChromeDebugger = (
   }
 
   const syncRegistryRuntimes = () => {
-    const registry = getRuntimeChromeDebuggerRegistry(hookTarget) as
-      | {
-          runtimes: Map<string, RuntimeChromeDebuggerRegistryEntry>
-        }
-      | undefined
+    const registry = readRuntimeChromeDebuggerRegistry(hookTarget)
     const nextRegistryRuntimeIds = new Set<string>()
     const entries = registry ? [...registry.runtimes.values()] : []
 
-    entries.forEach((entry: RuntimeChromeDebuggerRegistryEntry) => {
+    entries.forEach(entry => {
+      const wasAttached = cleanupByRuntimeId.has(entry.runtimeId)
+      const hadMachineGraph = hasMachineGraphByRuntimeId.get(entry.runtimeId)
+
       nextRegistryRuntimeIds.add(entry.runtimeId)
       attachRuntime({
         ...(entry.label === undefined ? {} : { label: entry.label }),
         runtime: entry.runtime,
         runtimeId: entry.runtimeId,
       })
+
+      const hasMachineGraph =
+        chromeDebugger.snapshot(entry.runtimeId)?.machineGraph !== undefined
+
+      if (wasAttached && hadMachineGraph === false && hasMachineGraph) {
+        chromeDebugger.refreshRuntime(entry.runtimeId)
+      }
+
+      hasMachineGraphByRuntimeId.set(entry.runtimeId, hasMachineGraph)
     })
     ;[...cleanupByRuntimeId.keys()]
       .filter(runtimeId => !nextRegistryRuntimeIds.has(runtimeId))
       .forEach(runtimeId => {
+        hasMachineGraphByRuntimeId.delete(runtimeId)
         cleanupByRuntimeId.get(runtimeId)?.()
       })
   }
