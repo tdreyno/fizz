@@ -4,10 +4,10 @@ Fizz ships a `fizz` command-line interface for repository and machine-level tool
 
 ## Commands
 
-| Command          | Purpose                                                                   |
-| ---------------- | ------------------------------------------------------------------------- |
-| `fizz machines`  | List discovered Fizz machine roots under the current folder.              |
-| `fizz visualize` | Discover a canonical Fizz machine and write text or SVG diagrams to disk. |
+| Command          | Purpose                                                                             |
+| ---------------- | ----------------------------------------------------------------------------------- |
+| `fizz machines`  | List discovered Fizz machine roots under the current folder.                        |
+| `fizz visualize` | Discover a canonical Fizz machine and write text, SVG, or Mermaid diagrams to disk. |
 
 ## `fizz machines`
 
@@ -33,6 +33,7 @@ npx fizz visualize \
   --source ./src/loadingMachine/index.ts \
   --format text \
   --format svg \
+  --format mermaid \
   --output-dir ./src/loadingMachine \
   --no-interactive
 ```
@@ -43,7 +44,7 @@ This is the same shape used in this repository to keep the built-in LoadingMachi
 
 - `--machine <name>` selects one discovered machine by name
 - `--source <path>` targets a specific machine entrypoint
-- `--format <type>` chooses `text` or `svg`; repeat it to render both
+- `--format <type>` chooses `text`, `svg`, or `mermaid`; repeat it to render multiple formats
 - `--output <path>` writes a single rendered format to one explicit file path
 - `--output-dir <path>` chooses the directory used for generated files
 - `--cwd <path>` changes the search root for discovery
@@ -58,7 +59,7 @@ When you omit `--machine`, `--source`, or `--format`, the CLI can prompt for the
 npx fizz visualize
 ```
 
-The command will scan from the current working directory, list discovered canonical Fizz machines, ask which one to render, then ask whether to generate text, SVG, or both.
+The command will scan from the current working directory, list discovered canonical Fizz machines, ask which one to render, then ask whether to generate text, SVG, Mermaid, or a combined output selection.
 
 ### Example text output
 
@@ -129,7 +130,7 @@ Version 1 intentionally targets explicit machine roots created with `createMachi
 - state files are still built with `state(...)`
 - nested state files are still built with `stateWithNested(...)`
 
-When a parent state owns a nested machine, the text and SVG renderers show that relationship explicitly: the parent lists its nested entry state, nested child states render inside the parent's nested boundary in SVG, and child transitions are included in the diagram output.
+When a parent state owns a nested machine, the text, SVG, and Mermaid renderers show that relationship explicitly: the parent lists its nested entry state, nested child states render inside the parent's nested boundary for diagram outputs, and child transitions are included in the generated graph.
 
 That keeps the generated diagrams deterministic and makes it practical to use the command in automation.
 

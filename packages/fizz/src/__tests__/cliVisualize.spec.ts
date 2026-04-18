@@ -13,6 +13,7 @@ import {
   buildMachineGraph,
   discoverMachineCandidates,
 } from "../cli/visualize/machineGraph.js"
+import { renderMachineGraphMermaid } from "../cli/visualize/renderMermaid.js"
 import { renderMachineGraphSvg } from "../cli/visualize/renderSvg.js"
 import { renderMachineGraphText } from "../cli/visualize/renderText.js"
 
@@ -146,6 +147,7 @@ describe("fizz visualize", () => {
     expect(exitCode).toBe(0)
     expect(stderr).toEqual([])
     expect(stdout.join("")).toContain("fizz visualize")
+    expect(stdout.join("")).toContain("text, svg, or mermaid")
     expect(stdout.join("")).toContain("--output-dir <path>")
     expect(stdout.join("")).not.toContain("Commands:\n  machines")
   })
@@ -316,6 +318,7 @@ describe("fizz visualize", () => {
       stateIndexPath: nestedMachineStateIndexPath,
     })
     const textOutput = renderMachineGraphText(graph)
+    const mermaidOutput = renderMachineGraphMermaid(graph)
     const svgOutput = renderMachineGraphSvg(graph)
 
     expect(graph.entryState).toBe("Entry")
@@ -363,6 +366,11 @@ describe("fizz visualize", () => {
     expect(textOutput).toContain("[FormInvalid]")
     expect(textOutput).toContain("  SetName -> [FormInvalid]")
     expect(textOutput).toContain("  SetName -> [FormValid]")
+    expect(mermaidOutput).toContain("stateDiagram-v2")
+    expect(mermaidOutput).toContain("state Entry {")
+    expect(mermaidOutput).toContain("[*] --> FormInvalid")
+    expect(mermaidOutput).toContain("FormInvalid --> FormInvalid : SetName")
+    expect(mermaidOutput).toContain("FormInvalid --> FormValid : SetName")
     expect(svgOutput).toContain("Nested machine: Entry")
     expect(svgOutput).toContain(">contains</text>")
     expect(svgOutput).toContain("FormInvalid")
@@ -473,6 +481,15 @@ describe("fizz visualize", () => {
         "Choose output format",
       ])
       expect(prompts[0]?.choices).toEqual(["LoadingMachine"])
+      expect(prompts[1]?.choices).toEqual([
+        "text",
+        "svg",
+        "mermaid",
+        "text,svg",
+        "text,mermaid",
+        "svg,mermaid",
+        "text,svg,mermaid",
+      ])
       expect(stdout.join("")).toContain("Wrote TEXT diagram")
     } finally {
       await rm(outputDirectory, { force: true, recursive: true })
@@ -565,6 +582,8 @@ describe("fizz visualize", () => {
           "text",
           "--format",
           "svg",
+          "--format",
+          "mermaid",
           "--output-dir",
           outputDirectory,
           "--no-interactive",
@@ -580,11 +599,16 @@ describe("fizz visualize", () => {
         resolve(outputDirectory, "visualization.svg"),
         "utf8",
       )
+      const mermaidOutput = await readFile(
+        resolve(outputDirectory, "visualization.mmd"),
+        "utf8",
+      )
 
       expect(exitCode).toBe(0)
       expect(stderr).toEqual([])
       expect(stdout.join("\n")).toContain("Wrote TEXT diagram")
       expect(stdout.join("\n")).toContain("Wrote SVG diagram")
+      expect(stdout.join("\n")).toContain("Wrote MERMAID diagram")
       expect(textOutput).toContain("Source: src/loadingMachine/index.ts")
       expect(textOutput).toContain("StartLoading -> Loading")
       expect(textOutput).toContain("FinishedLoading -> Ready")
@@ -593,6 +617,66 @@ describe("fizz visualize", () => {
       expect(svgOutput).toContain("StartLoading")
       expect(svgOutput).toContain("FinishedLoading")
       expect(svgOutput).toContain("Reset (history back)")
+      expect(mermaidOutput).toContain("stateDiagram-v2")
+      expect(mermaidOutput).toContain("title LoadingMachine state diagram")
+      expect(mermaidOutput).toContain("Initializing --> Loading : StartLoading")
+      expect(mermaidOutput).toContain("Loading --> Ready : FinishedLoading")
+      expect(mermaidOutput).toContain(
+        "Ready --> History : Reset (history back)",
+      )
+    } finally {
+      await rm(outputDirectory, { force: true, recursive: true })
+    }
+  })
+
+  test("writes mermaid output to .mmd by default and supports single-format --output", async () => {
+    const outputDirectory = await mkdtemp(
+      join(tmpdir(), "fizz-visualize-mermaid-"),
+    )
+
+    try {
+      const { io, stderr } = createNonInteractiveIo()
+      const explicitOutputPath = resolve(outputDirectory, "custom.mmd")
+      const defaultOutputPath = resolve(outputDirectory, "visualization.mmd")
+      const defaultExitCode = await runCli(
+        [
+          "visualize",
+          "--cwd",
+          packageRoot,
+          "--source",
+          "./src/loadingMachine/index.ts",
+          "--format",
+          "mermaid",
+          "--output-dir",
+          outputDirectory,
+          "--no-interactive",
+        ],
+        io,
+      )
+      const defaultOutput = await readFile(defaultOutputPath, "utf8")
+
+      const explicitExitCode = await runCli(
+        [
+          "visualize",
+          "--cwd",
+          packageRoot,
+          "--source",
+          "./src/loadingMachine/index.ts",
+          "--format",
+          "mermaid",
+          "--output",
+          explicitOutputPath,
+          "--no-interactive",
+        ],
+        io,
+      )
+      const explicitOutput = await readFile(explicitOutputPath, "utf8")
+
+      expect(defaultExitCode).toBe(0)
+      expect(explicitExitCode).toBe(0)
+      expect(stderr).toEqual([])
+      expect(defaultOutput).toContain("stateDiagram-v2")
+      expect(explicitOutput).toContain("stateDiagram-v2")
     } finally {
       await rm(outputDirectory, { force: true, recursive: true })
     }

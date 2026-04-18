@@ -1,0 +1,22 @@
+stateDiagram-v2
+title LoadingMachine state diagram
+
+%% Source: src/loadingMachine/index.ts
+%% Entry: Initializing
+
+%% Initializing note: Enter: dispatches StartLoading
+%% Ready note: Enter: emits output
+%% Ready note: Reset: uses goBack
+%% Ready output: Hello
+
+[*] --> Initializing
+
+state Initializing
+state Loading
+state Ready
+
+Initializing --> Loading : StartLoading
+Loading --> Ready : FinishedLoading
+Loading --> Loading : Update
+Ready --> History : Reset (history back)
+Ready --> Ready : World

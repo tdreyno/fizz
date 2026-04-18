@@ -171,7 +171,7 @@ export const createDefaultCliIo = (): CliIo => ({
   writeError: message => process.stderr.write(message),
 })
 
-const ROOT_HELP = `fizz\n\nUsage:\n  fizz <command> [options]\n\nCommands:\n  machines    List discovered Fizz machines\n  visualize   Discover a Fizz machine and write text or SVG diagrams to disk\n\nGlobal options:\n  -h, --help  Show this help text\n`
+const ROOT_HELP = `fizz\n\nUsage:\n  fizz <command> [options]\n\nCommands:\n  machines    List discovered Fizz machines\n  visualize   Discover a Fizz machine and write text, SVG, or Mermaid diagrams to disk\n\nGlobal options:\n  -h, --help  Show this help text\n`
 
 export const runCli = async (
   rawArgs: Array<string>,

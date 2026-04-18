@@ -9,12 +9,13 @@ import {
 } from "../machineDiscovery.js"
 import type { MachineCandidate, MachineGraph } from "./machineGraph.js"
 import { buildMachineGraph } from "./machineGraph.js"
+import { renderMachineGraphMermaid } from "./renderMermaid.js"
 import { renderMachineGraphSvg } from "./renderSvg.js"
 import { renderMachineGraphText } from "./renderText.js"
 
-type OutputFormat = "svg" | "text"
+type OutputFormat = "mermaid" | "svg" | "text"
 
-const VISUALIZE_HELP = `fizz visualize\n\nUsage:\n  fizz visualize [options]\n\nOptions:\n  --machine <name>      Select a discovered machine by name\n  --source <path>       Select a specific machine entrypoint or states index file\n  --format <type>       Output format: text or svg. Repeat to render both\n  --output <path>       Output file path when rendering a single format\n  --output-dir <path>   Output directory for generated files\n  --cwd <path>          Root directory to search. Defaults to the current working directory\n  --no-interactive      Fail instead of prompting for missing inputs\n  -h, --help            Show this help text\n`
+const VISUALIZE_HELP = `fizz visualize\n\nUsage:\n  fizz visualize [options]\n\nOptions:\n  --machine <name>      Select a discovered machine by name\n  --source <path>       Select a specific machine entrypoint or states index file\n  --format <type>       Output format: text, svg, or mermaid. Repeat to render multiple\n  --output <path>       Output file path when rendering a single format\n  --output-dir <path>   Output directory for generated files\n  --cwd <path>          Root directory to search. Defaults to the current working directory\n  --no-interactive      Fail instead of prompting for missing inputs\n  -h, --help            Show this help text\n`
 
 const parseFormats = (values: Array<string>): Array<OutputFormat> => {
   const formats = values.flatMap(value =>
@@ -25,7 +26,8 @@ const parseFormats = (values: Array<string>): Array<OutputFormat> => {
   )
 
   return Array.from(new Set(formats)).filter(
-    (format): format is OutputFormat => format === "svg" || format === "text",
+    (format): format is OutputFormat =>
+      format === "mermaid" || format === "svg" || format === "text",
   )
 }
 
@@ -33,7 +35,11 @@ const promptForFormats = async (io: CliIo): Promise<Array<OutputFormat>> => {
   const answer = await io.promptSelect("Choose output format", [
     { label: "Text", value: "text" },
     { label: "SVG", value: "svg" },
+    { label: "Mermaid", value: "mermaid" },
     { label: "Text and SVG", value: "text,svg" },
+    { label: "Text and Mermaid", value: "text,mermaid" },
+    { label: "SVG and Mermaid", value: "svg,mermaid" },
+    { label: "Text, SVG, and Mermaid", value: "text,svg,mermaid" },
   ])
 
   return parseFormats([answer])
@@ -70,11 +76,16 @@ const promptForCandidate = async (
 const getDefaultOutputPath = (
   format: OutputFormat,
   outputDirectory: string,
-): string =>
-  join(
+): string => {
+  if (format === "mermaid") {
+    return join(outputDirectory, "visualization.mmd")
+  }
+
+  return join(
     outputDirectory,
     format === "svg" ? "visualization.svg" : "visualization.txt",
   )
+}
 
 const writeGraphOutput = async (
   graph: MachineGraph,
@@ -83,9 +94,11 @@ const writeGraphOutput = async (
 ): Promise<void> => {
   const fs = await import("node:fs/promises")
   const contents =
-    format === "svg"
-      ? renderMachineGraphSvg(graph)
-      : renderMachineGraphText(graph)
+    format === "mermaid"
+      ? renderMachineGraphMermaid(graph)
+      : format === "svg"
+        ? renderMachineGraphSvg(graph)
+        : renderMachineGraphText(graph)
 
   await fs.mkdir(dirname(targetPath), { recursive: true })
   await fs.writeFile(targetPath, contents, "utf8")
@@ -191,7 +204,7 @@ export const executeVisualizeCommand = async (
 
   if (formats.length === 0) {
     io.writeError(
-      "No output formats selected. Provide --format text, --format svg, or run interactively.\n",
+      "No output formats selected. Provide --format text, --format svg, --format mermaid, or run interactively.\n",
     )
     return 1
   }
