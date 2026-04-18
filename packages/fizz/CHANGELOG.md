@@ -1,5 +1,11 @@
 # @tdreyno/fizz
 
+## 8.1.0
+
+### Minor Changes
+
+- 39c2c4b: Add Mermaid output support to `fizz visualize` via `--format mermaid`, including `.mmd` default output and updated loading-machine visualization artifacts.
+
 ## 8.0.0
 
 ### Major Changes
