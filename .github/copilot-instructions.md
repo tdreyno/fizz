@@ -65,6 +65,7 @@
 - Keep public API changes intentional and documented.
 - Preserve backward compatibility unless explicitly asked to introduce a breaking change.
 - Update docs/examples when behavior or API changes materially.
+- Follow `preferences.md` requirements for keeping `skills/fizz/references/**` synchronized with public API and behavior changes.
 - When changing `packages/fizz/src/cli/**` or `packages/fizz/src/loadingMachine/**`, rerun `npm run visualize:loading-machine` in `packages/fizz` and keep `packages/fizz/src/loadingMachine/visualization.txt` and `packages/fizz/src/loadingMachine/visualization.svg` in sync.
 - Use `npm run visualize:loading-machine:check` in `packages/fizz` when validating changes that affect the visualizer or `LoadingMachine`.
 

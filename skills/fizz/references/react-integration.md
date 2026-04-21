@@ -8,6 +8,7 @@ Use this reference when the task involves `@tdreyno/fizz-react`, React component
 
 - `useMachine(...)`
 - `createMachineContext(...)`
+- `useMachineSubscription(...)`
 
 The current hook implementation in `packages/fizz-react/src/useMachine.ts`:
 
@@ -55,6 +56,26 @@ Define states and action creators outside the component body unless the task spe
 ### Use bound actions from the hook
 
 The hook binds runtime actions for you. Prefer calling the returned `actions` object instead of reaching into the runtime manually from the component.
+
+### Use `useMachineSubscription(...)` for imperative observation
+
+When a component needs to react to transitions imperatively (analytics pings, closing a modal after state exit, bridge callbacks), prefer `useMachineSubscription(...)` instead of wiring manual runtime listeners.
+
+- `useMachineSubscription(machine, listener, options?)`
+- options: `{ emitCurrent?: boolean }`
+- listener receives `(currentState, context)`
+
+```typescript
+useMachineSubscription(
+  machine,
+  currentState => {
+    if (currentState.is(machine.states.Saved)) {
+      onClose()
+    }
+  },
+  { emitCurrent: true },
+)
+```
 
 ### Be careful with initialization assumptions
 

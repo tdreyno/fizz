@@ -83,9 +83,35 @@ The intended direction is a dedicated test helper subpath:
 - `@tdreyno/fizz/test`
 - `createTestHarness(...)`
 - `deferred()`
+- `settle(options?)`
+- `waitForState(predicate, options?)`
+- `waitForOutput(typeOrPredicate, options?)`
 - `respondToOutput(...)`
 
 This is current API surface for reusable Fizz testing helpers.
+
+## Harness Waiting Helpers
+
+Use the harness waiting helpers when a test should pause until machine activity settles, a state appears, or an output is emitted.
+
+- `settle({ maxIterations? })`: drains queued async and due timer work until no additional state or output activity is observed.
+- `waitForState(predicate, { maxIterations?, settleBetweenChecks? })`: checks immediately, then retries with bounded settle cycles.
+- `waitForOutput(typeOrPredicate, { maxIterations?, settleBetweenChecks? })`: waits by output type string or predicate with the same bounded retry behavior.
+
+```typescript
+const harness = createTestHarness({
+  history: [Loading({ events: [] })],
+  internalActions: { profileLoaded },
+  outputActions: { fetchProfile },
+})
+
+await harness.start()
+await harness.settle()
+await harness.waitForState(state => state.is(Done))
+
+const output = await harness.waitForOutput("FetchProfile")
+expect(output.type).toBe("FetchProfile")
+```
 
 ## Source Anchors
 

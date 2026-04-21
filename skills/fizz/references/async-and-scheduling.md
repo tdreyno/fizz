@@ -66,6 +66,41 @@ Use `.chainToAction(...)` when the settled value should feed back into the machi
 
 If the task is about UI behavior after success or failure, action chaining is usually the better default.
 
+## `waitState(...)` timeout forms
+
+`waitState(...)` supports a timeout option that can be either a number or an object form.
+
+- `timeout: number`
+  - schedules timeout with `setTimeout(...)`
+- `timeout: { delay: number, id?: string }`
+  - schedules timeout through Fizz timer scheduling
+  - allows a stable timeout id for matching and control
+
+The exported timeout type is `WaitStateTimeout`.
+
+```typescript
+import { waitState, type WaitStateTimeout } from "@tdreyno/fizz"
+
+const timeout: WaitStateTimeout = {
+  delay: 1500,
+  id: "wait-profile",
+}
+
+const WaitForProfile = waitState(
+  fetchProfile,
+  profileLoaded,
+  (data, payload, { update }) =>
+    update({
+      ...data,
+      profileName: payload.name,
+    }),
+  {
+    name: "WaitForProfile",
+    timeout,
+  },
+)
+```
+
 ## Cancellation
 
 Use `cancelAsync(asyncId)` when a machine should actively cancel in-flight work.

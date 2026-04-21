@@ -13,3 +13,5 @@
 - Changesets should use the published workspace package name in frontmatter, for example `"@tdreyno/fizz": patch|minor|major`.
 - Choose `patch` for backwards-compatible fixes, `minor` for backwards-compatible features, and `major` for breaking public API or behavior changes.
 - Keep changeset bodies short and include migration guidance for breaking changes.
+- When code changes add, remove, or alter public APIs/behavior, update matching skill reference docs in `skills/fizz/references/**` in the same change.
+- Treat `skills/fizz/references/**` as release-facing docs: keep signatures, option shapes, exports, and examples aligned with current source and tests.
