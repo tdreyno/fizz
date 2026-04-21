@@ -18,6 +18,7 @@
 - [Chrome Debugger](docs/chrome-debugger.md)
 - [Custom Effects](docs/custom-effects.md)
 - [Complex Actions](docs/complex-actions.md)
+- [Fluent API](docs/fluent-api.md)
 - [Nested State Machines](docs/nested-state-machines.md)
 
 ## Utilities

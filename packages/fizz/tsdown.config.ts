@@ -3,6 +3,7 @@ import { defineConfig } from "tsdown"
 export default defineConfig({
   entry: {
     cli: "src/cli.ts",
+    fluent: "src/fluent.ts",
     index: "src/index.ts",
     test: "src/test.ts",
   },

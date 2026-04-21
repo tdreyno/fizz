@@ -21,6 +21,7 @@ Use this skill when the task involves:
 - Adding timers, intervals, or frame-driven behavior from a state handler
 - Debouncing or throttling high-frequency handlers with `debounce(...)` and `throttle(...)`
 - Using state helper APIs like `switch_(...)`, `whichTimeout(...)`, `whichInterval(...)`, `waitState(...)`, or `isStateTransition(...)`
+- Using the optional fluent entry point `@tdreyno/fizz/fluent` for chain-first state authoring
 - Writing or reviewing deterministic tests for Fizz machines or runtimes
 - Debugging stale async completions, cancellation, or state-entry behavior
 - Integrating a Fizz machine into React with `useMachine(...)` or `createMachineContext(...)`
@@ -69,6 +70,7 @@ If async work may outlive the current state instance, give it an explicit `async
 ### Core modeling
 
 - Use `state(...)` for flat state definitions and `stateWithNested(...)` when the machine genuinely needs nested state composition.
+- Use `@tdreyno/fizz/fluent` when a task explicitly prefers creator-first chained responder registration.
 - Use `switch_(...)`, `whichTimeout(...)`, and `whichInterval(...)` to keep state branching explicit and exhaustive.
 - Use `waitState(...)` for request-on-enter and response-driven transition flows.
 - Use named actions created up front and wire them into the runtime action map.
@@ -134,6 +136,7 @@ If the task is about React integration, read `references/react-integration.md`.
 - `references/testing.md` for deterministic machine testing, controlled drivers, and the `@tdreyno/fizz/test` subpath
 - `references/react-integration.md` for `useMachine(...)`, `createMachineContext(...)`, and React-specific guidance
 - `references/examples.md` for short copyable usage patterns
+- `references/fluent-api.md` for the optional fluent state authoring entry point
 
 ## Source Anchors
 

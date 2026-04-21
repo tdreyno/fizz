@@ -9,6 +9,18 @@ Dedicated guides already cover the deeper scheduling and testing APIs:
 - [Intervals And Frames](./intervals.md)
 - [Testing](./testing.md)
 
+Optional fluent authoring style:
+
+- [Fluent API](./fluent-api.md)
+
+Use the fluent entry point when you prefer chain-first state definitions:
+
+```ts
+import { state } from "@tdreyno/fizz/fluent"
+```
+
+The root `@tdreyno/fizz` object-style APIs remain fully supported.
+
 ## Machines
 
 ### `createMachine`

@@ -30,6 +30,11 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
+    "./fluent": {
+      "types": "./dist/fluent.d.ts",
+      "import": "./dist/fluent.js",
+      "require": "./dist/fluent.cjs"
+    },
     "./test": {
       "types": "./dist/test.d.ts",
       "import": "./dist/test.js",

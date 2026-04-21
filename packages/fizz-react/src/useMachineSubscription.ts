@@ -15,6 +15,25 @@ export type MachineSubscriptionListener<
   context: ContextValue<SM, AM, OAM>["context"],
 ) => void
 
+export type StateExitListener<
+  SM extends { [key: string]: AnyBoundState },
+  AM extends ActionMap,
+  OAM extends ActionMap,
+> = (
+  state: ReturnType<SM[keyof SM]>,
+  context: ContextValue<SM, AM, OAM>["context"],
+) => void
+
+export const useStateMatch = <
+  SM extends { [key: string]: AnyBoundState },
+  AM extends ActionMap,
+  OAM extends ActionMap,
+  S extends SM[keyof SM],
+>(
+  machine: ContextValue<SM, AM, OAM>,
+  targetState: S,
+): boolean => machine.currentState.name === targetState.name
+
 export const useMachineSubscription = <
   SM extends { [key: string]: AnyBoundState },
   AM extends ActionMap,
@@ -53,4 +72,41 @@ export const useMachineSubscription = <
       notify(context)
     })
   }, [machine.runtime, emitCurrent])
+}
+
+export const useOnStateExit = <
+  SM extends { [key: string]: AnyBoundState },
+  AM extends ActionMap,
+  OAM extends ActionMap,
+  S extends SM[keyof SM],
+>(
+  machine: ContextValue<SM, AM, OAM>,
+  targetState: S,
+  listener: StateExitListener<SM, AM, OAM>,
+  options: MachineSubscriptionOptions = {},
+): void => {
+  const listenerRef = useRef(listener)
+  const wasInStateRef = useRef(machine.currentState.name === targetState.name)
+
+  useEffect(() => {
+    listenerRef.current = listener
+  }, [listener])
+
+  useEffect(() => {
+    wasInStateRef.current = machine.currentState.name === targetState.name
+  }, [machine.currentState, targetState])
+
+  useMachineSubscription(
+    machine,
+    (currentState, context) => {
+      const isInTargetState = currentState.name === targetState.name
+
+      if (wasInStateRef.current && !isInTargetState) {
+        listenerRef.current(currentState, context)
+      }
+
+      wasInStateRef.current = isInTargetState
+    },
+    options,
+  )
 }

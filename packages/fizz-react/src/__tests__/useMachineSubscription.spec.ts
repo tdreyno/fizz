@@ -9,7 +9,11 @@ import { createElement } from "react"
 
 import { createMachineContext } from "../createMachineContext"
 import { useMachine } from "../useMachine"
-import { useMachineSubscription } from "../useMachineSubscription"
+import {
+  useMachineSubscription,
+  useOnStateExit,
+  useStateMatch,
+} from "../useMachineSubscription"
 import { Machine, States } from "./machine"
 
 describe("useMachineSubscription", () => {
@@ -166,5 +170,62 @@ describe("useMachineSubscription", () => {
     })
 
     expect(firstListener).toHaveBeenCalledTimes(0)
+  })
+
+  test("provides state identity matching helper", async () => {
+    const { result } = renderHook(() => {
+      const machine = useMachine(
+        Machine,
+        Machine.states.Initializing({ didWorld: false }),
+      )
+
+      return {
+        isInitializing: useStateMatch(machine, Machine.states.Initializing),
+        isReady: useStateMatch(machine, Machine.states.Ready),
+        machine,
+      }
+    })
+
+    expect(result.current.isInitializing).toBeTruthy()
+    expect(result.current.isReady).toBeFalsy()
+
+    await act(async () => {
+      await result.current.machine.actions.world().asPromise()
+    })
+
+    await waitFor(() => {
+      expect(result.current.isReady).toBeTruthy()
+      expect(result.current.isInitializing).toBeFalsy()
+    })
+  })
+
+  test("runs callback when leaving a target state", async () => {
+    const listener = jest.fn<(name: string) => void>()
+
+    const { result } = renderHook(() => {
+      const machine = useMachine(
+        Machine,
+        Machine.states.Initializing({ didWorld: false }),
+      )
+
+      useOnStateExit(
+        machine,
+        Machine.states.Initializing,
+        state => {
+          listener(state.name)
+        },
+        { emitCurrent: true },
+      )
+
+      return machine
+    })
+
+    await act(async () => {
+      await result.current.actions.world().asPromise()
+    })
+
+    await waitFor(() => {
+      expect(listener).toHaveBeenCalledWith("Ready")
+    })
   })
 })

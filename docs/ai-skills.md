@@ -15,6 +15,7 @@ npx skills add tdreyno/fizz
 ## What The Skill Covers
 
 - Core `@tdreyno/fizz` state-machine modeling
+- Optional fluent state authoring with `@tdreyno/fizz/fluent`
 - Runtime setup with `createMachine(...)`, `createRuntime(machine, initialState, options?)`, and `enter()`
 - Async and scheduling helpers such as `startAsync(...)`, `requestJSONAsync(...)`, timers, intervals, and frame-based work
 - React integration through `@tdreyno/fizz-react` and `useMachine(...)`
