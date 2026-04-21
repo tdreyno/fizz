@@ -1,6 +1,6 @@
 # Async
 
-Fizz async operations let a state start promise-backed work without leaving the state machine model. You can use the low-level async helpers directly, or use `requestJSONAsync(...)` for the common JSON request flow.
+Fizz async operations let a state start promise-backed work without leaving the state machine model. You can use the low-level async helpers directly, use `requestJSONAsync(...)` for the common JSON request flow, or use `customJSONAsync(...)` when an app client already returns parsed JSON.
 
 Async operations are a good fit for `fetch`, form submission, loading related resources, and other request-shaped work where stale completions should be ignored automatically.
 
@@ -105,6 +105,31 @@ requestJSONAsync(input, init)
    |
    v
  action re-enters the machine
+```
+
+## JSON client calls with `customJSONAsync`
+
+`customJSONAsync(run, init?)` is a JSON builder for app client layers that already return parsed values.
+
+Use it when your app calls generated OpenAPI clients, Apollo, tRPC, or any SDK function that returns JSON-like payloads.
+
+It supports the same builder flow as `requestJSONAsync(...)`:
+
+- `customJSONAsync(run, init?).chainToAction(resolve, reject)`
+- `customJSONAsync(run, init?).validate(validator).chainToAction(resolve, reject)`
+
+`run` receives `(signal, context)` so cancellation can be wired into the client call.
+
+```text
+requestJSONAsync vs customJSONAsync
+
+requestJSONAsync(input, init?)
+- best for fetch request/response flows
+- handles response.ok and response.json() internally
+
+customJSONAsync(run, init?)
+- best for app client functions returning parsed payloads
+- lets the client call own transport and error behavior
 ```
 
 ## Common request example
@@ -245,6 +270,137 @@ const Loading = state<Enter | typeof profileLoaded>({
       "profile",
     ),
 })
+```
+
+## Apollo client example
+
+This pattern uses an Apollo client call that returns parsed data and maps it back into machine actions.
+
+```typescript
+import { Enter, action, customJSONAsync, state } from "@tdreyno/fizz"
+
+type Profile = {
+  id: string
+  name: string
+}
+
+type Data = {
+  error?: string
+  profileName?: string
+}
+
+const profileLoaded = action("ProfileLoaded").withPayload<Profile>()
+const profileFailed = action("ProfileFailed").withPayload<string>()
+
+const assertProfile = (value: unknown): asserts value is Profile => {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !("id" in value) ||
+    !("name" in value)
+  ) {
+    throw new Error("Invalid profile payload")
+  }
+}
+
+const Loading = state<Enter | typeof profileLoaded | typeof profileFailed, Data>(
+  {
+    Enter: (_, __, { context }) =>
+      customJSONAsync(
+        async (signal) => {
+          const result = await context.apollo.query({
+            context: {
+              fetchOptions: {
+                signal,
+              },
+            },
+            query: context.profileQuery,
+          })
+
+          return result.data.profile
+        },
+        { asyncId: "profile" },
+      )
+        .validate(assertProfile)
+        .chainToAction(profileLoaded, error =>
+          profileFailed(error instanceof Error ? error.message : "Unknown error"),
+        ),
+
+    ProfileLoaded: (data, profile, { update }) =>
+      update({
+        ...data,
+        profileName: profile.name,
+      }),
+
+    ProfileFailed: (data, message, { update }) =>
+      update({
+        ...data,
+        error: message,
+      }),
+  },
+)
+```
+
+## OpenAPI client example
+
+This pattern calls a generated OpenAPI client method and uses the same validation and action mapping shape.
+
+```typescript
+import { Enter, action, customJSONAsync, state } from "@tdreyno/fizz"
+
+type Profile = {
+  id: string
+  name: string
+}
+
+type Data = {
+  error?: string
+  profileName?: string
+}
+
+const profileLoaded = action("ProfileLoaded").withPayload<Profile>()
+const profileFailed = action("ProfileFailed").withPayload<string>()
+
+const assertProfile = (value: unknown): asserts value is Profile => {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !("id" in value) ||
+    !("name" in value)
+  ) {
+    throw new Error("Invalid profile payload")
+  }
+}
+
+const Loading = state<Enter | typeof profileLoaded | typeof profileFailed, Data>(
+  {
+    Enter: (_, __, { context }) =>
+      customJSONAsync(
+        signal =>
+          context.openApiClient.getProfile({
+            signal,
+            userId: context.userId,
+          }),
+        { asyncId: "profile" },
+      )
+        .validate(assertProfile)
+        .chainToAction(profileLoaded, error =>
+          profileFailed(error instanceof Error ? error.message : "Unknown error"),
+        ),
+
+    ProfileLoaded: (data, profile, { update }) =>
+      update({
+        ...data,
+        profileName: profile.name,
+      }),
+
+    ProfileFailed: (data, message, { update }) =>
+      update({
+        ...data,
+        error: message,
+      }),
+  },
+)
 ```
 
 ## Cancellation and stale completions

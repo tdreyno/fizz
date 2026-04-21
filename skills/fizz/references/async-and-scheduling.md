@@ -58,6 +58,35 @@ requestJSONAsync("/api/profile", { asyncId: "profile" })
 
 A validator may throw. If it throws, that thrown value is passed through to the reject handler unchanged.
 
+## `customJSONAsync(...)`
+
+Use `customJSONAsync(...)` when the app already has a client layer that returns parsed payloads.
+
+Key behavior:
+
+- it accepts a lazy client run function `(signal, context) => Promise<unknown>`
+- it supports the same `validate(...)` and `chainToAction(...)` builder flow as `requestJSONAsync(...)`
+- it supports optional `asyncId` for explicit cancellation with `cancelAsync(asyncId)`
+- validator-thrown values are passed to reject handlers unchanged
+
+```typescript
+customJSONAsync(
+  (signal, context) =>
+    context.apiClient.getProfile({
+      signal,
+      userId: context.userId,
+    }),
+  { asyncId: "profile" },
+)
+  .validate(assertProfile)
+  .chainToAction(profileLoaded, profileFailed)
+```
+
+Choose between the JSON helpers like this:
+
+- use `requestJSONAsync(...)` when Fizz should own fetch + response checks + json parsing
+- use `customJSONAsync(...)` when the client layer already owns transport and returns parsed payloads
+
 ## Bare async effects vs action chaining
 
 Use bare async effects when the request should happen but no follow-up action is needed.

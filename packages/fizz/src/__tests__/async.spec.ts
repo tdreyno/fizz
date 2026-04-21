@@ -4,7 +4,7 @@ import * as z from "zod"
 import type { ActionCreatorType, Enter } from "../action"
 import { action, enter } from "../action"
 import { createInitialContext } from "../context"
-import { noop, requestJSONAsync, startAsync } from "../effect"
+import { customJSONAsync, noop, requestJSONAsync, startAsync } from "../effect"
 import { createControlledAsyncDriver, Runtime } from "../runtime"
 import { state } from "../state"
 
@@ -574,6 +574,115 @@ describe("Async scheduled operations", () => {
     })
   })
 
+  test("should map customJSONAsync values to a user action", async () => {
+    const profileLoaded = action("ProfileLoaded").withPayload<Profile>()
+    type ProfileLoaded = ActionCreatorType<typeof profileLoaded>
+
+    const profileFailed = action("ProfileFailed").withPayload<string>()
+    type ProfileFailed = ActionCreatorType<typeof profileFailed>
+
+    const assertProfile = (value: unknown): asserts value is Profile => {
+      if (
+        typeof value !== "object" ||
+        value === null ||
+        !("id" in value) ||
+        !("name" in value)
+      ) {
+        throw new Error("Invalid profile payload")
+      }
+    }
+
+    const Loading = state<Enter | ProfileLoaded | ProfileFailed, Data>({
+      Enter: () =>
+        customJSONAsync(async () => ({ id: "9", name: "Mina" }))
+          .validate(assertProfile)
+          .chainToAction(profileLoaded, error =>
+            profileFailed(
+              error instanceof Error ? error.message : "Unknown error",
+            ),
+          ),
+
+      ProfileLoaded: (data, profile, { update }) =>
+        update({
+          ...appendEvent(data, `loaded:${profile.id}`),
+          profileName: profile.name,
+        }),
+
+      ProfileFailed: (data, message, { update }) =>
+        update({
+          ...appendEvent(data, "failed"),
+          error: message,
+        }),
+    })
+
+    const context = createInitialContext([Loading({ events: [] })])
+    const asyncDriver = createControlledAsyncDriver()
+    const runtime = new Runtime(
+      context,
+      { profileFailed, profileLoaded },
+      {},
+      {
+        asyncDriver,
+      },
+    )
+
+    await runtime.run(enter())
+    await asyncDriver.flush()
+
+    const currentState = runtime.currentState()
+
+    if (!currentState.is(Loading)) {
+      throw new Error("Expected Loading state")
+    }
+
+    expect(currentState.data).toEqual({
+      events: ["loaded:9"],
+      profileName: "Mina",
+    })
+  })
+
+  test("should allow validated customJSONAsync to run as a bare side-effect", async () => {
+    let validated = false
+
+    const assertProfile = (value: unknown): asserts value is Profile => {
+      if (
+        typeof value !== "object" ||
+        value === null ||
+        !("id" in value) ||
+        !("name" in value)
+      ) {
+        throw new Error("Invalid profile payload")
+      }
+
+      validated = true
+    }
+
+    const Loading = state<Enter, Data>({
+      Enter: () =>
+        customJSONAsync(async () => ({ id: "8", name: "Kai" })).validate(
+          assertProfile,
+        ),
+    })
+
+    const context = createInitialContext([Loading({ events: [] })])
+    const asyncDriver = createControlledAsyncDriver()
+    const runtime = new Runtime(context, {}, {}, { asyncDriver })
+
+    await runtime.run(enter())
+    await asyncDriver.flush()
+
+    const currentState = runtime.currentState()
+
+    if (!currentState.is(Loading)) {
+      throw new Error("Expected Loading state")
+    }
+
+    expect(validated).toBeTruthy()
+    expect(currentState.data).toEqual({
+      events: [],
+    })
+  })
+
   test("should support zod schema parsing in validate as documented", async () => {
     const Profile = z.object({
       id: z.string(),
@@ -777,6 +886,71 @@ describe("Async scheduled operations", () => {
     expect(currentState.data.events).toEqual(["cancelled:profile"])
   })
 
+  test("should allow cancellation through asyncId in customJSONAsync init", async () => {
+    const cancelLoad = action("CancelLoad")
+    type CancelLoad = ActionCreatorType<typeof cancelLoad>
+
+    const profileLoaded = action("ProfileLoaded").withPayload<Profile>()
+    const profileFailed = action("ProfileFailed").withPayload<string>()
+    type ProfileFailed = ActionCreatorType<typeof profileFailed>
+
+    let aborted = false
+
+    const Loading = state<
+      | Enter
+      | CancelLoad
+      | ActionCreatorType<typeof profileLoaded>
+      | ProfileFailed,
+      Data,
+      string,
+      string,
+      AsyncId
+    >({
+      Enter: () =>
+        customJSONAsync(
+          signal =>
+            new Promise<unknown>((_resolve, reject) => {
+              signal.addEventListener("abort", () => {
+                aborted = true
+                reject(new DOMException("Aborted", "AbortError"))
+              })
+            }),
+          {
+            asyncId: "profile",
+          },
+        ).chainToAction(profileLoaded, error =>
+          profileFailed(
+            error instanceof Error ? error.message : "Unknown error",
+          ),
+        ),
+
+      CancelLoad: (_, __, { cancelAsync }) => cancelAsync("profile"),
+
+      AsyncCancelled: (data, payload, { update }) => {
+        const asyncId: "profile" = payload.asyncId
+
+        return update(appendEvent(data, `cancelled:${asyncId}`))
+      },
+    })
+
+    const context = createInitialContext([Loading({ events: [] })])
+    const asyncDriver = createControlledAsyncDriver()
+    const runtime = new Runtime(context, { cancelLoad }, {}, { asyncDriver })
+
+    await runtime.run(enter())
+    await runtime.run(cancelLoad())
+    await asyncDriver.flush()
+
+    const currentState = runtime.currentState()
+
+    if (!currentState.is(Loading)) {
+      throw new Error("Expected Loading state")
+    }
+
+    expect(aborted).toBeTruthy()
+    expect(currentState.data.events).toEqual(["cancelled:profile"])
+  })
+
   test("should pass validator-thrown values to the reject handler unchanged", async () => {
     const profileLoaded = action("ProfileLoaded").withPayload<Profile>()
     const profileFailed = action("ProfileFailed").withPayload<string>()
@@ -877,6 +1051,56 @@ describe("Async scheduled operations", () => {
     >
     type ChainResult = ReturnType<
       ReturnType<typeof requestJSONAsync>["chainToAction"]
+    >
+
+    /* eslint-disable @typescript-eslint/no-unused-vars */
+    // @ts-expect-error validate should not be available after chainToAction
+    type ValidateAfterChain = ChainResult["validate"]
+
+    // @ts-expect-error validate should only be allowed once
+    type ValidateTwice = ValidatedBuilder["validate"]
+    /* eslint-enable @typescript-eslint/no-unused-vars */
+  })
+
+  test("should type customJSONAsync with optional validate before chainToAction", () => {
+    const profileLoaded = action("ProfileLoaded").withPayload<Profile>()
+    const profileFailed = action("ProfileFailed").withPayload<string>()
+
+    const assertProfile = (value: unknown): asserts value is Profile => {
+      if (typeof value !== "object" || value === null) {
+        throw new Error("Expected object")
+      }
+
+      const candidate = value as Record<string, unknown>
+
+      if (
+        typeof candidate.id !== "string" ||
+        typeof candidate.name !== "string"
+      ) {
+        throw new TypeError("Expected profile payload")
+      }
+    }
+
+    customJSONAsync(async () => ({ id: "1", name: "Ada" })).chainToAction(
+      profileLoaded,
+      profileFailed,
+    )
+
+    customJSONAsync(async () => ({ id: "1", name: "Ada" }), {
+      asyncId: "profile",
+    })
+      .validate(assertProfile)
+      .chainToAction(profileLoaded, profileFailed)
+
+    customJSONAsync<"profile">(async () => ({ id: "1", name: "Ada" }), {
+      asyncId: "profile",
+    }).chainToAction(profileLoaded, profileFailed)
+
+    type ValidatedBuilder = ReturnType<
+      ReturnType<typeof customJSONAsync>["validate"]
+    >
+    type ChainResult = ReturnType<
+      ReturnType<typeof customJSONAsync>["chainToAction"]
     >
 
     /* eslint-disable @typescript-eslint/no-unused-vars */

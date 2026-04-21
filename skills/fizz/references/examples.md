@@ -66,6 +66,33 @@ const Loading = state({
 })
 ```
 
+## App client JSON call mapped back into actions
+
+```typescript
+import { Enter, action, customJSONAsync, state } from "@tdreyno/fizz"
+
+type Profile = {
+  id: string
+}
+
+const profileLoaded = action("ProfileLoaded").withPayload<Profile>()
+const profileFailed = action("ProfileFailed").withPayload<string>()
+
+const Loading = state({
+  Enter: (_, __, { context }) =>
+    customJSONAsync(
+      signal =>
+        context.openApiClient.getProfile({
+          signal,
+          userId: context.userId,
+        }),
+      { asyncId: "profile" },
+    )
+      .validate(assertProfile)
+      .chainToAction(profileLoaded, error => profileFailed(String(error))),
+})
+```
+
 ## Debounced and throttled handlers
 
 ```typescript

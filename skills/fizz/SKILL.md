@@ -17,7 +17,7 @@ Use this skill when the task involves:
 
 - Modeling a workflow as Fizz states, transitions, actions, or effects
 - Creating or refactoring a machine/runtime with `createMachine(...)`, `createInitialContext(...)`, `createRuntime(...)`, or `enter()`
-- Adding async work with `startAsync(...)` or `requestJSONAsync(...)`
+- Adding async work with `startAsync(...)`, `requestJSONAsync(...)`, or `customJSONAsync(...)`
 - Adding timers, intervals, or frame-driven behavior from a state handler
 - Debouncing or throttling high-frequency handlers with `debounce(...)` and `throttle(...)`
 - Using state helper APIs like `switch_(...)`, `whichTimeout(...)`, `whichInterval(...)`, `waitState(...)`, or `isStateTransition(...)`
@@ -55,7 +55,7 @@ Create the initial context, create the runtime, then run `enter()` to bootstrap 
 
 ### 4. Use async helpers instead of ad-hoc fetch orchestration
 
-Use `startAsync(...)` for generic promise-backed work. Use `requestJSONAsync(...)` for JSON fetch flows, `validate(...)` to narrow payloads, and `chainToAction(...)` when the result should dispatch actions.
+Use `startAsync(...)` for generic promise-backed work. Use `requestJSONAsync(...)` for JSON fetch flows. Use `customJSONAsync(...)` when app client functions already return parsed JSON. Use `validate(...)` to narrow payloads, and `chainToAction(...)` when the result should dispatch actions.
 
 ### 5. Treat cancellation and stale completions as part of the design
 
@@ -92,6 +92,7 @@ If the task is about runtime behavior, read `references/core-runtime.md`.
 
 - Use `startAsync(...)` when the async source is not just `fetch(...).json()`.
 - Use `requestJSONAsync(...)` when fetching JSON from an API.
+- Use `customJSONAsync(...)` when using app-level client methods (OpenAPI, Apollo, or similar) that already return parsed JSON.
 - Use `debounce(...)` when a handler should run after calls quiet down for a delay window.
 - Use `throttle(...)` when a handler should run at most once per window.
 - Call `validate(...)` before `chainToAction(...)` if the payload must be checked or narrowed.
@@ -132,7 +133,7 @@ If the task is about React integration, read `references/react-integration.md`.
 ## Reference Files
 
 - `references/core-runtime.md` for states, actions, helper matchers, effects, runtime setup, and nested machines
-- `references/async-and-scheduling.md` for `startAsync(...)`, `requestJSONAsync(...)`, `debounce(...)`, `throttle(...)`, cancellation, timers, intervals, and frames
+- `references/async-and-scheduling.md` for `startAsync(...)`, `requestJSONAsync(...)`, `customJSONAsync(...)`, `debounce(...)`, `throttle(...)`, cancellation, timers, intervals, and frames
 - `references/testing.md` for deterministic machine testing, controlled drivers, and the `@tdreyno/fizz/test` subpath
 - `references/react-integration.md` for `useMachine(...)`, `createMachineContext(...)`, and React-specific guidance
 - `references/examples.md` for short copyable usage patterns

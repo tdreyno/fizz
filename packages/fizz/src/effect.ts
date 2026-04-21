@@ -62,6 +62,10 @@ export type RequestJSONInit<AsyncId extends string = string> = RequestInit & {
   asyncId?: AsyncId
 }
 
+export type CustomJSONInit<AsyncId extends string = string> = {
+  asyncId?: AsyncId
+}
+
 type RequestJSONChainToActionBuilder<
   Resolved,
   AsyncId extends string = string,
@@ -170,50 +174,104 @@ const createRequestJSONRun =
       : (value as Resolved)
   }
 
-const createRequestJSONChainToActionBuilder = <
+const createCustomJSONRun = <Resolved>(options: {
+  run: (signal: AbortSignal, context: Context) => Promise<unknown>
+  validator?: RequestJSONValidator<unknown, Resolved>
+}): AsyncRun<Resolved> => {
+  const run: AsyncRun<Resolved> = async (signal, context) => {
+    const value = await options.run(signal, context)
+
+    return options.validator
+      ? validateRequestJSONValue(value, options.validator)
+      : (value as Resolved)
+  }
+
+  return run
+}
+
+const createJSONChainToActionBuilder = <
   Resolved,
   AsyncId extends string = string,
 >(options: {
-  init?: RequestJSONInit<AsyncId>
-  input: RequestInfo | URL
-  validator?: RequestJSONValidator<unknown, Resolved>
+  asyncId?: AsyncId
+  run: AsyncRun<Resolved>
 }): RequestJSONChainToActionBuilder<Resolved, AsyncId> => {
-  const run = createRequestJSONRun(options)
   const requestEffect = effect(
     "startAsync",
-    options.init?.asyncId === undefined
-      ? { handlers: {}, run }
-      : { asyncId: options.init.asyncId, handlers: {}, run },
+    options.asyncId === undefined
+      ? { handlers: {}, run: options.run }
+      : { asyncId: options.asyncId, handlers: {}, run: options.run },
   ) as RequestJSONChainToActionBuilder<Resolved, AsyncId>
 
   requestEffect.chainToAction = (resolve, reject) =>
     startAsync(
-      run,
+      options.run,
       reject ? { reject, resolve } : { resolve },
-      options.init?.asyncId,
+      options.asyncId,
     )
 
   return requestEffect
 }
 
-export const requestJSONAsync = <AsyncId extends string = string>(
-  input: RequestInfo | URL,
-  init?: RequestJSONInit<AsyncId>,
-): RequestJSONBuilder<unknown, AsyncId> => {
-  const chainToActionBuilder = createRequestJSONChainToActionBuilder<
-    unknown,
-    AsyncId
-  >(init ? { input, init } : { input })
+const createJSONBuilder = <AsyncId extends string = string>(options: {
+  asyncId?: AsyncId
+  createRun: <Resolved>(
+    validator?: RequestJSONValidator<unknown, Resolved>,
+  ) => AsyncRun<Resolved>
+}): RequestJSONBuilder<unknown, AsyncId> => {
+  const createChainToActionBuilder = <Resolved>(
+    validator?: RequestJSONValidator<unknown, Resolved>,
+  ) =>
+    createJSONChainToActionBuilder<Resolved, AsyncId>(
+      options.asyncId === undefined
+        ? { run: options.createRun<Resolved>(validator) }
+        : {
+            asyncId: options.asyncId,
+            run: options.createRun<Resolved>(validator),
+          },
+    )
+
+  const chainToActionBuilder = createChainToActionBuilder<unknown>()
 
   return Object.assign(chainToActionBuilder, {
     validate: <Narrowed>(
       validator: RequestJSONAssertHandler<unknown, Narrowed>,
-    ) =>
-      createRequestJSONChainToActionBuilder<Narrowed, AsyncId>(
-        init ? { input, init, validator } : { input, validator },
-      ),
+    ) => createChainToActionBuilder<Narrowed>(validator),
   })
 }
+
+export const requestJSONAsync = <AsyncId extends string = string>(
+  input: RequestInfo | URL,
+  init?: RequestJSONInit<AsyncId>,
+): RequestJSONBuilder<unknown, AsyncId> =>
+  createJSONBuilder<AsyncId>({
+    ...(init?.asyncId === undefined ? {} : { asyncId: init.asyncId }),
+    createRun: <Resolved>(
+      validator?: RequestJSONValidator<unknown, Resolved>,
+    ) => {
+      if (init === undefined) {
+        return createRequestJSONRun<Resolved, AsyncId>(
+          validator ? { input, validator } : { input },
+        )
+      }
+
+      return createRequestJSONRun<Resolved, AsyncId>(
+        validator ? { input, init, validator } : { input, init },
+      )
+    },
+  })
+
+export const customJSONAsync = <AsyncId extends string = string>(
+  run: (signal: AbortSignal, context: Context) => Promise<unknown>,
+  init?: CustomJSONInit<AsyncId>,
+): RequestJSONBuilder<unknown, AsyncId> =>
+  createJSONBuilder<AsyncId>({
+    ...(init?.asyncId === undefined ? {} : { asyncId: init.asyncId }),
+    createRun: <Resolved>(
+      validator?: RequestJSONValidator<unknown, Resolved>,
+    ) =>
+      createCustomJSONRun<Resolved>(validator ? { run, validator } : { run }),
+  })
 
 export type AsyncRun<Resolved> =
   | Promise<Resolved>
