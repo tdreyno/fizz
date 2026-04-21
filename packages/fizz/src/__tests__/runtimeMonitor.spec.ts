@@ -4,7 +4,7 @@ import type { ActionCreatorType, Enter, OnFrame } from "../action"
 import { action, enter } from "../action"
 import { createInitialContext } from "../context"
 import { createMachine } from "../createMachine"
-import { output } from "../effect"
+import { noop, output } from "../effect"
 import type {
   RuntimeChromeDebuggerRegistry,
   RuntimeDebugEvent,
@@ -405,6 +405,77 @@ describe("runtime monitor", () => {
         },
       ]),
     )
+  })
+
+  test("should preserve async across same-state update and emit cleanup cancel on state exit", async () => {
+    const refresh = action("Refresh")
+    type Refresh = ActionCreatorType<typeof refresh>
+
+    const leave = action("Leave")
+    type Leave = ActionCreatorType<typeof leave>
+
+    const settings = deferred<string>()
+
+    const Done = state<Enter, { events: string[] }>(
+      {
+        Enter: noop,
+      },
+      { name: "Done" },
+    )
+
+    const Loading = state<Enter | Refresh | Leave, { events: string[] }>(
+      {
+        Enter: (_, __, { startAsync }) =>
+          startAsync(settings.promise, {}, "settings"),
+
+        Refresh: (data, _, { update }) =>
+          update({
+            ...data,
+            events: [...data.events, "refresh"],
+          }),
+
+        Leave: data => Done(data),
+      },
+      { name: "Loading" },
+    )
+
+    const events: RuntimeDebugEvent[] = []
+    const context = createInitialContext([Loading({ events: [] })])
+    const asyncDriver = createControlledAsyncDriver()
+    const runtime = new Runtime(
+      context,
+      { leave, refresh },
+      {},
+      {
+        asyncDriver,
+        monitor: event => {
+          events.push(event)
+        },
+      },
+    )
+
+    await runtime.run(enter())
+    await runtime.run(refresh())
+
+    const cleanupCancelsAfterUpdate = events.filter(
+      event =>
+        event.type === "async-cancelled" &&
+        event.asyncId === "settings" &&
+        event.reason === "cleanup",
+    )
+
+    expect(cleanupCancelsAfterUpdate).toHaveLength(0)
+
+    await runtime.run(leave())
+
+    const cleanupCancelsAfterExit = events.filter(
+      event =>
+        event.type === "async-cancelled" &&
+        event.asyncId === "settings" &&
+        event.reason === "cleanup",
+    )
+
+    expect(cleanupCancelsAfterExit).toHaveLength(1)
   })
 
   test("should emit timer, interval, and frame lifecycle events", async () => {

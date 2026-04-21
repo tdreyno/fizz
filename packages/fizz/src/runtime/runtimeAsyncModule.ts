@@ -134,8 +134,12 @@ export const createRuntimeAsyncModule = (options: {
       emitCleanupEvents()
       clearOperations()
     },
-    clearForTransition: ({ currentState }) => {
+    clearForTransition: ({ currentState, targetState }) => {
       if (!currentState) {
+        return
+      }
+
+      if (currentState.name === targetState.name) {
         return
       }
 

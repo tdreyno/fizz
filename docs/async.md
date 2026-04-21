@@ -250,7 +250,8 @@ const Loading = state<Enter | typeof profileLoaded>({
 ## Cancellation and stale completions
 
 - `cancelAsync(asyncId)` cancels the active async operation for that id and dispatches `AsyncCancelled`.
-- If a state transition replaces the current state instance, Fizz cancels async work started by that instance.
+- Same-state `update(...)` transitions keep active async operations running.
+- If a state transition replaces the current state instance (for example, moving to a different state), Fizz cancels async work started by that instance.
 - Abort-style rejections are suppressed and do not flow into the `reject` handler.
 - If an async operation resolves after it has become stale, Fizz ignores the completion.
 

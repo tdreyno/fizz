@@ -232,7 +232,7 @@ describe("Async scheduled operations", () => {
     expect(currentState.data.events).toEqual(["left"])
   })
 
-  test("should cancel in-flight async work across a same-state update", async () => {
+  test("should keep in-flight async work across a same-state update", async () => {
     const refresh = action("Refresh")
     type Refresh = ActionCreatorType<typeof refresh>
 
@@ -294,7 +294,8 @@ describe("Async scheduled operations", () => {
     }
 
     expect(currentState.data).toEqual({
-      events: ["refresh"],
+      events: ["refresh", "loaded:3"],
+      profileName: "Lin",
     })
   })
 
