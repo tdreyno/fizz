@@ -1,5 +1,15 @@
 # @tdreyno/fizz
 
+## 8.1.0
+
+### Minor Changes
+
+- 39c2c4b: Add Mermaid output support to `fizz visualize` via `--format mermaid`, including `.mmd` default output and updated loading-machine visualization artifacts.
+
+### Patch Changes
+
+- 34320b6: Fix `update(...)` transition behavior so in-flight async, timer, interval, and frame work is preserved on same-state updates. If your flow previously relied on implicit cancellation during `update(...)`, call explicit cancellation helpers such as `cancelAsync(...)` instead.
+
 ## 8.0.0
 
 ### Major Changes
