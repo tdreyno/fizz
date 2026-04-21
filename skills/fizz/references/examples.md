@@ -50,6 +50,29 @@ const Loading = state({
 })
 ```
 
+## Debounced and throttled handlers
+
+```typescript
+import { action, debounce, state, throttle } from "@tdreyno/fizz"
+
+const QueryChanged = action("QueryChanged").withPayload<string>()
+const SaveDraft = action("SaveDraft")
+
+const Editing = state<
+  ReturnType<typeof QueryChanged> | ReturnType<typeof SaveDraft>
+>({
+  QueryChanged: debounce((data, payload, { update }) => {
+    return update({ ...data, query: payload })
+  }, 200),
+  SaveDraft: throttle(
+    (data, _payload, { update }) => {
+      return update({ ...data, saves: data.saves + 1 })
+    },
+    { delay: 1000, leading: true, trailing: true },
+  ),
+})
+```
+
 ## React integration with `useMachine(...)`
 
 ```typescript

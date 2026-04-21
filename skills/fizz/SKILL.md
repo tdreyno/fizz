@@ -19,6 +19,7 @@ Use this skill when the task involves:
 - Creating or refactoring a runtime with `createInitialContext(...)`, `createRuntime(...)`, or `enter()`
 - Adding async work with `startAsync(...)` or `requestJSONAsync(...)`
 - Adding timers, intervals, or frame-driven behavior from a state handler
+- Debouncing or throttling high-frequency handlers with `debounce(...)` and `throttle(...)`
 - Writing or reviewing deterministic tests for Fizz machines or runtimes
 - Debugging stale async completions, cancellation, or state-entry behavior
 - Integrating a Fizz machine into React with `useMachine(...)`
@@ -86,6 +87,8 @@ If the task is about runtime behavior, read `references/core-runtime.md`.
 
 - Use `startAsync(...)` when the async source is not just `fetch(...).json()`.
 - Use `requestJSONAsync(...)` when fetching JSON from an API.
+- Use `debounce(...)` when a handler should run after calls quiet down for a delay window.
+- Use `throttle(...)` when a handler should run at most once per window.
 - Call `validate(...)` before `chainToAction(...)` if the payload must be checked or narrowed.
 - Use explicit ids for timers, intervals, and async work when later cancellation matters.
 - Design handlers for `AsyncCancelled`, `TimerCompleted`, `IntervalTriggered`, or related scheduled actions only when the machine needs to respond to them.
@@ -123,7 +126,7 @@ If the task is about React integration, read `references/react-integration.md`.
 ## Reference Files
 
 - `references/core-runtime.md` for states, actions, effects, runtime setup, and nested machines
-- `references/async-and-scheduling.md` for `startAsync(...)`, `requestJSONAsync(...)`, cancellation, timers, intervals, and frames
+- `references/async-and-scheduling.md` for `startAsync(...)`, `requestJSONAsync(...)`, `debounce(...)`, `throttle(...)`, cancellation, timers, intervals, and frames
 - `references/testing.md` for deterministic machine testing, controlled drivers, and the `@tdreyno/fizz/test` subpath
 - `references/react-integration.md` for `useMachine(...)` behavior and React-specific guidance
 - `references/examples.md` for short copyable usage patterns

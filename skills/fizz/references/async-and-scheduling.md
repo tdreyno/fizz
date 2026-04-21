@@ -96,6 +96,39 @@ Use explicit ids when later restart or cancellation matters.
 
 Model scheduled callbacks through their corresponding Fizz actions instead of reaching around the runtime.
 
+## `debounce(...)` and `throttle(...)`
+
+Use `debounce(...)` and `throttle(...)` to wrap individual state handlers when an action can fire frequently and machine work should be rate-limited.
+
+- `debounce(handler, delayOrOptions)`:
+  - waits until calls stop for the configured delay
+  - short form: `debounce(handler, 300)`
+  - object form: `debounce(handler, { delay: 300 })`
+- `throttle(handler, delayOrOptions)`:
+  - runs at most once per configured window
+  - short form: `throttle(handler, 1000)`
+  - object form supports `leading` and `trailing` behavior
+
+Use `debounce(...)` when only the final event burst should apply, and `throttle(...)` when periodic progress should still run during bursts.
+
+```typescript
+import { action, debounce, state, throttle } from "@tdreyno/fizz"
+
+const InputChanged = action("InputChanged").withPayload<string>()
+const Save = action("Save")
+
+const Editing = state<
+  ReturnType<typeof InputChanged> | ReturnType<typeof Save>
+>({
+  InputChanged: debounce((data, payload, { update }) => {
+    return update({ ...data, draft: payload })
+  }, 250),
+  Save: throttle((_data, _payload, { trigger }) => {
+    return trigger(Save())
+  }, 1000),
+})
+```
+
 ## Review Heuristics
 
 When reviewing async or scheduling code, check these first:

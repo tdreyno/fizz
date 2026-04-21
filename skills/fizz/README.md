@@ -14,6 +14,7 @@ npx skills add tdreyno/fizz
 
 - `@tdreyno/fizz` runtime setup and state-machine modeling
 - `@tdreyno/fizz` async, timers, intervals, and cancellation helpers
+- `@tdreyno/fizz` `debounce(...)` and `throttle(...)` handler wrappers
 - `@tdreyno/fizz` testing guidance for controlled drivers and deterministic runtime tests
 - `@tdreyno/fizz-react` integration through `useMachine(...)`
 
