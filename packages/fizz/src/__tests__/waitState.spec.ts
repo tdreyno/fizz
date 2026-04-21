@@ -4,6 +4,7 @@ import { createInitialContext } from "../context"
 import { noop } from "../effect"
 import { Runtime } from "../runtime"
 import { state, waitState } from "../state"
+import { createTestHarness } from "../test"
 import { timeout } from "./util"
 
 const INITIAL_COUNT = 5
@@ -216,5 +217,100 @@ describe("waitState", () => {
     expect((runtime.currentState().data as D).count).toBe(
       INITIAL_COUNT + RETURN_COUNT,
     )
+  })
+
+  it("should timeout with scheduler-backed object timeout", async () => {
+    const TimedOutState = state<Enter, D>(
+      {
+        Enter: noop,
+      },
+      { name: "TimedOutState" },
+    )
+
+    const WaitForThing = waitState(
+      fetchThing,
+      thingFetched,
+      (data: D, payload) => {
+        return AfterThing({ ...data, count: data.count + payload })
+      },
+      {
+        name: "WaitForThing",
+        timeout: { delay: 1000, id: "fetchThing" },
+        onTimeout: data => {
+          return TimedOutState(data)
+        },
+      },
+    )
+
+    const BeforeThing = state<Enter, D>(
+      {
+        Enter: data => WaitForThing([data, RETURN_COUNT]),
+      },
+      { name: "BeforeThing" },
+    )
+
+    const harness = createTestHarness({
+      history: [BeforeThing({ count: INITIAL_COUNT })],
+      outputActions: { fetchThing },
+    })
+
+    await harness.start()
+
+    expect(harness.currentState().is(WaitForThing)).toBeTruthy()
+
+    await harness.advanceBy(1000)
+    await harness.settle()
+
+    expect(harness.currentState().is(TimedOutState)).toBeTruthy()
+    expect(harness.currentState().data.count).toBe(INITIAL_COUNT)
+  })
+
+  it("should ignore scheduler timeout after leaving wait state", async () => {
+    const WaitForThing = waitState(
+      fetchThing,
+      thingFetched,
+      (data: D, payload) => {
+        return AfterThing({ ...data, count: data.count + payload })
+      },
+      {
+        name: "WaitForThing",
+        timeout: { delay: 1000, id: "fetchThing" },
+      },
+    )
+
+    const BeforeThing = state<Enter, D>(
+      {
+        Enter: data => WaitForThing([data, RETURN_COUNT]),
+      },
+      { name: "BeforeThing" },
+    )
+
+    const harness = createTestHarness({
+      history: [BeforeThing({ count: INITIAL_COUNT })],
+      internalActions: { thingFetched },
+      outputActions: { fetchThing },
+    })
+
+    const reachedAfterThing = new Promise<void>(resolve => {
+      const unsubscribe = harness.runtime.onContextChange(context => {
+        if (context.currentState.is(AfterThing)) {
+          unsubscribe()
+          resolve()
+        }
+      })
+    })
+
+    harness.respondToOutput("FetchThing", payload => thingFetched(payload))
+
+    await harness.start()
+    await reachedAfterThing
+
+    expect(harness.currentState().is(AfterThing)).toBeTruthy()
+
+    await harness.advanceBy(1500)
+    await harness.settle()
+
+    expect(harness.currentState().is(AfterThing)).toBeTruthy()
+    expect(harness.currentState().data.count).toBe(INITIAL_COUNT + RETURN_COUNT)
   })
 })

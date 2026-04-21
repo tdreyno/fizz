@@ -50,6 +50,7 @@ export type {
   StateReturn,
   StateTransition,
   StateTransitionToBoundStateFn,
+  WaitStateTimeout,
 } from "./state.js"
 export {
   debounce,

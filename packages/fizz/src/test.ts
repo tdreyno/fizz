@@ -42,6 +42,18 @@ export type TestStateSnapshot<State extends HarnessState> = {
   history: Array<State>
 }
 
+export type SettleOptions = {
+  maxIterations?: number
+}
+
+export type WaitForStateOptions = SettleOptions & {
+  settleBetweenChecks?: boolean
+}
+
+export type WaitForOutputOptions = SettleOptions & {
+  settleBetweenChecks?: boolean
+}
+
 export type TestHarnessOptions<
   State extends HarnessState,
   AM extends TestActionMap,
@@ -91,6 +103,17 @@ export type TestHarness<
   advanceBy: (ms: number) => Promise<void>
   advanceFrames: (count: number, frameMs?: number) => Promise<void>
   runAllTimers: () => Promise<void>
+  settle: (options?: SettleOptions) => Promise<void>
+  waitForState: (
+    predicate: (state: State) => boolean,
+    options?: WaitForStateOptions,
+  ) => Promise<State>
+  waitForOutput: (
+    typeOrPredicate:
+      | HarnessOutputAction<OAM>["type"]
+      | ((output: HarnessOutputAction<OAM>) => boolean),
+    options?: WaitForOutputOptions,
+  ) => Promise<HarnessOutputAction<OAM>>
   clearRecords: () => void
   disconnect: () => void
 }
@@ -124,6 +147,22 @@ const lastItem = <T>(values: Array<T>): T | undefined => {
   }
 
   return values.at(-1)
+}
+
+const DEFAULT_MAX_ITERATIONS = 100
+
+const resolveMaxIterations = (value?: number): number => {
+  if (value === undefined) {
+    return DEFAULT_MAX_ITERATIONS
+  }
+
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(
+      `Expected maxIterations to be an integer >= 1, received ${String(value)}`,
+    )
+  }
+
+  return value
 }
 
 export const createTestHarness = <
@@ -162,6 +201,133 @@ export const createTestHarness = <
         }),
   ].filter(value => value !== undefined)
 
+  const runSettleStep = async (): Promise<boolean> => {
+    const stateCountBefore = recordedStates.length
+    const outputCountBefore = recordedOutputs.length
+
+    await Promise.resolve()
+    await asyncDriver.flush()
+    await timerDriver.advanceBy(0)
+    await asyncDriver.flush()
+    await Promise.resolve()
+
+    const stateCountAfter = recordedStates.length
+    const outputCountAfter = recordedOutputs.length
+
+    return (
+      stateCountBefore !== stateCountAfter ||
+      outputCountBefore !== outputCountAfter
+    )
+  }
+
+  const settle = async (options?: SettleOptions): Promise<void> => {
+    const maxIterations = resolveMaxIterations(options?.maxIterations)
+
+    for (let iteration = 0; iteration < maxIterations; iteration += 1) {
+      const changed = await runSettleStep()
+
+      if (!changed) {
+        return
+      }
+    }
+
+    throw new Error(
+      `Harness did not settle within ${maxIterations} iterations.`,
+    )
+  }
+
+  const waitForState = async (
+    predicate: (state: State) => boolean,
+    options?: WaitForStateOptions,
+  ): Promise<State> => {
+    const maxIterations = resolveMaxIterations(options?.maxIterations)
+    const settleBetweenChecks = options?.settleBetweenChecks ?? true
+    let matchedState: State | undefined
+    const unsubscribe = runtime.onContextChange(context => {
+      const nextState = context.currentState as State
+
+      if (predicate(nextState)) {
+        matchedState = nextState
+      }
+    })
+
+    try {
+      for (let iteration = 0; iteration < maxIterations; iteration += 1) {
+        const state = runtime.currentState() as State
+
+        if (predicate(state)) {
+          return state
+        }
+
+        if (matchedState) {
+          return matchedState
+        }
+
+        if (!settleBetweenChecks) {
+          await Promise.resolve()
+          await asyncDriver.flush()
+          continue
+        }
+
+        await runSettleStep()
+      }
+    } finally {
+      unsubscribe()
+    }
+
+    throw new Error(
+      `State predicate did not match within ${maxIterations} iterations.`,
+    )
+  }
+
+  const waitForOutput = async (
+    typeOrPredicate:
+      | HarnessOutputAction<OAM>["type"]
+      | ((output: HarnessOutputAction<OAM>) => boolean),
+    options?: WaitForOutputOptions,
+  ): Promise<HarnessOutputAction<OAM>> => {
+    const maxIterations = resolveMaxIterations(options?.maxIterations)
+    const settleBetweenChecks = options?.settleBetweenChecks ?? true
+    let matchedFromSubscription: HarnessOutputAction<OAM> | undefined
+    const matches =
+      typeof typeOrPredicate === "function"
+        ? typeOrPredicate
+        : (output: HarnessOutputAction<OAM>) => output.type === typeOrPredicate
+    const unsubscribe = runtime.onOutput(output => {
+      if (matches(output)) {
+        matchedFromSubscription = output
+      }
+    })
+
+    try {
+      for (let iteration = 0; iteration < maxIterations; iteration += 1) {
+        const matchedOutput = recordedOutputs.find(output => matches(output))
+
+        if (matchedOutput) {
+          return matchedOutput
+        }
+
+        if (matchedFromSubscription) {
+          return matchedFromSubscription
+        }
+
+        if (!settleBetweenChecks) {
+          await Promise.resolve()
+          await asyncDriver.flush()
+          continue
+        }
+
+        await runSettleStep()
+      }
+    } finally {
+      unsubscribe()
+    }
+
+    throw new Error(
+      `Output predicate did not match within ${maxIterations} iterations.`,
+    )
+  }
+
   return {
     context,
     runtime,
@@ -184,6 +350,9 @@ export const createTestHarness = <
     advanceFrames: (count, frameMs) =>
       timerDriver.advanceFrames(count, frameMs),
     runAllTimers: () => timerDriver.runAll(),
+    settle,
+    waitForState,
+    waitForOutput,
     clearRecords: () => {
       recordedStates.splice(0, recordedStates.length)
       recordedOutputs.splice(0, recordedOutputs.length)

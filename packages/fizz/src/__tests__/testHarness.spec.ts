@@ -185,8 +185,9 @@ describe("Test harness", () => {
 
     loadProfile.resolve("Ada")
 
-    await harness.flushAsync()
+    await harness.settle()
     await harness.advanceBy(10)
+    await harness.settle()
 
     const currentState = harness.currentState()
 
@@ -198,5 +199,67 @@ describe("Test harness", () => {
       events: ["enter", "loaded:Ada", "completed:autosave"],
       profileName: "Ada",
     })
+  })
+
+  test("should wait for output by type and predicate", async () => {
+    const notice = action("Notice").withPayload<string>()
+
+    const Done = state<Enter, Data>(
+      {
+        Enter: noop,
+      },
+      { name: "Done" },
+    )
+
+    const Editing = state<Enter, Data>(
+      {
+        Enter: data => [
+          output(notice("entered")),
+          Done(appendEvent(data, "done")),
+        ],
+      },
+      { name: "Editing" },
+    )
+
+    const harness = createTestHarness({
+      history: [Editing({ events: [] })],
+      outputActions: { notice },
+    })
+
+    await harness.start()
+
+    const byType = await harness.waitForOutput("Notice")
+    const byPredicate = await harness.waitForOutput(
+      action => action.type === "Notice" && action.payload === "entered",
+    )
+
+    expect(byType).toEqual(notice("entered"))
+    expect(byPredicate).toEqual(notice("entered"))
+  })
+
+  test("should fail when waitForState exceeds max iterations", async () => {
+    const Done = state<Enter, Data>(
+      {
+        Enter: noop,
+      },
+      { name: "Done" },
+    )
+
+    const Editing = state<Enter, Data>(
+      {
+        Enter: (data, _, { update }) => update(data),
+      },
+      { name: "Editing" },
+    )
+
+    const harness = createTestHarness({
+      history: [Editing({ events: [] })],
+    })
+
+    await harness.start()
+
+    await expect(
+      harness.waitForState(state => state.is(Done), { maxIterations: 2 }),
+    ).rejects.toThrow("State predicate did not match within 2 iterations.")
   })
 })

@@ -331,6 +331,53 @@ If your machine returns `output(...)`, define those action creators on `machine.
 
 In more advanced integrations, you can subscribe through `runtime.onOutput(...)` or `runtime.respondToOutput(...)`, but most components should start with `currentState` plus `actions` and only reach for runtime access when they really need it.
 
+## Imperative State Subscriptions
+
+When a component needs imperative observation (for example, calling a close handler once a workflow leaves `Saving`), prefer `useMachineSubscription(...)`.
+
+```tsx
+import { useMachine, useMachineSubscription } from "@tdreyno/fizz-react"
+
+const machine = useMachine(FormMachine, FormMachine.states.Editing(initialData))
+
+useMachineSubscription(
+  machine,
+  nextState => {
+    if (!nextState.is(machine.states.Saving)) {
+      resolvePendingClose()
+    }
+  },
+  { emitCurrent: true },
+)
+```
+
+The same hook also works for the Provider/context form:
+
+```tsx
+import {
+  createMachineContext,
+  useMachineSubscription,
+} from "@tdreyno/fizz-react"
+
+const { Provider, useMachineContext } = createMachineContext(FormMachine)
+
+const Observer = () => {
+  const machine = useMachineContext()
+
+  useMachineSubscription(machine, nextState => {
+    if (nextState.is(machine.states.Ready)) {
+      notifyReady()
+    }
+  })
+
+  return null
+}
+```
+
+`useMachineSubscription(...)` keeps one subscription system (`runtime.onContextChange(...)`) while handling mount/unmount cleanup and optional immediate replay.
+
+If you need full access to raw context objects, subscribe directly with `runtime.onContextChange(...)`.
+
 ## Options and current caveats
 
 The hook currently accepts an `options` object with these fields in its type:

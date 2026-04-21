@@ -174,10 +174,36 @@ The exported shape is:
 
 - `createTestHarness(...)` to compose context creation, runtime creation, controlled drivers, and state/output recording
 - `deferred()` as a small utility for promise-controlled tests
-- helper methods such as `run(...)`, `respondToOutput(...)`, `currentState()`, `currentHistory()`, `flushAsync()`, `advanceBy()`, `advanceFrames()`, `runAllAsync()`, and `runAllTimers()`
+- helper methods such as `run(...)`, `respondToOutput(...)`, `currentState()`, `currentHistory()`, `flushAsync()`, `advanceBy()`, `advanceFrames()`, `runAllAsync()`, `runAllTimers()`, `settle(...)`, `waitForState(...)`, and `waitForOutput(...)`
 - read-only inspection helpers such as recorded outputs and recorded state snapshots
 
 This subpath is preferred over adding test helpers to the root package export surface because it keeps production imports and test-only imports clearly separated.
+
+## Waiting Helpers In The Harness
+
+The harness waiting helpers remove the most common `onContextChange(...)` and `onOutput(...)` boilerplate:
+
+- `settle(options?)` drains async completions and due timer work until no new state/output activity is observed, or until `maxIterations` is reached.
+- `waitForState(predicate, options?)` checks the predicate immediately, then retries with bounded settle cycles.
+- `waitForOutput(typeOrPredicate, options?)` waits by output type or custom predicate with the same bounded retry behavior.
+
+```ts
+const harness = createTestHarness({
+  history: [Loading({ events: [] })],
+  internalActions: { profileLoaded },
+  outputActions: { fetchProfile },
+})
+
+await harness.start()
+
+// Wait for machine state without manual subscriptions
+await harness.waitForState(state => state.is(Done))
+
+// Wait for integration-facing output
+const output = await harness.waitForOutput("FetchProfile")
+
+expect(output.type).toBe("FetchProfile")
+```
 
 ## Testing Guidance For Agents
 
