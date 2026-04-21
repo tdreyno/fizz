@@ -7,6 +7,7 @@ Use this reference when the task is about modeling a Fizz machine, wiring a runt
 The main Fizz package exports its public surface from `packages/fizz/src/index.ts`:
 
 - action helpers from `action.ts`
+- machine definition helpers from `createMachine.ts`
 - context helpers from `context.ts`
 - effect helpers from `effect.ts`
 - runtime helpers from `runtime.ts`
@@ -50,6 +51,18 @@ Use `stateWithNested(...)` only when the machine genuinely benefits from nested 
 
 Nested state composition should make the machine easier to reason about, not harder.
 
+### Matchers and state helpers
+
+Fizz also exports helpers that keep state logic explicit and testable:
+
+- `switch_(...)` to branch on the current state transition
+- `whichTimeout(...)` to exhaustively handle timeout ids
+- `whichInterval(...)` to exhaustively handle interval ids
+- `waitState(...)` to model request-on-enter and response-driven transitions
+- `isStateTransition(...)` as a type guard when handling mixed values
+
+Prefer these helpers when they make branching clearer than ad-hoc conditionals.
+
 ## State Utils
 
 Fizz state handlers receive a utilities object from `state.ts`. Important helpers include:
@@ -75,6 +88,8 @@ const runtime = createRuntime(context, actions, outputActions)
 
 await runtime.run(enter())
 ```
+
+If you want a declarative machine container first, build it with `createMachine(...)` and then create the runtime from the machine.
 
 This matters because the first `enter()` automatically performs Fizz's pre-entry bootstrap before any `Enter` handlers run.
 

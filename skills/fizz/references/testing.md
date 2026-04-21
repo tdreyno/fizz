@@ -41,7 +41,7 @@ When a state uses `startAsync(...)` or `requestJSONAsync(...)`:
 5. Call `await asyncDriver.flush()`.
 6. Assert the resulting machine state.
 
-Use a local `deferred()` helper if the repository does not yet export one.
+Use `deferred()` from `@tdreyno/fizz/test` when you need explicit resolve/reject control in a test.
 
 ## Timer, Interval, And Frame Tests
 
@@ -60,6 +60,21 @@ Use `runtime.onOutput(...)` to record integration-facing actions.
 Use `runtime.onContextChange(...)` to record state transitions or snapshots.
 
 These are the primitives that the dedicated `@tdreyno/fizz/test` subpath builds on top of.
+
+## Responding to output actions
+
+`createTestHarness(...)` exposes `respondToOutput(...)` for integration-style tests where emitted outputs should trigger follow-up internal actions.
+
+```typescript
+const stop = harness.respondToOutput("RequestSave", payload => {
+  return saveCompleted({ id: payload.id })
+})
+
+await harness.start()
+await harness.run(saveRequested())
+
+stop()
+```
 
 ## Testing Entry Point
 

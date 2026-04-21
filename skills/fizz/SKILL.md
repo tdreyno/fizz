@@ -1,6 +1,6 @@
 ---
 name: fizz
-description: Fizz state machine modeling and testing guidance for the @tdreyno/fizz runtime and @tdreyno/fizz-react hook integration. Use this skill when designing or refactoring Fizz machines, wiring createRuntime or createInitialContext, modeling async and scheduled transitions, writing or reviewing Fizz tests, reviewing action and effect flows, or integrating a machine with useMachine in React.
+description: Fizz state machine modeling and testing guidance for the @tdreyno/fizz runtime and @tdreyno/fizz-react integration APIs. Use this skill when designing or refactoring Fizz machines, wiring createMachine/createRuntime/createInitialContext, modeling async and scheduled transitions, writing or reviewing Fizz tests, reviewing action and effect flows, or integrating a machine with useMachine or createMachineContext in React.
 license: Hippocratic-2.1
 metadata:
   author: tdreyno
@@ -16,13 +16,14 @@ Agent-oriented guidance for working with Fizz state machines and the React integ
 Use this skill when the task involves:
 
 - Modeling a workflow as Fizz states, transitions, actions, or effects
-- Creating or refactoring a runtime with `createInitialContext(...)`, `createRuntime(...)`, or `enter()`
+- Creating or refactoring a machine/runtime with `createMachine(...)`, `createInitialContext(...)`, `createRuntime(...)`, or `enter()`
 - Adding async work with `startAsync(...)` or `requestJSONAsync(...)`
 - Adding timers, intervals, or frame-driven behavior from a state handler
 - Debouncing or throttling high-frequency handlers with `debounce(...)` and `throttle(...)`
+- Using state helper APIs like `switch_(...)`, `whichTimeout(...)`, `whichInterval(...)`, `waitState(...)`, or `isStateTransition(...)`
 - Writing or reviewing deterministic tests for Fizz machines or runtimes
 - Debugging stale async completions, cancellation, or state-entry behavior
-- Integrating a Fizz machine into React with `useMachine(...)`
+- Integrating a Fizz machine into React with `useMachine(...)` or `createMachineContext(...)`
 - Reviewing Fizz or fizz-react code for correctness, predictability, or API usage
 
 ## Scope
@@ -68,6 +69,8 @@ If async work may outlive the current state instance, give it an explicit `async
 ### Core modeling
 
 - Use `state(...)` for flat state definitions and `stateWithNested(...)` when the machine genuinely needs nested state composition.
+- Use `switch_(...)`, `whichTimeout(...)`, and `whichInterval(...)` to keep state branching explicit and exhaustive.
+- Use `waitState(...)` for request-on-enter and response-driven transition flows.
 - Use named actions created up front and wire them into the runtime action map.
 - Return transitions, actions, and effects from handlers instead of mutating external systems directly.
 - Favor small, readable state handlers over dense helper indirection.
@@ -108,6 +111,7 @@ If the task is about machine tests or consumer-facing test helpers, read `refere
 ### React usage
 
 - Use `useMachine(...)` to bind an existing Fizz machine into React.
+- Use `createMachineContext(...)` when multiple components should share one machine instance through a Provider.
 - Keep machine definition and transition logic outside the React component body when possible.
 - Treat the hook as an adapter that exposes `currentState`, `states`, `context`, `actions`, and `runtime`.
 - Compare states with `currentState.is(machine.states.SomeState)`.
@@ -125,10 +129,10 @@ If the task is about React integration, read `references/react-integration.md`.
 
 ## Reference Files
 
-- `references/core-runtime.md` for states, actions, effects, runtime setup, and nested machines
+- `references/core-runtime.md` for states, actions, helper matchers, effects, runtime setup, and nested machines
 - `references/async-and-scheduling.md` for `startAsync(...)`, `requestJSONAsync(...)`, `debounce(...)`, `throttle(...)`, cancellation, timers, intervals, and frames
 - `references/testing.md` for deterministic machine testing, controlled drivers, and the `@tdreyno/fizz/test` subpath
-- `references/react-integration.md` for `useMachine(...)` behavior and React-specific guidance
+- `references/react-integration.md` for `useMachine(...)`, `createMachineContext(...)`, and React-specific guidance
 - `references/examples.md` for short copyable usage patterns
 
 ## Source Anchors
@@ -136,9 +140,12 @@ If the task is about React integration, read `references/react-integration.md`.
 Use these repository files as the source of truth when answering implementation questions:
 
 - `packages/fizz/src/index.ts`
+- `packages/fizz/src/createMachine.ts`
 - `packages/fizz/src/state.ts`
 - `packages/fizz/src/effect.ts`
 - `packages/fizz/src/runtime.ts`
+- `packages/fizz-react/src/index.ts`
+- `packages/fizz-react/src/createMachineContext.ts`
 - `packages/fizz-react/src/useMachine.ts`
 - `docs/testing.md`
 - `docs/async.md`

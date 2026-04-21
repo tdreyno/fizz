@@ -4,7 +4,10 @@ Use this reference when the task involves `@tdreyno/fizz-react`, React component
 
 ## Public Surface
 
-`@tdreyno/fizz-react` exports `useMachine(...)` from `packages/fizz-react/src/index.ts`.
+`@tdreyno/fizz-react` exports:
+
+- `useMachine(...)`
+- `createMachineContext(...)`
 
 The current hook implementation in `packages/fizz-react/src/useMachine.ts`:
 
@@ -25,6 +28,14 @@ The hook returns an object shaped around:
 - `runtime`
 
 Treat that return value as the bridge between React rendering and the machine runtime.
+
+## `createMachineContext(...)`
+
+Use `createMachineContext(...)` when multiple components should consume one shared machine instance without prop drilling.
+
+It returns a Provider and a consumer hook pair, so tree branches can read the same machine value.
+
+Prefer this pattern for page- or feature-scoped workflows where siblings need synchronized machine state and actions.
 
 ## Design Guidance
 

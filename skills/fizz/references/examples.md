@@ -30,6 +30,22 @@ const runtime = createRuntime(context, { finish }, {})
 await runtime.run(enter())
 ```
 
+## Machine-first setup with `createMachine(...)`
+
+```typescript
+import { createMachine, createRuntime, enter } from "@tdreyno/fizz"
+
+const machine = createMachine({
+  initialState: Start(),
+  states: { Start, Done },
+  actions: { finish },
+})
+
+const runtime = createRuntime(machine, machine.states.Start())
+
+await runtime.run(enter())
+```
+
 ## JSON request mapped back into actions
 
 ```typescript
@@ -73,6 +89,44 @@ const Editing = state<
 })
 ```
 
+## `waitState(...)` request-response pattern
+
+```typescript
+import { action, waitState } from "@tdreyno/fizz"
+
+const loadProfile = action("LoadProfile")
+const profileLoaded = action("ProfileLoaded").withPayload<{ id: string }>()
+
+const Loading = waitState(
+  loadProfile,
+  profileLoaded,
+  (data, payload) => Ready({ ...data, profile: payload }),
+  { name: "LoadingProfile", timeout: 5000 },
+)
+```
+
+## `switch_`, `whichTimeout`, and `whichInterval`
+
+```typescript
+import { switch_, whichInterval, whichTimeout } from "@tdreyno/fizz"
+
+const label = switch_(runtime.currentState())
+  .case_(Idle, () => "idle")
+  .case_(Saving, () => "saving")
+  .run()
+
+const onTimer = whichTimeout<"autosave" | "banner">({
+  autosave: (data, _payload, { update }) => update({ ...data, saved: true }),
+  banner: () => undefined,
+})
+
+const onInterval = whichInterval<"presence" | "sync">({
+  presence: (data, _payload, { update }) =>
+    update({ ...data, ticks: data.ticks + 1 }),
+  sync: () => undefined,
+})
+```
+
 ## React integration with `useMachine(...)`
 
 ```typescript
@@ -82,6 +136,14 @@ const machine = useMachine(FlowMachine, FlowMachine.states.Start())
 
 const current = machine.currentState
 const isDone = machine.currentState.is(machine.states.Done)
+```
+
+## Shared runtime with `createMachineContext(...)`
+
+```typescript
+import { createMachineContext } from "@tdreyno/fizz-react"
+
+const { Provider, useMachineContext } = createMachineContext(FlowMachine)
 ```
 
 ## Practical reminders
