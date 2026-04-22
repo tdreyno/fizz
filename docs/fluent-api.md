@@ -27,6 +27,30 @@ const Editing = state<{ name: string }>("Editing")
 
 `on(...)` accepts action creator references only. The payload type is inferred from the creator.
 
+Use `fluentAction(...)` when you want a creator reference without defining an explicit action name:
+
+```ts
+import { fluentAction, state } from "@tdreyno/fizz/fluent"
+
+const increment = fluentAction<number>("increment")
+const reset = fluentAction<void>()
+
+const Counting = state<{ count: number }>("Counting")
+  .on(increment, (data, payload, { update }) =>
+    update({
+      ...data,
+      count: data.count + payload,
+    }),
+  )
+  .on(reset, (_data, _payload, { update }) =>
+    update({
+      count: 0,
+    }),
+  )
+```
+
+`fluentAction<P>(debugLabel?: string)` uses `P` for payload typing and generates a unique internal action type for runtime routing.
+
 ## Scheduling
 
 Use first-class timeout and interval responders:
@@ -79,6 +103,7 @@ const summary = Editing.describe()
 - `withRetry(...)`
 - `withOptimisticUpdate(...)`
 - `describeState(...)`
+- `fluentAction(...)`
 
 ### `withRetry(...)`
 

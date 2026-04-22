@@ -2,7 +2,13 @@ import { describe, expect, jest, test } from "@jest/globals"
 
 import { action, enter, intervalTriggered, timerCompleted } from "../action"
 import { createMachine } from "../createMachine"
-import { describeState, state, withDebouncedAction, withRetry } from "../fluent"
+import {
+  describeState,
+  fluentAction,
+  state,
+  withDebouncedAction,
+  withRetry,
+} from "../fluent"
 import { createRuntime } from "../runtime"
 import { state as objectState } from "../state"
 
@@ -174,6 +180,54 @@ describe("Fluent state API", () => {
         .on(save, (data, _, { update }) => update(data))
 
     expect(register).toThrow("duplicate handler")
+  })
+
+  test("should support fluentAction references without explicit names", async () => {
+    const increment = fluentAction<number>("increment")
+    const reset = fluentAction("reset")
+
+    const Counting = state<{ count: number }>("Counting")
+      .on(increment, (data, payload, { update }) =>
+        update({
+          ...data,
+          count: data.count + payload,
+        }),
+      )
+      .on(reset, (_data, _payload, { update }) =>
+        update({
+          count: 0,
+        }),
+      )
+
+    const machine = createMachine({
+      actions: { increment, reset },
+      states: { Counting },
+    })
+
+    const runtime = createRuntime(machine, Counting({ count: 1 }))
+
+    await runtime.run(increment(2))
+    await runtime.run(reset())
+
+    const current = runtime.currentState()
+
+    if (current.name !== Counting.name) {
+      throw new Error("Expected Counting state")
+    }
+
+    expect((current.data as { count: number }).count).toBe(0)
+    expect(increment.type).not.toBe(reset.type)
+    expect(increment.type).toContain("increment")
+    expect(reset.type).toContain("reset")
+  })
+
+  test("should generate unique action types for fluentAction", () => {
+    const saveA = fluentAction("save")
+    const saveB = fluentAction("save")
+
+    expect(saveA.type).not.toBe(saveB.type)
+    expect(saveA.type).toContain("save")
+    expect(saveB.type).toContain("save")
   })
 
   test("should provide debounced utility registration", () => {

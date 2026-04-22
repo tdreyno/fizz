@@ -11,7 +11,13 @@ import type {
   TimerCompleted,
   TimerPayload,
 } from "./action.js"
-import { enter, exit, intervalTriggered, timerCompleted } from "./action.js"
+import {
+  action,
+  enter,
+  exit,
+  intervalTriggered,
+  timerCompleted,
+} from "./action.js"
 import type { RetryPolicy } from "./effect.js"
 import { retryAsync } from "./effect.js"
 import type {
@@ -37,6 +43,26 @@ export type FluentActionCreator<
 
 type AnyFluentActionCreator = ((...args: never[]) => Action<string, unknown>) &
   GetActionCreatorType<string>
+
+let fluentActionCounter = 0
+
+const createFluentActionType = (debugLabel?: string) => {
+  const trimmedLabel = debugLabel?.trim()
+  const normalizedLabel =
+    trimmedLabel && trimmedLabel.length > 0 ? trimmedLabel : "action"
+
+  fluentActionCounter += 1
+
+  return `FluentAction:${normalizedLabel}:${fluentActionCounter}`
+}
+
+export const fluentAction = <P = undefined>(
+  debugLabel?: string,
+): FluentActionCreator<string, P> => {
+  const type = createFluentActionType(debugLabel)
+
+  return action(type).withPayload<P>() as FluentActionCreator<string, P>
+}
 
 type AnyHandler = (
   data: unknown,

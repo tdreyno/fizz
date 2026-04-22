@@ -27,6 +27,26 @@ Guidance:
 - Keep handlers deterministic and return transitions/actions/effects.
 - Use `onEnter(...)` and `onExit(...)` for lifecycle responders.
 
+If you want fluent creator references without manually naming action types, use `fluentAction<P>(debugLabel?: string)`:
+
+```ts
+const increment = fluentAction<number>("increment")
+const reset = fluentAction<void>()
+
+const Counting = state<{ count: number }>("Counting")
+  .on(increment, (data, payload, { update }) =>
+    update({
+      ...data,
+      count: data.count + payload,
+    }),
+  )
+  .on(reset, (_data, _payload, { update }) =>
+    update({
+      count: 0,
+    }),
+  )
+```
+
 ## Scheduling
 
 ```ts
@@ -71,6 +91,7 @@ const Counting = state<{ count: number; enabled: boolean }>("Counting")
 - `withRetry(...)`
 - `withOptimisticUpdate(...)`
 - `describeState(...)`
+- `fluentAction(...)`
 
 Use these helpers to keep repetitive state registration patterns small and readable.
 
