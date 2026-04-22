@@ -69,6 +69,8 @@ type MachineStore<
   subscribe: (listener: () => void) => () => void
 }
 
+const noopSubscribe = () => () => undefined
+
 export interface MachineHandle<
   SM extends { [key: string]: AnyBoundState },
   AM extends ActionMap,
@@ -243,7 +245,7 @@ const createMachineStore = <
   }
 }
 
-export const useMachineValue = <
+export const useMachineStore = <
   SM extends { [key: string]: AnyBoundState },
   AM extends ActionMap,
   OAM extends ActionMap,
@@ -252,7 +254,7 @@ export const useMachineValue = <
   machine: MachineDefinition<SM, AM, OAM, unknown, SEL>,
   initialState: ReturnType<SM[keyof SM]>,
   options: Partial<Options> = {},
-): ContextValue<SM, AM, OAM, SEL> => {
+): MachineStore<SM, AM, OAM, SEL> => {
   const store = useMemo(
     () => createMachineStore<SM, AM, OAM, SEL>(machine, initialState, options),
     [],
@@ -265,6 +267,53 @@ export const useMachineValue = <
       store.stop()
     }
   }, [])
+
+  return store
+}
+
+export const createMachineHandleFromStore = <
+  SM extends { [key: string]: AnyBoundState },
+  AM extends ActionMap,
+  OAM extends ActionMap,
+  SEL extends SelectorMap<SM> = Record<string, never>,
+>(
+  store: MachineStore<SM, AM, OAM, SEL>,
+): MachineHandle<SM, AM, OAM, SEL> => {
+  const snapshot = store.getSnapshot()
+
+  return {
+    actions: snapshot.actions,
+    get context() {
+      return store.getSnapshot().context
+    },
+    get currentState() {
+      return store.getSnapshot().currentState
+    },
+    getSnapshot: store.getSnapshot,
+    runtime: snapshot.runtime!,
+    get selectors() {
+      return store.getSnapshot().selectors
+    },
+    states: snapshot.states,
+    __store: store,
+  }
+}
+
+export const useMachineValue = <
+  SM extends { [key: string]: AnyBoundState },
+  AM extends ActionMap,
+  OAM extends ActionMap,
+  SEL extends SelectorMap<SM> = Record<string, never>,
+>(
+  machine: MachineDefinition<SM, AM, OAM, unknown, SEL>,
+  initialState: ReturnType<SM[keyof SM]>,
+  options: Partial<Options> = {},
+): ContextValue<SM, AM, OAM, SEL> => {
+  const store = useMachineStore<SM, AM, OAM, SEL>(
+    machine,
+    initialState,
+    options,
+  )
 
   return useSyncExternalStore(
     store.subscribe,
@@ -283,41 +332,15 @@ export const useMachineHandle = <
   initialState: ReturnType<SM[keyof SM]>,
   options: Partial<Options> = {},
 ): MachineHandle<SM, AM, OAM, SEL> => {
-  const store = useMemo(
-    () =>
-      createMachineStore<SM, AM, OAM, SEL>(machine, initialState, {
-        ...options,
-        disableAutoSelectors: true,
-      }),
-    [],
-  )
+  const store = useMachineStore<SM, AM, OAM, SEL>(machine, initialState, {
+    ...options,
+    disableAutoSelectors: true,
+  })
 
-  useEffect(() => {
-    store.start()
-
-    return () => {
-      store.stop()
-    }
-  }, [])
-
-  return useMemo(() => {
-    const snapshot = store.getSnapshot()
-
-    return {
-      actions: snapshot.actions,
-      get context() {
-        return store.getSnapshot().context
-      },
-      get currentState() {
-        return store.getSnapshot().currentState
-      },
-      getSnapshot: store.getSnapshot,
-      runtime: snapshot.runtime!,
-      get selectors() {
-        return store.getSnapshot().selectors
-      },
-      states: snapshot.states,
-      __store: store,
-    }
-  }, [store])
+  return useMemo(() => createMachineHandleFromStore(store), [])
 }
+
+export const subscribeIfEnabled = (
+  enabled: boolean,
+  subscribe: (listener: () => void) => () => void,
+) => (enabled ? subscribe : noopSubscribe)

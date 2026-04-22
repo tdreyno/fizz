@@ -1,4 +1,5 @@
 import type { MachineDefinition } from "@tdreyno/fizz"
+import { useMemo, useSyncExternalStore } from "react"
 
 import type {
   ActionMap,
@@ -8,7 +9,11 @@ import type {
   Options,
   SelectorMap,
 } from "./machineStore.js"
-import { useMachineHandle, useMachineValue } from "./machineStore.js"
+import {
+  createMachineHandleFromStore,
+  subscribeIfEnabled,
+  useMachineStore,
+} from "./machineStore.js"
 
 type UseMachineSimpleOptions = Partial<Options> & {
   disableAutoSelectors?: false
@@ -50,9 +55,24 @@ export function useMachine<
   initialState: ReturnType<SM[keyof SM]>,
   options: Partial<Options> = {},
 ): ContextValue<SM, AM, OAM, SEL> | MachineHandle<SM, AM, OAM, SEL> {
-  if (options.disableAutoSelectors === true) {
-    return useMachineHandle<SM, AM, OAM, SEL>(machine, initialState, options)
-  }
+  const disableAutoSelectors = options.disableAutoSelectors === true
+  const store = useMachineStore<SM, AM, OAM, SEL>(
+    machine,
+    initialState,
+    disableAutoSelectors
+      ? {
+          ...options,
+          disableAutoSelectors: true,
+        }
+      : options,
+  )
 
-  return useMachineValue<SM, AM, OAM, SEL>(machine, initialState, options)
+  const contextValue = useSyncExternalStore(
+    subscribeIfEnabled(!disableAutoSelectors, store.subscribe),
+    store.getSnapshot,
+    store.getSnapshot,
+  )
+  const machineHandle = useMemo(() => createMachineHandleFromStore(store), [])
+
+  return disableAutoSelectors ? machineHandle : contextValue
 }
