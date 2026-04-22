@@ -266,7 +266,9 @@ export const state = <Data = undefined, Name extends string = string>(
   const handlers: Record<string, HandlerLike> = {}
   const timeoutHandlers = new Map<string, AnyHandler>()
   const intervalHandlers = new Map<string, AnyHandler>()
-  let previousActionType: string | undefined
+  const registrationCursor: { lastActionType: string | undefined } = {
+    lastActionType: undefined,
+  }
 
   const stateFn = createObjectState<Action<string, unknown>, Data>(
     handlers as never,
@@ -288,13 +290,13 @@ export const state = <Data = undefined, Name extends string = string>(
     }
 
     handlers[actionType] = handler
-    previousActionType = actionType
+    registrationCursor.lastActionType = actionType
 
     return stateFn
   }
 
   const applyGuard = (predicate: (data: Data) => boolean, invert: boolean) => {
-    if (!previousActionType) {
+    if (!registrationCursor.lastActionType) {
       throw createFluentConfigError(
         "MISSING_PREVIOUS_HANDLER",
         name,
@@ -302,6 +304,7 @@ export const state = <Data = undefined, Name extends string = string>(
       )
     }
 
+    const previousActionType = registrationCursor.lastActionType
     const previousHandler = handlers[previousActionType]
 
     if (!isPlainHandler(previousHandler)) {
@@ -359,7 +362,7 @@ export const state = <Data = undefined, Name extends string = string>(
     timeoutRoutingHandler[timeoutRoutingSymbol] = true
 
     handlers[timerCompleted.type] = timeoutRoutingHandler
-    previousActionType = timerCompleted.type
+    registrationCursor.lastActionType = timerCompleted.type
 
     return stateFn
   }
@@ -395,7 +398,7 @@ export const state = <Data = undefined, Name extends string = string>(
     intervalRoutingHandler[intervalRoutingSymbol] = true
 
     handlers[intervalTriggered.type] = intervalRoutingHandler
-    previousActionType = intervalTriggered.type
+    registrationCursor.lastActionType = intervalTriggered.type
 
     return stateFn
   }

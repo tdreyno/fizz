@@ -236,6 +236,35 @@ export const createTestHarness = <
     )
   }
 
+  const waitForCondition = async <T>(waitOptions: {
+    check: () => T | undefined
+    maxIterations: number
+    settleBetweenChecks: boolean
+    timeoutMessage: string
+  }): Promise<T> => {
+    for (
+      let iteration = 0;
+      iteration < waitOptions.maxIterations;
+      iteration += 1
+    ) {
+      const result = waitOptions.check()
+
+      if (result !== undefined) {
+        return result
+      }
+
+      if (!waitOptions.settleBetweenChecks) {
+        await Promise.resolve()
+        await asyncDriver.flush()
+        continue
+      }
+
+      await runSettleStep()
+    }
+
+    throw new Error(waitOptions.timeoutMessage)
+  }
+
   const waitForState = async (
     predicate: (state: State) => boolean,
     options?: WaitForStateOptions,
@@ -252,32 +281,23 @@ export const createTestHarness = <
     })
 
     try {
-      for (let iteration = 0; iteration < maxIterations; iteration += 1) {
-        const state = runtime.currentState() as State
+      return await waitForCondition({
+        check: () => {
+          const state = runtime.currentState() as State
 
-        if (predicate(state)) {
-          return state
-        }
+          if (predicate(state)) {
+            return state
+          }
 
-        if (matchedState) {
           return matchedState
-        }
-
-        if (!settleBetweenChecks) {
-          await Promise.resolve()
-          await asyncDriver.flush()
-          continue
-        }
-
-        await runSettleStep()
-      }
+        },
+        maxIterations,
+        settleBetweenChecks,
+        timeoutMessage: `State predicate did not match within ${maxIterations} iterations.`,
+      })
     } finally {
       unsubscribe()
     }
-
-    throw new Error(
-      `State predicate did not match within ${maxIterations} iterations.`,
-    )
   }
 
   const waitForOutput = async (
@@ -300,32 +320,23 @@ export const createTestHarness = <
     })
 
     try {
-      for (let iteration = 0; iteration < maxIterations; iteration += 1) {
-        const matchedOutput = recordedOutputs.find(output => matches(output))
+      return await waitForCondition({
+        check: () => {
+          const matchedOutput = recordedOutputs.find(output => matches(output))
 
-        if (matchedOutput) {
-          return matchedOutput
-        }
+          if (matchedOutput) {
+            return matchedOutput
+          }
 
-        if (matchedFromSubscription) {
           return matchedFromSubscription
-        }
-
-        if (!settleBetweenChecks) {
-          await Promise.resolve()
-          await asyncDriver.flush()
-          continue
-        }
-
-        await runSettleStep()
-      }
+        },
+        maxIterations,
+        settleBetweenChecks,
+        timeoutMessage: `Output predicate did not match within ${maxIterations} iterations.`,
+      })
     } finally {
       unsubscribe()
     }
-
-    throw new Error(
-      `Output predicate did not match within ${maxIterations} iterations.`,
-    )
   }
 
   return {

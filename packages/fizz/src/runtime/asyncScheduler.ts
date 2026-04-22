@@ -17,26 +17,17 @@ export type ActiveAsync = {
   token: number
 }
 
-const asyncParallelByOperations = new WeakMap<
-  Map<string, ActiveAsync>,
-  ReturnType<typeof createAsyncParallelMachine>
->()
+export type AsyncParallelMachineRef = ReturnType<
+  typeof createAsyncParallelMachine
+>
 
-const getAsyncParallelMachine = (
-  asyncOperations: Map<string, ActiveAsync>,
-): ReturnType<typeof createAsyncParallelMachine> => {
-  const existing = asyncParallelByOperations.get(asyncOperations)
-
-  if (existing) {
-    return existing
-  }
-
-  const created = createAsyncParallelMachine()
-
-  asyncParallelByOperations.set(asyncOperations, created)
-
-  return created
-}
+export const createAsyncState = (): {
+  asyncOperations: Map<string, ActiveAsync>
+  parallel: AsyncParallelMachineRef
+} => ({
+  asyncOperations: new Map<string, ActiveAsync>(),
+  parallel: createAsyncParallelMachine(),
+})
 
 type StartAsyncOperationOptions<Resolved> = {
   asyncDriver: RuntimeAsyncDriver
@@ -48,6 +39,7 @@ type StartAsyncOperationOptions<Resolved> = {
   nextToken: () => number
   onReject?: (asyncId: string, error: unknown) => void
   onResolve?: (asyncId: string, value: Resolved) => void
+  parallel: AsyncParallelMachineRef
   run: (action: Action<string, unknown>) => Promise<void>
   runAsyncOperation: (
     run: StartAsyncEffectData<Resolved, string>["run"],
@@ -59,11 +51,13 @@ type CancelAsyncOperationOptions = {
   asyncDriver: RuntimeAsyncDriver
   asyncId: string
   asyncOperations: Map<string, ActiveAsync>
+  parallel: AsyncParallelMachineRef
 }
 
 type ClearAsyncOperationsOptions = {
   asyncDriver: RuntimeAsyncDriver
   asyncOperations: Map<string, ActiveAsync>
+  parallel: AsyncParallelMachineRef
 }
 
 export const startAsyncOperation = <Resolved>({
@@ -76,10 +70,10 @@ export const startAsyncOperation = <Resolved>({
   nextToken,
   onReject,
   onResolve,
+  parallel,
   run,
   runAsyncOperation,
 }: StartAsyncOperationOptions<Resolved>): void => {
-  const parallel = getAsyncParallelMachine(asyncOperations)
   const previousAsync = asyncOperations.get(asyncId)
 
   if (previousAsync) {
@@ -170,8 +164,8 @@ export const cancelActiveAsyncOperation = ({
   asyncDriver,
   asyncId,
   asyncOperations,
+  parallel,
 }: CancelAsyncOperationOptions): boolean => {
-  const parallel = getAsyncParallelMachine(asyncOperations)
   const activeAsync = asyncOperations.get(asyncId)
 
   if (!activeAsync) {
@@ -198,9 +192,8 @@ export const cancelActiveAsyncOperation = ({
 export const clearAsyncOperations = ({
   asyncDriver,
   asyncOperations,
+  parallel,
 }: ClearAsyncOperationsOptions): void => {
-  const parallel = getAsyncParallelMachine(asyncOperations)
-
   asyncOperations.forEach((activeAsync, asyncId) => {
     cancelAsyncLane(parallel, asyncId, activeAsync.token, {
       cancelHandle: () => {

@@ -7,9 +7,6 @@ import type {
 } from "./timerMachine.js"
 import {
   activateFrame,
-  cancelFrame,
-  cancelInterval,
-  cancelTimer,
   canHandleScheduledTokenEvent,
   createFrameMachine,
   createIntervalMachine,
@@ -19,16 +16,16 @@ import {
 } from "./timerMachine.js"
 
 export type ActiveTimer = {
-  delay: number
-  handle: unknown
-  machine: IntervalMachine | TimerMachine
-  token: number
+  readonly delay: number
+  readonly handle: unknown
+  readonly machine: IntervalMachine | TimerMachine
+  readonly token: number
 }
 
 export type ActiveFrame = {
-  handle: unknown
-  machine: FrameMachine
-  token: number
+  readonly handle: unknown
+  readonly machine: FrameMachine
+  readonly token: number
 }
 
 type StartTimerOperationOptions<TimeoutId extends string> = {
@@ -115,10 +112,8 @@ export const cancelActiveTimerOperation = ({
     return
   }
 
-  activeTimer.machine = cancelTimer(activeTimer.machine, activeTimer.token)
-
-  timerDriver.cancel(activeTimer.handle)
   timers.delete(timeoutId)
+  timerDriver.cancel(activeTimer.handle)
 
   return {
     delay: activeTimer.delay,
@@ -137,10 +132,8 @@ export const replaceTimerOperation = ({
     return
   }
 
-  activeTimer.machine = cancelTimer(activeTimer.machine, activeTimer.token)
-
-  timerDriver.cancel(activeTimer.handle)
   timers.delete(timeoutId)
+  timerDriver.cancel(activeTimer.handle)
 }
 
 export const startIntervalOperation = <IntervalId extends string>({
@@ -179,13 +172,8 @@ export const cancelActiveIntervalOperation = ({
     return
   }
 
-  activeInterval.machine = cancelInterval(
-    activeInterval.machine,
-    activeInterval.token,
-  )
-
-  timerDriver.cancel(activeInterval.handle)
   intervals.delete(intervalId)
+  timerDriver.cancel(activeInterval.handle)
 
   return {
     delay: activeInterval.delay,
@@ -204,13 +192,8 @@ export const replaceIntervalOperation = ({
     return
   }
 
-  activeInterval.machine = cancelInterval(
-    activeInterval.machine,
-    activeInterval.token,
-  )
-
-  timerDriver.cancel(activeInterval.handle)
   intervals.delete(intervalId)
+  timerDriver.cancel(activeInterval.handle)
 }
 
 export const startFrameOperation = ({
@@ -242,8 +225,6 @@ export const cancelActiveFrameOperation = ({
     return
   }
 
-  frame.machine = cancelFrame(frame.machine, frame.token)
-
   timerDriver.cancel(frame.handle)
 }
 
@@ -253,21 +234,16 @@ export const clearScheduledOperations = ({
   timerDriver,
   timers,
 }: ClearScheduledOperationsOptions): void => {
-  timers.forEach(timer => {
-    timer.machine = cancelTimer(timer.machine, timer.token)
-    timerDriver.cancel(timer.handle)
-  })
-
-  intervals.forEach(interval => {
-    interval.machine = cancelInterval(interval.machine, interval.token)
-    timerDriver.cancel(interval.handle)
-  })
-
-  if (frame) {
-    frame.machine = cancelFrame(frame.machine, frame.token)
-    timerDriver.cancel(frame.handle)
-  }
+  const timerHandles = [...timers.values()].map(t => t.handle)
+  const intervalHandles = [...intervals.values()].map(i => i.handle)
 
   timers.clear()
   intervals.clear()
+
+  timerHandles.forEach(handle => timerDriver.cancel(handle))
+  intervalHandles.forEach(handle => timerDriver.cancel(handle))
+
+  if (frame) {
+    timerDriver.cancel(frame.handle)
+  }
 }

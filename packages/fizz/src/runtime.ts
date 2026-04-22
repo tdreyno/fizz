@@ -19,6 +19,13 @@ export {
   listRuntimeChromeDebuggerRegistrations,
 } from "./runtime/debugHook.js"
 import {
+  canQueueStartProcessing,
+  createQueueMachine,
+  markQueueEnteredInitialState,
+  startQueueProcessing,
+  stopQueueProcessing,
+} from "./runtime/queueMachine.js"
+import {
   actionCommand,
   commandsFromStateReturns,
   effectCommand,
@@ -111,9 +118,8 @@ export class Runtime<
   readonly #outputSubscribers = new Set<OutputSubscriber<OAM>>()
   readonly #validActions: Set<string>
   readonly #timerDriver: RuntimeTimerDriver
-  #hasEnteredInitialState = false
+  #queueMachine = createQueueMachine()
   readonly #queue: RuntimeQueueItem<RuntimeDebugCommand>[] = []
-  #isRunning = false
 
   constructor(
     public context: Context,
@@ -267,8 +273,8 @@ export class Runtime<
       })
     })
 
-    if (!this.#isRunning) {
-      this.#isRunning = true
+    if (canQueueStartProcessing(this.#queueMachine)) {
+      this.#queueMachine = startQueueProcessing(this.#queueMachine)
       void this.#processQueueHead()
     }
 
@@ -296,7 +302,7 @@ export class Runtime<
         })
       },
       onQueueEmpty: () => {
-        this.#isRunning = false
+        this.#queueMachine = stopQueueProcessing(this.#queueMachine)
       },
       onRuntimeError: (command, error) => {
         this.#emitMonitor({
@@ -308,7 +314,7 @@ export class Runtime<
       processNext: () => this.#processQueueHead(),
       queue: this.#queue,
       stopOnError: () => {
-        this.#isRunning = false
+        this.#queueMachine = stopQueueProcessing(this.#queueMachine)
       },
       toQueueItems: commands => this.#commandsToQueueItems(commands),
     })
@@ -389,8 +395,11 @@ export class Runtime<
   async #executeAction<A extends RuntimeAction>(
     action: A,
   ): Promise<RuntimeDebugCommand[]> {
-    if (action.type === enter.type && !this.#hasEnteredInitialState) {
-      this.#hasEnteredInitialState = true
+    if (
+      action.type === enter.type &&
+      !this.#queueMachine.hasEnteredInitialState
+    ) {
+      this.#queueMachine = markQueueEnteredInitialState(this.#queueMachine)
 
       return [actionCommand(beforeEnter(this)), actionCommand(action)]
     }

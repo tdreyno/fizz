@@ -36,6 +36,17 @@ import {
   startTimer as startTimerEffect,
 } from "./effect.js"
 import { Runtime } from "./runtime.js"
+import type { WrappedHandlerMachine } from "./runtime/wrappedHandlerMachine.js"
+import {
+  activateWrappedHandler,
+  createWrappedHandlerMachine,
+  fireAndResetWrappedHandler,
+  fireAndRestartWrappedHandler,
+  isWrappedHandlerIdle,
+  isWrappedHandlerPending,
+  resetWrappedHandler,
+  setPendingWrappedHandler,
+} from "./runtime/wrappedHandlerMachine.js"
 
 /**
  * States can return either:
@@ -149,11 +160,7 @@ type LooseHandler = (
   runtime?: InternalRuntime,
 ) => HandlerReturn
 
-type WrappedHandlerRuntimeState<Payload = unknown> = {
-  active: boolean
-  hasPendingPayload: boolean
-  pendingPayload: Payload | undefined
-}
+// WrappedHandlerRuntimeState is now WrappedHandlerMachine<Payload> from wrappedHandlerMachine.ts
 
 const wrappedHandlerSymbol = Symbol("wrapped handler")
 const scheduledMatcherSymbol = Symbol("scheduled matcher")
@@ -167,7 +174,7 @@ type WrappedHandler<T extends LooseHandler> = {
     id: number
     runtimeStates: WeakMap<
       InternalRuntime,
-      WrappedHandlerRuntimeState<Parameters<T>[1]>
+      WrappedHandlerMachine<Parameters<T>[1]>
     >
   }
 }
@@ -433,7 +440,7 @@ const createWrappedHandler = <T extends LooseHandler>(
     id: wrappedHandlerCounter++,
     runtimeStates: new WeakMap<
       InternalRuntime,
-      WrappedHandlerRuntimeState<Parameters<T>[1]>
+      WrappedHandlerMachine<Parameters<T>[1]>
     >(),
   },
 })
@@ -554,18 +561,14 @@ const getWrappedHandlerTimeoutId = (handler: AnyWrappedHandler) =>
 const getWrappedHandlerRuntimeState = <T extends LooseHandler>(
   handler: WrappedHandler<T>,
   runtime: InternalRuntime,
-): WrappedHandlerRuntimeState<Parameters<T>[1]> => {
+): WrappedHandlerMachine<Parameters<T>[1]> => {
   const current = handler[wrappedHandlerSymbol].runtimeStates.get(runtime)
 
   if (current) {
     return current
   }
 
-  const created: WrappedHandlerRuntimeState<Parameters<T>[1]> = {
-    active: false,
-    hasPendingPayload: false,
-    pendingPayload: undefined,
-  }
+  const created = createWrappedHandlerMachine<Parameters<T>[1]>()
 
   handler[wrappedHandlerSymbol].runtimeStates.set(runtime, created)
 
@@ -610,23 +613,19 @@ const runWrappedHandler = <T extends LooseHandler>(
     return handler.handler(data, payload, utils)
   }
 
-  const runtimeState = getWrappedHandlerRuntimeState(handler, runtime)
+  const machine = getWrappedHandlerRuntimeState(handler, runtime)
   const timerId = getWrappedHandlerTimeoutId(handler)
+  const runtimeStates = handler[wrappedHandlerSymbol].runtimeStates
 
   if (handler.mode === "debounce") {
-    runtimeState.active = true
-    runtimeState.hasPendingPayload = true
-    runtimeState.pendingPayload = payload
+    runtimeStates.set(runtime, setPendingWrappedHandler(machine, payload))
 
     return restartTimerEffect(timerId, handler.options.delay)
   }
 
-  if (!runtimeState.active) {
-    runtimeState.active = true
-
+  if (isWrappedHandlerIdle(machine)) {
     if (handler.options.leading) {
-      runtimeState.hasPendingPayload = false
-      runtimeState.pendingPayload = undefined
+      runtimeStates.set(runtime, activateWrappedHandler(machine))
 
       return prependStateReturns(
         handler.handler(data, payload, utils),
@@ -635,16 +634,16 @@ const runWrappedHandler = <T extends LooseHandler>(
     }
 
     if (handler.options.trailing) {
-      runtimeState.hasPendingPayload = true
-      runtimeState.pendingPayload = payload
+      runtimeStates.set(runtime, setPendingWrappedHandler(machine, payload))
+    } else {
+      runtimeStates.set(runtime, activateWrappedHandler(machine))
     }
 
     return startTimerEffect(timerId, handler.options.delay)
   }
 
   if (handler.options.trailing) {
-    runtimeState.hasPendingPayload = true
-    runtimeState.pendingPayload = payload
+    runtimeStates.set(runtime, setPendingWrappedHandler(machine, payload))
   }
 
   return undefined
@@ -661,31 +660,28 @@ const runWrappedHandlerTimerAction = <T extends LooseHandler>(
     return undefined
   }
 
-  const runtimeState = getWrappedHandlerRuntimeState(handler, runtime)
+  const machine = getWrappedHandlerRuntimeState(handler, runtime)
+  const runtimeStates = handler[wrappedHandlerSymbol].runtimeStates
 
   if (handler.mode === "debounce") {
-    if (!runtimeState.hasPendingPayload) {
-      runtimeState.active = false
+    if (!isWrappedHandlerPending(machine)) {
+      runtimeStates.set(runtime, resetWrappedHandler(machine))
       return undefined
     }
 
-    runtimeState.active = false
-    runtimeState.hasPendingPayload = false
+    const [nextMachine, pendingPayload] = fireAndResetWrappedHandler(machine)
+    runtimeStates.set(runtime, nextMachine)
 
-    return handler.handler(data, runtimeState.pendingPayload, utils)
+    return handler.handler(data, pendingPayload, utils)
   }
 
-  if (!runtimeState.hasPendingPayload) {
-    runtimeState.active = false
-    runtimeState.pendingPayload = undefined
+  if (!isWrappedHandlerPending(machine)) {
+    runtimeStates.set(runtime, resetWrappedHandler(machine))
     return undefined
   }
 
-  const pendingPayload = runtimeState.pendingPayload
-
-  runtimeState.active = true
-  runtimeState.hasPendingPayload = false
-  runtimeState.pendingPayload = undefined
+  const [nextMachine, pendingPayload] = fireAndRestartWrappedHandler(machine)
+  runtimeStates.set(runtime, nextMachine)
 
   return prependStateReturns(
     handler.handler(data, pendingPayload, utils),
