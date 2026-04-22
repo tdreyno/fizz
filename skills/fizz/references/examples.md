@@ -194,6 +194,61 @@ const current = machine.currentState
 const isDone = machine.currentState.is(machine.states.Done)
 ```
 
+## Parallel machine composition
+
+```typescript
+import {
+  action,
+  createMachine,
+  createParallelMachine,
+  createRuntime,
+  enter,
+  state,
+} from "@tdreyno/fizz"
+
+const refresh = action("Refresh")
+
+const LeftIdle = state({
+  Enter: () => undefined,
+  Refresh: () => LeftReady(),
+})
+
+const LeftReady = state({
+  Enter: () => undefined,
+})
+
+const LeftMachine = createMachine({
+  actions: { refresh },
+  initialState: LeftIdle(),
+  states: { LeftIdle, LeftReady },
+})
+
+const RightIdle = state({
+  Enter: () => undefined,
+  Refresh: () => RightReady(),
+})
+
+const RightReady = state({
+  Enter: () => undefined,
+})
+
+const RightMachine = createMachine({
+  actions: { refresh },
+  initialState: RightIdle(),
+  states: { RightIdle, RightReady },
+})
+
+const parallel = createParallelMachine({
+  left: LeftMachine.withInitialState(LeftIdle()),
+  right: RightMachine.withInitialState(RightReady()),
+})
+
+const runtime = createRuntime(parallel.machine, parallel.initialState)
+
+await runtime.run(enter())
+await runtime.run(parallel.actions.refresh())
+```
+
 ## Shared runtime with `createMachineContext(...)`
 
 ```typescript

@@ -31,6 +31,7 @@ Create an explicit machine root that groups your top-level states, actions, and 
 const EditorMachine = createMachine(
   {
     actions: { saveDraft, startEditing },
+    initialState: Idle({ draftId: null }),
     outputActions: { draftSaved },
     states: { Editing, Idle },
   },
@@ -38,7 +39,48 @@ const EditorMachine = createMachine(
 )
 ```
 
-Use `createMachine(...)` when you want one stable root for integrations, examples, or CLI discovery. The CLI only discovers default-exported machine roots created this way.
+Use `createMachine(...)` when you want one stable root for integrations, examples, or CLI discovery. Set `initialState` when the machine should carry a default starting state for helpers like `createParallelMachine(...)`. The CLI only discovers default-exported machine roots created this way.
+
+Each created machine also exposes `.withInitialState(...)` to produce a copy with a different runtime starting state.
+
+```ts
+const RuntimeEditorMachine = EditorMachine.withInitialState(
+  Editing({ draftId: "draft-42" }),
+)
+```
+
+### `createParallelMachine`
+
+Create a machine root that owns multiple child machines at the same time and broadcasts shared actions to every branch that can handle them.
+
+```ts
+const parallel = createParallelMachine({
+  left: LeftMachine.withInitialState(LeftMachine.states.Loading()),
+  right: RightMachine.withInitialState(RightMachine.states.Ready()),
+})
+
+await runtime.run(parallel.actions.refresh())
+```
+
+Each branch must be the result of `createMachine(...)` and must carry its own `initialState`.
+
+Use this when several child workflows are active together and one parent action should fan out across those branches.
+
+See [Parallel State Machines](./parallel-state-machines.md) for the full walkthrough and when to choose this instead of `stateWithNested(...)`.
+
+### `getParallelRuntimes`
+
+Read the current child runtime map from a parallel machine state's data.
+
+```ts
+const runtime = createRuntime(parallel.machine, parallel.initialState)
+
+await runtime.run(enter())
+
+const branches = getParallelRuntimes(runtime.currentState().data)
+```
+
+This is the main helper for integrations that need keyed access to child branch runtimes without reaching into `PARALLEL_RUNTIMES` directly.
 
 ## Actions
 
@@ -280,6 +322,7 @@ const Parent = stateWithNested(
 Use this when nested composition makes the machine easier to reason about, not just to avoid a few repeated handlers.
 
 See [Nested State Machines](./nested-state-machines.md) for a practical walkthrough of parent and child communication.
+If the problem is several active child workflows instead of one parent-owned child workflow, use [Parallel State Machines](./parallel-state-machines.md) instead.
 
 ### `debounce`
 

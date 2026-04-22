@@ -36,10 +36,14 @@ export {
   timerStarted,
 } from "./action.js"
 export * from "./context.js"
-export type { MachineDefinition } from "./createMachine.js"
+export type {
+  CreatedMachineDefinition,
+  MachineDefinition,
+} from "./createMachine.js"
 export { createMachine } from "./createMachine.js"
 export * from "./effect.js"
 export * from "./errors.js"
+export * from "./parallelMachine.js"
 export * from "./runtime.js"
 export * from "./runtimeDebug.js"
 export type {

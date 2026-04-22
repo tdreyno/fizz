@@ -34,6 +34,18 @@ describe("Fizz core", () => {
 
       expect(machine.name).toBe("EntryMachine")
     })
+
+    test("should allow overriding initialState with withInitialState", () => {
+      const machine = createMachine({
+        initialState: Entry(),
+        states: { Entry },
+      })
+
+      const nextMachine = machine.withInitialState(Entry())
+
+      expect(nextMachine.initialState).toBeDefined()
+      expect(nextMachine.withInitialState).toBeInstanceOf(Function)
+    })
   })
 
   // describe.skip("Reenter", () => {

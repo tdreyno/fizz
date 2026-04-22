@@ -5,6 +5,7 @@ Nested state machines let one state own a smaller workflow without flattening ev
 Use `stateWithNested(...)` when a parent state is still one coherent mode, but that mode contains its own step-by-step interaction. A common example is a form, wizard, or setup flow that only exists while the parent state is active.
 
 If nesting only hides a state that should really be split into separate top-level states, prefer another plain `state(...)` instead.
+If you actually need multiple child workflows active together, prefer [Parallel State Machines](./parallel-state-machines.md) instead of forcing them through one nested child runtime.
 
 ## When nesting helps
 

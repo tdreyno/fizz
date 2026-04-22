@@ -1,16 +1,11 @@
-import type {
-  Action,
-  BoundStateFn,
-  MachineDefinition,
-  StateTransition,
-} from "@tdreyno/fizz"
+import type { Action, BoundStateFn, MachineDefinition } from "@tdreyno/fizz"
 import { Context, createRuntime, enter, Runtime } from "@tdreyno/fizz"
 import { useEffect, useMemo, useState } from "react"
 
 export type AnyBoundState = {
   (
-    ...data: never[]
-  ): ReturnType<BoundStateFn<string, Action<string, unknown>, never>>
+    ...data: Array<unknown>
+  ): ReturnType<BoundStateFn<string, Action<string, unknown>, unknown>>
   name: string
 }
 
@@ -45,12 +40,11 @@ export interface Options {
 
 const createMachineRuntime = <
   SM extends { [key: string]: AnyBoundState },
-  S extends StateTransition<string, Action<string, unknown>, unknown>,
   AM extends ActionMap,
   OAM extends ActionMap,
 >(
   machine: MachineDefinition<SM, AM, OAM>,
-  initialState: S,
+  initialState: ReturnType<SM[keyof SM]>,
   options: Partial<Options>,
 ) => {
   const { maxHistory = 5, enableLogging = false } = options

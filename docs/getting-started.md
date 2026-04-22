@@ -159,6 +159,7 @@ See [React Integration](./react-integration.md) for the full `useMachine(...)` h
 - Read [React Integration](./react-integration.md) if you are using React and want the full hook API and integration patterns.
 - Read [Complex Actions](./complex-actions.md) when a state starts handling larger action surfaces, lifecycle actions, or debounced and throttled branches.
 - Read [Nested State Machines](./nested-state-machines.md) when one state needs to own a smaller workflow with its own local transitions.
+- Read [Parallel State Machines](./parallel-state-machines.md) when one parent workflow needs several active child machines at the same time.
 - Read [Custom Effects](./custom-effects.md) when the built-in async, timer, interval, or output helpers are not the right fit.
 - Read [Async](./async.md), [Timers](./timers.md), and [Intervals](./intervals.md) for the detailed scheduling APIs.
 

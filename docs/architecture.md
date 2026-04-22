@@ -227,6 +227,7 @@ When a machine grows, the main tools are structural rather than magical:
 
 - split different modes into separate states
 - use a nested state machine when one parent mode owns a smaller workflow with a clear boundary
+- use a parallel machine when several child workflows stay active together and should share a broadcast action surface
 - keep action names explicit
 - keep handlers focused on one transition step
 - use lifecycle actions from async and scheduling helpers instead of custom callback plumbing
@@ -236,6 +237,7 @@ When a machine grows, the main tools are structural rather than magical:
 If a single state starts collecting unrelated action families, the right move is often another state, not another layer of indirection.
 
 See [Nested State Machines](./nested-state-machines.md) when one state should own a child workflow instead of flattening every step into the top-level machine.
+See [Parallel State Machines](./parallel-state-machines.md) when a parent needs multiple active child machines instead of one nested child runtime.
 
 ## Where custom effects fit
 
@@ -262,6 +264,7 @@ See [React Integration](./react-integration.md) for the hook parameters, return 
 - [Custom Effects](./custom-effects.md)
 - [Complex Actions](./complex-actions.md)
 - [Nested State Machines](./nested-state-machines.md)
+- [Parallel State Machines](./parallel-state-machines.md)
 - [Async](./async.md)
 - [Timers](./timers.md)
 - [Intervals](./intervals.md)

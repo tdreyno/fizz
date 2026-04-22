@@ -15,7 +15,7 @@ npm install --save @tdreyno/fizz @tdreyno/fizz-react
 
 ## The hook shape
 
-`@tdreyno/fizz-react` exports both `useMachine(...)` and `createMachineContext(...)`.
+`@tdreyno/fizz-react` exports `useMachine(...)` and `createMachineContext(...)`.
 
 The isolated hook shape is:
 

@@ -12,6 +12,7 @@ The main Fizz package exports its public surface from `packages/fizz/src/index.t
 - effect helpers from `effect.ts`
 - runtime helpers from `runtime.ts`
 - state helpers from `state.ts`
+- parallel composition helpers from `parallelMachine.ts`
 
 When answering API questions, prefer the exported surface over internal implementation details.
 
@@ -50,6 +51,25 @@ In practice, keep each handler focused on one concern:
 Use `stateWithNested(...)` only when the machine genuinely benefits from nested composition. Do not introduce nesting just to avoid a couple of repeated handlers.
 
 Nested state composition should make the machine easier to reason about, not harder.
+
+### `createParallelMachine(...)`
+
+Use `createParallelMachine(...)` when several child workflows should stay active together and the parent should broadcast shared actions to every branch that can handle them.
+
+Each branch must provide:
+
+- a machine root returned from `createMachine(...)`
+- that machine root's `initialState`
+
+If the same machine shape needs different start values per branch, use `.withInitialState(...)` on the machine root before passing it to `createParallelMachine(...)`.
+
+This keeps parallel composition inside the normal runtime model instead of introducing a separate orchestration layer.
+
+### `getParallelRuntimes(...)`
+
+Use `getParallelRuntimes(...)` to read the keyed child runtime map from a parallel machine state's data.
+
+This is the preferred public helper for integrations that need branch inspection. Avoid reaching into the internal symbol directly.
 
 ### Matchers and state helpers
 
@@ -120,6 +140,7 @@ When reviewing Fizz code, check these first:
 - Are transitions explicit and easy to trace?
 - Is side-effect work represented through effects or async helpers?
 - Is nested state composition justified?
+- Should this be a parallel machine instead of a nested child state?
 - Is runtime bootstrapping done with `enter()`?
 
 If the task shifts into async work or cancellation semantics, continue with `async-and-scheduling.md`.
