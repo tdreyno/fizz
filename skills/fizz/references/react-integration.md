@@ -77,6 +77,16 @@ useMachineSubscription(
 )
 ```
 
+### Use `machine.selectors` for derived render values
+
+When render logic depends on reusable derived checks, define selectors on the machine root with `selectWhen(...)` and consume them through `machine.selectors` from `useMachine(...)` or `useMachineContext(...)`.
+
+- keeps state filters explicit with `when`
+- narrows state data inside selector branches
+- supports optional `equalityFn` to suppress equivalent object-output churn
+
+Prefer colocated selectors over repeating derived object construction in component bodies when several components share the same derivation.
+
 ### Be careful with initialization assumptions
 
 The runtime bootstrap happens in an effect. If the task depends on what happens on entry, reason from that lifecycle rather than assuming the machine is fully entered during render.

@@ -49,6 +49,61 @@ const RuntimeEditorMachine = EditorMachine.withInitialState(
 )
 ```
 
+### `selectWhen`
+
+Define colocated selectors on a machine root for read-only derived checks. Selectors are part of the core machine definition and are not React-specific.
+
+```ts
+const EditorMachine = createMachine({
+  actions: { startEditing },
+  selectors: {
+    isEditable: selectWhen(Editing, state => !state.data.readOnly),
+    canReview: selectWhen([Editing, Reviewing] as const, state => {
+      if (state.is(Editing)) {
+        return !state.data.readOnly
+      }
+
+      return state.data.approved === false
+    }),
+  },
+  states: { Editing, Reviewing, Viewing },
+})
+```
+
+`selectWhen(...)` accepts:
+
+- `when`: one state creator or a readonly array of state creators
+- second argument: either a `select` function (runs only when `currentState` matches `when`) or a matcher object shorthand
+- optional final `options` object: `{ equalityFn? }`
+- function selectors return `undefined` when `currentState` does not match `when`
+- matcher-object selectors return `true` when all matcher keys equal `state.data` values, otherwise `false`
+
+Prefer matcher-object shorthand when you want a boolean predicate over `state.data` keys.
+
+Matcher-object shorthand example:
+
+```ts
+const hasInteractiveLabel = selectWhen([Editing, Reviewing] as const, {
+  label: "Interactive",
+})
+```
+
+This keeps state checks centralized and colocated with machine definitions, instead of repeating `currentState.is(...)` branches in components.
+
+You can evaluate selectors anywhere you have the current state and context, including plain runtime usage outside React:
+
+```ts
+const runtime = createRuntime(EditorMachine, EditorMachine.states.Viewing())
+
+await runtime.run(enter())
+
+const isEditable = runStateSelector(
+  EditorMachine.selectors.isEditable,
+  runtime.currentState(),
+  runtime.context,
+)
+```
+
 ### `createParallelMachine`
 
 Create a machine root that owns multiple child machines at the same time and broadcasts shared actions to every branch that can handle them.

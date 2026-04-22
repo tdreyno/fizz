@@ -14,6 +14,7 @@ describe("React integration", () => {
     )
     const typedWorld: () => { asPromise: () => Promise<void> } =
       result.current.actions.world
+    const typedIsReady: boolean | undefined = result.current.selectors.isReady
 
     expect(result.current.states).toBe(Machine.states)
     expect(
@@ -33,6 +34,7 @@ describe("React integration", () => {
     expect(initializingData.didWorld).toBeFalsy()
     expect(typeof typedWorld).toBe("function")
     expect(typedDidWorld).toBeFalsy()
+    expect(typedIsReady).toBeUndefined()
 
     await act(async () => {
       await result.current.actions.world().asPromise()
@@ -45,5 +47,6 @@ describe("React integration", () => {
     expect(result.current.currentState.is(States.Ready)).toBe(true)
     expect(result.current.currentState.name).toBe("Ready")
     expect(readyData.didWorld).toBeTruthy()
+    expect(result.current.selectors.isReady).toBe(true)
   })
 })

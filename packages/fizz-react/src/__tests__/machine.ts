@@ -1,5 +1,5 @@
 import type { ActionCreatorType, Enter } from "@tdreyno/fizz"
-import { action, createMachine, output, state } from "@tdreyno/fizz"
+import { action, createMachine, output, selectWhen, state } from "@tdreyno/fizz"
 
 type Data = {
   didWorld: boolean
@@ -32,6 +32,9 @@ export const Machine = createMachine(
   {
     actions: Actions,
     outputActions: OutputActions,
+    selectors: {
+      isReady: selectWhen(Ready, () => true),
+    },
     states: States,
   },
   "ReactTestMachine",

@@ -186,6 +186,49 @@ In practice:
 - use `context` when you need runtime history or lower-level inspection
 - use `runtime` only for advanced cases such as output subscriptions or manual inspection
 
+## Selectors
+
+Use selectors when you want derived values like `isEditable` or `canSave` without repeating state checks in every component.
+
+Define selectors on the machine root with `selectWhen(...)`, then read derived values from `machine.selectors` returned by `useMachine(...)` or `useMachineContext(...)`.
+
+```typescript
+import { createMachine, selectWhen } from "@tdreyno/fizz"
+import { useMachine } from "@tdreyno/fizz-react"
+
+const EditorMachine = createMachine(
+  {
+    actions: { startEditing },
+    selectors: {
+      isEditable: selectWhen(Editing, state => !state.data.readOnly),
+      hasInteractiveLabel: selectWhen(
+        [Editing, Reviewing] as const,
+        { label: "Interactive" },
+      ),
+    },
+    states: { Editing, Reviewing, Viewing },
+  },
+  "EditorMachine",
+)
+
+const EditorPanel = () => {
+  const machine = useMachine(EditorMachine, EditorMachine.states.Viewing())
+  const isEditable = machine.selectors.isEditable
+  const hasInteractiveLabel = machine.selectors.hasInteractiveLabel
+
+  return (
+    <div>
+      <p>{hasInteractiveLabel ? "Interactive" : "Read only"}</p>
+      <button disabled={!isEditable}>Edit</button>
+    </div>
+  )
+}
+```
+
+With matcher shorthand objects, selectors return booleans: `true` when matched and `false` otherwise.
+
+Because `selectWhen(...)` is a positive check, function-based selectors return `undefined` when non-matching.
+
 ## A focused example
 
 This example mirrors the shape used in the React example app: the machine is defined outside the component, then `useMachine(...)` hosts it.

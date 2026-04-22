@@ -15,10 +15,13 @@ npx skills add tdreyno/fizz
 ## What The Skill Covers
 
 - Core `@tdreyno/fizz` state-machine modeling
+- Core selectors with `selectWhen(...)` colocated on `createMachine(...)`
 - Optional fluent state authoring with `@tdreyno/fizz/fluent`
 - Runtime setup with `createMachine(...)`, `createRuntime(machine, initialState, options?)`, and `enter()`
 - Async and scheduling helpers such as `startAsync(...)`, `requestJSONAsync(...)`, timers, intervals, and frame-based work
 - React integration through `@tdreyno/fizz-react` and `useMachine(...)`
+
+Selectors are not limited to React usage. Agents should treat them as machine-level derived checks that can be consumed through React integrations or evaluated directly in core runtime flows.
 
 ## Scope Boundaries
 

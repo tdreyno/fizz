@@ -194,6 +194,58 @@ const current = machine.currentState
 const isDone = machine.currentState.is(machine.states.Done)
 ```
 
+## Colocated selector with `selectWhen(...)`
+
+```typescript
+import { createMachine, selectWhen } from "@tdreyno/fizz"
+
+const machine = createMachine({
+  selectors: {
+    isEditable: selectWhen(Editing, state => !state.data.readOnly),
+    hasInteractiveLabel: selectWhen([Editing, Reviewing] as const, {
+      label: "Interactive",
+    }),
+  },
+  states: { Editing, Viewing },
+})
+```
+
+## React derived rendering with `machine.selectors`
+
+```typescript
+const machineValue = useMachine(machine, machine.states.Viewing())
+const isEditable = machineValue.selectors.isEditable
+```
+
+## Core runtime selector evaluation (non-React)
+
+```typescript
+import {
+  createRuntime,
+  enter,
+  runStateSelector,
+  selectWhen,
+  createMachine,
+} from "@tdreyno/fizz"
+
+const EditorMachine = createMachine({
+  selectors: {
+    isEditable: selectWhen(Editing, state => !state.data.readOnly),
+  },
+  states: { Editing, Viewing },
+})
+
+const runtime = createRuntime(EditorMachine, EditorMachine.states.Viewing())
+
+await runtime.run(enter())
+
+const isEditable = runStateSelector(
+  EditorMachine.selectors.isEditable,
+  runtime.currentState(),
+  runtime.context,
+)
+```
+
 ## Parallel machine composition
 
 ```typescript

@@ -76,6 +76,16 @@ describe("createMachineContext", () => {
       )
     }
 
+    const IsReadySelector = () => {
+      const machine = useMachineContext()
+
+      return createElement(
+        "div",
+        { "data-testid": "is-ready-selector" },
+        machine.selectors.isReady ? "ready" : "not-ready",
+      )
+    }
+
     render(
       createElement(
         Provider,
@@ -88,6 +98,7 @@ describe("createMachineContext", () => {
         createElement(WorldStatus),
         createElement(IsInitializing),
         createElement(IsReady),
+        createElement(IsReadySelector),
       ),
     )
 
@@ -98,6 +109,9 @@ describe("createMachineContext", () => {
       "initializing",
     )
     expect(screen.getByTestId("is-ready").textContent).toBe("not-ready")
+    expect(screen.getByTestId("is-ready-selector").textContent).toBe(
+      "not-ready",
+    )
 
     fireEvent.click(screen.getByText("World"))
 
@@ -111,6 +125,7 @@ describe("createMachineContext", () => {
       "not-initializing",
     )
     expect(screen.getByTestId("is-ready").textContent).toBe("ready")
+    expect(screen.getByTestId("is-ready-selector").textContent).toBe("ready")
   })
 
   test("throws when consumed outside the matching provider", () => {

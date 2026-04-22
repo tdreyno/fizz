@@ -22,10 +22,13 @@ Use this skill when the task involves:
 - Adding timers, intervals, or frame-driven behavior from a state handler
 - Debouncing or throttling high-frequency handlers with `debounce(...)` and `throttle(...)`
 - Using state helper APIs like `switch_(...)`, `whichTimeout(...)`, `whichInterval(...)`, `waitState(...)`, or `isStateTransition(...)`
+- Defining colocated machine selectors with `selectWhen(...)` for derived read-only checks
+- Evaluating selectors outside React with core runtime helpers when needed
 - Using the optional fluent entry point `@tdreyno/fizz/fluent` for chain-first state authoring
 - Writing or reviewing deterministic tests for Fizz machines or runtimes
 - Debugging stale async completions, cancellation, or state-entry behavior
 - Integrating a Fizz machine into React with `useMachine(...)` or `createMachineContext(...)`
+- Integrating selector-driven rendering in React via `machine.selectors` from `useMachine(...)` or `useMachineContext(...)`
 - Reviewing Fizz or fizz-react code for correctness, predictability, or API usage
 
 ## Scope
@@ -74,6 +77,7 @@ If async work may outlive the current state instance, give it an explicit `async
 - Use `createParallelMachine(...)` when several child workflows should stay active together and shared actions should fan out across branches.
 - Use `@tdreyno/fizz/fluent` when a task explicitly prefers creator-first chained responder registration.
 - Use `switch_(...)`, `whichTimeout(...)`, and `whichInterval(...)` to keep state branching explicit and exhaustive.
+- Use `selectWhen(...)` to colocate derived read-only checks directly on `createMachine(...)` definitions and keep selector state filters explicit.
 - Use `waitState(...)` for request-on-enter and response-driven transition flows.
 - Use named actions created up front and wire them into the runtime action map.
 - Return transitions, actions, and effects from handlers instead of mutating external systems directly.
@@ -118,6 +122,8 @@ If the task is about machine tests or consumer-facing test helpers, read `refere
 
 - Use `useMachine(...)` to bind an existing Fizz machine into React.
 - Use `createMachineContext(...)` when multiple components should share one machine instance through a Provider.
+- Use colocated machine selectors through `machine.selectors` for derived values, especially when selector outputs are object-shaped and benefit from `equalityFn`.
+- When a task is not React-based, evaluate colocated selectors from machine definitions in runtime-level code paths instead of rebuilding ad-hoc `currentState.is(...)` checks.
 - Keep machine definition and transition logic outside the React component body when possible.
 - Treat the hook as an adapter that exposes `currentState`, `states`, `context`, `actions`, and `runtime`.
 - Compare states with `currentState.is(machine.states.SomeState)`.
