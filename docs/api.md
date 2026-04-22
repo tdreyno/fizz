@@ -378,6 +378,24 @@ const Done = state<Enter, { done: boolean }>({}, { name: "Done" })
 
 `state(...)` is the main authoring API. Each handler receives `(data, payload, utils)` and can return a transition, an action, an effect, an array of returns, or a promise of those values.
 
+`update(nextData)` remains the standard way to apply same-state data updates. If you prefer draft-style nested edits, you can optionally compute `nextData` with Immer `produce(...)` and pass that result to `update(...)`.
+
+```ts
+import { produce } from "immer"
+
+const Editing = state({
+  SetStreet: (data, payload, { update }) =>
+    update(
+      produce(data, draft => {
+        draft.profile.address.street = payload.street
+      }),
+    ),
+})
+```
+
+This pattern is optional and does not change the Fizz runtime API.
+See [Fluent API](./fluent-api.md#nested-updates-with-immer) for the same approach in fluent-style state definitions.
+
 ### `stateWithNested`
 
 Create a state that owns an embedded child runtime.

@@ -51,6 +51,44 @@ const Counting = state<{ count: number }>("Counting")
 
 `action<P>(debugLabel?: string)` uses `P` for payload typing and generates a unique internal action type for runtime routing.
 
+## Nested Updates With Immer
+
+Fizz keeps `update(nextData)` as the state update path. For deeply nested object updates, you can optionally use Immer's `produce(...)` to build `nextData` before calling `update(...)`.
+
+```ts
+import { produce } from "immer"
+import { action, state } from "@tdreyno/fizz/fluent"
+
+const setStreet = action<string>("setStreet")
+
+type ProfileData = {
+  profile: {
+    address: {
+      street: string
+      city: string
+    }
+  }
+}
+
+const Editing = state<ProfileData>("Editing").on(
+  setStreet,
+  (data, payload, { update }) =>
+    update(
+      produce(data, draft => {
+        draft.profile.address.street = payload
+      }),
+    ),
+)
+```
+
+Install Immer when you choose this pattern:
+
+```bash
+npm install immer
+```
+
+See [API Documentation](./api.md#state) for the base `state(...)` and `update(...)` behavior.
+
 ## Scheduling
 
 Use first-class timeout and interval responders:
