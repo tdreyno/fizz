@@ -39,6 +39,7 @@ Key behavior from `packages/fizz/src/effect.ts` and async tests:
 - it rejects when `response.ok` is false
 - it parses `response.json()` internally
 - it can run as a bare effect or chain directly to actions
+- it supports optional retry/backoff through `init.retry`
 
 ### Current builder flow
 
@@ -59,6 +60,34 @@ requestJSONAsync("/api/profile", { asyncId: "profile" })
   .chainToAction(profileLoaded, profileFailed)
 ```
 
+Retry option shape:
+
+```typescript
+type RetryPolicy = {
+  attempts?: number
+  shouldRetry?: (error: unknown, attempt: number) => boolean
+  random?: () => number
+  strategy?:
+    | {
+        kind: "fixed"
+        delayMs: number
+        jitter?: { kind: "full"; ratio?: number }
+      }
+    | {
+        kind: "exponential"
+        baseDelayMs: number
+        maxDelayMs?: number
+        jitter?: { kind: "full"; ratio?: number }
+      }
+}
+```
+
+Notes:
+
+- For `requestJSONAsync(...)` and `customJSONAsync(...)`, retry is opt-in.
+- When `retry` is provided and `attempts` is omitted, retries default to 3 attempts.
+- Use `random` in tests when deterministic jitter values are required.
+
 A validator may throw. If it throws, that thrown value is passed through to the reject handler unchanged.
 
 ## `customJSONAsync(...)`
@@ -71,6 +100,7 @@ Key behavior:
 - it supports the same `validate(...)` and `chainToAction(...)` builder flow as `requestJSONAsync(...)`
 - it supports optional `asyncId` for explicit cancellation with `cancelAsync(asyncId)`
 - validator-thrown values are passed to reject handlers unchanged
+- it supports optional retry/backoff through `init.retry`
 
 ```typescript
 customJSONAsync(
@@ -79,7 +109,16 @@ customJSONAsync(
       signal,
       userId: context.userId,
     }),
-  { asyncId: "profile" },
+  {
+    asyncId: "profile",
+    retry: {
+      attempts: 3,
+      strategy: {
+        kind: "fixed",
+        delayMs: 150,
+      },
+    },
+  },
 )
   .validate(assertProfile)
   .map(profile => profile.id)

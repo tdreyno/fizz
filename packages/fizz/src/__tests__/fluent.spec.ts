@@ -1,4 +1,4 @@
-import { describe, expect, test } from "@jest/globals"
+import { describe, expect, jest, test } from "@jest/globals"
 
 import { action, enter, intervalTriggered, timerCompleted } from "../action"
 import { createMachine } from "../createMachine"
@@ -220,5 +220,68 @@ describe("Fluent state API", () => {
 
     await expect(run()).resolves.toBe("ok")
     expect(attempts).toBe(3)
+  })
+
+  test("should apply fixed backoff delay in withRetry helper", async () => {
+    jest.useFakeTimers()
+
+    try {
+      let attempts = 0
+
+      const run = withRetry(
+        async () => {
+          attempts += 1
+
+          if (attempts < 3) {
+            throw new Error("not yet")
+          }
+
+          return "ok"
+        },
+        {
+          attempts: 3,
+          strategy: {
+            delayMs: 50,
+            kind: "fixed",
+          },
+        },
+      )
+
+      const pending = run()
+
+      await Promise.resolve()
+
+      expect(attempts).toBe(1)
+
+      await jest.advanceTimersByTimeAsync(50)
+      await Promise.resolve()
+
+      expect(attempts).toBe(2)
+
+      await jest.advanceTimersByTimeAsync(50)
+
+      await expect(pending).resolves.toBe("ok")
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  test("should allow disabling retries with shouldRetry", async () => {
+    let attempts = 0
+
+    const run = withRetry(
+      async () => {
+        attempts += 1
+
+        throw new Error("stop")
+      },
+      {
+        attempts: 5,
+        shouldRetry: () => false,
+      },
+    )
+
+    await expect(run()).rejects.toThrow("stop")
+    expect(attempts).toBe(1)
   })
 })

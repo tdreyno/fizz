@@ -80,6 +80,34 @@ const summary = Editing.describe()
 - `withOptimisticUpdate(...)`
 - `describeState(...)`
 
+### `withRetry(...)`
+
+`withRetry(...)` wraps an async function with retry behavior:
+
+```ts
+const run = withRetry(fetchProfile, {
+  attempts: 4,
+  shouldRetry: (error, attempt) => {
+    if (!(error instanceof Error)) {
+      return false
+    }
+
+    return /429|503|timeout|network/i.test(error.message) && attempt < 4
+  },
+  strategy: {
+    kind: "exponential",
+    baseDelayMs: 200,
+    maxDelayMs: 2000,
+    jitter: {
+      kind: "full",
+      ratio: 0.2,
+    },
+  },
+})
+```
+
+`withRetry(...)` supports the same retry policy shape used by JSON async helpers in the root package.
+
 ## Positioning
 
 - Use root `@tdreyno/fizz` object-style `state(...)` when map-style definitions are clearer for your team.

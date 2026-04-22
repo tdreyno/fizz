@@ -60,12 +60,39 @@ type RequestJSONResolveHandler<
 
 type RequestJSONMapHandler<Input, Output> = (value: Input) => Output
 
+export type RetryJitter = {
+  kind: "full"
+  ratio?: number
+}
+
+export type RetryStrategy =
+  | {
+      delayMs: number
+      jitter?: RetryJitter
+      kind: "fixed"
+    }
+  | {
+      baseDelayMs: number
+      jitter?: RetryJitter
+      kind: "exponential"
+      maxDelayMs?: number
+    }
+
+export type RetryPolicy = {
+  attempts?: number
+  random?: () => number
+  shouldRetry?: (error: unknown, attempt: number) => boolean
+  strategy?: RetryStrategy
+}
+
 export type RequestJSONInit<AsyncId extends string = string> = RequestInit & {
   asyncId?: AsyncId
+  retry?: RetryPolicy
 }
 
 export type CustomJSONInit<AsyncId extends string = string> = {
   asyncId?: AsyncId
+  retry?: RetryPolicy
 }
 
 type RequestJSONChainToActionBuilder<
@@ -121,6 +148,7 @@ const createJSONRequestInit = <AsyncId extends string = string>(
   const requestInit = init ? { ...init } : {}
 
   delete requestInit.asyncId
+  delete requestInit.retry
 
   const headers = new Headers(init?.headers)
 
@@ -157,6 +185,132 @@ const mergeAbortSignals = (
   return controller.signal
 }
 
+const createAbortError = (): Error => {
+  const error = new Error("Aborted")
+
+  error.name = "AbortError"
+
+  return error
+}
+
+const sleepWithSignal = async (
+  delayMs: number,
+  signal?: AbortSignal,
+): Promise<void> => {
+  if (delayMs <= 0) {
+    return
+  }
+
+  if (signal?.aborted) {
+    throw createAbortError()
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      if (signal) {
+        signal.removeEventListener("abort", onAbort)
+      }
+
+      resolve()
+    }, delayMs)
+
+    const onAbort = () => {
+      clearTimeout(timer)
+      reject(createAbortError())
+    }
+
+    signal?.addEventListener("abort", onAbort, { once: true })
+  })
+}
+
+const clamp = (value: number, min: number, max: number): number =>
+  Math.min(max, Math.max(min, value))
+
+const defaultRandom = (): number => {
+  if (typeof globalThis.crypto?.getRandomValues === "function") {
+    const value = new Uint32Array(1)
+
+    globalThis.crypto.getRandomValues(value)
+
+    return value[0]! / 0xffffffff
+  }
+
+  return 0.5
+}
+
+export const resolveRetryDelayMs = (
+  policy: RetryPolicy | undefined,
+  attempt: number,
+): number => {
+  const strategy = policy?.strategy
+
+  if (!strategy) {
+    return 0
+  }
+
+  const baseDelay =
+    strategy.kind === "fixed"
+      ? strategy.delayMs
+      : Math.min(
+          strategy.maxDelayMs ?? Number.POSITIVE_INFINITY,
+          strategy.baseDelayMs * Math.pow(2, Math.max(0, attempt - 1)),
+        )
+
+  const safeDelay = Math.max(0, Math.floor(baseDelay))
+
+  if (!strategy.jitter) {
+    return safeDelay
+  }
+
+  const ratio = clamp(strategy.jitter.ratio ?? 1, 0, 1)
+  const random = clamp(policy?.random?.() ?? defaultRandom(), 0, 1)
+  const jittered = safeDelay * (1 - ratio + random * ratio)
+
+  return Math.max(0, Math.floor(jittered))
+}
+
+const normalizeAttempts = (attempts: number | undefined): number => {
+  if (attempts === undefined) {
+    return 3
+  }
+
+  if (!Number.isFinite(attempts)) {
+    return 1
+  }
+
+  return Math.max(1, Math.floor(attempts))
+}
+
+export const retryAsync = async <Resolved>(options: {
+  retry?: RetryPolicy
+  run: (attempt: number) => Promise<Resolved>
+  signal?: AbortSignal
+}): Promise<Resolved> => {
+  const maxAttempts = options.retry
+    ? normalizeAttempts(options.retry.attempts)
+    : 1
+  const shouldRetry = options.retry?.shouldRetry ?? (() => true)
+  let lastError: unknown = undefined
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await options.run(attempt)
+    } catch (error) {
+      lastError = error
+
+      if (attempt >= maxAttempts || !shouldRetry(error, attempt)) {
+        throw error
+      }
+
+      const delayMs = resolveRetryDelayMs(options.retry, attempt)
+
+      await sleepWithSignal(delayMs, options.signal)
+    }
+  }
+
+  throw lastError
+}
+
 const validateRequestJSONValue = <Input, Output extends Input>(
   value: Input,
   validator: RequestJSONValidator<Input, Output>,
@@ -176,30 +330,41 @@ const createRequestJSONRun =
     input: RequestInfo | URL
     mapper?: RequestJSONValueMapper<Resolved>
   }) =>
-  async (signal: AbortSignal): Promise<Resolved> => {
-    const response = await fetch(
-      options.input,
-      createJSONRequestInit(signal, options.init),
-    )
+  async (signal: AbortSignal): Promise<Resolved> =>
+    retryAsync<Resolved>({
+      retry: options.init?.retry,
+      run: async () => {
+        const response = await fetch(
+          options.input,
+          createJSONRequestInit(signal, options.init),
+        )
 
-    if (!response.ok) {
-      throw new Error(`Request failed with ${response.status}`)
-    }
+        if (!response.ok) {
+          throw new Error(`Request failed with ${response.status}`)
+        }
 
-    const value = (await response.json()) as unknown
+        const value = (await response.json()) as unknown
 
-    return options.mapper ? options.mapper(value) : (value as Resolved)
-  }
+        return options.mapper ? options.mapper(value) : (value as Resolved)
+      },
+      signal,
+    })
 
 const createCustomJSONRun = <Resolved>(options: {
+  retry?: RetryPolicy
   run: (signal: AbortSignal, context: Context) => Promise<unknown>
   mapper?: RequestJSONValueMapper<Resolved>
 }): AsyncRun<Resolved> => {
-  const run: AsyncRun<Resolved> = async (signal, context) => {
-    const value = await options.run(signal, context)
+  const run: AsyncRun<Resolved> = async (signal, context) =>
+    retryAsync<Resolved>({
+      retry: options.retry,
+      run: async () => {
+        const value = await options.run(signal, context)
 
-    return options.mapper ? options.mapper(value) : (value as Resolved)
-  }
+        return options.mapper ? options.mapper(value) : (value as Resolved)
+      },
+      signal,
+    })
 
   return run
 }
@@ -304,7 +469,11 @@ export const customJSONAsync = <AsyncId extends string = string>(
   createJSONBuilder<AsyncId>({
     ...(init?.asyncId === undefined ? {} : { asyncId: init.asyncId }),
     createRun: <Resolved>(mapper?: RequestJSONValueMapper<Resolved>) =>
-      createCustomJSONRun<Resolved>(mapper ? { run, mapper } : { run }),
+      createCustomJSONRun<Resolved>(
+        mapper
+          ? { retry: init?.retry, run, mapper }
+          : { retry: init?.retry, run },
+      ),
   })
 
 export type AsyncRun<Resolved> =

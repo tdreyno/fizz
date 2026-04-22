@@ -4,7 +4,13 @@ import * as z from "zod"
 import type { ActionCreatorType, Enter } from "../action"
 import { action, enter } from "../action"
 import { createInitialContext } from "../context"
-import { customJSONAsync, noop, requestJSONAsync, startAsync } from "../effect"
+import {
+  customJSONAsync,
+  noop,
+  requestJSONAsync,
+  resolveRetryDelayMs,
+  startAsync,
+} from "../effect"
 import { createControlledAsyncDriver, Runtime } from "../runtime"
 import { state } from "../state"
 
@@ -1072,6 +1078,166 @@ describe("Async scheduled operations", () => {
 
     expect(aborted).toBeTruthy()
     expect(currentState.data.events).toEqual(["cancelled:profile"])
+  })
+
+  test("should retry requestJSONAsync when retry policy allows", async () => {
+    let attempts = 0
+
+    const Loading = state<Enter, Data>({
+      Enter: () => {
+        globalThis.fetch = (async () => {
+          attempts += 1
+
+          if (attempts < 3) {
+            return createResponse({
+              json: async () => ({ message: "retry" }),
+              ok: false,
+              status: 503,
+            }) as unknown as Response
+          }
+
+          return createResponse({
+            json: async () => ({ id: "1", name: "Ada" }),
+          }) as unknown as Response
+        }) as typeof fetch
+
+        return requestJSONAsync("/api/profile", {
+          retry: {
+            attempts: 3,
+            strategy: {
+              delayMs: 0,
+              kind: "fixed",
+            },
+          },
+        })
+      },
+    })
+
+    const context = createInitialContext([Loading({ events: [] })])
+    const asyncDriver = createControlledAsyncDriver()
+    const runtime = new Runtime(context, {}, {}, { asyncDriver })
+
+    await runtime.run(enter())
+    await asyncDriver.flush()
+
+    const currentState = runtime.currentState()
+
+    if (!currentState.is(Loading)) {
+      throw new Error("Expected Loading state")
+    }
+
+    expect(attempts).toBe(3)
+    expect(currentState.data).toEqual({ events: [] })
+  })
+
+  test("should retry customJSONAsync when retry policy allows", async () => {
+    const profileLoaded = action("ProfileLoaded").withPayload<Profile>()
+    const profileFailed = action("ProfileFailed").withPayload<string>()
+    type ProfileFailed = ActionCreatorType<typeof profileFailed>
+
+    let attempts = 0
+
+    const Loading = state<
+      Enter | ActionCreatorType<typeof profileLoaded> | ProfileFailed,
+      Data
+    >({
+      Enter: () =>
+        customJSONAsync(
+          async () => {
+            attempts += 1
+
+            if (attempts < 2) {
+              throw new Error("retry")
+            }
+
+            return { id: "9", name: "Mina" }
+          },
+          {
+            retry: {
+              attempts: 3,
+              strategy: {
+                baseDelayMs: 0,
+                kind: "exponential",
+              },
+            },
+          },
+        ).chainToAction(profileLoaded, error =>
+          profileFailed(
+            error instanceof Error ? error.message : "Unknown error",
+          ),
+        ),
+
+      ProfileLoaded: (data, profile, { update }) =>
+        update({
+          ...appendEvent(data, `loaded:${profile.id}`),
+          profileName: profile.name,
+        }),
+
+      ProfileFailed: (data, message, { update }) =>
+        update({
+          ...appendEvent(data, "failed"),
+          error: message,
+        }),
+    })
+
+    const context = createInitialContext([Loading({ events: [] })])
+    const asyncDriver = createControlledAsyncDriver()
+    const runtime = new Runtime(
+      context,
+      { profileFailed, profileLoaded },
+      {},
+      {
+        asyncDriver,
+      },
+    )
+
+    await runtime.run(enter())
+    await asyncDriver.flush()
+
+    const currentState = runtime.currentState()
+
+    if (!currentState.is(Loading)) {
+      throw new Error("Expected Loading state")
+    }
+
+    expect(attempts).toBe(2)
+    expect(currentState.data).toEqual({
+      events: ["loaded:9"],
+      profileName: "Mina",
+    })
+  })
+
+  test("should calculate exponential delay with jitter for retry policy", () => {
+    const attemptOne = resolveRetryDelayMs(
+      {
+        random: () => 0.5,
+        strategy: {
+          baseDelayMs: 100,
+          jitter: {
+            kind: "full",
+            ratio: 0.5,
+          },
+          kind: "exponential",
+          maxDelayMs: 800,
+        },
+      },
+      1,
+    )
+
+    const attemptFour = resolveRetryDelayMs(
+      {
+        random: () => 1,
+        strategy: {
+          baseDelayMs: 100,
+          kind: "exponential",
+          maxDelayMs: 800,
+        },
+      },
+      4,
+    )
+
+    expect(attemptOne).toBe(75)
+    expect(attemptFour).toBe(800)
   })
 
   test("should pass validator-thrown values to the reject handler unchanged", async () => {

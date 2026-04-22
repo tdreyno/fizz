@@ -73,3 +73,29 @@ const Counting = state<{ count: number; enabled: boolean }>("Counting")
 - `describeState(...)`
 
 Use these helpers to keep repetitive state registration patterns small and readable.
+
+### `withRetry(...)` policy
+
+`withRetry(...)` accepts retry/backoff options that match the JSON async helper retry policy.
+
+```ts
+const run = withRetry(fetchProfile, {
+  attempts: 4,
+  shouldRetry: (error, attempt) => {
+    if (!(error instanceof Error)) {
+      return false
+    }
+
+    return /429|503|timeout|network/i.test(error.message) && attempt < 4
+  },
+  strategy: {
+    kind: "exponential",
+    baseDelayMs: 200,
+    maxDelayMs: 2000,
+    jitter: {
+      kind: "full",
+      ratio: 0.2,
+    },
+  },
+})
+```

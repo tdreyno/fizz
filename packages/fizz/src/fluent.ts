@@ -12,6 +12,8 @@ import type {
   TimerPayload,
 } from "./action.js"
 import { enter, exit, intervalTriggered, timerCompleted } from "./action.js"
+import type { RetryPolicy } from "./effect.js"
+import { retryAsync } from "./effect.js"
 import type {
   BoundStateFn,
   GetStateData,
@@ -470,38 +472,17 @@ export const withDebouncedAction = <
   >,
 ) => stateValue.onDebounce(actionCreator, options, handler as never)
 
-type RetryOptions = {
-  attempts?: number
-  shouldRetry?: (error: unknown, attempt: number) => boolean
-}
+type RetryOptions = RetryPolicy
 
 export const withRetry = <Args extends unknown[], Result>(
   run: (...args: Args) => Promise<Result>,
   options: RetryOptions = {},
 ) => {
-  const maxAttempts = options.attempts ?? 3
-  const shouldRetry = options.shouldRetry ?? (() => true)
-
-  return async (...args: Args): Promise<Result> => {
-    let attempt = 0
-    let lastError: unknown = undefined
-
-    while (attempt < maxAttempts) {
-      attempt += 1
-
-      try {
-        return await run(...args)
-      } catch (error) {
-        lastError = error
-
-        if (!shouldRetry(error, attempt) || attempt >= maxAttempts) {
-          throw error
-        }
-      }
-    }
-
-    throw lastError
-  }
+  return (...args: Args): Promise<Result> =>
+    retryAsync<Result>({
+      retry: options,
+      run: async () => run(...args),
+    })
 }
 
 type OptimisticUpdateConfig<Data, Payload> = {

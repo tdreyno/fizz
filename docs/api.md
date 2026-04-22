@@ -220,6 +220,27 @@ const Idle = state({
 })
 ```
 
+### `requestJSONAsync` and `customJSONAsync` retry policy
+
+Both JSON async builders support an optional `retry` policy in their `init` argument.
+
+Use this when a request or client callback should retry with fixed or exponential backoff.
+
+```ts
+requestJSONAsync("/api/profile", {
+  retry: {
+    attempts: 4,
+    strategy: {
+      kind: "exponential",
+      baseDelayMs: 200,
+      maxDelayMs: 2000,
+    },
+  },
+})
+```
+
+See [Async](./async.md) for complete retry policy options and examples.
+
 ## States
 
 ### `state`

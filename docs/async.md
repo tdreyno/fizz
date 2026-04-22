@@ -142,6 +142,92 @@ customJSONAsync(run, init?)
 - lets the client call own transport and error behavior
 ```
 
+## Retry and backoff
+
+Both `requestJSONAsync(...)` and `customJSONAsync(...)` accept an optional `retry` object in `init`.
+
+```typescript
+type RetryPolicy = {
+  attempts?: number
+  shouldRetry?: (error: unknown, attempt: number) => boolean
+  random?: () => number
+  strategy?:
+    | {
+        kind: "fixed"
+        delayMs: number
+        jitter?: {
+          kind: "full"
+          ratio?: number
+        }
+      }
+    | {
+        kind: "exponential"
+        baseDelayMs: number
+        maxDelayMs?: number
+        jitter?: {
+          kind: "full"
+          ratio?: number
+        }
+      }
+}
+```
+
+Notes:
+
+- `retry` is opt-in for JSON helpers. Without it, they perform a single attempt.
+- `attempts` defaults to `3` when `retry` is provided but `attempts` is omitted.
+- `shouldRetry(...)` receives the thrown error and current attempt number.
+- `random` is optional and primarily useful for deterministic test control when jitter is enabled.
+
+### `requestJSONAsync(...)` retry example
+
+```typescript
+requestJSONAsync("/api/profile", {
+  retry: {
+    attempts: 4,
+    shouldRetry: (error, attempt) => {
+      if (!(error instanceof Error)) {
+        return false
+      }
+
+      return /429|503|timeout|network/i.test(error.message) && attempt < 4
+    },
+    strategy: {
+      kind: "exponential",
+      baseDelayMs: 200,
+      maxDelayMs: 2000,
+      jitter: {
+        kind: "full",
+        ratio: 0.2,
+      },
+    },
+  },
+}).chainToAction(profileLoaded, profileFailed)
+```
+
+### `customJSONAsync(...)` retry example
+
+```typescript
+customJSONAsync(
+  (signal, context) =>
+    context.apiClient.getProfile({
+      signal,
+      userId: context.userId,
+    }),
+  {
+    retry: {
+      attempts: 3,
+      strategy: {
+        kind: "fixed",
+        delayMs: 150,
+      },
+    },
+  },
+)
+  .validate(assertProfile)
+  .chainToAction(profileLoaded, profileFailed)
+```
+
 ## Common request example
 
 This example starts a profile request when the state is entered, validates the JSON payload, maps the parsed result to a user action, and maps failures to a user-visible error action.
