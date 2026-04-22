@@ -1,10 +1,15 @@
 import { describe, expect, jest, test } from "@jest/globals"
 
-import { action, enter, intervalTriggered, timerCompleted } from "../action"
+import {
+  action as coreAction,
+  enter,
+  intervalTriggered,
+  timerCompleted,
+} from "../action"
 import { createMachine } from "../createMachine"
 import {
+  action,
   describeState,
-  fluentAction,
   state,
   withDebouncedAction,
   withRetry,
@@ -14,7 +19,7 @@ import { state as objectState } from "../state"
 
 describe("Fluent state API", () => {
   test("should register handlers via creator references", async () => {
-    const setName = action("SetName").withPayload<{ name: string }>()
+    const setName = coreAction("SetName").withPayload<{ name: string }>()
 
     const Editing = state<{ name: string; saves: number }>("Editing")
       .onEnter((data, _, { update }) => update(data))
@@ -45,8 +50,8 @@ describe("Fluent state API", () => {
   })
 
   test("should support guards via when and unless", async () => {
-    const incrementWhenEnabled = action("IncrementWhenEnabled")
-    const incrementWhenDisabled = action("IncrementWhenDisabled")
+    const incrementWhenEnabled = coreAction("IncrementWhenEnabled")
+    const incrementWhenDisabled = coreAction("IncrementWhenDisabled")
 
     const Counting = state<{ count: number; enabled: boolean }>("Counting")
       .on(incrementWhenEnabled, (data, _, { update }) =>
@@ -154,7 +159,7 @@ describe("Fluent state API", () => {
   })
 
   test("should expose state description metadata", () => {
-    const save = action("Save")
+    const save = coreAction("Save")
 
     const Editing = state<{ id: string }>("Editing")
       .on(save, (data, _, { update }) => update(data))
@@ -172,7 +177,7 @@ describe("Fluent state API", () => {
   })
 
   test("should throw on duplicate action handler registration", () => {
-    const save = action("Save")
+    const save = coreAction("Save")
 
     const register = () =>
       state<{ id: string }>("Editing")
@@ -182,9 +187,9 @@ describe("Fluent state API", () => {
     expect(register).toThrow("duplicate handler")
   })
 
-  test("should support fluentAction references without explicit names", async () => {
-    const increment = fluentAction<number>("increment")
-    const reset = fluentAction("reset")
+  test("should support action references without explicit names", async () => {
+    const increment = action<number>("increment")
+    const reset = action("reset")
 
     const Counting = state<{ count: number }>("Counting")
       .on(increment, (data, payload, { update }) =>
@@ -221,9 +226,9 @@ describe("Fluent state API", () => {
     expect(reset.type).toContain("reset")
   })
 
-  test("should generate unique action types for fluentAction", () => {
-    const saveA = fluentAction("save")
-    const saveB = fluentAction("save")
+  test("should generate unique action types for action", () => {
+    const saveA = action("save")
+    const saveB = action("save")
 
     expect(saveA.type).not.toBe(saveB.type)
     expect(saveA.type).toContain("save")
@@ -231,7 +236,7 @@ describe("Fluent state API", () => {
   })
 
   test("should provide debounced utility registration", () => {
-    const save = action("Save")
+    const save = coreAction("Save")
 
     const Editing = withDebouncedAction(
       state<{ count: number }>("Editing"),

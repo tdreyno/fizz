@@ -12,7 +12,7 @@ import type {
   TimerPayload,
 } from "./action.js"
 import {
-  action,
+  action as createAction,
   enter,
   exit,
   intervalTriggered,
@@ -56,12 +56,12 @@ const createFluentActionType = (debugLabel?: string) => {
   return `FluentAction:${normalizedLabel}:${fluentActionCounter}`
 }
 
-export const fluentAction = <P = undefined>(
+export const action = <P = undefined>(
   debugLabel?: string,
 ): FluentActionCreator<string, P> => {
   const type = createFluentActionType(debugLabel)
 
-  return action(type).withPayload<P>() as FluentActionCreator<string, P>
+  return createAction(type).withPayload<P>() as FluentActionCreator<string, P>
 }
 
 type AnyHandler = (
