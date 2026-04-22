@@ -32,7 +32,8 @@
     "build": "tsdown",
     "dev": "npm run build -- --watch",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
-    "test:ci": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand"
+    "test:ci": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand",
+    "bench": "FIZZ_BENCHMARK_OUTPUT=.benchmarks/fizz-react.latest.json NODE_OPTIONS=--experimental-vm-modules jest --runInBand --testMatch '**/__tests__/**/*.perf.ts'"
   },
   "dependencies": {
     "@tdreyno/fizz": "*"

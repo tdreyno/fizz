@@ -8,6 +8,10 @@
     "test": {
       "dependsOn": ["build"]
     },
+    "bench": {
+      "dependsOn": ["build"],
+      "cache": false
+    },
     "test:ci": {
       "dependsOn": ["build"]
     },

@@ -14,6 +14,7 @@
     "sonar:quality-gate": "if [ -f ./.env ]; then set -a && . ./.env && set +a; fi && node scripts/sonar-quality-gate.mjs",
     "test": "turbo run test",
     "test:ci": "turbo run test:ci -- --coverage",
+    "bench": "turbo run bench --filter=@tdreyno/fizz --filter=@tdreyno/fizz-react",
     "test:npm": "turbo run test:npm",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,md}\"",
     "release": "turbo run build && turbo run lint && turbo run build && turbo run test:ci && turbo run test:npm && changeset version && changeset publish"

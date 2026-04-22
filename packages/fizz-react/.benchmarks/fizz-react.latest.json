@@ -1,0 +1,26 @@
+{
+  "generatedAt": "2026-04-22T02:21:10.036Z",
+  "results": [
+    {
+      "iterations": 15,
+      "name": "useMachine mount + initial render",
+      "maxMs": 0.579,
+      "meanMs": 0.224,
+      "minMs": 0.109,
+      "p50": 0.181,
+      "p95": 0.579,
+      "p99": 0.579
+    },
+    {
+      "iterations": 6,
+      "name": "useMachine update cycle x12",
+      "maxMs": 164.007,
+      "meanMs": 148.537,
+      "minMs": 139.652,
+      "p50": 143.938,
+      "p95": 164.007,
+      "p99": 164.007
+    }
+  ],
+  "suite": "fizz-react"
+}
