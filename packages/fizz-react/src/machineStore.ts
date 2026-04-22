@@ -1,11 +1,9 @@
-import type { Action, BoundStateFn, MachineDefinition } from "@tdreyno/fizz"
+import type { Action, MachineDefinition } from "@tdreyno/fizz"
 import { Context, createRuntime, enter, Runtime } from "@tdreyno/fizz"
 import { useEffect, useMemo, useState } from "react"
 
 export type AnyBoundState = {
-  (
-    ...data: Array<unknown>
-  ): ReturnType<BoundStateFn<string, Action<string, unknown>, unknown>>
+  (...data: Array<any>): any
   name: string
 }
 
