@@ -2,11 +2,40 @@ import type { Action } from "../action.js"
 import type { Context } from "../context.js"
 import type { StartAsyncEffectData } from "../effect.js"
 import type { RuntimeAsyncDriver } from "./asyncDriver.js"
+import {
+  cancelAsyncLane,
+  canHandleAsyncLaneTokenEvent,
+  createAsyncParallelMachine,
+  removeAsyncLane,
+  startAsyncLane,
+  transitionAsyncLane,
+} from "./asyncMachine.js"
 
 export type ActiveAsync = {
   controller: AbortController
   handle: unknown
   token: number
+}
+
+const asyncParallelByOperations = new WeakMap<
+  Map<string, ActiveAsync>,
+  ReturnType<typeof createAsyncParallelMachine>
+>()
+
+const getAsyncParallelMachine = (
+  asyncOperations: Map<string, ActiveAsync>,
+): ReturnType<typeof createAsyncParallelMachine> => {
+  const existing = asyncParallelByOperations.get(asyncOperations)
+
+  if (existing) {
+    return existing
+  }
+
+  const created = createAsyncParallelMachine()
+
+  asyncParallelByOperations.set(asyncOperations, created)
+
+  return created
 }
 
 type StartAsyncOperationOptions<Resolved> = {
@@ -50,22 +79,43 @@ export const startAsyncOperation = <Resolved>({
   run,
   runAsyncOperation,
 }: StartAsyncOperationOptions<Resolved>): void => {
-  cancelActiveAsyncOperation({
-    asyncDriver,
-    asyncId,
-    asyncOperations,
-  })
+  const parallel = getAsyncParallelMachine(asyncOperations)
+  const previousAsync = asyncOperations.get(asyncId)
+
+  if (previousAsync) {
+    cancelAsyncLane(parallel, asyncId, previousAsync.token, {
+      cancelHandle: () => {
+        previousAsync.controller.abort()
+        asyncDriver.cancel(previousAsync.handle)
+      },
+    })
+
+    removeAsyncLane(parallel, asyncId)
+    asyncOperations.delete(asyncId)
+  }
 
   const controller = createController()
   const token = nextToken()
+
+  startAsyncLane(parallel, asyncId, token)
+
   const handle = asyncDriver.start({
     onReject: async error => {
       const activeAsync = asyncOperations.get(asyncId)
 
-      if (activeAsync?.token !== token) {
+      if (
+        !activeAsync ||
+        !canHandleAsyncLaneTokenEvent(parallel, asyncId, token)
+      ) {
         return
       }
 
+      transitionAsyncLane(parallel, asyncId, {
+        token,
+        type: "reject",
+      })
+
+      removeAsyncLane(parallel, asyncId)
       asyncOperations.delete(asyncId)
 
       onReject?.(asyncId, error)
@@ -83,10 +133,19 @@ export const startAsyncOperation = <Resolved>({
     onResolve: async value => {
       const activeAsync = asyncOperations.get(asyncId)
 
-      if (activeAsync?.token !== token) {
+      if (
+        !activeAsync ||
+        !canHandleAsyncLaneTokenEvent(parallel, asyncId, token)
+      ) {
         return
       }
 
+      transitionAsyncLane(parallel, asyncId, {
+        token,
+        type: "resolve",
+      })
+
+      removeAsyncLane(parallel, asyncId)
       asyncOperations.delete(asyncId)
 
       onResolve?.(asyncId, value)
@@ -112,14 +171,25 @@ export const cancelActiveAsyncOperation = ({
   asyncId,
   asyncOperations,
 }: CancelAsyncOperationOptions): boolean => {
+  const parallel = getAsyncParallelMachine(asyncOperations)
   const activeAsync = asyncOperations.get(asyncId)
 
   if (!activeAsync) {
     return false
   }
 
-  activeAsync.controller.abort()
-  asyncDriver.cancel(activeAsync.handle)
+  const cancelled = cancelAsyncLane(parallel, asyncId, activeAsync.token, {
+    cancelHandle: () => {
+      activeAsync.controller.abort()
+      asyncDriver.cancel(activeAsync.handle)
+    },
+  })
+
+  if (!cancelled.cancelled) {
+    return false
+  }
+
+  removeAsyncLane(parallel, asyncId)
   asyncOperations.delete(asyncId)
 
   return true
@@ -129,9 +199,17 @@ export const clearAsyncOperations = ({
   asyncDriver,
   asyncOperations,
 }: ClearAsyncOperationsOptions): void => {
-  asyncOperations.forEach(activeAsync => {
-    activeAsync.controller.abort()
-    asyncDriver.cancel(activeAsync.handle)
+  const parallel = getAsyncParallelMachine(asyncOperations)
+
+  asyncOperations.forEach((activeAsync, asyncId) => {
+    cancelAsyncLane(parallel, asyncId, activeAsync.token, {
+      cancelHandle: () => {
+        activeAsync.controller.abort()
+        asyncDriver.cancel(activeAsync.handle)
+      },
+    })
+
+    removeAsyncLane(parallel, asyncId)
   })
 
   asyncOperations.clear()

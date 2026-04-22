@@ -1,14 +1,33 @@
 import type { IntervalPayload, TimerPayload } from "../action.js"
 import type { RuntimeTimerDriver } from "./timerDriver.js"
+import type {
+  FrameMachine,
+  IntervalMachine,
+  TimerMachine,
+} from "./timerMachine.js"
+import {
+  activateFrame,
+  cancelFrame,
+  cancelInterval,
+  cancelTimer,
+  canHandleScheduledTokenEvent,
+  createFrameMachine,
+  createIntervalMachine,
+  createTimerMachine,
+  scheduleInterval,
+  scheduleTimer,
+} from "./timerMachine.js"
 
 export type ActiveTimer = {
   delay: number
   handle: unknown
+  machine: IntervalMachine | TimerMachine
   token: number
 }
 
 export type ActiveFrame = {
   handle: unknown
+  machine: FrameMachine
   token: number
 }
 
@@ -70,13 +89,20 @@ export const startTimerOperation = <TimeoutId extends string>({
 }: StartTimerOperationOptions<TimeoutId>): void => {
   const token = nextToken()
   const handle = timerDriver.start(delay, () => onElapsed(token))
+  const machine = scheduleTimer(createTimerMachine(timeoutId), token)
 
   timers.set(timeoutId, {
     delay,
     handle,
+    machine,
     token,
   })
 }
+
+export const canHandleTimerElapsed = (
+  activeTimer: ActiveTimer,
+  token: number,
+): boolean => canHandleScheduledTokenEvent(activeTimer.machine, token)
 
 export const cancelActiveTimerOperation = ({
   timeoutId,
@@ -88,6 +114,8 @@ export const cancelActiveTimerOperation = ({
   if (!activeTimer) {
     return
   }
+
+  activeTimer.machine = cancelTimer(activeTimer.machine, activeTimer.token)
 
   timerDriver.cancel(activeTimer.handle)
   timers.delete(timeoutId)
@@ -109,6 +137,8 @@ export const replaceTimerOperation = ({
     return
   }
 
+  activeTimer.machine = cancelTimer(activeTimer.machine, activeTimer.token)
+
   timerDriver.cancel(activeTimer.handle)
   timers.delete(timeoutId)
 }
@@ -123,13 +153,20 @@ export const startIntervalOperation = <IntervalId extends string>({
 }: StartIntervalOperationOptions<IntervalId>): void => {
   const token = nextToken()
   const handle = timerDriver.startInterval(delay, () => onElapsed(token))
+  const machine = scheduleInterval(createIntervalMachine(intervalId), token)
 
   intervals.set(intervalId, {
     delay,
     handle,
+    machine,
     token,
   })
 }
+
+export const canHandleIntervalElapsed = (
+  activeInterval: ActiveTimer,
+  token: number,
+): boolean => canHandleScheduledTokenEvent(activeInterval.machine, token)
 
 export const cancelActiveIntervalOperation = ({
   intervalId,
@@ -141,6 +178,11 @@ export const cancelActiveIntervalOperation = ({
   if (!activeInterval) {
     return
   }
+
+  activeInterval.machine = cancelInterval(
+    activeInterval.machine,
+    activeInterval.token,
+  )
 
   timerDriver.cancel(activeInterval.handle)
   intervals.delete(intervalId)
@@ -162,6 +204,11 @@ export const replaceIntervalOperation = ({
     return
   }
 
+  activeInterval.machine = cancelInterval(
+    activeInterval.machine,
+    activeInterval.token,
+  )
+
   timerDriver.cancel(activeInterval.handle)
   intervals.delete(intervalId)
 }
@@ -173,12 +220,19 @@ export const startFrameOperation = ({
 }: StartFrameOperationOptions): ActiveFrame => {
   const token = nextToken()
   const handle = timerDriver.startFrame(timestamp => onFrame(timestamp, token))
+  const machine = activateFrame(createFrameMachine(), token)
 
   return {
     handle,
+    machine,
     token,
   }
 }
+
+export const canHandleFrameElapsed = (
+  frame: ActiveFrame,
+  token: number,
+): boolean => canHandleScheduledTokenEvent(frame.machine, token)
 
 export const cancelActiveFrameOperation = ({
   frame,
@@ -187,6 +241,8 @@ export const cancelActiveFrameOperation = ({
   if (!frame) {
     return
   }
+
+  frame.machine = cancelFrame(frame.machine, frame.token)
 
   timerDriver.cancel(frame.handle)
 }
@@ -198,14 +254,17 @@ export const clearScheduledOperations = ({
   timers,
 }: ClearScheduledOperationsOptions): void => {
   timers.forEach(timer => {
+    timer.machine = cancelTimer(timer.machine, timer.token)
     timerDriver.cancel(timer.handle)
   })
 
   intervals.forEach(interval => {
+    interval.machine = cancelInterval(interval.machine, interval.token)
     timerDriver.cancel(interval.handle)
   })
 
   if (frame) {
+    frame.machine = cancelFrame(frame.machine, frame.token)
     timerDriver.cancel(frame.handle)
   }
 

@@ -29,6 +29,9 @@ import {
   cancelActiveFrameOperation,
   cancelActiveIntervalOperation,
   cancelActiveTimerOperation,
+  canHandleFrameElapsed,
+  canHandleIntervalElapsed,
+  canHandleTimerElapsed,
   clearScheduledOperations,
   replaceIntervalOperation,
   replaceTimerOperation,
@@ -138,7 +141,7 @@ export const createRuntimeSchedulingModule = (options: {
       onElapsed: async token => {
         const activeTimer = timers.get(data.timeoutId)
 
-        if (activeTimer?.token !== token) {
+        if (!activeTimer || !canHandleTimerElapsed(activeTimer, token)) {
           return
         }
 
@@ -243,7 +246,10 @@ export const createRuntimeSchedulingModule = (options: {
       onElapsed: async token => {
         const activeInterval = intervals.get(data.intervalId)
 
-        if (activeInterval?.token !== token) {
+        if (
+          !activeInterval ||
+          !canHandleIntervalElapsed(activeInterval, token)
+        ) {
           return
         }
 
@@ -326,7 +332,7 @@ export const createRuntimeSchedulingModule = (options: {
     frame = startFrameOperation({
       nextToken: () => timerCounter++,
       onFrame: async (timestamp, token) => {
-        if (frame?.token !== token) {
+        if (!frame || !canHandleFrameElapsed(frame, token)) {
           return
         }
 
