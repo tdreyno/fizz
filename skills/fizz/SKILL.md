@@ -123,7 +123,8 @@ If the task is about machine tests or consumer-facing test helpers, read `refere
 
 - Use `useMachine(...)` to bind an existing Fizz machine into React.
 - Use `createMachineContext(...)` when multiple components should share one machine instance through a Provider.
-- Use colocated machine selectors through `machine.selectors` for derived values, especially when selector outputs are object-shaped and benefit from `equalityFn`.
+- Prefer simple direct selector reads through `machine.selectors` from `useMachine(...)` for default DX.
+- Use `useSelector(...)` with `disableAutoSelectors: true` when render skipping is a higher priority than direct-read ergonomics.
 - When a task is not React-based, evaluate colocated selectors from machine definitions in runtime-level code paths instead of rebuilding ad-hoc `currentState.is(...)` checks.
 - Keep machine definition and transition logic outside the React component body when possible.
 - Treat the hook as an adapter that exposes `currentState`, `states`, `context`, `actions`, and `runtime`.

@@ -234,6 +234,25 @@ const machineValue = useMachine(machine, machine.states.Viewing())
 const isEditable = machineValue.selectors.isEditable
 ```
 
+## Optimized render skipping with `useSelector(...)`
+
+```typescript
+const machine = useMachine(
+  machineDefinition,
+  machineDefinition.states.Viewing(),
+  {
+    disableAutoSelectors: true,
+  },
+)
+
+const isEditable = useSelector(
+  machine,
+  snapshot => snapshot.selectors.isEditable,
+)
+```
+
+Use this opt-out path when render skipping is more important than simple direct reads.
+
 ## Core runtime selector evaluation (non-React)
 
 ```typescript

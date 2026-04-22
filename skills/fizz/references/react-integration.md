@@ -87,6 +87,11 @@ When render logic depends on reusable derived checks, define selectors on the ma
 
 Prefer colocated selectors over repeating derived object construction in component bodies when several components share the same derivation.
 
+For render-critical surfaces, set `disableAutoSelectors: true` in `useMachine(...)` and read values with `useSelector(...)`.
+
+- simple mode (default): easier direct reads from `machine.selectors`
+- optimized mode: explicit selector reads with tighter render skipping
+
 ### Be careful with initialization assumptions
 
 The runtime bootstrap happens in an effect. If the task depends on what happens on entry, reason from that lifecycle rather than assuming the machine is fully entered during render.

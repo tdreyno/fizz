@@ -1,6 +1,11 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useSyncExternalStore } from "react"
 
-import type { ActionMap, AnyBoundState, ContextValue } from "./machineStore.js"
+import type {
+  ActionMap,
+  AnyBoundState,
+  ContextValue,
+  MachineHandle,
+} from "./machineStore.js"
 
 export type MachineSubscriptionOptions = {
   emitCurrent?: boolean
@@ -108,5 +113,41 @@ export const useOnStateExit = <
       wasInStateRef.current = isInTargetState
     },
     options,
+  )
+}
+
+export const useSelector = <
+  SM extends { [key: string]: AnyBoundState },
+  AM extends ActionMap,
+  OAM extends ActionMap,
+  Selected,
+>(
+  machine: MachineHandle<SM, AM, OAM>,
+  selector: (snapshot: ContextValue<SM, AM, OAM>) => Selected,
+  equalityFn: (a: Selected, b: Selected) => boolean = Object.is,
+): Selected => {
+  const selectedRef = useRef<Selected | undefined>(undefined)
+  const hasValueRef = useRef(false)
+
+  const getSelectedSnapshot = () => {
+    const next = selector(machine.getSnapshot())
+
+    if (
+      hasValueRef.current &&
+      equalityFn(selectedRef.current as Selected, next)
+    ) {
+      return selectedRef.current as Selected
+    }
+
+    selectedRef.current = next
+    hasValueRef.current = true
+
+    return next
+  }
+
+  return useSyncExternalStore(
+    machine.__store.subscribe,
+    getSelectedSnapshot,
+    getSelectedSnapshot,
   )
 }

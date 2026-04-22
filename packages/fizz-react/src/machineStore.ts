@@ -6,7 +6,7 @@ import {
   runStateSelector,
   Runtime,
 } from "@tdreyno/fizz"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useSyncExternalStore } from "react"
 
 export type AnyBoundState = {
   (...data: Array<any>): any
@@ -54,6 +54,35 @@ export interface Options {
   maxHistory: number
   restartOnInitialStateChange?: boolean
   enableLogging?: boolean
+  disableAutoSelectors?: boolean
+}
+
+type MachineStore<
+  SM extends { [key: string]: AnyBoundState },
+  AM extends ActionMap,
+  OAM extends ActionMap,
+  SEL extends SelectorMap<SM>,
+> = {
+  getSnapshot: () => ContextValue<SM, AM, OAM, SEL>
+  start: () => void
+  stop: () => void
+  subscribe: (listener: () => void) => () => void
+}
+
+export interface MachineHandle<
+  SM extends { [key: string]: AnyBoundState },
+  AM extends ActionMap,
+  OAM extends ActionMap,
+  SEL extends SelectorMap<SM> = Record<string, never>,
+> {
+  actions: PromiseActions<AM>
+  context: ContextValue<SM, AM, OAM, SEL>["context"]
+  currentState: ReturnType<SM[keyof SM]>
+  getSnapshot: () => ContextValue<SM, AM, OAM, SEL>
+  runtime: Runtime<AM, OAM>
+  selectors: BoundSelectors<SEL>
+  states: SM
+  __store: MachineStore<SM, AM, OAM, SEL>
 }
 
 const createMachineRuntime = <
@@ -142,6 +171,78 @@ const createMachineValue = <
   runtime,
 })
 
+const createMachineStore = <
+  SM extends { [key: string]: AnyBoundState },
+  AM extends ActionMap,
+  OAM extends ActionMap,
+  SEL extends SelectorMap<SM>,
+>(
+  machine: MachineDefinition<SM, AM, OAM, unknown, SEL>,
+  initialState: ReturnType<SM[keyof SM]>,
+  options: Partial<Options>,
+): MachineStore<SM, AM, OAM, SEL> => {
+  const { defaultContext, runtime, boundActions } = createMachineRuntime<
+    SM,
+    AM,
+    OAM,
+    SEL
+  >(machine, initialState, options)
+
+  const selectorDefinitions = (machine.selectors ?? {}) as SEL
+  let currentSnapshot = createMachineValue<SM, AM, OAM, SEL>(
+    machine.states,
+    defaultContext,
+    runtime,
+    boundActions,
+    bindSelectors<SM, SEL>(selectorDefinitions, defaultContext),
+  )
+
+  let unsubscribeRuntime: (() => void) | undefined
+  const listeners = new Set<() => void>()
+
+  const emit = () => {
+    for (const listener of listeners) {
+      listener()
+    }
+  }
+
+  return {
+    getSnapshot: () => currentSnapshot,
+    start: () => {
+      if (unsubscribeRuntime) {
+        return
+      }
+
+      unsubscribeRuntime = runtime.onContextChange(context => {
+        currentSnapshot = {
+          ...currentSnapshot,
+          context,
+          currentState: context.currentState as ReturnType<SM[keyof SM]>,
+          selectors: bindSelectors<SM, SEL>(
+            selectorDefinitions,
+            context,
+            currentSnapshot.selectors,
+          ),
+        }
+        emit()
+      })
+
+      void runtime.run(enter())
+    },
+    stop: () => {
+      unsubscribeRuntime?.()
+      unsubscribeRuntime = undefined
+    },
+    subscribe: listener => {
+      listeners.add(listener)
+
+      return () => {
+        listeners.delete(listener)
+      }
+    },
+  }
+}
+
 export const useMachineValue = <
   SM extends { [key: string]: AnyBoundState },
   AM extends ActionMap,
@@ -152,42 +253,71 @@ export const useMachineValue = <
   initialState: ReturnType<SM[keyof SM]>,
   options: Partial<Options> = {},
 ): ContextValue<SM, AM, OAM, SEL> => {
-  const { defaultContext, runtime, boundActions } = useMemo(
-    () =>
-      createMachineRuntime<SM, AM, OAM, SEL>(machine, initialState, options),
+  const store = useMemo(
+    () => createMachineStore<SM, AM, OAM, SEL>(machine, initialState, options),
     [],
   )
 
-  const selectorDefinitions = (machine.selectors ?? {}) as SEL
+  useEffect(() => {
+    store.start()
 
-  const [value, setValue] = useState<ContextValue<SM, AM, OAM, SEL>>(() =>
-    createMachineValue<SM, AM, OAM, SEL>(
-      machine.states,
-      defaultContext,
-      runtime,
-      boundActions,
-      bindSelectors<SM, SEL>(selectorDefinitions, defaultContext),
-    ),
+    return () => {
+      store.stop()
+    }
+  }, [])
+
+  return useSyncExternalStore(
+    store.subscribe,
+    store.getSnapshot,
+    store.getSnapshot,
+  )
+}
+
+export const useMachineHandle = <
+  SM extends { [key: string]: AnyBoundState },
+  AM extends ActionMap,
+  OAM extends ActionMap,
+  SEL extends SelectorMap<SM> = Record<string, never>,
+>(
+  machine: MachineDefinition<SM, AM, OAM, unknown, SEL>,
+  initialState: ReturnType<SM[keyof SM]>,
+  options: Partial<Options> = {},
+): MachineHandle<SM, AM, OAM, SEL> => {
+  const store = useMemo(
+    () =>
+      createMachineStore<SM, AM, OAM, SEL>(machine, initialState, {
+        ...options,
+        disableAutoSelectors: true,
+      }),
+    [],
   )
 
   useEffect(() => {
-    const unsub = runtime.onContextChange(context => {
-      setValue(current => ({
-        ...current,
-        context,
-        currentState: context.currentState as ReturnType<SM[keyof SM]>,
-        selectors: bindSelectors<SM, SEL>(
-          selectorDefinitions,
-          context,
-          current.selectors,
-        ),
-      }))
-    })
+    store.start()
 
-    void runtime.run(enter())
-
-    return unsub
+    return () => {
+      store.stop()
+    }
   }, [])
 
-  return value
+  return useMemo(() => {
+    const snapshot = store.getSnapshot()
+
+    return {
+      actions: snapshot.actions,
+      get context() {
+        return store.getSnapshot().context
+      },
+      get currentState() {
+        return store.getSnapshot().currentState
+      },
+      getSnapshot: store.getSnapshot,
+      runtime: snapshot.runtime!,
+      get selectors() {
+        return store.getSnapshot().selectors
+      },
+      states: snapshot.states,
+      __store: store,
+    }
+  }, [store])
 }

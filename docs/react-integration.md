@@ -257,6 +257,30 @@ With matcher shorthand objects, selectors return booleans: `true` when matched a
 
 Because `selectWhen(...)` is a positive check, function-based selectors return `undefined` when non-matching.
 
+### Simple default vs optimized opt-out
+
+`useMachine(...)` defaults to the simple DX mode shown above. In that mode, selector values are ready to read directly from `machine.selectors` and all machine selectors are subscribed internally.
+
+For render-critical screens, set `disableAutoSelectors: true` and use `useSelector(...)`.
+
+```typescript
+import { useMachine, useSelector } from "@tdreyno/fizz-react"
+
+const machine = useMachine(EditorMachine, EditorMachine.states.Viewing(), {
+  disableAutoSelectors: true,
+})
+
+const hasInteractiveLabel = useSelector(
+  machine,
+  snapshot => snapshot.selectors.hasInteractiveLabel,
+)
+```
+
+Tradeoffs:
+
+- Simple mode: best ergonomics, but components can still re-render when unused selectors change.
+- Optimized mode: explicit `useSelector(...)` calls, but tighter render skipping for selected values.
+
 ## A focused example
 
 This example mirrors the shape used in the React example app: the machine is defined outside the component, then `useMachine(...)` hosts it.

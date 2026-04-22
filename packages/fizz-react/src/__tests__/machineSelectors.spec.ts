@@ -7,6 +7,7 @@ import { action, createMachine, noop, selectWhen, state } from "@tdreyno/fizz"
 import { act, renderHook, waitFor } from "@testing-library/react"
 
 import { useMachine } from "../useMachine"
+import { useSelector } from "../useMachineSubscription"
 
 type InitializingData = {
   phase: "init"
@@ -118,5 +119,51 @@ describe("machine selectors on useMachine", () => {
       expect(result.current.selectors.parityStable.parity).toBe(0)
       expect(result.current.selectors.parityLoose.parity).toBe(0)
     })
+  })
+
+  test("supports optimized mode with useSelector render skipping", async () => {
+    let renderCount = 0
+
+    const { result } = renderHook(() => {
+      renderCount += 1
+
+      const machine = useMachine(
+        SelectorMachine,
+        SelectorMachine.states.Initializing({ phase: "init" }),
+        { disableAutoSelectors: true },
+      )
+      const parityStable = useSelector(
+        machine,
+        snapshot => snapshot.selectors.parityStable,
+      )
+
+      return {
+        machine,
+        parityStable,
+      }
+    })
+
+    expect(renderCount).toBe(1)
+    expect(result.current.parityStable).toBeUndefined()
+
+    await act(async () => {
+      await result.current.machine.actions.start().asPromise()
+    })
+
+    await waitFor(() => {
+      expect(result.current.parityStable?.parity).toBe(0)
+    })
+
+    const rendersAfterStart = renderCount
+
+    await act(async () => {
+      await result.current.machine.actions.bump().asPromise()
+    })
+
+    await waitFor(() => {
+      expect(result.current.parityStable?.parity).toBe(0)
+    })
+
+    expect(renderCount).toBe(rendersAfterStart)
   })
 })

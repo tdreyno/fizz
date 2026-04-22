@@ -107,6 +107,8 @@ npm install ts-pattern
 
 This keeps state checks centralized and colocated with machine definitions, instead of repeating `currentState.is(...)` branches in components.
 
+In React, `useMachine(...)` defaults to simple selector reads through `machine.selectors`. For render-critical paths, set `disableAutoSelectors: true` and consume values with `useSelector(...)`.
+
 You can evaluate selectors anywhere you have the current state and context, including plain runtime usage outside React:
 
 ```ts

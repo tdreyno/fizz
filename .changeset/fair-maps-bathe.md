@@ -15,4 +15,5 @@ Adds first-class machine selectors across core and React integrations.
 - `@tdreyno/fizz-react`
 	- `useMachine(...)` and `createMachineContext(...).useMachineContext()` now expose `machine.selectors` from machine-defined selectors.
 	- Selector values recompute on context changes and support per-selector `equalityFn` reuse to avoid selected-value churn.
+	- Added optimized selector mode via `disableAutoSelectors: true`, intended for pairing `useMachine(...)` with `useSelector(...)` in render-critical components.
 	- Added selector coverage in React integration tests for type behavior, context-provider usage, and equality handling.
