@@ -66,6 +66,11 @@ It supports two valid shapes:
 - `requestJSONAsync(input, init?).chainToAction(resolve, reject)`
 - `requestJSONAsync(input, init?).validate(validator).chainToAction(resolve, reject)`
 
+Builder stages may also include:
+
+- `.validate(validatorOrParser)` for assert-style or parser-style validation
+- `.map(mapper)` when a payload should be transformed before action mapping
+
 `requestJSONAsync(...)` will:
 
 - pass through normal `RequestInit` options such as `method`, `body`, `credentials`, and similar config
@@ -76,6 +81,10 @@ It supports two valid shapes:
 - parse `response.json()` internally
 
 `validate(...)` is optional. When present, it may appear only once and it must come before `chainToAction(...)`.
+
+`validate(...)` also supports parser-style functions such as `zod` `.parse(...)`.
+
+`map(...)` is optional. It transforms the resolved payload before `chainToAction(...)`.
 
 Use `validate(...)` when you want to assert that the parsed JSON matches the payload shape your action expects. The validator should throw when the payload is invalid. If it throws, that exact thrown value becomes the value received by the `reject` handler.
 
@@ -117,6 +126,7 @@ It supports the same builder flow as `requestJSONAsync(...)`:
 
 - `customJSONAsync(run, init?).chainToAction(resolve, reject)`
 - `customJSONAsync(run, init?).validate(validator).chainToAction(resolve, reject)`
+- `customJSONAsync(run, init?).validate(validatorOrParser).map(mapper).chainToAction(resolve, reject)`
 
 `run` receives `(signal, context)` so cancellation can be wired into the client call.
 
@@ -219,6 +229,36 @@ const Loading = state<Enter | typeof profileLoaded | typeof profileFailed>({
 })
 ```
 
+## Parser and map example
+
+Use `validate(...)` with parser-style validators when the parser returns typed data, and `map(...)` when you want to transform before dispatching an action.
+
+```typescript
+import * as z from "zod"
+
+import { Enter, action, customJSONAsync, state } from "@tdreyno/fizz"
+
+const Profile = z.object({
+  id: z.string(),
+  name: z.string(),
+})
+
+const profileNameLoaded = action("ProfileNameLoaded").withPayload<string>()
+const profileFailed = action("ProfileFailed").withPayload<string>()
+
+const Loading = state<Enter | typeof profileNameLoaded | typeof profileFailed>({
+  Enter: () =>
+    customJSONAsync(signal =>
+      fetch("/api/profile", { signal }).then(response => response.json()),
+    )
+      .validate(Profile.parse)
+      .map(profile => profile.name)
+      .chainToAction(profileNameLoaded, error =>
+        profileFailed(error instanceof Error ? error.message : "Unknown error"),
+      ),
+})
+```
+
 ## POST example
 
 You can pass through normal `RequestInit` options for verbs such as `POST`, `PUT`, `PATCH`, and `DELETE`.
@@ -303,42 +343,43 @@ const assertProfile = (value: unknown): asserts value is Profile => {
   }
 }
 
-const Loading = state<Enter | typeof profileLoaded | typeof profileFailed, Data>(
-  {
-    Enter: (_, __, { context }) =>
-      customJSONAsync(
-        async (signal) => {
-          const result = await context.apollo.query({
-            context: {
-              fetchOptions: {
-                signal,
-              },
+const Loading = state<
+  Enter | typeof profileLoaded | typeof profileFailed,
+  Data
+>({
+  Enter: (_, __, { context }) =>
+    customJSONAsync(
+      async signal => {
+        const result = await context.apollo.query({
+          context: {
+            fetchOptions: {
+              signal,
             },
-            query: context.profileQuery,
-          })
+          },
+          query: context.profileQuery,
+        })
 
-          return result.data.profile
-        },
-        { asyncId: "profile" },
-      )
-        .validate(assertProfile)
-        .chainToAction(profileLoaded, error =>
-          profileFailed(error instanceof Error ? error.message : "Unknown error"),
-        ),
+        return result.data.profile
+      },
+      { asyncId: "profile" },
+    )
+      .validate(assertProfile)
+      .chainToAction(profileLoaded, error =>
+        profileFailed(error instanceof Error ? error.message : "Unknown error"),
+      ),
 
-    ProfileLoaded: (data, profile, { update }) =>
-      update({
-        ...data,
-        profileName: profile.name,
-      }),
+  ProfileLoaded: (data, profile, { update }) =>
+    update({
+      ...data,
+      profileName: profile.name,
+    }),
 
-    ProfileFailed: (data, message, { update }) =>
-      update({
-        ...data,
-        error: message,
-      }),
-  },
-)
+  ProfileFailed: (data, message, { update }) =>
+    update({
+      ...data,
+      error: message,
+    }),
+})
 ```
 
 ## OpenAPI client example
@@ -372,35 +413,76 @@ const assertProfile = (value: unknown): asserts value is Profile => {
   }
 }
 
-const Loading = state<Enter | typeof profileLoaded | typeof profileFailed, Data>(
-  {
-    Enter: (_, __, { context }) =>
-      customJSONAsync(
-        signal =>
-          context.openApiClient.getProfile({
-            signal,
-            userId: context.userId,
-          }),
-        { asyncId: "profile" },
-      )
-        .validate(assertProfile)
-        .chainToAction(profileLoaded, error =>
-          profileFailed(error instanceof Error ? error.message : "Unknown error"),
-        ),
+const Loading = state<
+  Enter | typeof profileLoaded | typeof profileFailed,
+  Data
+>({
+  Enter: (_, __, { context }) =>
+    customJSONAsync(
+      signal =>
+        context.openApiClient.getProfile({
+          signal,
+          userId: context.userId,
+        }),
+      { asyncId: "profile" },
+    )
+      .validate(assertProfile)
+      .chainToAction(profileLoaded, error =>
+        profileFailed(error instanceof Error ? error.message : "Unknown error"),
+      ),
 
-    ProfileLoaded: (data, profile, { update }) =>
-      update({
-        ...data,
-        profileName: profile.name,
-      }),
+  ProfileLoaded: (data, profile, { update }) =>
+    update({
+      ...data,
+      profileName: profile.name,
+    }),
 
-    ProfileFailed: (data, message, { update }) =>
-      update({
-        ...data,
-        error: message,
-      }),
-  },
+  ProfileFailed: (data, message, { update }) =>
+    update({
+      ...data,
+      error: message,
+    }),
+})
+```
+
+## Generalized domain error mapping
+
+When multiple clients can throw different error shapes, use a shared domain `Error` subclass in your reject handlers.
+
+```typescript
+class DomainRequestError extends Error {
+  constructor(
+    message: string,
+    public readonly code?: string,
+    public readonly status?: number,
+  ) {
+    super(message)
+    this.name = "DomainRequestError"
+  }
+}
+
+const toDomainRequestError = (error: unknown): DomainRequestError => {
+  if (error instanceof DomainRequestError) {
+    return error
+  }
+
+  if (error instanceof Error) {
+    return new DomainRequestError(error.message)
+  }
+
+  return new DomainRequestError("Unknown request error")
+}
+
+customJSONAsync(signal =>
+  context.apiClient.getProfile({
+    signal,
+    userId: context.userId,
+  }),
 )
+  .validate(Profile.parse)
+  .chainToAction(profileLoaded, error =>
+    profileFailed(toDomainRequestError(error)),
+  )
 ```
 
 ## Cancellation and stale completions

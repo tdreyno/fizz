@@ -93,6 +93,35 @@ const Loading = state({
 })
 ```
 
+## Parser and map pipeline
+
+```typescript
+import * as z from "zod"
+
+import { Enter, action, customJSONAsync, state } from "@tdreyno/fizz"
+
+const Profile = z.object({
+  id: z.string(),
+  name: z.string(),
+})
+
+const profileNameLoaded = action("ProfileNameLoaded").withPayload<string>()
+const profileFailed = action("ProfileFailed").withPayload<string>()
+
+const Loading = state({
+  Enter: (_, __, { context }) =>
+    customJSONAsync(signal =>
+      context.apiClient.getProfile({
+        signal,
+        userId: context.userId,
+      }),
+    )
+      .validate(Profile.parse)
+      .map(profile => profile.name)
+      .chainToAction(profileNameLoaded, error => profileFailed(String(error))),
+})
+```
+
 ## Debounced and throttled handlers
 
 ```typescript

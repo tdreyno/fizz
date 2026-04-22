@@ -58,6 +58,8 @@ type RequestJSONResolveHandler<
   ResolvedAction extends Action<string, unknown>,
 > = (value: Resolved) => ResolvedAction
 
+type RequestJSONMapHandler<Input, Output> = (value: Input) => Output
+
 export type RequestJSONInit<AsyncId extends string = string> = RequestInit & {
   asyncId?: AsyncId
 }
@@ -70,6 +72,10 @@ type RequestJSONChainToActionBuilder<
   Resolved,
   AsyncId extends string = string,
 > = Effect<StartAsyncEffectData<Resolved, AsyncId>> & {
+  map: <Mapped>(
+    mapper: RequestJSONMapHandler<Resolved, Mapped>,
+  ) => RequestJSONChainToActionBuilder<Mapped, AsyncId>
+
   chainToAction: <
     ResolvedAction extends Action<string, unknown>,
     RejectedAction extends Action<string, unknown> | void = void,
@@ -85,19 +91,28 @@ type RequestJSONAssertHandler<Input, Output extends Input> = (
   value: Input,
 ) => asserts value is Output
 
+type RequestJSONValidateMethod<Resolved, AsyncId extends string = string> = {
+  <Narrowed extends Resolved>(
+    validator: RequestJSONAssertHandler<Resolved, Narrowed>,
+  ): RequestJSONChainToActionBuilder<Narrowed, AsyncId>
+
+  <Mapped>(
+    validator: RequestJSONMapHandler<Resolved, Mapped>,
+  ): RequestJSONChainToActionBuilder<Mapped, AsyncId>
+}
+
 export type RequestJSONBuilder<
   Resolved = unknown,
   AsyncId extends string = string,
 > = RequestJSONChainToActionBuilder<Resolved, AsyncId> & {
-  validate: <Narrowed extends Resolved>(
-    validator: RequestJSONAssertHandler<Resolved, Narrowed>,
-  ) => RequestJSONChainToActionBuilder<Narrowed, AsyncId>
+  validate: RequestJSONValidateMethod<Resolved, AsyncId>
 }
 
-type RequestJSONValidator<
-  Input,
-  Output extends Input,
-> = RequestJSONAssertHandler<Input, Output>
+type RequestJSONValidator<Input, Output> =
+  | RequestJSONAssertHandler<Input, Output & Input>
+  | RequestJSONMapHandler<Input, Output>
+
+type RequestJSONValueMapper<Output> = RequestJSONMapHandler<unknown, Output>
 
 const createJSONRequestInit = <AsyncId extends string = string>(
   signal: AbortSignal,
@@ -146,16 +161,20 @@ const validateRequestJSONValue = <Input, Output extends Input>(
   value: Input,
   validator: RequestJSONValidator<Input, Output>,
 ): Output => {
-  validator(value)
+  const result = validator(value)
 
-  return value
+  if (result === undefined) {
+    return value
+  }
+
+  return result as Output
 }
 
 const createRequestJSONRun =
   <Resolved, AsyncId extends string = string>(options: {
     init?: RequestJSONInit<AsyncId>
     input: RequestInfo | URL
-    validator?: RequestJSONValidator<unknown, Resolved>
+    mapper?: RequestJSONValueMapper<Resolved>
   }) =>
   async (signal: AbortSignal): Promise<Resolved> => {
     const response = await fetch(
@@ -169,21 +188,17 @@ const createRequestJSONRun =
 
     const value = (await response.json()) as unknown
 
-    return options.validator
-      ? validateRequestJSONValue(value, options.validator)
-      : (value as Resolved)
+    return options.mapper ? options.mapper(value) : (value as Resolved)
   }
 
 const createCustomJSONRun = <Resolved>(options: {
   run: (signal: AbortSignal, context: Context) => Promise<unknown>
-  validator?: RequestJSONValidator<unknown, Resolved>
+  mapper?: RequestJSONValueMapper<Resolved>
 }): AsyncRun<Resolved> => {
   const run: AsyncRun<Resolved> = async (signal, context) => {
     const value = await options.run(signal, context)
 
-    return options.validator
-      ? validateRequestJSONValue(value, options.validator)
-      : (value as Resolved)
+    return options.mapper ? options.mapper(value) : (value as Resolved)
   }
 
   return run
@@ -210,33 +225,56 @@ const createJSONChainToActionBuilder = <
       options.asyncId,
     )
 
+  requestEffect.map = mapper =>
+    createJSONChainToActionBuilder<ReturnType<typeof mapper>, AsyncId>({
+      ...(options.asyncId === undefined ? {} : { asyncId: options.asyncId }),
+      run: async (signal, context) => {
+        const value = await runAsync(options.run, signal, context)
+
+        return mapper(value)
+      },
+    })
+
   return requestEffect
+}
+
+const runAsync = async <Resolved>(
+  run: AsyncRun<Resolved>,
+  signal: AbortSignal,
+  context: Context,
+): Promise<Resolved> => {
+  if (typeof run === "function") {
+    return run(signal, context)
+  }
+
+  return run
 }
 
 const createJSONBuilder = <AsyncId extends string = string>(options: {
   asyncId?: AsyncId
   createRun: <Resolved>(
-    validator?: RequestJSONValidator<unknown, Resolved>,
+    mapper?: RequestJSONValueMapper<Resolved>,
   ) => AsyncRun<Resolved>
 }): RequestJSONBuilder<unknown, AsyncId> => {
   const createChainToActionBuilder = <Resolved>(
-    validator?: RequestJSONValidator<unknown, Resolved>,
+    mapper?: RequestJSONValueMapper<Resolved>,
   ) =>
     createJSONChainToActionBuilder<Resolved, AsyncId>(
       options.asyncId === undefined
-        ? { run: options.createRun<Resolved>(validator) }
+        ? { run: options.createRun<Resolved>(mapper) }
         : {
             asyncId: options.asyncId,
-            run: options.createRun<Resolved>(validator),
+            run: options.createRun<Resolved>(mapper),
           },
     )
 
   const chainToActionBuilder = createChainToActionBuilder<unknown>()
 
   return Object.assign(chainToActionBuilder, {
-    validate: <Narrowed>(
-      validator: RequestJSONAssertHandler<unknown, Narrowed>,
-    ) => createChainToActionBuilder<Narrowed>(validator),
+    validate: (<Narrowed>(validator: RequestJSONValidator<unknown, Narrowed>) =>
+      createChainToActionBuilder<Narrowed>(value =>
+        validateRequestJSONValue(value, validator),
+      )) as RequestJSONValidateMethod<unknown, AsyncId>,
   })
 }
 
@@ -246,17 +284,15 @@ export const requestJSONAsync = <AsyncId extends string = string>(
 ): RequestJSONBuilder<unknown, AsyncId> =>
   createJSONBuilder<AsyncId>({
     ...(init?.asyncId === undefined ? {} : { asyncId: init.asyncId }),
-    createRun: <Resolved>(
-      validator?: RequestJSONValidator<unknown, Resolved>,
-    ) => {
+    createRun: <Resolved>(mapper?: RequestJSONValueMapper<Resolved>) => {
       if (init === undefined) {
         return createRequestJSONRun<Resolved, AsyncId>(
-          validator ? { input, validator } : { input },
+          mapper ? { input, mapper } : { input },
         )
       }
 
       return createRequestJSONRun<Resolved, AsyncId>(
-        validator ? { input, init, validator } : { input, init },
+        mapper ? { input, init, mapper } : { input, init },
       )
     },
   })
@@ -267,10 +303,8 @@ export const customJSONAsync = <AsyncId extends string = string>(
 ): RequestJSONBuilder<unknown, AsyncId> =>
   createJSONBuilder<AsyncId>({
     ...(init?.asyncId === undefined ? {} : { asyncId: init.asyncId }),
-    createRun: <Resolved>(
-      validator?: RequestJSONValidator<unknown, Resolved>,
-    ) =>
-      createCustomJSONRun<Resolved>(validator ? { run, validator } : { run }),
+    createRun: <Resolved>(mapper?: RequestJSONValueMapper<Resolved>) =>
+      createCustomJSONRun<Resolved>(mapper ? { run, mapper } : { run }),
   })
 
 export type AsyncRun<Resolved> =

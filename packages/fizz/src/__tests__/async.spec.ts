@@ -755,6 +755,129 @@ describe("Async scheduled operations", () => {
     })
   })
 
+  test("should support parser-style validation with validate", async () => {
+    const Profile = z.object({
+      id: z.string(),
+      name: z.string(),
+    })
+
+    type Profile = z.infer<typeof Profile>
+
+    const profileLoaded = action("ProfileLoaded").withPayload<Profile>()
+    type ProfileLoaded = ActionCreatorType<typeof profileLoaded>
+
+    const profileFailed = action("ProfileFailed").withPayload<string>()
+    type ProfileFailed = ActionCreatorType<typeof profileFailed>
+
+    const Loading = state<Enter | ProfileLoaded | ProfileFailed, Data>({
+      Enter: () =>
+        customJSONAsync(async () => ({ id: "7", name: "Rita" }))
+          .validate(value => Profile.parse(value))
+          .chainToAction(profileLoaded, error =>
+            profileFailed(
+              error instanceof Error ? error.message : "Unknown error",
+            ),
+          ),
+
+      ProfileLoaded: (data, profile, { update }) =>
+        update({
+          ...appendEvent(data, `loaded:${profile.id}`),
+          profileName: profile.name,
+        }),
+    })
+
+    const context = createInitialContext([Loading({ events: [] })])
+    const asyncDriver = createControlledAsyncDriver()
+    const runtime = new Runtime(
+      context,
+      { profileFailed, profileLoaded },
+      {},
+      {
+        asyncDriver,
+      },
+    )
+
+    await runtime.run(enter())
+    await asyncDriver.flush()
+
+    const currentState = runtime.currentState()
+
+    if (!currentState.is(Loading)) {
+      throw new Error("Expected Loading state")
+    }
+
+    expect(currentState.data).toEqual({
+      events: ["loaded:7"],
+      profileName: "Rita",
+    })
+  })
+
+  test("should allow mapping before chainToAction", async () => {
+    const profileNameLoaded = action("ProfileNameLoaded").withPayload<string>()
+    type ProfileNameLoaded = ActionCreatorType<typeof profileNameLoaded>
+
+    const profileFailed = action("ProfileFailed").withPayload<string>()
+    type ProfileFailed = ActionCreatorType<typeof profileFailed>
+
+    const Loading = state<Enter | ProfileNameLoaded | ProfileFailed, Data>({
+      Enter: () => {
+        globalThis.fetch = (async () =>
+          createResponse({
+            json: async () => ({ id: "1", name: "Ada" }),
+          }) as unknown as Response) as typeof fetch
+
+        return requestJSONAsync("/api/profile")
+          .map(profile => {
+            if (
+              typeof profile !== "object" ||
+              profile === null ||
+              !("name" in profile)
+            ) {
+              throw new Error("Invalid profile payload")
+            }
+
+            return String((profile as { name: unknown }).name)
+          })
+          .chainToAction(profileNameLoaded, error =>
+            profileFailed(
+              error instanceof Error ? error.message : "Unknown error",
+            ),
+          )
+      },
+
+      ProfileNameLoaded: (data, profileName, { update }) =>
+        update({
+          ...appendEvent(data, "loaded:name"),
+          profileName,
+        }),
+    })
+
+    const context = createInitialContext([Loading({ events: [] })])
+    const asyncDriver = createControlledAsyncDriver()
+    const runtime = new Runtime(
+      context,
+      { profileFailed, profileNameLoaded },
+      {},
+      {
+        asyncDriver,
+      },
+    )
+
+    await runtime.run(enter())
+    await asyncDriver.flush()
+
+    const currentState = runtime.currentState()
+
+    if (!currentState.is(Loading)) {
+      throw new Error("Expected Loading state")
+    }
+
+    expect(currentState.data).toEqual({
+      events: ["loaded:name"],
+      profileName: "Ada",
+    })
+  })
+
   test("should send non-ok responses to the reject handler", async () => {
     const profileLoaded = action("ProfileLoaded").withPayload<Profile>()
     const profileFailed = action("ProfileFailed").withPayload<string>()
@@ -1110,5 +1233,59 @@ describe("Async scheduled operations", () => {
     // @ts-expect-error validate should only be allowed once
     type ValidateTwice = ValidatedBuilder["validate"]
     /* eslint-enable @typescript-eslint/no-unused-vars */
+  })
+
+  test("should type parser-style validate and map stages", () => {
+    const profileLoaded = action("ProfileLoaded").withPayload<Profile>()
+
+    const profileFailed = action("ProfileFailed").withPayload<string>()
+
+    const ProfileParser = (value: unknown): Profile => {
+      if (typeof value !== "object" || value === null) {
+        throw new Error("Expected object")
+      }
+
+      const candidate = value as Record<string, unknown>
+
+      if (
+        typeof candidate.id !== "string" ||
+        typeof candidate.name !== "string"
+      ) {
+        throw new TypeError("Expected profile payload")
+      }
+
+      return {
+        id: candidate.id,
+        name: candidate.name,
+      }
+    }
+
+    requestJSONAsync("/api/profile")
+      .validate(ProfileParser)
+      .map((profile: Profile) => profile.name)
+      .chainToAction(
+        (name: string) =>
+          action("ProfileNameLoaded").withPayload<string>()(name),
+        (error: unknown) => profileFailed(String(error)),
+      )
+
+    customJSONAsync(async () => ({ id: "1", name: "Ada" }))
+      .validate(ProfileParser)
+      .map((profile: Profile) => profile.id)
+      .chainToAction(
+        (id: string) => action("ProfileIdLoaded").withPayload<string>()(id),
+        (error: unknown) => profileFailed(String(error)),
+      )
+
+    type MappedChainResult = ReturnType<
+      ReturnType<typeof customJSONAsync>["map"]
+    >
+
+    /* eslint-disable @typescript-eslint/no-unused-vars */
+    // @ts-expect-error validate should not be available after map
+    type ValidateAfterMap = MappedChainResult["validate"]
+    /* eslint-enable @typescript-eslint/no-unused-vars */
+
+    profileLoaded({ id: "1", name: "Ada" })
   })
 })

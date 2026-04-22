@@ -46,9 +46,12 @@ The current API is:
 
 - `requestJSONAsync(input, init?)`
 - optional `.validate(validator)` once
+- optional `.map(mapper)`
 - optional `.chainToAction(resolve, reject?)`
 
 Use `validate(...)` when the payload must be checked or narrowed before action dispatch.
+Use parser-shaped validators (for example `zod` `.parse(...)`) with `validate(...)` when they return typed values.
+Use `map(...)` when the payload should be transformed before dispatching actions.
 
 ```typescript
 requestJSONAsync("/api/profile", { asyncId: "profile" })
@@ -79,6 +82,7 @@ customJSONAsync(
   { asyncId: "profile" },
 )
   .validate(assertProfile)
+  .map(profile => profile.id)
   .chainToAction(profileLoaded, profileFailed)
 ```
 

@@ -2,6 +2,6 @@
 "@tdreyno/fizz": minor
 ---
 
-Add `customJSONAsync(...)` for app client-layer JSON flows.
+Add `customJSONAsync(...)` and additional JSON pipeline stages for async flows.
 
-This introduces a JSON builder for client callbacks that already return parsed payloads, with support for `validate(...)`, `chainToAction(...)`, and optional `asyncId` cancellation, plus docs and examples for Apollo and OpenAPI usage.
+This introduces a JSON builder for client callbacks that already return parsed payloads, along with pipeline ergonomics via `map(...)` for payload transformation before action dispatch.

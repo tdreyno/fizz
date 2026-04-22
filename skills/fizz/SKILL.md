@@ -55,7 +55,7 @@ Create the initial context, create the runtime, then run `enter()` to bootstrap 
 
 ### 4. Use async helpers instead of ad-hoc fetch orchestration
 
-Use `startAsync(...)` for generic promise-backed work. Use `requestJSONAsync(...)` for JSON fetch flows. Use `customJSONAsync(...)` when app client functions already return parsed JSON. Use `validate(...)` to narrow payloads, and `chainToAction(...)` when the result should dispatch actions.
+Use `startAsync(...)` for generic promise-backed work. Use `requestJSONAsync(...)` for JSON fetch flows. Use `customJSONAsync(...)` when app client functions already return parsed JSON. Use `validate(...)` to narrow payloads with assert-style or parser-style validators, use `map(...)` for payload shaping, and use `chainToAction(...)` when the result should dispatch actions.
 
 ### 5. Treat cancellation and stale completions as part of the design
 
@@ -96,6 +96,7 @@ If the task is about runtime behavior, read `references/core-runtime.md`.
 - Use `debounce(...)` when a handler should run after calls quiet down for a delay window.
 - Use `throttle(...)` when a handler should run at most once per window.
 - Call `validate(...)` before `chainToAction(...)` if the payload must be checked or narrowed.
+- Use `map(...)` before `chainToAction(...)` when payload shape conversion should stay inside the async pipeline.
 - Use explicit ids for timers, intervals, and async work when later cancellation matters.
 - Design handlers for `AsyncCancelled`, `TimerCompleted`, `IntervalTriggered`, or related scheduled actions only when the machine needs to respond to them.
 
