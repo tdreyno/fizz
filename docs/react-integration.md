@@ -1,6 +1,8 @@
 # React Integration
 
-`@tdreyno/fizz-react` provides two React integration surfaces:
+`@tdreyno/fizz-react` is local-first. Most React usage starts with one machine per component via `useMachine(...)`, then scales to shared runtime context when needed.
+
+It provides two React integration surfaces:
 
 - `useMachine(...)` hosts one Fizz runtime inside one component instance
 - `createMachineContext(...)` creates a typed Provider plus hook pair so a subtree can share one runtime
@@ -58,9 +60,11 @@ useMachine(machine, initialState, ...)
 returns { currentState, states, context, actions, runtime }
 ```
 
-## Shared runtime context
+## Shared runtime context (scale-up)
 
 When multiple components should observe and dispatch against the same machine instance, create a typed context wrapper once and configure the shared instance at the Provider boundary.
+
+Use this when you outgrow one component-local machine and need coordinated state across a subtree.
 
 The shared API shape is:
 

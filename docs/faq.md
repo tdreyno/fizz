@@ -92,6 +92,7 @@ Compared with Redux or Zustand, Fizz leans harder into named states and transiti
 ## Related Docs
 
 - [Getting Started](./getting-started.md)
+- [Choosing The Right Scale](./choosing-scale.md)
 - [Architecture](./architecture.md)
 - [Debugging](./debugging.md)
 - [React Integration](./react-integration.md)

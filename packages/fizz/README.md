@@ -4,6 +4,11 @@
 
 Fizz is a small library for building state machines that can effectively manage complex sequences of events. [Learn more about state machines (and charts).](https://statecharts.github.io)
 
+Fizz works well across a spectrum:
+
+- small, component-local workflows such as toggles, editors, and async button states
+- larger orchestration flows with timers, parallel branches, nested machines, and long-running effects
+
 ## Install
 
 ```bash
@@ -12,7 +17,51 @@ npm install --save @tdreyno/fizz
 
 Start with the main docs [Getting Started](https://fizz.tdreyno.com/getting-started) page for a minimal setup and runtime demo.
 
-## Let's play pong
+## A small component-local example
+
+This is a tiny local workflow: a button that starts idle, enters a saving state, then reports done.
+
+```typescript
+import {
+  ActionCreatorType,
+  Enter,
+  action,
+  createMachine,
+  state,
+} from "@tdreyno/fizz"
+
+const save = action("Save")
+type Save = ActionCreatorType<typeof save>
+
+type Data = {
+  status: "idle" | "saving" | "done"
+}
+
+const Idle = state<Enter | Save, Data>({
+  Enter: (data, _, { update }) => update(data),
+  Save: data => Saving(data),
+})
+
+const Saving = state<Enter, Data>({
+  Enter: (data, _, { update }) =>
+    update({
+      ...data,
+      status: "done",
+    }),
+})
+
+const SaveButtonMachine = createMachine(
+  {
+    actions: { save },
+    states: { Idle, Saving },
+  },
+  "SaveButtonMachine",
+)
+```
+
+When this shape grows beyond one local workflow, Fizz can scale to nested and parallel orchestration patterns without changing the core model.
+
+## Complex orchestration example: let's play pong
 
 This example shows how we would model something like a game of Pong.
 

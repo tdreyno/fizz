@@ -10,6 +10,16 @@ Fizz is a small TypeScript-first library for modeling workflows as explicit stat
 
 This page gets you to a working machine quickly, then points to the deeper guides.
 
+## Start small, scale up
+
+Fizz is designed to cover a range of workflow complexity:
+
+- component-local state machines for isolated UI flows
+- multi-step workflows with async and scheduling
+- larger orchestration with nested or parallel machines
+
+If you are deciding where your use case fits, read [Choosing The Right Scale](./choosing-scale.md).
+
 ## Install
 
 Install the core runtime:
@@ -150,6 +160,8 @@ const isIdle = machine.currentState.is(machine.states.Idle)
 Keep the component thin. Let the machine root own the workflow logic and let React render the current state.
 
 See [React Integration](./react-integration.md) for the full `useMachine(...)` hook guide, including bound actions, runtime access, and current implementation caveats.
+
+If you want guidance on when to stop at component-local state and when to move to orchestration patterns, read [Choosing The Right Scale](./choosing-scale.md).
 
 ## What to read next
 
