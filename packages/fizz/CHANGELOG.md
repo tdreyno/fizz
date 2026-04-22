@@ -1,5 +1,38 @@
 # @tdreyno/fizz
 
+## 8.3.0
+
+### Minor Changes
+
+- ea19e4b: Require both `resolve` and `reject` handlers for async action mapping.
+
+  This is a breaking API change: `startAsync(...)` now requires both handler callbacks, and JSON builder `chainToAction(...)` calls must provide both resolve and reject mappers. Use explicit no-op handlers when a branch should ignore one side of the async result.
+
+- b74dd00: Add `customJSONAsync(...)` and additional JSON pipeline stages for async flows.
+
+  This introduces a JSON builder for client callbacks that already return parsed payloads, along with pipeline ergonomics via `map(...)` for payload transformation before action dispatch.
+
+- 1223ce6: Add retry and shared backoff policy support to existing async helpers.
+
+  `requestJSONAsync(...)` and `customJSONAsync(...)` now accept optional `init.retry` settings for attempts, retry predicates, and fixed or exponential backoff with optional jitter. `withRetry(...)` now uses the same shared retry policy shape, so fluent and root async retry behavior are consistent.
+
+- 3abddb4: Add `fluentAction<P>(debugLabel?: string)` to `@tdreyno/fizz/fluent` for creator-by-reference fluent handlers without manually naming action types.
+- 6535706: Add an optional `@tdreyno/fizz/fluent` entry point for chain-first state authoring.
+
+  This introduces fluent `state(...)` helpers with creator-first responder registration, lifecycle shortcuts, scheduling responders, definition diagnostics, and utility helpers, while keeping the root object-style API unchanged.
+
+- 514ae3e: # Breaking Change
+
+  Replace the React-specific `useParallelMachines(...)` hook with the runtime-first `createParallelMachine(...)` shape and host it through `useMachine(...)`.
+
+  `@tdreyno/fizz` now exports `getParallelRuntimes(...)` so React and other integrations can read the keyed child runtime map from the parent parallel machine state.
+
+  `createParallelMachine(...)` now accepts a map of `createMachine(...)` results that already carry their own `initialState`, instead of `{ machine, initialState }` branch wrappers.
+
+  Created machine roots now expose `.withInitialState(...)` so callers can override startup state with runtime values while reusing the same machine definition, including branch overrides in `createParallelMachine(...)`.
+
+  This is a breaking API change in `@tdreyno/fizz-react`: callers should construct the parallel machine in core, pass `parallel.machine` and `parallel.initialState` into `useMachine(...)`, dispatch through `machine.actions`, and read branch runtimes with `getParallelRuntimes(machine.currentState.data)`.
+
 ## 8.2.0
 
 ### Minor Changes
