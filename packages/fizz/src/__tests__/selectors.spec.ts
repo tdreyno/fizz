@@ -24,10 +24,7 @@ describe("selectors", () => {
       { name: "Viewing" },
     )
 
-    const selector = selectWhen(
-      Editing,
-      currentState => !currentState.data.readOnly,
-    )
+    const selector = selectWhen(Editing, data => !data.readOnly)
     const viewingContext = createInitialContext([Viewing({ archived: true })])
     const selectedValue = runStateSelector(
       selector,
@@ -54,10 +51,7 @@ describe("selectors", () => {
       { name: "Viewing" },
     )
 
-    const selector = selectWhen(
-      Editing,
-      currentState => !currentState.data.readOnly,
-    )
+    const selector = selectWhen(Editing, data => !data.readOnly)
 
     const editingContext = createInitialContext([Editing({ readOnly: false })])
     const viewingContext = createInitialContext([Viewing({ archived: true })])
@@ -93,17 +87,20 @@ describe("selectors", () => {
       { name: "Reviewing" },
     )
 
-    const selector = selectWhen([Editing, Reviewing] as const, currentState => {
-      if (currentState.is(Editing)) {
-        const value = expectNumber(Number(currentState.data.readOnly))
+    const selector = selectWhen(
+      [Editing, Reviewing] as const,
+      (_data, state) => {
+        if (state.is(Editing)) {
+          const value = expectNumber(Number(state.data.readOnly))
 
-        return value
-      }
+          return value
+        }
 
-      const value = expectString(currentState.data.reviewer)
+        const value = expectString(state.data.reviewer)
 
-      return value.length
-    })
+        return value.length
+      },
+    )
 
     const editingState = Editing({ readOnly: true })
 
@@ -149,6 +146,25 @@ describe("selectors", () => {
     expect(typedValue).toBe(true)
   })
 
+  test("accepts unary data predicates directly as selector functions", () => {
+    const Editing = state<Enter, { label: string; readOnly: boolean }>(
+      {
+        Enter: noop,
+      },
+      { name: "Editing" },
+    )
+
+    const isInteractive = (data: { label: string }): boolean =>
+      data.label === "Interactive"
+
+    const selector = selectWhen(Editing, isInteractive)
+    const context = createInitialContext([
+      Editing({ label: "Interactive", readOnly: false }),
+    ])
+
+    expect(runStateSelector(selector, context.currentState, context)).toBe(true)
+  })
+
   test("supports colocated selectors on createMachine definitions", () => {
     const Editing = state<Enter, { readOnly: boolean }>(
       {
@@ -166,7 +182,7 @@ describe("selectors", () => {
 
     const machine = createMachine({
       selectors: {
-        isEditable: selectWhen(Editing, state => !state.data.readOnly),
+        isEditable: selectWhen(Editing, data => !data.readOnly),
       },
       states: { Editing, Viewing },
     })

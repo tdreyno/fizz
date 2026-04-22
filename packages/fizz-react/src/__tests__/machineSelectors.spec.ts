@@ -46,16 +46,13 @@ const SelectorMachine = createMachine(
     actions: { bump, start },
     selectors: {
       isReady: selectWhen(Ready, () => true),
-      parityLoose: selectWhen(
-        Ready,
-        (currentState: ReturnType<typeof Ready>) => ({
-          parity: currentState.data.count % 2,
-        }),
-      ),
+      parityLoose: selectWhen(Ready, (data: ReadyData) => ({
+        parity: data.count % 2,
+      })),
       parityStable: selectWhen(
         Ready,
-        (currentState: ReturnType<typeof Ready>) => ({
-          parity: currentState.data.count % 2,
+        (data: ReadyData) => ({
+          parity: data.count % 2,
         }),
         {
           equalityFn: (

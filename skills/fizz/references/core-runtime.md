@@ -93,12 +93,14 @@ Use `selectWhen(...)` to define read-only derived checks colocated with `createM
 Selector inputs and behavior:
 
 - `when`: a state creator or readonly list of state creators
-- second argument: either a selector function or a matcher object shorthand
+- second argument: either a selector function with shape `(data, state, context) => result` or a matcher object shorthand
 - optional final `options` object: `{ equalityFn? }`
 - function selectors return `undefined` when non-matching
 - matcher-object selectors return `true` when all matcher keys equal `state.data` values, otherwise `false`
 
 Selectors keep repeated `currentState.is(...)` branches out of component render code and make derivations discoverable on machine roots.
+
+For complex nested matching, discriminated unions, or array/primitive matching, prefer `ts-pattern` and pass `isMatching(...)` directly to `selectWhen(...)`.
 
 For non-React usage, evaluate selector definitions directly with `runStateSelector(selector, currentState, context)`.
 

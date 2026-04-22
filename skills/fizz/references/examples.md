@@ -201,10 +201,27 @@ import { createMachine, selectWhen } from "@tdreyno/fizz"
 
 const machine = createMachine({
   selectors: {
-    isEditable: selectWhen(Editing, state => !state.data.readOnly),
+    isEditable: selectWhen(Editing, data => !data.readOnly),
     hasInteractiveLabel: selectWhen([Editing, Reviewing] as const, {
       label: "Interactive",
     }),
+  },
+  states: { Editing, Viewing },
+})
+```
+
+## Complex selector matching with `ts-pattern`
+
+```typescript
+import { createMachine, selectWhen } from "@tdreyno/fizz"
+import { isMatching } from "ts-pattern"
+
+const machine = createMachine({
+  selectors: {
+    hasInteractiveMeta: selectWhen(
+      Editing,
+      isMatching({ label: "Interactive", meta: { mode: "edit" } }),
+    ),
   },
   states: { Editing, Viewing },
 })
@@ -230,7 +247,7 @@ import {
 
 const EditorMachine = createMachine({
   selectors: {
-    isEditable: selectWhen(Editing, state => !state.data.readOnly),
+    isEditable: selectWhen(Editing, data => !data.readOnly),
   },
   states: { Editing, Viewing },
 })

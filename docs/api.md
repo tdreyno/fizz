@@ -57,13 +57,13 @@ Define colocated selectors on a machine root for read-only derived checks. Selec
 const EditorMachine = createMachine({
   actions: { startEditing },
   selectors: {
-    isEditable: selectWhen(Editing, state => !state.data.readOnly),
-    canReview: selectWhen([Editing, Reviewing] as const, state => {
+    isEditable: selectWhen(Editing, data => !data.readOnly),
+    canReview: selectWhen([Editing, Reviewing] as const, (data, state) => {
       if (state.is(Editing)) {
-        return !state.data.readOnly
+        return !data.readOnly
       }
 
-      return state.data.approved === false
+      return data.approved === false
     }),
   },
   states: { Editing, Reviewing, Viewing },
@@ -73,7 +73,7 @@ const EditorMachine = createMachine({
 `selectWhen(...)` accepts:
 
 - `when`: one state creator or a readonly array of state creators
-- second argument: either a `select` function (runs only when `currentState` matches `when`) or a matcher object shorthand
+- second argument: either a `select` function with shape `(data, state, context) => result` (runs only when `currentState` matches `when`) or a matcher object shorthand
 - optional final `options` object: `{ equalityFn? }`
 - function selectors return `undefined` when `currentState` does not match `when`
 - matcher-object selectors return `true` when all matcher keys equal `state.data` values, otherwise `false`
@@ -86,6 +86,23 @@ Matcher-object shorthand example:
 const hasInteractiveLabel = selectWhen([Editing, Reviewing] as const, {
   label: "Interactive",
 })
+```
+
+For complex nested matching, discriminated unions, or array/primitive matching, use [`ts-pattern`](https://github.com/gvergnaud/ts-pattern) and pass `isMatching(...)` directly as the selector function:
+
+```ts
+import { isMatching } from "ts-pattern"
+
+const hasInteractiveMeta = selectWhen(
+  Editing,
+  isMatching({ label: "Interactive", meta: { mode: "edit" } }),
+)
+```
+
+Install when needed:
+
+```bash
+npm install ts-pattern
 ```
 
 This keeps state checks centralized and colocated with machine definitions, instead of repeating `currentState.is(...)` branches in components.

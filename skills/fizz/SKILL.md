@@ -78,6 +78,7 @@ If async work may outlive the current state instance, give it an explicit `async
 - Use `@tdreyno/fizz/fluent` when a task explicitly prefers creator-first chained responder registration.
 - Use `switch_(...)`, `whichTimeout(...)`, and `whichInterval(...)` to keep state branching explicit and exhaustive.
 - Use `selectWhen(...)` to colocate derived read-only checks directly on `createMachine(...)` definitions and keep selector state filters explicit.
+- For complex selector matching (nested objects, discriminated unions, arrays, primitives), prefer `ts-pattern` and pass `isMatching(...)` directly to `selectWhen(...)`.
 - Use `waitState(...)` for request-on-enter and response-driven transition flows.
 - Use named actions created up front and wire them into the runtime action map.
 - Return transitions, actions, and effects from handlers instead of mutating external systems directly.

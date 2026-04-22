@@ -196,6 +196,8 @@ Use selectors when you want derived values like `isEditable` or `canSave` withou
 
 Define selectors on the machine root with `selectWhen(...)`, then read derived values from `machine.selectors` returned by `useMachine(...)` or `useMachineContext(...)`.
 
+Function selectors use the shape `(data, state, context) => result`.
+
 ```typescript
 import { createMachine, selectWhen } from "@tdreyno/fizz"
 import { useMachine } from "@tdreyno/fizz-react"
@@ -204,7 +206,7 @@ const EditorMachine = createMachine(
   {
     actions: { startEditing },
     selectors: {
-      isEditable: selectWhen(Editing, state => !state.data.readOnly),
+      isEditable: selectWhen(Editing, data => !data.readOnly),
       hasInteractiveLabel: selectWhen(
         [Editing, Reviewing] as const,
         { label: "Interactive" },
@@ -227,6 +229,28 @@ const EditorPanel = () => {
     </div>
   )
 }
+```
+
+When selector matching grows beyond shallow key checks, use [`ts-pattern`](https://github.com/gvergnaud/ts-pattern) and pass `isMatching(...)` directly:
+
+```typescript
+import { isMatching } from "ts-pattern"
+
+const machine = createMachine({
+  selectors: {
+    hasInteractiveMeta: selectWhen(
+      Editing,
+      isMatching({ label: "Interactive", meta: { mode: "edit" } }),
+    ),
+  },
+  states: { Editing, Viewing },
+})
+```
+
+Install when needed:
+
+```bash
+npm install ts-pattern
 ```
 
 With matcher shorthand objects, selectors return booleans: `true` when matched and `false` otherwise.

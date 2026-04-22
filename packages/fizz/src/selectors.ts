@@ -20,6 +20,7 @@ type StateDataFromSelectorWhen<W extends SelectorWhen> =
   StateFromSelectorWhen<W> extends { data: infer D } ? D : never
 
 type SelectorResolver<W extends SelectorWhen, R> = (
+  data: StateDataFromSelectorWhen<W>,
   state: StateFromSelectorWhen<W>,
   context: Context,
 ) => R
@@ -34,7 +35,11 @@ export interface StateSelectorOptions<R> {
 
 export interface StateSelector<W extends SelectorWhen, R> {
   when: W
-  select: (state: StateFromSelectorWhen<W>, context: Context) => R
+  select: (
+    data: StateDataFromSelectorWhen<W>,
+    state: StateFromSelectorWhen<W>,
+    context: Context,
+  ) => R
   equalityFn?: (previous: R | undefined, next: R | undefined) => boolean
   isMatcher?: boolean
 }
@@ -58,8 +63,8 @@ export function selectWhen<W extends SelectorWhen, R>(
 ): StateSelector<W, R | undefined> {
   if (typeof selectOrMatcher !== "function") {
     const matcher = selectOrMatcher
-    const select = (state: StateFromSelectorWhen<W>): boolean => {
-      const stateData = state.data as Record<string, unknown>
+    const select = (data: StateDataFromSelectorWhen<W>): boolean => {
+      const stateData = data as Record<string, unknown>
 
       return Object.entries(matcher).every(([key, expectedValue]) =>
         Object.is(stateData[key], expectedValue),
@@ -102,7 +107,11 @@ export const runStateSelector = <W extends SelectorWhen, R>(
   context: Context,
 ): R | undefined => {
   if (matchesSelectorWhen(state, selector.when)) {
-    return selector.select(state, context)
+    return selector.select(
+      state.data as StateDataFromSelectorWhen<W>,
+      state,
+      context,
+    )
   }
 
   if (selector.isMatcher === true) {
