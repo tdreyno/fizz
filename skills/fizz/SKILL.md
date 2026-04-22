@@ -17,6 +17,7 @@ Use this skill when the task involves:
 
 - Modeling a workflow as Fizz states, transitions, actions, or effects
 - Creating or refactoring a machine/runtime with `createMachine(...)`, `createInitialContext(...)`, `createRuntime(...)`, or `enter()`
+- Designing or reviewing parallel composition with `createParallelMachine(...)` and `getParallelRuntimes(...)`
 - Adding async work with `startAsync(...)`, `requestJSONAsync(...)`, or `customJSONAsync(...)`
 - Adding timers, intervals, or frame-driven behavior from a state handler
 - Debouncing or throttling high-frequency handlers with `debounce(...)` and `throttle(...)`
@@ -70,6 +71,7 @@ If async work may outlive the current state instance, give it an explicit `async
 ### Core modeling
 
 - Use `state(...)` for flat state definitions and `stateWithNested(...)` when the machine genuinely needs nested state composition.
+- Use `createParallelMachine(...)` when several child workflows should stay active together and shared actions should fan out across branches.
 - Use `@tdreyno/fizz/fluent` when a task explicitly prefers creator-first chained responder registration.
 - Use `switch_(...)`, `whichTimeout(...)`, and `whichInterval(...)` to keep state branching explicit and exhaustive.
 - Use `waitState(...)` for request-on-enter and response-driven transition flows.
@@ -134,6 +136,7 @@ If the task is about React integration, read `references/react-integration.md`.
 ## Reference Files
 
 - `references/core-runtime.md` for states, actions, helper matchers, effects, runtime setup, and nested machines
+- `references/parallel-state-machines.md` for `createParallelMachine(...)`, branch broadcasting, lifecycle, and branch runtime inspection
 - `references/async-and-scheduling.md` for `startAsync(...)`, `requestJSONAsync(...)`, `customJSONAsync(...)`, `debounce(...)`, `throttle(...)`, cancellation, timers, intervals, and frames
 - `references/testing.md` for deterministic machine testing, controlled drivers, and the `@tdreyno/fizz/test` subpath
 - `references/react-integration.md` for `useMachine(...)`, `createMachineContext(...)`, and React-specific guidance

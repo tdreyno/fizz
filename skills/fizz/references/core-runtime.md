@@ -65,6 +65,8 @@ If the same machine shape needs different start values per branch, use `.withIni
 
 This keeps parallel composition inside the normal runtime model instead of introducing a separate orchestration layer.
 
+If the task is primarily about parallel composition design, branch lifecycle, or `getParallelRuntimes(...)`, continue with `parallel-state-machines.md`.
+
 ### `getParallelRuntimes(...)`
 
 Use `getParallelRuntimes(...)` to read the keyed child runtime map from a parallel machine state's data.
