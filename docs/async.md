@@ -23,6 +23,8 @@ The `handlers` object maps the settled result to your own actions:
   resolve: value => someAction(value),
   reject: reason => someOtherAction(reason),
 }
+
+Both `resolve` and `reject` handlers are required.
 ```
 
 If you provide an `asyncId`, the state can later cancel that specific operation with `cancelAsync(asyncId)`. If you omit the id, Fizz generates one internally so the operation still participates in stale-completion protection and state-exit cleanup, but you cannot target it later with manual cancellation.

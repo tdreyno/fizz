@@ -105,10 +105,10 @@ type RequestJSONChainToActionBuilder<
 
   chainToAction: <
     ResolvedAction extends Action<string, unknown>,
-    RejectedAction extends Action<string, unknown> | void = void,
+    RejectedAction extends Action<string, unknown> | void,
   >(
     resolve: RequestJSONResolveHandler<Resolved, ResolvedAction>,
-    reject?: RequestJSONRejectHandler<RejectedAction>,
+    reject: RequestJSONRejectHandler<RejectedAction>,
   ) => Effect<
     StartAsyncEffectData<Resolved, AsyncId, ResolvedAction, RejectedAction>
   >
@@ -376,19 +376,30 @@ const createJSONChainToActionBuilder = <
   asyncId?: AsyncId
   run: AsyncRun<Resolved>
 }): RequestJSONChainToActionBuilder<Resolved, AsyncId> => {
+  const ignoreAsyncResult = () => undefined
+
   const requestEffect = effect(
     "startAsync",
     options.asyncId === undefined
-      ? { handlers: {}, run: options.run }
-      : { asyncId: options.asyncId, handlers: {}, run: options.run },
+      ? {
+          handlers: {
+            reject: ignoreAsyncResult,
+            resolve: ignoreAsyncResult,
+          },
+          run: options.run,
+        }
+      : {
+          asyncId: options.asyncId,
+          handlers: {
+            reject: ignoreAsyncResult,
+            resolve: ignoreAsyncResult,
+          },
+          run: options.run,
+        },
   ) as RequestJSONChainToActionBuilder<Resolved, AsyncId>
 
   requestEffect.chainToAction = (resolve, reject) =>
-    startAsync(
-      options.run,
-      reject ? { reject, resolve } : { resolve },
-      options.asyncId,
-    )
+    startAsync(options.run, { reject, resolve }, options.asyncId)
 
   requestEffect.map = mapper =>
     createJSONChainToActionBuilder<ReturnType<typeof mapper>, AsyncId>({
@@ -482,17 +493,20 @@ export type AsyncRun<Resolved> =
 
 export type AsyncHandlers<
   Resolved,
-  ResolvedAction extends Action<string, unknown>,
+  ResolvedAction extends Action<string, unknown> | void,
   RejectedAction extends Action<string, unknown> | void = void,
 > = {
-  reject?: (reason: unknown) => RejectedAction
-  resolve?: (value: Resolved) => ResolvedAction
+  reject: (reason: unknown) => RejectedAction
+  resolve: (value: Resolved) => ResolvedAction
 }
 
 export type StartAsyncEffectData<
   Resolved = unknown,
   AsyncId extends string = string,
-  ResolvedAction extends Action<string, unknown> = Action<string, unknown>,
+  ResolvedAction extends Action<string, unknown> | void = Action<
+    string,
+    unknown
+  >,
   RejectedAction extends Action<string, unknown> | void = void,
 > = {
   asyncId?: AsyncId
@@ -506,7 +520,7 @@ export type CancelAsyncEffectData<AsyncId extends string = string> = {
 
 export type StartAsyncEffectCreator<AsyncId extends string = string> = <
   Resolved,
-  ResolvedAction extends Action<string, unknown>,
+  ResolvedAction extends Action<string, unknown> | void,
   RejectedAction extends Action<string, unknown> | void = void,
 >(
   run: AsyncRun<Resolved>,
@@ -518,7 +532,7 @@ export type StartAsyncEffectCreator<AsyncId extends string = string> = <
 
 export const startAsync = <
   Resolved,
-  ResolvedAction extends Action<string, unknown>,
+  ResolvedAction extends Action<string, unknown> | void,
   RejectedAction extends Action<string, unknown> | void = void,
   AsyncId extends string = string,
 >(

@@ -16,6 +16,8 @@ const appendEvent = (data: Data, event: string): Data => ({
   events: [...data.events, event],
 })
 
+const ignoreAsync = () => undefined
+
 describe("Test harness", () => {
   test("should expose respondToOutput as a harness shortcut", async () => {
     const acknowledge = action("Acknowledge")
@@ -158,7 +160,10 @@ describe("Test harness", () => {
           update(appendEvent(data, "enter")),
           startAsync(
             loadProfile.promise,
-            { resolve: profileLoaded },
+            {
+              reject: ignoreAsync,
+              resolve: profileLoaded,
+            },
             "profile",
           ),
           startTimer("autosave", 10),

@@ -20,6 +20,8 @@ import {
 import { state } from "../state"
 import { deferred } from "../test"
 
+const ignoreAsync = () => undefined
+
 describe("runtime monitor", () => {
   test("should register runtimes in the global chrome debugger registry", () => {
     const trigger = action("Trigger")
@@ -297,8 +299,16 @@ describe("runtime monitor", () => {
     const Loading = state<Enter, undefined, string, string, AsyncId>(
       {
         Enter: (_, __, { startAsync }) => [
-          startAsync(profile.promise, {}, "profile"),
-          startAsync(audit.promise, {}, "audit"),
+          startAsync(
+            profile.promise,
+            { reject: ignoreAsync, resolve: ignoreAsync },
+            "profile",
+          ),
+          startAsync(
+            audit.promise,
+            { reject: ignoreAsync, resolve: ignoreAsync },
+            "audit",
+          ),
         ],
       },
       { name: "Loading" },
@@ -369,7 +379,11 @@ describe("runtime monitor", () => {
     >(
       {
         Enter: (_, __, { startAsync }) =>
-          startAsync(settings.promise, {}, "settings"),
+          startAsync(
+            settings.promise,
+            { reject: ignoreAsync, resolve: ignoreAsync },
+            "settings",
+          ),
 
         CancelSettings: (_, __, { cancelAsync }) => cancelAsync("settings"),
       },
@@ -426,7 +440,11 @@ describe("runtime monitor", () => {
     const Loading = state<Enter | Refresh | Leave, { events: string[] }>(
       {
         Enter: (_, __, { startAsync }) =>
-          startAsync(settings.promise, {}, "settings"),
+          startAsync(
+            settings.promise,
+            { reject: ignoreAsync, resolve: ignoreAsync },
+            "settings",
+          ),
 
         Refresh: (data, _, { update }) =>
           update({

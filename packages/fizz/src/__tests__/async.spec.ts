@@ -48,6 +48,8 @@ const appendEvent = (data: Data, event: string): Data => ({
   events: [...data.events, event],
 })
 
+const ignoreAsync = () => undefined
+
 type Profile = {
   id: string
   name: string
@@ -85,6 +87,7 @@ describe("Async scheduled operations", () => {
           startAsync(
             () => loadProfile.promise,
             {
+              reject: ignoreAsync,
               resolve: profileLoaded,
             },
             "profile",
@@ -139,6 +142,7 @@ describe("Async scheduled operations", () => {
                 })
               }),
             {
+              reject: ignoreAsync,
               resolve: value =>
                 action("Unexpected").withPayload<string>()(value),
             },
@@ -197,6 +201,7 @@ describe("Async scheduled operations", () => {
       {
         Enter: () =>
           startAsync(loadProfile.promise, {
+            reject: ignoreAsync,
             resolve: profileLoaded,
           }),
 
@@ -262,6 +267,7 @@ describe("Async scheduled operations", () => {
           startAsync(
             () => loadProfile.promise,
             {
+              reject: ignoreAsync,
               resolve: profileLoaded,
             },
             "profile",
@@ -320,6 +326,7 @@ describe("Async scheduled operations", () => {
           startAsync(
             loadProfile.promise,
             {
+              reject: ignoreAsync,
               resolve: profileLoaded,
             },
             "profile",
@@ -367,6 +374,7 @@ describe("Async scheduled operations", () => {
         startAsyncHelper(
           Promise.resolve({ id: "1", name: "Ada" }),
           {
+            reject: ignoreAsync,
             resolve: profileLoaded,
           },
           "profile",
@@ -376,6 +384,7 @@ describe("Async scheduled operations", () => {
 
         // @ts-expect-error async id should stay in the last parameter slot
         startAsyncHelper("profile", Promise.resolve({ id: "1", name: "Ada" }), {
+          reject: ignoreAsync,
           resolve: profileLoaded,
         })
 

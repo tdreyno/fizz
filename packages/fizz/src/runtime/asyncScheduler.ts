@@ -74,7 +74,7 @@ export const startAsyncOperation = <Resolved>({
         return
       }
 
-      const action = data.handlers.reject?.(error)
+      const action = data.handlers.reject(error)
 
       if (action) {
         await run(action)
@@ -91,7 +91,7 @@ export const startAsyncOperation = <Resolved>({
 
       onResolve?.(asyncId, value)
 
-      const action = data.handlers.resolve?.(value)
+      const action = data.handlers.resolve(value)
 
       if (action) {
         await run(action)
