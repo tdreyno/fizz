@@ -1,5 +1,37 @@
 # @tdreyno/fizz
 
+## 8.4.0
+
+### Minor Changes
+
+- 0a8f15d: Rename the fluent helper export from `fluentAction(...)` to `action(...)` in `@tdreyno/fizz/fluent`.
+
+  This is a breaking API change for fluent users importing `fluentAction`.
+
+- a338ffe: Adds first-class machine selectors across core and React integrations.
+  - `@tdreyno/fizz`
+    - Added `selectWhen(...)` for colocated machine selectors with typed state narrowing.
+    - Added matcher shorthand support (`selectWhen(State, { key: value })`) for boolean checks over `state.data`.
+    - Added `runStateSelector(...)` and `matchesSelectorWhen(...)` utilities to evaluate selectors outside React runtimes.
+    - Added selector exports and selector-aware `createMachine(...)` typing so selectors can be defined on machine roots.
+    - Function selectors return `undefined` when `currentState` does not match; matcher selectors return `false` when not matched.
+  - `@tdreyno/fizz-react`
+    - `useMachine(...)` and `createMachineContext(...).useMachineContext()` now expose `machine.selectors` from machine-defined selectors.
+    - Selector values recompute on context changes and support per-selector `equalityFn` reuse to avoid selected-value churn.
+    - Added optimized selector mode via `disableAutoSelectors: true`, intended for pairing `useMachine(...)` with `useSelector(...)` in render-critical components.
+    - Added selector coverage in React integration tests for type behavior, context-provider usage, and equality handling.
+
+- 848c6d8: Updates selector predicate callbacks to use a data-first signature.
+  - `@tdreyno/fizz`
+    - `selectWhen(...)` function selectors now receive `(data, state, context)` instead of `(state, context)`.
+    - This makes data predicates easier to reuse directly, including unary matchers like `isMatching(...)` from `ts-pattern`.
+    - `runStateSelector(...)` now invokes selector callbacks with `state.data` as the first argument.
+    - Matcher-object shorthand behavior is unchanged.
+
+  Migration:
+  - Before: `selectWhen(Editing, state => !state.data.readOnly)`
+  - After: `selectWhen(Editing, (data, state) => !data.readOnly)`
+
 ## 8.3.0
 
 ### Minor Changes
