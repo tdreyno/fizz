@@ -617,6 +617,90 @@ export const startFrame = (): Effect<undefined> => effect("startFrame")
 
 export const cancelFrame = (): Effect<undefined> => effect("cancelFrame")
 
+export type ConfirmEffectData = {
+  message: string
+}
+
+export type PromptEffectData = {
+  message: string
+}
+
+export type AlertEffectData = {
+  message: string
+}
+
+export type CopyToClipboardEffectData = {
+  text: string
+}
+
+export type OpenUrlEffectData = {
+  features?: string
+  target?: string
+  url: string
+}
+
+export type PostMessageEffectData = {
+  message: unknown
+  targetOrigin: string
+  transfer?: Transferable[]
+}
+
+export type HistoryGoEffectData = {
+  delta: number
+}
+
+export type LocationAssignEffectData = {
+  url: string
+}
+
+export type LocationReplaceEffectData = {
+  url: string
+}
+
+export const confirm = (message: string): Effect<ConfirmEffectData> =>
+  effect("confirm", { message })
+
+export const prompt = (message: string): Effect<PromptEffectData> =>
+  effect("prompt", { message })
+
+export const alert = (message: string): Effect<AlertEffectData> =>
+  effect("alert", { message })
+
+export const copyToClipboard = (
+  text: string,
+): Effect<CopyToClipboardEffectData> => effect("copyToClipboard", { text })
+
+export const openUrl = (
+  url: string,
+  target?: string,
+  features?: string,
+): Effect<OpenUrlEffectData> => effect("openUrl", { features, target, url })
+
+export const printPage = (): Effect<undefined> => effect("printPage")
+
+export const locationAssign = (url: string): Effect<LocationAssignEffectData> =>
+  effect("locationAssign", { url })
+
+export const locationReplace = (
+  url: string,
+): Effect<LocationReplaceEffectData> => effect("locationReplace", { url })
+
+export const locationReload = (): Effect<undefined> => effect("locationReload")
+
+export const historyBack = (): Effect<undefined> => effect("historyBack")
+
+export const historyForward = (): Effect<undefined> => effect("historyForward")
+
+export const historyGo = (delta: number): Effect<HistoryGoEffectData> =>
+  effect("historyGo", { delta })
+
+export const postMessage = (
+  message: unknown,
+  targetOrigin: string,
+  transfer?: Transferable[],
+): Effect<PostMessageEffectData> =>
+  effect("postMessage", { message, targetOrigin, transfer })
+
 export const timeout = <A extends Action<string, unknown>>(
   ms: number,
   action: A,

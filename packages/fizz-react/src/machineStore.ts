@@ -1,4 +1,9 @@
-import type { Action, MachineDefinition, StateSelector } from "@tdreyno/fizz"
+import type {
+  Action,
+  MachineDefinition,
+  RuntimeBrowserDriver,
+  StateSelector,
+} from "@tdreyno/fizz"
 import {
   Context,
   createRuntime,
@@ -51,6 +56,7 @@ export interface ContextValue<
 }
 
 export interface Options {
+  driver?: RuntimeBrowserDriver
   maxHistory: number
   restartOnInitialStateChange?: boolean
   enableLogging?: boolean
@@ -97,12 +103,13 @@ const createMachineRuntime = <
   initialState: ReturnType<SM[keyof SM]>,
   options: Partial<Options>,
 ) => {
-  const { maxHistory = 5, enableLogging = false } = options
+  const { maxHistory = 5, enableLogging = false, driver } = options
 
   const runtime = createRuntime(
     machine as MachineDefinition<SM, AM, OAM>,
     initialState,
     {
+      browserDriver: driver,
       enableLogging,
       maxHistory,
     },
@@ -234,6 +241,7 @@ const createMachineStore = <
     stop: () => {
       unsubscribeRuntime?.()
       unsubscribeRuntime = undefined
+      runtime.disconnect()
     },
     subscribe: listener => {
       listeners.add(listener)

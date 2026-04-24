@@ -18,6 +18,19 @@ The current hook implementation in `packages/fizz-react/src/useMachine.ts`:
 - subscribes to runtime context changes with `runtime.onContextChange(...)`
 - runs `enter()` in an effect after mount
 
+The hook options include a `driver` field, which is forwarded to `createRuntime(...)` as `browserDriver`.
+
+Use the built-in browser driver from core:
+
+```typescript
+import { browserDriver } from "@tdreyno/fizz/browser"
+import { useMachine } from "@tdreyno/fizz-react"
+
+const machine = useMachine(FlowMachine, FlowMachine.states.Ready(initialData), {
+  driver: browserDriver,
+})
+```
+
 ## What The Hook Returns
 
 The hook returns an object shaped around:
@@ -52,6 +65,12 @@ Business workflow belongs in Fizz states and actions. React components should mo
 ### Keep machine definitions stable
 
 Define states and action creators outside the component body unless the task specifically needs dynamic machine construction. This avoids mixing render concerns with machine architecture.
+
+When modeling browser confirmation flows in React:
+
+- prefer dedicated machine states for confirm/prompt steps
+- use `confirm(...)` and `prompt(...)` effects in those states
+- handle built-in resolution actions (`ConfirmAccepted`, `ConfirmRejected`, `PromptSubmitted`, `PromptCancelled`) in the machine
 
 ### Use bound actions from the hook
 

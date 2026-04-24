@@ -1,6 +1,7 @@
 import type { Context } from "../context.js"
 import type { Runtime } from "../runtime.js"
 import type { RuntimeAsyncDriver } from "./asyncDriver.js"
+import type { RuntimeBrowserDriver } from "./browserDriver.js"
 import { registerRuntimeInChromeDebuggerRegistry } from "./debugHook.js"
 import type { RuntimeEffectHandlerRegistry } from "./effectDispatcher.js"
 import {
@@ -8,6 +9,7 @@ import {
   registerEffectHandlers,
 } from "./effectDispatcher.js"
 import { createRuntimeAsyncModule } from "./runtimeAsyncModule.js"
+import { createRuntimeBrowserModule } from "./runtimeBrowserModule.js"
 import type {
   RuntimeAction,
   RuntimeDebugCommand,
@@ -20,6 +22,7 @@ import type { RuntimeTimerDriver } from "./timerDriver.js"
 type RuntimeModulesOptions<OutputAction> = {
   actionCommand: (action: RuntimeAction) => RuntimeDebugCommand
   asyncDriver: RuntimeAsyncDriver
+  browserDriver?: RuntimeBrowserDriver
   currentState: () => RuntimeState | undefined
   debugLabel?: string
   emitMonitor: (event: RuntimeDebugEvent) => void
@@ -54,6 +57,10 @@ export const createRuntimeModules = <OutputAction>(
     runAction: options.runAction,
     timerDriver: options.timerDriver,
   })
+  const browserModule = createRuntimeBrowserModule({
+    browserDriver: options.browserDriver,
+    runAction: options.runAction,
+  })
   const effectHandlers = createEffectHandlerRegistry<
     RuntimeDebugCommand,
     OutputAction
@@ -75,23 +82,30 @@ export const createRuntimeModules = <OutputAction>(
   )
 
   registerEffectHandlers(effectHandlers, asyncModule.effectHandlers)
+  registerEffectHandlers(effectHandlers, browserModule.effectHandlers)
   registerEffectHandlers(effectHandlers, schedulingModule.effectHandlers)
 
   return {
     disconnect: () => {
       asyncModule.clear()
+      browserModule.clear()
       schedulingModule.clear()
       registryRegistration.unregister()
     },
     effectHandlers,
     prepareForGoBack: () => {
       asyncModule.clearForGoBack()
+      browserModule.clearForGoBack()
       schedulingModule.clearForGoBack()
     },
     prepareForTransition: targetState => {
       const currentState = options.currentState()
 
       asyncModule.clearForTransition({
+        currentState,
+        targetState,
+      })
+      browserModule.clearForTransition({
         currentState,
         targetState,
       })

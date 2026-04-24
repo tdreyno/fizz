@@ -194,6 +194,76 @@ const current = machine.currentState
 const isDone = machine.currentState.is(machine.states.Done)
 ```
 
+## React integration with browser driver
+
+```typescript
+import { browserDriver } from "@tdreyno/fizz/browser"
+import { useMachine } from "@tdreyno/fizz-react"
+
+const machine = useMachine(FlowMachine, FlowMachine.states.Ready(), {
+  driver: browserDriver,
+})
+```
+
+## Confirm flow with dedicated state
+
+```typescript
+import { action, confirm, createMachine, state } from "@tdreyno/fizz"
+
+const requestDelete = action("RequestDelete")
+
+const Ready = state({
+  RequestDelete: data => ConfirmingDelete(data),
+})
+
+const ConfirmingDelete = state({
+  Enter: () => confirm("Delete item?"),
+  ConfirmAccepted: data => Deleting(data),
+  ConfirmRejected: data => Ready(data),
+})
+
+const Deleting = state({
+  Enter: data => Ready({ ...data, deleted: true }),
+})
+
+const machine = createMachine({
+  actions: { requestDelete },
+  states: { ConfirmingDelete, Deleting, Ready },
+})
+```
+
+## Prompt flow with dedicated state
+
+```typescript
+import { prompt, state } from "@tdreyno/fizz"
+
+const PromptingName = state({
+  Enter: () => prompt("Name"),
+  PromptSubmitted: (data, value, { update }) =>
+    update({ ...data, name: value }),
+  PromptCancelled: (data, _payload, { update }) => update(data),
+})
+```
+
+## Fire-and-forget browser effects
+
+```typescript
+import {
+  alert,
+  copyToClipboard,
+  openUrl,
+  printPage,
+  state,
+} from "@tdreyno/fizz"
+
+const Ready = state({
+  CopyLink: () => copyToClipboard("https://example.com"),
+  OpenDocs: () => openUrl("https://docs.example.com", "_blank"),
+  Print: () => printPage(),
+  Saved: () => alert("Saved"),
+})
+```
+
 ## Colocated selector with `selectWhen(...)`
 
 ```typescript

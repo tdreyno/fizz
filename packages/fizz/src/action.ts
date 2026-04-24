@@ -242,3 +242,15 @@ export type AsyncCancelled<AsyncId extends string = string> = Action<
   AsyncPayload<AsyncId>
 >
 export const asyncCancelled = createAsyncAction("AsyncCancelled")
+
+export const confirmAccepted = action("ConfirmAccepted")
+export type ConfirmAccepted = ActionCreatorType<typeof confirmAccepted>
+
+export const confirmRejected = action("ConfirmRejected")
+export type ConfirmRejected = ActionCreatorType<typeof confirmRejected>
+
+export const promptSubmitted = action("PromptSubmitted").withPayload<string>()
+export type PromptSubmitted = ActionCreatorType<typeof promptSubmitted>
+
+export const promptCancelled = action("PromptCancelled")
+export type PromptCancelled = ActionCreatorType<typeof promptCancelled>

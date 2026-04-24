@@ -479,14 +479,33 @@ The hook currently accepts an `options` object with these fields in its type:
 
 - `maxHistory`
 - `enableLogging`
+- `driver`
 - `restartOnInitialStateChange`
 
 In the current implementation:
 
 - `maxHistory` is used when creating the initial context
 - `enableLogging` is used when creating the initial context
+- `driver` is forwarded to runtime creation as the browser driver option
 - `restartOnInitialStateChange` exists in the type but is not currently used by the hook implementation
 - runtime `monitor` options are not currently forwarded through the hook setup
+
+Use the built-in browser implementation from core when you want a browser-backed driver:
+
+```typescript
+import { browserDriver } from "@tdreyno/fizz/browser"
+import { useMachine } from "@tdreyno/fizz-react"
+
+const machine = useMachine(MyMachine, MyMachine.states.Ready(initialData), {
+  driver: browserDriver,
+})
+```
+
+When using browser-driven confirmation flows, treat `confirm` and `prompt` as runtime-owned request/response primitives:
+
+- they can resolve after normal machine state transitions
+- they map back into built-in actions such as `ConfirmAccepted`/`ConfirmRejected` and `PromptSubmitted`/`PromptCancelled`
+- they are not tied to state-local scheduler cleanup in the same way as timers and async jobs
 
 There is one important behavior to keep in mind: the runtime is created once with `useMemo(..., [])`. That means changes to `machine`, `initialState`, or `options` after mount do not rebuild the runtime automatically.
 

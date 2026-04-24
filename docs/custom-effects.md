@@ -75,6 +75,19 @@ Fizz treats several labels as built-in runtime commands, including:
 - `startFrame`
 - `cancelFrame`
 - `goBack`
+- `confirm`
+- `prompt`
+- `alert`
+- `copyToClipboard`
+- `openUrl`
+- `printPage`
+- `locationAssign`
+- `locationReplace`
+- `locationReload`
+- `historyBack`
+- `historyForward`
+- `historyGo`
+- `postMessage`
 
 Those are intercepted by the runtime's effect dispatcher.
 

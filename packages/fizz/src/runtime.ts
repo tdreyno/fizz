@@ -6,6 +6,7 @@ import type { Effect } from "./effect.js"
 import { MissingCurrentState, UnknownStateReturnType } from "./errors.js"
 import type { RuntimeAsyncDriver } from "./runtime/asyncDriver.js"
 import { createDefaultAsyncDriver } from "./runtime/asyncDriver.js"
+import type { RuntimeBrowserDriver } from "./runtime/browserDriver.js"
 import type { RuntimeEffectHandlerRegistry } from "./runtime/effectDispatcher.js"
 import { dispatchEffect } from "./runtime/effectDispatcher.js"
 export type {
@@ -56,6 +57,7 @@ export type {
   RuntimeAsyncDriver,
 } from "./runtime/asyncDriver.js"
 export { createControlledAsyncDriver } from "./runtime/asyncDriver.js"
+export type { RuntimeBrowserDriver } from "./runtime/browserDriver.js"
 export type {
   RuntimeDebugCancellationReason,
   RuntimeDebugCommand,
@@ -70,6 +72,7 @@ export { createControlledTimerDriver } from "./runtime/timerDriver.js"
 
 export type RuntimeOptions = {
   asyncDriver?: RuntimeAsyncDriver
+  browserDriver?: RuntimeBrowserDriver
   debugLabel?: string
   monitor?: RuntimeMonitor
   timerDriver?: RuntimeTimerDriver
@@ -142,6 +145,7 @@ export class Runtime<
     this.#modules = createRuntimeModules<ReturnType<OAM[keyof OAM]>>({
       actionCommand,
       asyncDriver: this.#asyncDriver,
+      browserDriver: options.browserDriver,
       currentState: () => this.context.currentState as RuntimeState | undefined,
       ...(options.debugLabel === undefined
         ? {}
@@ -457,6 +461,10 @@ const splitCreateRuntimeOptions = (options: CreateRuntimeOptions = {}) => {
 
   if (options.asyncDriver) {
     runtime.asyncDriver = options.asyncDriver
+  }
+
+  if (options.browserDriver) {
+    runtime.browserDriver = options.browserDriver
   }
 
   if (options.debugLabel) {

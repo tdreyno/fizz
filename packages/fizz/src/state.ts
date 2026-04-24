@@ -6,12 +6,16 @@ import type {
   ActionPayload,
   AsyncCancelled,
   BeforeEnter,
+  ConfirmAccepted,
+  ConfirmRejected,
   Enter,
   GetActionCreatorType,
   IntervalCancelled,
   IntervalPayload,
   IntervalStarted,
   IntervalTriggered,
+  PromptCancelled,
+  PromptSubmitted,
   TimerCancelled,
   TimerCompleted,
   TimerPayload,
@@ -72,6 +76,12 @@ type IntervalActions<IntervalId extends string> =
 
 type AsyncActions<AsyncId extends string> = AsyncCancelled<AsyncId>
 
+type BrowserResolutionActions =
+  | ConfirmAccepted
+  | ConfirmRejected
+  | PromptSubmitted
+  | PromptCancelled
+
 type ScheduledActions<
   TimeoutId extends string,
   IntervalId extends string,
@@ -80,6 +90,7 @@ type ScheduledActions<
   | TimerActions<TimeoutId>
   | IntervalActions<IntervalId>
   | AsyncActions<AsyncId>
+  | BrowserResolutionActions
 
 type WithScheduledActions<
   Actions extends Action<string, unknown>,

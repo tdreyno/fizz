@@ -241,6 +241,7 @@ const machine = createMachine({
   states: { Initial },
 })
 const runtime = createRuntime(machine, Initial(), {
+  browserDriver,
   maxHistory: 10,
 })
 
@@ -259,6 +260,20 @@ The returned `Runtime` is the main execution object. The most commonly used meth
 - `respondToOutput(type, handler)`
 - `bindActions(actions)`
 - `disconnect()`
+
+Runtime creation options include:
+
+- `maxHistory`
+- `enableLogging`
+- `customLogger`
+- `monitor`
+- `asyncDriver`
+- `timerDriver`
+- `browserDriver`
+
+Use `browserDriver` when your machine returns browser-oriented built-in effects such as `confirm(...)`, `prompt(...)`, `alert(...)`, `copyToClipboard(...)`, or navigation helpers.
+
+The built-in browser implementation is exported from `@tdreyno/fizz/browser`.
 
 ## Effects
 
@@ -335,6 +350,33 @@ const Idle = state({
   Ping: () => noop(),
 })
 ```
+
+### Browser effects
+
+Fizz exposes first-party browser effect helpers:
+
+- `confirm(message)`
+- `prompt(message)`
+- `alert(message)`
+- `copyToClipboard(text)`
+- `openUrl(url, target?, features?)`
+- `printPage()`
+- `locationAssign(url)`
+- `locationReplace(url)`
+- `locationReload()`
+- `historyBack()`
+- `historyForward()`
+- `historyGo(delta)`
+- `postMessage(message, targetOrigin, transfer?)`
+
+`confirm(...)` and `prompt(...)` are runtime-owned request/response primitives. They resolve back into built-in actions that can be handled directly in states:
+
+- `ConfirmAccepted`
+- `ConfirmRejected`
+- `PromptSubmitted`
+- `PromptCancelled`
+
+The one-way browser helpers (`alert`, copy, open, print, location, history, postMessage) do not emit follow-up actions.
 
 ### `requestJSONAsync` and `customJSONAsync` retry policy
 

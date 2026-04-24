@@ -117,6 +117,38 @@ Fizz state handlers receive a utilities object from `state.ts`. Important helper
 
 Use these helpers instead of manually reproducing runtime behavior.
 
+## Browser Driver Effects
+
+Fizz now includes built-in browser-oriented effect helpers and runtime driver support.
+
+Browser effect helpers include:
+
+- `confirm(message)`
+- `prompt(message)`
+- `alert(message)`
+- `copyToClipboard(text)`
+- `openUrl(url, target?, features?)`
+- `printPage()`
+- `locationAssign(url)`
+- `locationReplace(url)`
+- `locationReload()`
+- `historyBack()`
+- `historyForward()`
+- `historyGo(delta)`
+- `postMessage(message, targetOrigin, transfer?)`
+
+Modeling guidance:
+
+- treat `confirm(...)` and `prompt(...)` as persistent runtime-owned request/response primitives
+- they resolve into built-in actions: `ConfirmAccepted`, `ConfirmRejected`, `PromptSubmitted`, `PromptCancelled`
+- these pending requests remain active across normal machine state transitions
+- one-way browser helpers (`alert`, copy, open, print, navigation, postMessage) are fire-and-forget and do not emit follow-up actions
+
+Driver guidance:
+
+- runtime creation accepts `browserDriver`
+- the built-in browser implementation is exported from `@tdreyno/fizz/browser` as `browserDriver`
+
 ## Runtime Boot Sequence
 
 When building a runtime manually, follow the same lifecycle used by the public examples and React hook:
@@ -126,6 +158,19 @@ import { createInitialContext, createRuntime, enter } from "@tdreyno/fizz"
 
 const context = createInitialContext([InitialState(initialData)])
 const runtime = createRuntime(context, actions, outputActions)
+
+await runtime.run(enter())
+```
+
+Machine-first runtime creation with browser support:
+
+```typescript
+import { createRuntime, enter } from "@tdreyno/fizz"
+import { browserDriver } from "@tdreyno/fizz/browser"
+
+const runtime = createRuntime(machine, machine.states.Ready(initialData), {
+  browserDriver,
+})
 
 await runtime.run(enter())
 ```
