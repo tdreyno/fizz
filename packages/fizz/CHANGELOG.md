@@ -1,5 +1,35 @@
 # @tdreyno/fizz
 
+## 8.6.0
+
+### Minor Changes
+
+- 73e07f7: Add `debounceAsync(...)` for latest-wins debounced async flows with required `asyncId`, automatic in-flight cancellation on replacement, and explicit resolve/reject action mapping.
+- ecd14d7: Add comprehensive DOM query, listener, and observer APIs as state-scoped resources:
+  - **DOM Queries**: `dom.getElementById()`, `dom.getElementsByClassName()`, `dom.getElementsByName()`, `dom.getElementsByTagName()`, `dom.querySelector()`, `dom.querySelectorAll()`, `dom.closest()`
+  - **Singleton Targets**: `dom.window()`, `dom.document()`, `dom.body()`, `dom.documentElement()`, `dom.activeElement()`, `dom.visualViewport()`
+  - **Event Listeners**: `dom.listen(targetId, type, handler)` with automatic cleanup and scope-based lifecycle
+  - **Observers**: `dom.observeIntersection()` and `dom.observeResize()` for viewport and size tracking
+  - **Resource Scoping**: All queries, listeners, and observers are state-scoped resources automatically cleaned up on state exit
+  - **Scoped Queries**: Chain queries from acquired elements using `dom.from(resourceId)`
+
+  Available from `@tdreyno/fizz/browser` entrypoint. All effects integrate with the runtime's state resource system and support custom driver overrides for testing.
+
+- 1a1606a: Add `dom.history()` and `dom.location()` as readonly resource singletons with event listener support, plus new browser mutation effects: `historyPushState`, `historyReplaceState`, `historySetScrollRestoration`, and `locationSetHash/Href/Host/Hostname/Pathname/Port/Protocol/Search`.
+- 45b32d3: Add typed machine clients support via runtime options and state handler utilities, including `utils.clients` access in handlers.
+
+  Add a no-build fluent machine API with `machine(name?)` and chainable `withStates`, `withActions`, `withOutputActions`, `withSelectors`, and `withClients` methods.
+
+  Expose fluent state `withClients<...>()` typing so service dependencies are easy to inject and mock in tests.
+
+- 63c683b: Add `createRuntimeRegistry(...)` for keyed runtime reuse and explicit disposal in non-React integrations.
+
+  The utility supports primitive and object keys, optional lifecycle events, configurable disposal failure policy, and deterministic `disposeAll()` behavior.
+
+- 51481e7: Add state-scoped resources with automatic cleanup on state exit via `resource(...)`, `abortController(...)`, and `subscription(...)`.
+
+  State handlers now receive `utils.resources`, monitor events include resource lifecycle signals, and `@tdreyno/fizz/test` adds resource-focused harness helpers for custom resource testing.
+
 ## 8.5.0
 
 ### Minor Changes
