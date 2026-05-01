@@ -141,7 +141,8 @@ type Handler<
   IntervalId extends string,
   AsyncId extends string,
   Resources extends Record<string, unknown> = Record<string, unknown>,
-  A extends WithScheduledActions<Actions, TimeoutId, IntervalId, AsyncId>,
+  A extends WithScheduledActions<Actions, TimeoutId, IntervalId, AsyncId> =
+    WithScheduledActions<Actions, TimeoutId, IntervalId, AsyncId>,
 > = (
   data: Data,
   payload: ActionPayload<A>,
@@ -214,7 +215,8 @@ type HandlerValue<
   IntervalId extends string,
   AsyncId extends string,
   Resources extends Record<string, unknown> = Record<string, unknown>,
-  A extends WithScheduledActions<Actions, TimeoutId, IntervalId, AsyncId>,
+  A extends WithScheduledActions<Actions, TimeoutId, IntervalId, AsyncId> =
+    WithScheduledActions<Actions, TimeoutId, IntervalId, AsyncId>,
 > =
   | Handler<Name, Actions, Data, TimeoutId, IntervalId, AsyncId, Resources, A>
   | WrappedHandler<
@@ -866,14 +868,17 @@ export const stateWrapper = <
   ) => HandlerReturn,
 ): BoundStateFn<Name, A, Data> => {
   const fn = (data: Data) => {
-    const isCurrentState: StateTransition<Name, A, Data>["is"] = testState =>
-      testState === fn
-
     const transition: StateTransition<Name, A, Data> = {
       name,
       data,
       isStateTransition: true,
       mode: "append",
+
+      is<T extends BoundStateFn<any, A, any>>(
+        testState: T,
+      ): this is ReturnType<T> {
+        return testState === fn
+      },
 
       executor: (action: A, runtime?: InternalRuntime) => {
         const parentRuntime: InternalRuntime | undefined =
@@ -921,7 +926,6 @@ export const stateWrapper = <
         )
       },
 
-      is: isCurrentState,
       isNamed: (testName: string): boolean => testName === name,
     }
 

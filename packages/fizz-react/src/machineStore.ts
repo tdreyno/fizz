@@ -109,7 +109,7 @@ const createMachineRuntime = <
     machine as MachineDefinition<SM, AM, OAM>,
     initialState,
     {
-      browserDriver: driver,
+      ...(driver === undefined ? {} : { browserDriver: driver }),
       enableLogging,
       maxHistory,
     },

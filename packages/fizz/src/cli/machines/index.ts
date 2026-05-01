@@ -13,7 +13,7 @@ export const executeMachinesCommand = async (
   parsedArgs: ParsedCliArgs,
   io: CliIo,
 ): Promise<number> => {
-  if (parsedArgs.options.help) {
+  if (parsedArgs.options["help"]) {
     io.write(`${MACHINES_HELP}\n`)
     return 0
   }

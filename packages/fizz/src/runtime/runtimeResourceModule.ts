@@ -109,7 +109,9 @@ export const createRuntimeResourceModule = (options: {
     setStateResource({
       key: data.key,
       state,
-      teardown: data.teardown as ((value: unknown) => void) | undefined,
+      ...(data.teardown === undefined
+        ? {}
+        : { teardown: data.teardown as (value: unknown) => void }),
       value: data.value,
     })
 

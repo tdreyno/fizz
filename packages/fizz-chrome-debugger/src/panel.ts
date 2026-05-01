@@ -12,7 +12,7 @@ import type {
 
 type PanelState = {
   connected: boolean
-  pulseTickIntervalId: number | null
+  pulseTickIntervalId: ReturnType<typeof globalThis.setInterval> | null
   pausedRuntimeIds: Set<string>
   pausedSnapshots: Map<string, FizzDebuggerRuntimeSnapshot>
   runtimes: Map<string, FizzDebuggerRuntimeSnapshot>

@@ -68,20 +68,22 @@ export const setStateResource = (options: {
   const resourcesMap = getOrCreateStateResourcesMap(options.state)
 
   resourcesMap.set(options.key, {
-    teardown: options.teardown,
+    ...(options.teardown === undefined ? {} : { teardown: options.teardown }),
     value: options.value,
   })
 }
 
-export const releaseStateResource = (options: {
+export const releaseStateResource = <
+  Reason extends "cleanup" | "effect",
+>(options: {
   key: string
-  reason: "cleanup" | "effect"
+  reason: Reason
   state: RuntimeState
 }): {
   error?: unknown
   key: string
   released: boolean
-  reason: "cleanup" | "effect"
+  reason: Reason
 } => {
   const resourcesMap = stateResources.get(options.state)
 

@@ -64,7 +64,9 @@ export const createRuntimeModules = <OutputAction>(
     getContext: options.getContext,
   })
   const browserModule = createRuntimeBrowserModule({
-    browserDriver: options.browserDriver,
+    ...(options.browserDriver === undefined
+      ? {}
+      : { browserDriver: options.browserDriver }),
     runAction: options.runAction,
   })
   const effectHandlers = createEffectHandlerRegistry<

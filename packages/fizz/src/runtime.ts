@@ -146,7 +146,9 @@ export class Runtime<
     this.#modules = createRuntimeModules<ReturnType<OAM[keyof OAM]>>({
       actionCommand,
       asyncDriver: this.#asyncDriver,
-      browserDriver: options.browserDriver,
+      ...(options.browserDriver === undefined
+        ? {}
+        : { browserDriver: options.browserDriver }),
       currentState: () => this.context.currentState as RuntimeState | undefined,
       ...(options.debugLabel === undefined
         ? {}

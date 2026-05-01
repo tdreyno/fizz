@@ -167,7 +167,7 @@ export const executeVisualizeCommand = async (
   parsedArgs: ParsedCliArgs,
   io: CliIo,
 ): Promise<number> => {
-  if (parsedArgs.options.help) {
+  if (parsedArgs.options["help"]) {
     io.write(`${VISUALIZE_HELP}\n`)
     return 0
   }

@@ -29,12 +29,19 @@ export const createAsyncState = (): {
   parallel: createAsyncParallelMachine(),
 })
 
-type StartAsyncOperationOptions<Resolved> = {
+type StartAsyncOperationOptions<
+  Resolved,
+  ResolvedAction extends Action<string, unknown> | void = Action<
+    string,
+    unknown
+  >,
+  RejectedAction extends Action<string, unknown> | void = void,
+> = {
   asyncDriver: RuntimeAsyncDriver
   asyncId: string
   asyncOperations: Map<string, ActiveAsync>
   createController: () => AbortController
-  data: StartAsyncEffectData<Resolved, string>
+  data: StartAsyncEffectData<Resolved, string, ResolvedAction, RejectedAction>
   isAbortError: (error: unknown, signal: AbortSignal) => boolean
   nextToken: () => number
   onReject?: (asyncId: string, error: unknown) => void
@@ -42,7 +49,12 @@ type StartAsyncOperationOptions<Resolved> = {
   parallel: AsyncParallelMachineRef
   run: (action: Action<string, unknown>) => Promise<void>
   runAsyncOperation: (
-    run: StartAsyncEffectData<Resolved, string>["run"],
+    run: StartAsyncEffectData<
+      Resolved,
+      string,
+      ResolvedAction,
+      RejectedAction
+    >["run"],
     signal: AbortSignal,
   ) => Promise<Resolved>
 }
@@ -60,7 +72,14 @@ type ClearAsyncOperationsOptions = {
   parallel: AsyncParallelMachineRef
 }
 
-export const startAsyncOperation = <Resolved>({
+export const startAsyncOperation = <
+  Resolved,
+  ResolvedAction extends Action<string, unknown> | void = Action<
+    string,
+    unknown
+  >,
+  RejectedAction extends Action<string, unknown> | void = void,
+>({
   asyncDriver,
   asyncId,
   asyncOperations,
@@ -73,7 +92,11 @@ export const startAsyncOperation = <Resolved>({
   parallel,
   run,
   runAsyncOperation,
-}: StartAsyncOperationOptions<Resolved>): void => {
+}: StartAsyncOperationOptions<
+  Resolved,
+  ResolvedAction,
+  RejectedAction
+>): void => {
   const previousAsync = asyncOperations.get(asyncId)
 
   if (previousAsync) {
@@ -120,7 +143,7 @@ export const startAsyncOperation = <Resolved>({
 
       const action = data.handlers.reject(error)
 
-      if (action) {
+      if (action !== undefined) {
         await run(action)
       }
     },
@@ -146,7 +169,7 @@ export const startAsyncOperation = <Resolved>({
 
       const action = data.handlers.resolve(value)
 
-      if (action) {
+      if (action !== undefined) {
         await run(action)
       }
     },

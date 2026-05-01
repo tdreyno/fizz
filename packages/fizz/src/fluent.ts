@@ -111,7 +111,7 @@ type FluentHandler<
   TimeoutId extends string,
   IntervalId extends string,
   Resources extends Record<string, unknown> = Record<string, unknown>,
-  A extends Action<string, unknown>,
+  A extends Action<string, unknown> = Action<string, unknown>,
 > = (
   data: Data,
   payload: ActionPayload<A>,

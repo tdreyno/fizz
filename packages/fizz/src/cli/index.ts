@@ -54,6 +54,11 @@ const parseLongOption = (
   }
 
   const [rawKey, inlineValue] = value.slice(2).split("=", 2)
+
+  if (rawKey === undefined) {
+    return index + 1
+  }
+
   const key = rawKey.trim()
 
   if (!key) {

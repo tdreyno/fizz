@@ -315,13 +315,15 @@ const validateRequestJSONValue = <Input, Output extends Input>(
   value: Input,
   validator: RequestJSONValidator<Input, Output>,
 ): Output => {
-  const result = validator(value)
+  const result = (
+    validator as RequestJSONMapHandler<Input, Output | undefined>
+  )(value)
 
   if (result === undefined) {
-    return value
+    return value as Output
   }
 
-  return result as Output
+  return result
 }
 
 const createRequestJSONRun =
@@ -332,7 +334,9 @@ const createRequestJSONRun =
   }) =>
   async (signal: AbortSignal): Promise<Resolved> =>
     retryAsync<Resolved>({
-      retry: options.init?.retry,
+      ...(options.init?.retry === undefined
+        ? {}
+        : { retry: options.init.retry }),
       run: async () => {
         const response = await fetch(
           options.input,
@@ -357,7 +361,7 @@ const createCustomJSONRun = <Resolved>(options: {
 }): AsyncRun<Resolved> => {
   const run: AsyncRun<Resolved> = async (signal, context) =>
     retryAsync<Resolved>({
-      retry: options.retry,
+      ...(options.retry === undefined ? {} : { retry: options.retry }),
       run: async () => {
         const value = await options.run(signal, context)
 
@@ -482,8 +486,15 @@ export const customJSONAsync = <AsyncId extends string = string>(
     createRun: <Resolved>(mapper?: RequestJSONValueMapper<Resolved>) =>
       createCustomJSONRun<Resolved>(
         mapper
-          ? { retry: init?.retry, run, mapper }
-          : { retry: init?.retry, run },
+          ? {
+              ...(init?.retry === undefined ? {} : { retry: init.retry }),
+              mapper,
+              run,
+            }
+          : {
+              ...(init?.retry === undefined ? {} : { retry: init.retry }),
+              run,
+            },
       ),
   })
 
@@ -788,7 +799,12 @@ export const openUrl = (
   url: string,
   target?: string,
   features?: string,
-): Effect<OpenUrlEffectData> => effect("openUrl", { features, target, url })
+): Effect<OpenUrlEffectData> =>
+  effect("openUrl", {
+    ...(features === undefined ? {} : { features }),
+    ...(target === undefined ? {} : { target }),
+    url,
+  })
 
 export const printPage = (): Effect<undefined> => effect("printPage")
 
@@ -813,7 +829,11 @@ export const postMessage = (
   targetOrigin: string,
   transfer?: Transferable[],
 ): Effect<PostMessageEffectData> =>
-  effect("postMessage", { message, targetOrigin, transfer })
+  effect("postMessage", {
+    message,
+    targetOrigin,
+    ...(transfer === undefined ? {} : { transfer }),
+  })
 
 export const timeout = <A extends Action<string, unknown>>(
   ms: number,

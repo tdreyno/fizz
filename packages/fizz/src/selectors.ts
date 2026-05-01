@@ -60,33 +60,36 @@ export function selectWhen<W extends SelectorWhen, R>(
   when: W,
   selectOrMatcher: SelectorResolver<W, R> | SelectorMatcher<W>,
   options?: StateSelectorOptions<R> | StateSelectorOptions<boolean>,
-): StateSelector<W, R | undefined> {
+): StateSelector<W, R | undefined> | StateSelector<W, boolean> {
   if (typeof selectOrMatcher !== "function") {
     const matcher = selectOrMatcher
-    const select = (data: StateDataFromSelectorWhen<W>): boolean => {
+    const select: StateSelector<W, boolean>["select"] = data => {
       const stateData = data as Record<string, unknown>
 
       return Object.entries(matcher).every(([key, expectedValue]) =>
         Object.is(stateData[key], expectedValue),
       )
     }
+    const equalityFn = (options as StateSelectorOptions<boolean> | undefined)
+      ?.equalityFn
 
     return {
       when,
       select,
-      equalityFn: (options as StateSelectorOptions<boolean> | undefined)
-        ?.equalityFn,
       isMatcher: true,
+      ...(equalityFn === undefined ? {} : { equalityFn }),
     }
   }
 
   const select = selectOrMatcher
+  const equalityFn = (options as StateSelectorOptions<R> | undefined)
+    ?.equalityFn
 
   return {
     when,
     select,
-    equalityFn: (options as StateSelectorOptions<R> | undefined)?.equalityFn,
     isMatcher: false,
+    ...(equalityFn === undefined ? {} : { equalityFn }),
   }
 }
 

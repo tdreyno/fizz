@@ -244,6 +244,43 @@ const eventFormatters = {
     args: [withPrefix(prefix, `Output ${event.output.type}`), event.output],
     level: "log",
   }),
+  "resource-registered": (
+    event: RuntimeDebugEventByType<"resource-registered">,
+    prefix: string,
+  ): RuntimeDebugConsoleEntry => ({
+    args: [
+      withPrefix(prefix, `Resource registered ${event.resourceKey}`),
+      { stateName: event.stateName },
+    ],
+    level: "log",
+  }),
+  "resource-release-failed": (
+    event: RuntimeDebugEventByType<"resource-release-failed">,
+    prefix: string,
+  ): RuntimeDebugConsoleEntry => ({
+    args: [
+      withPrefix(prefix, `Resource release failed ${event.resourceKey}`),
+      {
+        reason: event.reason,
+        stateName: event.stateName,
+      },
+      event.error,
+    ],
+    level: "error",
+  }),
+  "resource-released": (
+    event: RuntimeDebugEventByType<"resource-released">,
+    prefix: string,
+  ): RuntimeDebugConsoleEntry => ({
+    args: [
+      withPrefix(prefix, `Resource released ${event.resourceKey}`),
+      {
+        reason: event.reason,
+        stateName: event.stateName,
+      },
+    ],
+    level: "log",
+  }),
   "runtime-error": (
     event: RuntimeDebugEventByType<"runtime-error">,
     prefix: string,
@@ -293,8 +330,12 @@ export const formatRuntimeDebugEvent = (
   options: Pick<RuntimeDebugConsoleOptions, "prefix"> = {},
 ): RuntimeDebugConsoleEntry => {
   const prefix = options.prefix ?? defaultPrefix
+  const formatter = eventFormatters[event.type] as (
+    event: RuntimeDebugEvent,
+    prefix: string,
+  ) => RuntimeDebugConsoleEntry
 
-  return eventFormatters[event.type](event as never, prefix)
+  return formatter(event, prefix)
 }
 
 export const createRuntimeConsoleMonitor = (

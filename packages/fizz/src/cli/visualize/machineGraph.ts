@@ -63,7 +63,7 @@ const toPascalCase = (value: string): string =>
     .replace(/\.[^.]+$/, "")
     .split(/[^a-zA-Z0-9]+/)
     .filter(part => part.length > 0)
-    .map(part => `${part[0].toUpperCase()}${part.slice(1)}`)
+    .map(part => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
     .join("")
 
 const fileStem = (filePath: string): string =>
@@ -363,6 +363,11 @@ const extractStateEntriesFromStateIndex = (
       exportDeclaration.getNamedExports().flatMap(exportSpecifier => {
         const identifier =
           exportSpecifier.getAliasNode() ?? exportSpecifier.getNameNode()
+
+        if (!Node.isIdentifier(identifier)) {
+          return []
+        }
+
         const definitionFilePath = getSourceFilePathForIdentifier(identifier)
 
         return definitionFilePath ? [{ filePath: definitionFilePath }] : []
@@ -375,7 +380,7 @@ const extractStateEntriesFromStateIndex = (
 }
 
 const getStringLiteralValue = (
-  expression: Expression | undefined,
+  expression: Node | undefined,
 ): string | undefined =>
   expression && Node.isStringLiteral(expression)
     ? expression.getLiteralValue()
@@ -836,6 +841,16 @@ const analyzeHandler = (
           })
         })
     } else {
+      if (!Node.isExpression(body)) {
+        return {
+          action: actionName,
+          notes,
+          outputs,
+          specialTargets,
+          targets,
+        }
+      }
+
       const result = analyzeExpression(
         body,
         currentStateName,
@@ -930,7 +945,7 @@ const analyzeStateFile = (
       filePath: stateFilePath,
       kind,
       name: createCandidateName(stateFilePath),
-      nestedParentState,
+      ...(nestedParentState === undefined ? {} : { nestedParentState }),
       notes: [],
       outputs: [],
       transitions: [],
@@ -951,7 +966,7 @@ const analyzeStateFile = (
     filePath: stateFilePath,
     kind: stateKind,
     name,
-    nestedParentState,
+    ...(nestedParentState === undefined ? {} : { nestedParentState }),
     notes: [],
     outputs: [],
     transitions: [],
@@ -984,7 +999,7 @@ const analyzeStateFile = (
       analysis.transitions.push({
         action: handler.action,
         kind: "special",
-        note: target === SPECIAL_HISTORY_NODE ? "history back" : undefined,
+        ...(target === SPECIAL_HISTORY_NODE ? { note: "history back" } : {}),
         target,
       })
     })
@@ -1059,8 +1074,6 @@ const includeSpecialNodes = (
           filePath: "",
           kind: "state",
           name: SPECIAL_HISTORY_NODE,
-          nestedParentState: undefined,
-          nestedInitialState: undefined,
           notes: ["Synthetic node for goBack transitions"],
           outputs: [],
           transitions: [],
