@@ -275,6 +275,41 @@ Use `browserDriver` when your machine returns browser-oriented built-in effects 
 
 The built-in browser implementation is exported from `@tdreyno/fizz/browser`.
 
+### `createRuntimeRegistry`
+
+Create a keyed registry for non-React runtime lifecycle management.
+
+```ts
+const registry = createRuntimeRegistry<string | object, Runtime<any, any>>()
+
+const runtime = registry.getOrCreate(rootElement, () => {
+  const created = createRuntime(machine, Initial())
+
+  void created.run(enter())
+
+  return created
+})
+
+registry.dispose(rootElement)
+```
+
+Registry methods:
+
+- `getOrCreate(key, init)`
+- `get(key)`
+- `has(key)`
+- `dispose(key)`
+- `disposeAll()`
+- `values()`
+
+Options:
+
+- `disposeRuntime` (optional): custom disposal callback. By default, calls `value.disconnect()` when present.
+- `onLifecycleEvent` (optional): receives `created`, `reused`, `disposed`, and `dispose-error` events.
+- `removeOnFailure` (optional, default `true`): when disposal fails, remove the entry anyway.
+
+Use this utility when you need deterministic keyed reuse and explicit teardown outside React.
+
 ## Effects
 
 ### `effect`

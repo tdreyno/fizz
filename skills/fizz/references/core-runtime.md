@@ -201,6 +201,35 @@ If you want a declarative machine container first, build it with `createMachine(
 
 This matters because the first `enter()` automatically performs Fizz's pre-entry bootstrap before any `Enter` handlers run.
 
+## Runtime Registry
+
+For non-React integrations that need keyed runtime reuse and explicit teardown, use `createRuntimeRegistry(...)`.
+
+```typescript
+import { createRuntime, createRuntimeRegistry, enter } from "@tdreyno/fizz"
+
+const registry = createRuntimeRegistry<string | object, Runtime<any, any>>()
+
+const runtime = registry.getOrCreate("notes:1", () => {
+  const created = createRuntime(machine, machine.states.Initial())
+
+  void created.run(enter())
+
+  return created
+})
+
+registry.dispose("notes:1")
+```
+
+Key points:
+
+- `getOrCreate(key, init)` is the required creation path.
+- `disposeRuntime` is optional. By default, the registry calls `disconnect()` if it exists on the value.
+- `onLifecycleEvent` is optional and can be used for lightweight diagnostics.
+- `removeOnFailure` defaults to `true` so failed disposal does not leave stale entries behind.
+
+Use manual lifecycle control (`dispose`, `disposeAll`) in v1. TTL and automatic eviction should stay as follow-up concerns.
+
 ## Effects
 
 Effects are explicit objects, not implicit side effects. The `Effect` class and helpers in `effect.ts` are how Fizz expresses work that should happen outside pure transition logic.
