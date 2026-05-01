@@ -1,5 +1,41 @@
 # @tdreyno/fizz
 
+## 8.7.0
+
+### Minor Changes
+
+- 97f0f8b: # Resource Bridge
+
+  Add fluent resource-event bridging to state-scoped resources.
+  - Extend `resource(...)` with `.bridge(options)` and `.chainToAction(resolve, reject?)`.
+  - Add runtime support for bridge event delivery with optional `latest` and `{ debounceMs }` pacing.
+  - Keep bridge subscription lifecycle runtime-owned and state-scoped, including teardown and pending work cancellation on exit.
+  - Document the bridge API in core docs and skill references.
+
+- f59f9de: # Output Ergonomics
+
+  Improve output ergonomics for adapter-oriented command channels.
+  - Add `outputs` as a machine-definition alias for `outputActions`.
+  - Reject machine definitions that include both `outputs` and `outputActions`.
+  - Add `outputCommand(channel, type, payload)` as a direct state-handler helper (no extra `output(...)` wrapper needed).
+  - Add `defineOutputMap(...)` for typed output map authoring.
+  - Add runtime helpers `onOutputType(type, handler)` and `connectOutputChannel(channelHandlers)` for concise, typed output subscriptions.
+  - Add fluent builder parity with `.withOutputs(...)` as an alias to output action registration.
+
+- 9b02eb0: Add `effectBatch(...)` for ordered imperative command batching.
+  - Supports optional `channel` for same-channel serialization.
+  - Supports optional `onError` with default `"failBatch"`.
+  - Supports both `chainToAction(...)` and `chainToOutput(...)` for batch completion/failure signaling.
+
+- eb6f988: Add `runtime.runAndSelect(...)` for dispatching an action and immediately reading from the resulting state with either a machine selector or an inline projection.
+- 0a4f39a: # Async chaining
+
+  Move `startAsync(...)` and `debounceAsync(...)` to chain-first action mapping.
+  - Change `startAsync(...)` to return a builder and map settled results with `.chainToAction(resolve, reject)`.
+  - Change `debounceAsync(...)` to return a builder and map settled results with `.chainToAction(resolve, reject?)`.
+  - Update async docs, skill references, and workspace examples to the fluent chaining form.
+  - Keep the release marked as minor even though this changes the public API shape.
+
 ## 8.6.0
 
 ### Minor Changes
