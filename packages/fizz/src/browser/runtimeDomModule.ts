@@ -99,6 +99,14 @@ export const createRuntimeDomModule = (options: {
       return assertDriverMethod("activeElement", driver?.activeElement)()
     }
 
+    if (data.target === "history") {
+      return assertDriverMethod("history", driver?.history)()
+    }
+
+    if (data.target === "location") {
+      return assertDriverMethod("location", driver?.location)()
+    }
+
     return assertDriverMethod("visualViewport", driver?.visualViewport)()
   }
 

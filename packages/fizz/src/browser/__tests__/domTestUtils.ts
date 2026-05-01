@@ -1,4 +1,8 @@
-import type { RuntimeDomDriver } from "../runtimeDomDriver"
+import type {
+  RuntimeDomDriver,
+  RuntimeHistoryTarget,
+  RuntimeLocationTarget,
+} from "../runtimeBrowserDriver"
 
 type EventListenerSet = Set<EventListener>
 
@@ -81,6 +85,30 @@ export class MockElementTarget
   }
 }
 
+export class MockHistoryTarget
+  extends MockEventTarget
+  implements RuntimeHistoryTarget
+{
+  length = 1
+  scrollRestoration: ScrollRestoration = "auto"
+  state: unknown = null
+}
+
+export class MockLocationTarget
+  extends MockEventTarget
+  implements RuntimeLocationTarget
+{
+  hash = ""
+  host = "localhost"
+  hostname = "localhost"
+  href = "http://localhost/"
+  origin = "http://localhost"
+  pathname = "/"
+  port = ""
+  protocol = "http:"
+  search = ""
+}
+
 type MockIntersectionObserverRecord = {
   callback: IntersectionObserverCallback
   disconnectCalls: number
@@ -156,6 +184,8 @@ export const createMockDomDriver = (): {
     body: MockEventTarget
     document: MockEventTarget
     documentElement: MockEventTarget
+    history: MockHistoryTarget
+    location: MockLocationTarget
     visualViewport: MockEventTarget
     window: MockEventTarget
   }
@@ -174,6 +204,8 @@ export const createMockDomDriver = (): {
   const body = new MockElementTarget() as unknown as HTMLElement
   const documentTarget = new MockEventTarget() as unknown as Document
   const documentElement = new MockElementTarget() as unknown as HTMLElement
+  const historyTarget = new MockHistoryTarget()
+  const locationTarget = new MockLocationTarget()
   const visualViewport = new MockEventTarget() as unknown as VisualViewport
   const windowTarget = new MockEventTarget() as unknown as Window
 
@@ -210,6 +242,7 @@ export const createMockDomDriver = (): {
     },
     document: () => documentTarget,
     documentElement: () => documentElement,
+    history: () => historyTarget,
     getElementById: id => byId.get(id) ?? null,
     getElementsByClassName: className => byClassName.get(className) ?? [],
     getElementsByName: name => byName.get(name) ?? [],
@@ -219,6 +252,7 @@ export const createMockDomDriver = (): {
     removeEventListener: (target, type, listener, options) => {
       target.removeEventListener(type, listener, options)
     },
+    location: () => locationTarget,
     visualViewport: () => visualViewport,
     window: () => windowTarget,
   }
@@ -230,6 +264,8 @@ export const createMockDomDriver = (): {
       body: body as unknown as MockEventTarget,
       document: documentTarget as unknown as MockEventTarget,
       documentElement: documentElement as unknown as MockEventTarget,
+      history: historyTarget,
+      location: locationTarget,
       visualViewport: visualViewport as unknown as MockEventTarget,
       window: windowTarget as unknown as MockEventTarget,
     },

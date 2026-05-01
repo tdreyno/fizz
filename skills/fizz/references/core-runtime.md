@@ -154,10 +154,37 @@ Browser effect helpers include:
 - `locationAssign(url)`
 - `locationReplace(url)`
 - `locationReload()`
+- `locationSetHash(hash)`
+- `locationSetHref(href)`
+- `locationSetHost(host)`
+- `locationSetHostname(hostname)`
+- `locationSetPathname(pathname)`
+- `locationSetPort(port)`
+- `locationSetProtocol(protocol)`
+- `locationSetSearch(search)`
 - `historyBack()`
 - `historyForward()`
 - `historyGo(delta)`
+- `historyPushState(state, url?)`
+- `historyReplaceState(state, url?)`
+- `historySetScrollRestoration(value)`
 - `postMessage(message, targetOrigin, transfer?)`
+
+Browser DOM singleton builders include:
+
+- `dom.window(resourceId?)`
+- `dom.document(resourceId?)`
+- `dom.visualViewport(resourceId?)`
+- `dom.history(resourceId?)`
+- `dom.location(resourceId?)`
+
+Browser singleton guidance:
+
+- `dom.history()` exposes readonly snapshots (`length`, `scrollRestoration`, `state`) and supports `listen("popstate", ...)`
+- `dom.location()` exposes readonly URL fields (`hash`, `host`, `hostname`, `href`, `origin`, `pathname`, `port`, `protocol`, `search`) and supports `listen("hashchange", ...)`
+- browser DOM builders are resource effects directly, so `dom.history()` and `dom.location()` can be returned from handlers without `.resource()`
+- both behave as live runtime-backed resources; reads should happen inside handlers/selectors instead of being copied at machine creation time
+- use effects for mutations (`historyPushState`, `historyReplaceState`, `historySetScrollRestoration`, `locationSet*`) and resources for reads/listening
 
 Modeling guidance:
 

@@ -774,6 +774,20 @@ export type HistoryGoEffectData = {
   delta: number
 }
 
+export type HistoryPushStateEffectData = {
+  state: unknown
+  url?: string
+}
+
+export type HistoryReplaceStateEffectData = {
+  state: unknown
+  url?: string
+}
+
+export type HistorySetScrollRestorationEffectData = {
+  value: ScrollRestoration
+}
+
 export type LocationAssignEffectData = {
   url: string
 }
@@ -781,6 +795,15 @@ export type LocationAssignEffectData = {
 export type LocationReplaceEffectData = {
   url: string
 }
+
+export type LocationSetHashEffectData = { hash: string }
+export type LocationSetHostEffectData = { host: string }
+export type LocationSetHostnameEffectData = { hostname: string }
+export type LocationSetHrefEffectData = { href: string }
+export type LocationSetPathnameEffectData = { pathname: string }
+export type LocationSetPortEffectData = { port: string }
+export type LocationSetProtocolEffectData = { protocol: string }
+export type LocationSetSearchEffectData = { search: string }
 
 export const confirm = (message: string): Effect<ConfirmEffectData> =>
   effect("confirm", { message })
@@ -823,6 +846,65 @@ export const historyForward = (): Effect<undefined> => effect("historyForward")
 
 export const historyGo = (delta: number): Effect<HistoryGoEffectData> =>
   effect("historyGo", { delta })
+
+export const historyPushState = (
+  state: unknown,
+  url?: string,
+): Effect<HistoryPushStateEffectData> =>
+  effect("historyPushState", {
+    state,
+    ...(url === undefined ? {} : { url }),
+  })
+
+export const historyReplaceState = (
+  state: unknown,
+  url?: string,
+): Effect<HistoryReplaceStateEffectData> =>
+  effect("historyReplaceState", {
+    state,
+    ...(url === undefined ? {} : { url }),
+  })
+
+export const historySetScrollRestoration = (
+  value: ScrollRestoration,
+): Effect<HistorySetScrollRestorationEffectData> =>
+  effect("historySetScrollRestoration", { value })
+
+export const locationSetHash = (
+  hash: string,
+): Effect<LocationSetHashEffectData> => effect("locationSetHash", { hash })
+
+export const locationSetHost = (
+  host: string,
+): Effect<LocationSetHostEffectData> => effect("locationSetHost", { host })
+
+export const locationSetHostname = (
+  hostname: string,
+): Effect<LocationSetHostnameEffectData> =>
+  effect("locationSetHostname", { hostname })
+
+export const locationSetHref = (
+  href: string,
+): Effect<LocationSetHrefEffectData> => effect("locationSetHref", { href })
+
+export const locationSetPathname = (
+  pathname: string,
+): Effect<LocationSetPathnameEffectData> =>
+  effect("locationSetPathname", { pathname })
+
+export const locationSetPort = (
+  port: string,
+): Effect<LocationSetPortEffectData> => effect("locationSetPort", { port })
+
+export const locationSetProtocol = (
+  protocol: string,
+): Effect<LocationSetProtocolEffectData> =>
+  effect("locationSetProtocol", { protocol })
+
+export const locationSetSearch = (
+  search: string,
+): Effect<LocationSetSearchEffectData> =>
+  effect("locationSetSearch", { search })
 
 export const postMessage = (
   message: unknown,

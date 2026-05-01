@@ -34,15 +34,11 @@ const userRejected = action("Rejected")
 const textSubmitted = action("TextSubmitted").withPayload<string>()
 
 const Deciding = state({
-  AskUser: () => [
-    confirm("Continue?"),
-  ],
+  AskUser: () => [confirm("Continue?")],
 })
 
 const Prompting = state({
-  Ask: () => [
-    prompt("Enter your name:"),
-  ],
+  Ask: () => [prompt("Enter your name:")],
 })
 ```
 
@@ -55,14 +51,34 @@ const Prompting = state({
 - `historyBack()`: Navigate back in history
 - `historyForward()`: Navigate forward in history
 - `historyGo(delta)`: Jump in history by delta
+- `historyPushState(state, url?)`: Push a new history entry
+- `historyReplaceState(state, url?)`: Replace the current history entry
+- `historySetScrollRestoration(value)`: Set `"auto"` or `"manual"` scroll restoration
+- `locationSetHash(hash)`: Set `location.hash`
+- `locationSetHref(href)`: Set `location.href` (navigate)
+- `locationSetHost(host)`: Set `location.host`
+- `locationSetHostname(hostname)`: Set `location.hostname`
+- `locationSetPathname(pathname)`: Set `location.pathname`
+- `locationSetPort(port)`: Set `location.port`
+- `locationSetProtocol(protocol)`: Set `location.protocol`
+- `locationSetSearch(search)`: Set `location.search`
 
 ```typescript
-import { state } from "@tdreyno/fizz"
+import {
+  historyPushState,
+  historySetScrollRestoration,
+  locationSetHash,
+  state,
+} from "@tdreyno/fizz"
 
 const Navigating = state({
+  GoToPage: (_data, page: number) =>
+    historyPushState({ page }, `/page/${page}`),
   GoHome: () => locationAssign("/"),
   OpenDocs: () => openUrl("https://docs.example.com", "_blank"),
   Back: () => historyBack(),
+  HashJump: () => locationSetHash("#section-2"),
+  DisableScrollRestore: () => historySetScrollRestoration("manual"),
 })
 ```
 
@@ -76,9 +92,9 @@ const Navigating = state({
 import { effect, state } from "@tdreyno/fizz"
 
 const Sharing = state({
-  Copy: (data) => copyToClipboard(data.text),
+  Copy: data => copyToClipboard(data.text),
   Print: () => printPage(),
-  PostData: (data) => postMessage(data, "*"),
+  PostData: data => postMessage(data, "*"),
 })
 ```
 
@@ -91,12 +107,43 @@ The `dom` builder provides type-safe query methods. Results are stored as state 
 Access global DOM objects that don't require queries:
 
 ```typescript
-dom.window()        // globalThis.window
-dom.document()      // globalThis.document
-dom.body()          // document.body
+dom.window() // globalThis.window
+dom.document() // globalThis.document
+dom.body() // document.body
 dom.documentElement() // document.documentElement
-dom.activeElement()  // document.activeElement
-dom.visualViewport()// globalThis.visualViewport
+dom.activeElement() // document.activeElement
+dom.visualViewport() // globalThis.visualViewport
+dom.history() // live view of globalThis.history (length, scrollRestoration, state)
+dom.location() // live view of globalThis.location (href, pathname, hash, …)
+```
+
+`dom.history()` and `dom.location()` are resource effects directly, so you can return them from a state handler without calling `.resource()`. They expose readonly data properties as live views, which means every property access reads the current browser value. They also support `listen()` for the `popstate` and `hashchange` events respectively:
+
+```typescript
+import { action, state } from "@tdreyno/fizz"
+import { dom } from "@tdreyno/fizz/browser"
+
+const navigated = action("Navigated").withPayload<PopStateEvent>()
+const hashChanged = action("HashChanged").withPayload<HashChangeEvent>()
+
+const Routing = state({
+  Enter: () => [
+    dom.history(),
+    dom.history().listen("popstate", navigated),
+    dom.location(),
+    dom.location().listen("hashchange", hashChanged),
+  ],
+
+  Navigated: (_data, _event, { resources }) => {
+    const history = resources["history"] as {
+      length: number
+      scrollRestoration: ScrollRestoration
+      state: unknown
+    }
+    const location = resources["location"] as { pathname: string }
+    // ...
+  },
+})
 ```
 
 ### Query methods
@@ -178,7 +225,7 @@ const submitted = action("Submitted")
 const Editing = state({
   Enter: () => [
     dom.querySelector("input[name='query']", "searchInput"),
-    dom.listen("searchInput", "input", (event) => {
+    dom.listen("searchInput", "input", event => {
       const target = event.target as HTMLInputElement
       return inputChanged(target.value)
     }),
@@ -231,7 +278,7 @@ const Viewing = state({
     dom.id("item-1", "item"),
     dom.observeIntersection(
       "item",
-      (entries) => itemInView(entries[0].isIntersecting),
+      entries => itemInView(entries[0].isIntersecting),
       "itemObserver",
       { threshold: [0, 0.5, 1] },
     ),
@@ -255,15 +302,17 @@ dom.observeResize(
 ```typescript
 import { dom, state } from "@tdreyno/fizz"
 
-const containerResized = action("ContainerResized")
-  .withPayload<{ width: number; height: number }>()
+const containerResized = action("ContainerResized").withPayload<{
+  width: number
+  height: number
+}>()
 
 const Layout = state({
   Enter: () => [
     dom.id("main", "mainContainer"),
     dom.observeResize(
       "mainContainer",
-      (entries) => {
+      entries => {
         const { width, height } = entries[0].contentRect
         return containerResized({ width, height })
       },
@@ -311,11 +360,11 @@ import { browserDriver as defaultDriver } from "@tdreyno/fizz/browser"
 
 const customDriver = {
   ...defaultDriver,
-  confirm: (message) => {
+  confirm: message => {
     // Custom confirmation logic
     return true
   },
-  getElementById: (id) => {
+  getElementById: id => {
     // Custom query implementation
     return document.getElementById(id)
   },
@@ -341,18 +390,21 @@ type Data = {
   selected: string | null
 }
 
-const Searching = state<Enter | typeof searchChanged | typeof resultClicked, Data>({
+const Searching = state<
+  Enter | typeof searchChanged | typeof resultClicked,
+  Data
+>({
   Enter: () => [
     dom.querySelector("[data-results]", "resultsContainer"),
     dom.querySelectorAll("[data-result]", "resultItems"),
-    dom.listen("resultsContainer", "click", (event) => {
+    dom.listen("resultsContainer", "click", event => {
       const target = event.target as HTMLElement
       const id = target.dataset.resultId
       return id ? resultClicked(id) : searchChanged("")
     }),
     dom.observeIntersection(
       "resultsContainer",
-      (entries) => viewportEntered(),
+      entries => viewportEntered(),
       "resultsObserver",
     ),
   ],

@@ -9,11 +9,31 @@ export type RuntimeDomAcquireQueryMethod =
   | "querySelector"
   | "querySelectorAll"
 
+export type RuntimeHistoryTarget = EventTarget & {
+  readonly length: number
+  readonly scrollRestoration: ScrollRestoration
+  readonly state: unknown
+}
+
+export type RuntimeLocationTarget = EventTarget & {
+  readonly hash: string
+  readonly host: string
+  readonly hostname: string
+  readonly href: string
+  readonly origin: string
+  readonly pathname: string
+  readonly port: string
+  readonly protocol: string
+  readonly search: string
+}
+
 export type RuntimeDomAcquireSingletonTarget =
   | "activeElement"
   | "body"
   | "document"
   | "documentElement"
+  | "history"
+  | "location"
   | "visualViewport"
   | "window"
 
@@ -26,9 +46,22 @@ type RuntimeBrowserEffectDriver = {
   historyBack?: () => void | Promise<void>
   historyForward?: () => void | Promise<void>
   historyGo?: (delta: number) => void | Promise<void>
+  historyPushState?: (state: unknown, url?: string) => void | Promise<void>
+  historyReplaceState?: (state: unknown, url?: string) => void | Promise<void>
+  historySetScrollRestoration?: (
+    value: ScrollRestoration,
+  ) => void | Promise<void>
   locationAssign?: (url: string) => void | Promise<void>
   locationReload?: () => void | Promise<void>
   locationReplace?: (url: string) => void | Promise<void>
+  locationSetHash?: (hash: string) => void | Promise<void>
+  locationSetHost?: (host: string) => void | Promise<void>
+  locationSetHostname?: (hostname: string) => void | Promise<void>
+  locationSetHref?: (href: string) => void | Promise<void>
+  locationSetPathname?: (pathname: string) => void | Promise<void>
+  locationSetPort?: (port: string) => void | Promise<void>
+  locationSetProtocol?: (protocol: string) => void | Promise<void>
+  locationSetSearch?: (search: string) => void | Promise<void>
   openUrl?: (
     url: string,
     target?: string,
@@ -84,6 +117,8 @@ export type RuntimeDomDriver = {
     listener: EventListener,
     options?: AddEventListenerOptions | boolean,
   ) => void
+  history?: () => RuntimeHistoryTarget | null
+  location?: () => RuntimeLocationTarget | null
   visualViewport?: () => VisualViewport | null
   window?: () => Window | null
 }

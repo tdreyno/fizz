@@ -266,6 +266,20 @@ const Ready = state({
 })
 ```
 
+## History and location singleton resources
+
+```typescript
+import { historyPushState, locationSetHash, state } from "@tdreyno/fizz"
+import { dom } from "@tdreyno/fizz/browser"
+
+const Browsing = state({
+  Enter: () => dom.history().listen("popstate", didPopState),
+  HashListening: () => dom.location().listen("hashchange", didHashChange),
+  GoToProfile: () => historyPushState({ page: "profile" }, "/profile"),
+  JumpToSection: () => locationSetHash("#details"),
+})
+```
+
 ## Colocated selector with `selectWhen(...)`
 
 ```typescript

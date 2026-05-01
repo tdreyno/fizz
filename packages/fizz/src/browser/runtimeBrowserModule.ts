@@ -9,8 +9,19 @@ import type {
   ConfirmEffectData,
   CopyToClipboardEffectData,
   HistoryGoEffectData,
+  HistoryPushStateEffectData,
+  HistoryReplaceStateEffectData,
+  HistorySetScrollRestorationEffectData,
   LocationAssignEffectData,
   LocationReplaceEffectData,
+  LocationSetHashEffectData,
+  LocationSetHostEffectData,
+  LocationSetHostnameEffectData,
+  LocationSetHrefEffectData,
+  LocationSetPathnameEffectData,
+  LocationSetPortEffectData,
+  LocationSetProtocolEffectData,
+  LocationSetSearchEffectData,
   OpenUrlEffectData,
   PostMessageEffectData,
   PromptEffectData,
@@ -123,6 +134,14 @@ export const createRuntimeBrowserModule = (options: {
 
     if (data.target === "activeElement") {
       return assertDriverMethod("activeElement", driver?.activeElement)()
+    }
+
+    if (data.target === "history") {
+      return assertDriverMethod("history", driver?.history)()
+    }
+
+    if (data.target === "location") {
+      return assertDriverMethod("location", driver?.location)()
     }
 
     return assertDriverMethod("visualViewport", driver?.visualViewport)()
@@ -580,6 +599,184 @@ export const createRuntimeBrowserModule = (options: {
 
           runOneWay(() =>
             historyGoMethod((item.data as HistoryGoEffectData).delta),
+          )
+
+          return []
+        },
+      ],
+      [
+        "historyPushState",
+        item => {
+          const historyPushStateMethod = assertDriverMethod(
+            "historyPushState",
+            driver?.historyPushState,
+          )
+          const data = item.data as HistoryPushStateEffectData
+
+          runOneWay(() => historyPushStateMethod(data.state, data.url))
+
+          return []
+        },
+      ],
+      [
+        "historyReplaceState",
+        item => {
+          const historyReplaceStateMethod = assertDriverMethod(
+            "historyReplaceState",
+            driver?.historyReplaceState,
+          )
+          const data = item.data as HistoryReplaceStateEffectData
+
+          runOneWay(() => historyReplaceStateMethod(data.state, data.url))
+
+          return []
+        },
+      ],
+      [
+        "historySetScrollRestoration",
+        item => {
+          const historySetScrollRestorationMethod = assertDriverMethod(
+            "historySetScrollRestoration",
+            driver?.historySetScrollRestoration,
+          )
+          const data = item.data as HistorySetScrollRestorationEffectData
+
+          runOneWay(() => historySetScrollRestorationMethod(data.value))
+
+          return []
+        },
+      ],
+      [
+        "locationSetHash",
+        item => {
+          const locationSetHashMethod = assertDriverMethod(
+            "locationSetHash",
+            driver?.locationSetHash,
+          )
+
+          runOneWay(() =>
+            locationSetHashMethod(
+              (item.data as LocationSetHashEffectData).hash,
+            ),
+          )
+
+          return []
+        },
+      ],
+      [
+        "locationSetHost",
+        item => {
+          const locationSetHostMethod = assertDriverMethod(
+            "locationSetHost",
+            driver?.locationSetHost,
+          )
+
+          runOneWay(() =>
+            locationSetHostMethod(
+              (item.data as LocationSetHostEffectData).host,
+            ),
+          )
+
+          return []
+        },
+      ],
+      [
+        "locationSetHostname",
+        item => {
+          const locationSetHostnameMethod = assertDriverMethod(
+            "locationSetHostname",
+            driver?.locationSetHostname,
+          )
+
+          runOneWay(() =>
+            locationSetHostnameMethod(
+              (item.data as LocationSetHostnameEffectData).hostname,
+            ),
+          )
+
+          return []
+        },
+      ],
+      [
+        "locationSetHref",
+        item => {
+          const locationSetHrefMethod = assertDriverMethod(
+            "locationSetHref",
+            driver?.locationSetHref,
+          )
+
+          runOneWay(() =>
+            locationSetHrefMethod(
+              (item.data as LocationSetHrefEffectData).href,
+            ),
+          )
+
+          return []
+        },
+      ],
+      [
+        "locationSetPathname",
+        item => {
+          const locationSetPathnameMethod = assertDriverMethod(
+            "locationSetPathname",
+            driver?.locationSetPathname,
+          )
+
+          runOneWay(() =>
+            locationSetPathnameMethod(
+              (item.data as LocationSetPathnameEffectData).pathname,
+            ),
+          )
+
+          return []
+        },
+      ],
+      [
+        "locationSetPort",
+        item => {
+          const locationSetPortMethod = assertDriverMethod(
+            "locationSetPort",
+            driver?.locationSetPort,
+          )
+
+          runOneWay(() =>
+            locationSetPortMethod(
+              (item.data as LocationSetPortEffectData).port,
+            ),
+          )
+
+          return []
+        },
+      ],
+      [
+        "locationSetProtocol",
+        item => {
+          const locationSetProtocolMethod = assertDriverMethod(
+            "locationSetProtocol",
+            driver?.locationSetProtocol,
+          )
+
+          runOneWay(() =>
+            locationSetProtocolMethod(
+              (item.data as LocationSetProtocolEffectData).protocol,
+            ),
+          )
+
+          return []
+        },
+      ],
+      [
+        "locationSetSearch",
+        item => {
+          const locationSetSearchMethod = assertDriverMethod(
+            "locationSetSearch",
+            driver?.locationSetSearch,
+          )
+
+          runOneWay(() =>
+            locationSetSearchMethod(
+              (item.data as LocationSetSearchEffectData).search,
+            ),
           )
 
           return []

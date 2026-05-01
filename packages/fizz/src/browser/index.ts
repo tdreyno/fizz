@@ -105,6 +105,68 @@ const baseDomDriver: RuntimeDomDriver = {
 
     return [...queryScope.getElementsByTagName(tagName)]
   },
+  history: () => {
+    const win = globalThis.window
+
+    if (!win || !globalThis.history) {
+      return null
+    }
+
+    return {
+      addEventListener: win.addEventListener.bind(win),
+      dispatchEvent: win.dispatchEvent.bind(win),
+      get length() {
+        return globalThis.history.length
+      },
+      removeEventListener: win.removeEventListener.bind(win),
+      get scrollRestoration() {
+        return globalThis.history.scrollRestoration
+      },
+      get state() {
+        return globalThis.history.state as unknown
+      },
+    }
+  },
+  location: () => {
+    const win = globalThis.window
+
+    if (!win || !globalThis.location) {
+      return null
+    }
+
+    return {
+      addEventListener: win.addEventListener.bind(win),
+      dispatchEvent: win.dispatchEvent.bind(win),
+      get hash() {
+        return globalThis.location.hash
+      },
+      get host() {
+        return globalThis.location.host
+      },
+      get hostname() {
+        return globalThis.location.hostname
+      },
+      get href() {
+        return globalThis.location.href
+      },
+      get origin() {
+        return globalThis.location.origin
+      },
+      get pathname() {
+        return globalThis.location.pathname
+      },
+      get port() {
+        return globalThis.location.port
+      },
+      get protocol() {
+        return globalThis.location.protocol
+      },
+      removeEventListener: win.removeEventListener.bind(win),
+      get search() {
+        return globalThis.location.search
+      },
+    }
+  },
   querySelector: (selector, scope) =>
     toQueryScope(scope)?.querySelector(selector) ?? null,
   querySelectorAll: (selector, scope) => [
@@ -155,6 +217,21 @@ export const browserDriver: BrowserDriver = {
 
     history.go(delta)
   },
+  historyPushState: (state, url) => {
+    const history = assertBrowserMethod("history", globalThis.history)
+
+    history.pushState(state, "", url)
+  },
+  historyReplaceState: (state, url) => {
+    const history = assertBrowserMethod("history", globalThis.history)
+
+    history.replaceState(state, "", url)
+  },
+  historySetScrollRestoration: value => {
+    const history = assertBrowserMethod("history", globalThis.history)
+
+    history.scrollRestoration = value
+  },
   locationAssign: url => {
     const location = assertBrowserMethod("location", globalThis.location)
 
@@ -169,6 +246,46 @@ export const browserDriver: BrowserDriver = {
     const location = assertBrowserMethod("location", globalThis.location)
 
     location.replace(url)
+  },
+  locationSetHash: hash => {
+    const location = assertBrowserMethod("location", globalThis.location)
+
+    location.hash = hash
+  },
+  locationSetHost: host => {
+    const location = assertBrowserMethod("location", globalThis.location)
+
+    location.host = host
+  },
+  locationSetHostname: hostname => {
+    const location = assertBrowserMethod("location", globalThis.location)
+
+    location.hostname = hostname
+  },
+  locationSetHref: href => {
+    const location = assertBrowserMethod("location", globalThis.location)
+
+    location.href = href
+  },
+  locationSetPathname: pathname => {
+    const location = assertBrowserMethod("location", globalThis.location)
+
+    location.pathname = pathname
+  },
+  locationSetPort: port => {
+    const location = assertBrowserMethod("location", globalThis.location)
+
+    location.port = port
+  },
+  locationSetProtocol: protocol => {
+    const location = assertBrowserMethod("location", globalThis.location)
+
+    location.protocol = protocol
+  },
+  locationSetSearch: search => {
+    const location = assertBrowserMethod("location", globalThis.location)
+
+    location.search = search
   },
   openUrl: (url, target, features) => {
     const openMethod = assertBrowserMethod("open", globalThis.open)

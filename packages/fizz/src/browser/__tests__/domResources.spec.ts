@@ -29,21 +29,15 @@ describe("DOM resources", () => {
     const Browsing = state<Enter>(
       {
         Enter: () => [
-          dom.documentElement().resource(),
-          dom.activeElement().resource(),
-          dom.getElementById("root", "root-id").resource(),
-          dom.getElementsByClassName("classNodes", "action").resource(),
-          dom.getElementsByName("namedNodes", "resource-name").resource(),
-          dom.getElementsByTagName("taggedNodes", "button").resource(),
-          dom.from("root").closest("closestNode", ".cta").resource(),
-          dom
-            .from("root")
-            .getElementsByClassName("scopedClassNodes", "action")
-            .resource(),
-          dom
-            .from("root")
-            .getElementsByTagName("scopedTagNodes", "button")
-            .resource(),
+          dom.documentElement(),
+          dom.activeElement(),
+          dom.getElementById("root", "root-id"),
+          dom.getElementsByClassName("classNodes", "action"),
+          dom.getElementsByName("namedNodes", "resource-name"),
+          dom.getElementsByTagName("taggedNodes", "button"),
+          dom.from("root").closest("closestNode", ".cta"),
+          dom.from("root").getElementsByClassName("scopedClassNodes", "action"),
+          dom.from("root").getElementsByTagName("scopedTagNodes", "button"),
         ],
       },
       { name: "Browsing" },
@@ -60,7 +54,8 @@ describe("DOM resources", () => {
 
     await runtime.run(enter())
 
-    const resources = getStateResources(runtime.currentState())
+    const current = runtime.currentState()
+    const resources = getStateResources(current)
 
     expect(resources["documentElement"]).toBeDefined()
     expect(resources["activeElement"]).toBeDefined()
@@ -71,5 +66,33 @@ describe("DOM resources", () => {
     expect(resources["taggedNodes"]).toEqual([taggedElement])
     expect(resources["scopedClassNodes"]).toEqual([classElement])
     expect(resources["scopedTagNodes"]).toEqual([taggedElement])
+  })
+
+  test("should acquire history and location singleton resources", async () => {
+    const mock = createMockDomDriver()
+
+    const Browsing = state<Enter>(
+      {
+        Enter: () => [dom.history(), dom.location()],
+      },
+      { name: "Browsing" },
+    )
+
+    const runtime = new Runtime(
+      createInitialContext([Browsing()]),
+      {},
+      {},
+      {
+        browserDriver: mock.driver,
+      },
+    )
+
+    await runtime.run(enter())
+
+    const current = runtime.currentState()
+    const resources = getStateResources(current)
+
+    expect(resources["history"]).toBe(mock.emit.history)
+    expect(resources["location"]).toBe(mock.emit.location)
   })
 })

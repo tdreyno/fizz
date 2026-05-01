@@ -1,6 +1,5 @@
 import type { Action } from "../action.js"
-import type { Effect } from "../effect.js"
-import { effect } from "../effect.js"
+import { Effect, effect } from "../effect.js"
 
 type AnyAction = Action<string, unknown>
 type EventMapLike = object
@@ -19,6 +18,8 @@ type DomSingletonTarget =
   | "body"
   | "document"
   | "documentElement"
+  | "history"
+  | "location"
   | "visualViewport"
   | "window"
 
@@ -72,48 +73,57 @@ export type DomObserveResizeEffectData = {
   ) => AnyAction
 }
 
-type TargetBuilder<EventMap extends EventMapLike> = {
-  listen: <EventType extends string>(
-    type: EventType,
-    toAction: (event: EventFromMap<EventMap, EventType>) => AnyAction,
-    options?: AddEventListenerOptions | boolean,
-  ) => Effect<unknown>[]
-  observeIntersection: {
-    (
-      toAction: (
-        entries: IntersectionObserverEntry[],
-        observer: IntersectionObserver,
-      ) => AnyAction,
-      options?: IntersectionObserverInit,
-    ): Effect<unknown>[]
-    (
-      observerId: string,
-      toAction: (
-        entries: IntersectionObserverEntry[],
-        observer: IntersectionObserver,
-      ) => AnyAction,
-      options?: IntersectionObserverInit,
-    ): Effect<unknown>[]
+type TargetBuilder<EventMap extends EventMapLike> =
+  Effect<DomAcquireEffectData> & {
+    listen: <EventType extends string>(
+      type: EventType,
+      toAction: (event: EventFromMap<EventMap, EventType>) => AnyAction,
+      options?: AddEventListenerOptions | boolean,
+    ) => Effect<unknown>[]
+    observeIntersection: {
+      (
+        toAction: (
+          entries: IntersectionObserverEntry[],
+          observer: IntersectionObserver,
+        ) => AnyAction,
+        options?: IntersectionObserverInit,
+      ): Effect<unknown>[]
+      (
+        observerId: string,
+        toAction: (
+          entries: IntersectionObserverEntry[],
+          observer: IntersectionObserver,
+        ) => AnyAction,
+        options?: IntersectionObserverInit,
+      ): Effect<unknown>[]
+    }
+    observeResize: {
+      (
+        toAction: (
+          entries: ResizeObserverEntry[],
+          observer: ResizeObserver,
+        ) => AnyAction,
+        options?: ResizeObserverOptions,
+      ): Effect<unknown>[]
+      (
+        observerId: string,
+        toAction: (
+          entries: ResizeObserverEntry[],
+          observer: ResizeObserver,
+        ) => AnyAction,
+        options?: ResizeObserverOptions,
+      ): Effect<unknown>[]
+    }
+    resource: () => Effect<unknown>
   }
-  observeResize: {
-    (
-      toAction: (
-        entries: ResizeObserverEntry[],
-        observer: ResizeObserver,
-      ) => AnyAction,
-      options?: ResizeObserverOptions,
-    ): Effect<unknown>[]
-    (
-      observerId: string,
-      toAction: (
-        entries: ResizeObserverEntry[],
-        observer: ResizeObserver,
-      ) => AnyAction,
-      options?: ResizeObserverOptions,
-    ): Effect<unknown>[]
-  }
-  resource: () => Effect<unknown>
-}
+
+type HistoryEventMap = { popstate: PopStateEvent }
+type LocationEventMap = { hashchange: HashChangeEvent }
+
+type HistoryBuilder = Effect<DomAcquireEffectData> &
+  Pick<TargetBuilder<HistoryEventMap>, "listen" | "resource">
+type LocationBuilder = Effect<DomAcquireEffectData> &
+  Pick<TargetBuilder<LocationEventMap>, "listen" | "resource">
 
 type DomFromBuilder = {
   closest: (
@@ -165,112 +175,110 @@ const createTargetBuilder = <EventMap extends EventMapLike>(options: {
   acquire: DomAcquireEffectData
   resourceId: string
 }): TargetBuilder<EventMap> => {
-  const resource = () => domAcquire(options.acquire)
-
-  const listen: TargetBuilder<EventMap>["listen"] = (
-    type,
-    toAction,
-    eventOptions?: AddEventListenerOptions | boolean,
-  ) => [
-    resource(),
-    domListen({
-      ...(eventOptions === undefined ? {} : { options: eventOptions }),
-      targetResourceId: options.resourceId,
-      toAction: toAction as (event: Event) => AnyAction,
-      type,
-    }),
-  ]
-
-  const observeIntersection: TargetBuilder<EventMap>["observeIntersection"] = (
-    observerIdOrToAction:
-      | string
-      | ((
-          entries: IntersectionObserverEntry[],
-          observer: IntersectionObserver,
-        ) => AnyAction),
-    toActionOrOptions?:
-      | ((
-          entries: IntersectionObserverEntry[],
-          observer: IntersectionObserver,
-        ) => AnyAction)
-      | IntersectionObserverInit,
-    maybeOptions?: IntersectionObserverInit,
-  ) => {
-    const toAction =
-      typeof observerIdOrToAction === "function"
-        ? observerIdOrToAction
-        : (toActionOrOptions as (
+  const builder = Object.assign(domAcquire(options.acquire), {
+    listen: (
+      type: string,
+      toAction: (event: Event) => AnyAction,
+      eventOptions?: AddEventListenerOptions | boolean,
+    ) => [
+      builder,
+      domListen({
+        ...(eventOptions === undefined ? {} : { options: eventOptions }),
+        targetResourceId: options.resourceId,
+        toAction,
+        type,
+      }),
+    ],
+    observeIntersection: (
+      observerIdOrToAction:
+        | string
+        | ((
+            entries: IntersectionObserverEntry[],
+            observer: IntersectionObserver,
+          ) => AnyAction),
+      toActionOrOptions?:
+        | ((
             entries: IntersectionObserverEntry[],
             observer: IntersectionObserver,
           ) => AnyAction)
-    const observerId =
-      typeof observerIdOrToAction === "string"
-        ? observerIdOrToAction
-        : undefined
-    const observerOptions =
-      typeof observerIdOrToAction === "function"
-        ? (toActionOrOptions as IntersectionObserverInit | undefined)
-        : maybeOptions
+        | IntersectionObserverInit,
+      maybeOptions?: IntersectionObserverInit,
+    ) => {
+      const toAction =
+        typeof observerIdOrToAction === "function"
+          ? observerIdOrToAction
+          : (toActionOrOptions as (
+              entries: IntersectionObserverEntry[],
+              observer: IntersectionObserver,
+            ) => AnyAction)
+      const observerId =
+        typeof observerIdOrToAction === "string"
+          ? observerIdOrToAction
+          : undefined
+      const observerOptions =
+        typeof observerIdOrToAction === "function"
+          ? (toActionOrOptions as IntersectionObserverInit | undefined)
+          : maybeOptions
 
-    return [
-      resource(),
-      domObserveIntersection({
-        ...(observerId === undefined ? {} : { observerId }),
-        ...(observerOptions === undefined ? {} : { options: observerOptions }),
-        targetResourceId: options.resourceId,
-        toAction,
-      }),
-    ]
-  }
-
-  const observeResize: TargetBuilder<EventMap>["observeResize"] = (
-    observerIdOrToAction:
-      | string
-      | ((
-          entries: ResizeObserverEntry[],
-          observer: ResizeObserver,
-        ) => AnyAction),
-    toActionOrOptions?:
-      | ((
-          entries: ResizeObserverEntry[],
-          observer: ResizeObserver,
-        ) => AnyAction)
-      | ResizeObserverOptions,
-    maybeOptions?: ResizeObserverOptions,
-  ) => {
-    const toAction =
-      typeof observerIdOrToAction === "function"
-        ? observerIdOrToAction
-        : (toActionOrOptions as (
+      return [
+        builder,
+        domObserveIntersection({
+          ...(observerId === undefined ? {} : { observerId }),
+          ...(observerOptions === undefined
+            ? {}
+            : { options: observerOptions }),
+          targetResourceId: options.resourceId,
+          toAction,
+        }),
+      ]
+    },
+    observeResize: (
+      observerIdOrToAction:
+        | string
+        | ((
+            entries: ResizeObserverEntry[],
+            observer: ResizeObserver,
+          ) => AnyAction),
+      toActionOrOptions?:
+        | ((
             entries: ResizeObserverEntry[],
             observer: ResizeObserver,
           ) => AnyAction)
-    const observerId =
-      typeof observerIdOrToAction === "string"
-        ? observerIdOrToAction
-        : undefined
-    const observerOptions =
-      typeof observerIdOrToAction === "function"
-        ? (toActionOrOptions as ResizeObserverOptions | undefined)
-        : maybeOptions
+        | ResizeObserverOptions,
+      maybeOptions?: ResizeObserverOptions,
+    ) => {
+      const toAction =
+        typeof observerIdOrToAction === "function"
+          ? observerIdOrToAction
+          : (toActionOrOptions as (
+              entries: ResizeObserverEntry[],
+              observer: ResizeObserver,
+            ) => AnyAction)
+      const observerId =
+        typeof observerIdOrToAction === "string"
+          ? observerIdOrToAction
+          : undefined
+      const observerOptions =
+        typeof observerIdOrToAction === "function"
+          ? (toActionOrOptions as ResizeObserverOptions | undefined)
+          : maybeOptions
 
-    return [
-      resource(),
-      domObserveResize({
-        ...(observerId === undefined ? {} : { observerId }),
-        ...(observerOptions === undefined ? {} : { options: observerOptions }),
-        targetResourceId: options.resourceId,
-        toAction,
-      }),
-    ]
-  }
+      return [
+        builder,
+        domObserveResize({
+          ...(observerId === undefined ? {} : { observerId }),
+          ...(observerOptions === undefined
+            ? {}
+            : { options: observerOptions }),
+          targetResourceId: options.resourceId,
+          toAction,
+        }),
+      ]
+    },
+    resource: () => builder,
+  }) as unknown as TargetBuilder<EventMap>
 
-  return {
-    listen,
-    observeIntersection,
-    observeResize,
-    resource,
-  }
+  return builder
 }
 
 const createSingletonBuilder = <EventMap extends EventMapLike>(
@@ -285,6 +293,21 @@ const createSingletonBuilder = <EventMap extends EventMapLike>(
     },
     resourceId,
   })
+
+const createHistoryBuilder = (resourceId: string): HistoryBuilder => {
+  const builder = createSingletonBuilder<HistoryEventMap>("history", resourceId)
+
+  return builder
+}
+
+const createLocationBuilder = (resourceId: string): LocationBuilder => {
+  const builder = createSingletonBuilder<LocationEventMap>(
+    "location",
+    resourceId,
+  )
+
+  return builder
+}
 
 const createQueryBuilder = (options: {
   args: string[]
@@ -374,6 +397,7 @@ export const dom = {
   documentElement: (resourceId = "documentElement") =>
     createSingletonBuilder<HTMLElementEventMap>("documentElement", resourceId),
   from: (scopeResourceId: string) => createFromBuilder(scopeResourceId),
+  history: (resourceId = "history") => createHistoryBuilder(resourceId),
   getElementById: (resourceId: string, id: string) =>
     createQueryBuilder({
       args: [id],
@@ -398,6 +422,7 @@ export const dom = {
       method: "getElementsByTagName",
       resourceId,
     }),
+  location: (resourceId = "location") => createLocationBuilder(resourceId),
   querySelector: (resourceId: string, selector: string) =>
     createQueryBuilder({
       args: [selector],
