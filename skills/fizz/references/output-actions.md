@@ -46,6 +46,7 @@ This variant infers payload shape from the map entry.
 Use this when multiple imperative commands must run in order and then emit one success/failure output signal.
 
 - Batch entries should be `commandEffect(...)` calls.
+- Prefer `commandChannel(...)` to avoid repeating channel literals and batch channel options.
 - `channel` is optional; when set, same-channel batches are serialized.
 - `onError` defaults to `"failBatch"`.
 - Prefer `chainToAction(...)` instead when completion/failure should change machine state directly.

@@ -266,8 +266,16 @@ Use explicit effects when the machine needs to:
 - emit output actions
 - dispatch typed imperative adapter commands with `commandEffect(...).chainToAction(...)`
 - run ordered imperative command groups with `effectBatch([...], options?)`
+- reduce repeated channel wiring with `commandChannel(...).command(...)` and `commandChannel(...).batch(...)`
 - schedule async or timed work
 - represent a no-op intentionally
+
+`commandChannel(...)` guidance:
+
+- Bind one channel once for local machine ergonomics.
+- Use `command(...)` to create channel-scoped command effects.
+- Use `batch(...)` to create channel-scoped `effectBatch(...)` calls without repeating `channel` options.
+- This is ergonomic sugar over existing APIs, not a runtime behavior change.
 
 `effectBatch(...)` guidance:
 

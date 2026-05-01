@@ -69,28 +69,24 @@ When adapter commands must run in strict order and still emit integration-facing
 ```ts
 const applySucceeded = action("ApplySucceeded")
 const applyFailed = action("ApplyFailed").withPayload<{ message: string }>()
+const editor = commandChannel<Commands, "notesEditor">("notesEditor")
 
 const Editing = state({
   ApplyRemote: (_data, payload) =>
-    effectBatch(
-      [
-        commandEffect<Commands, "notesEditor", "setDocument">(
-          "notesEditor",
-          "setDocument",
-          { document: payload.document },
-        ),
-        commandEffect<Commands, "notesEditor", "setEditable">(
-          "notesEditor",
-          "setEditable",
-          { editable: payload.editable },
-        ),
-      ],
-      { channel: "editor" },
-    ).chainToOutput(applySucceeded(), reason =>
-      applyFailed({
-        message: reason instanceof Error ? reason.message : "Unknown error",
-      }),
-    ),
+    editor
+      .batch([
+        editor.command("setDocument", {
+          document: payload.document,
+        }),
+        editor.command("setEditable", {
+          editable: payload.editable,
+        }),
+      ])
+      .chainToOutput(applySucceeded(), reason =>
+        applyFailed({
+          message: reason instanceof Error ? reason.message : "Unknown error",
+        }),
+      ),
 })
 ```
 

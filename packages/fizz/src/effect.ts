@@ -350,6 +350,26 @@ type CommandEffectChainToActionBuilder<
   >
 }
 
+export type CommandChannelBuilder<
+  Schema extends CommandSchema,
+  Channel extends CommandChannelName<Schema>,
+> = {
+  readonly channel: Channel
+  batch: (
+    commands: ReadonlyArray<Effect<unknown>>,
+    options?: Omit<EffectBatchOptions, "channel">,
+  ) => EffectBatchBuilder
+  command: <CommandType extends CommandTypeName<Schema, Channel>>(
+    commandType: CommandType,
+    payload: CommandPayload<Schema, Channel, CommandType>,
+  ) => CommandEffectChainToActionBuilder<
+    Channel,
+    CommandType,
+    CommandPayload<Schema, Channel, CommandType>,
+    CommandResult<Schema, Channel, CommandType>
+  >
+}
+
 export const commandEffect = <
   Schema extends CommandSchema,
   Channel extends CommandChannelName<Schema>,
@@ -425,6 +445,26 @@ export const effectBatch = (
     },
     onError: options?.onError ?? "failBatch",
   })
+
+export const commandChannel = <
+  Schema extends CommandSchema,
+  Channel extends CommandChannelName<Schema>,
+>(
+  channel: Channel,
+): CommandChannelBuilder<Schema, Channel> => ({
+  channel,
+  batch: (commands, options) =>
+    effectBatch(commands, {
+      ...options,
+      channel,
+    }),
+  command: (commandType, payload) =>
+    commandEffect<Schema, Channel, typeof commandType>(
+      channel,
+      commandType,
+      payload,
+    ),
+})
 
 type RequestJSONRejectHandler<
   RejectedAction extends Action<string, unknown> | void,

@@ -471,6 +471,35 @@ const runtime = createRuntime(machine, Editing(initialData), {
 })
 ```
 
+### `commandChannel`
+
+Bind a command channel once, then create channel-scoped commands and batches without repeating channel strings.
+
+```ts
+const editor = commandChannel<Commands, "notesEditor">("notesEditor")
+
+const Editing = state({
+  ApplyRemote: (_data, payload) =>
+    editor
+      .batch([
+        editor.command("setDocument", {
+          document: payload.document,
+        }),
+        editor.command("setEditable", {
+          editable: payload.editable,
+        }),
+      ])
+      .chainToAction(applySucceeded(), () => applyFailed()),
+})
+```
+
+`commandChannel(...)` methods:
+
+- `command(type, payload)`: creates a `commandEffect(...)` for the bound channel
+- `batch(commands, options?)`: creates an `effectBatch(...)` with the bound channel
+
+Use this helper when the same channel appears repeatedly in one state or machine.
+
 ### `effectBatch`
 
 Run multiple `commandEffect(...)` items as one ordered batch.

@@ -3,7 +3,7 @@ import { describe, expect, test } from "@jest/globals"
 import type { ActionCreatorType } from "../action"
 import { action } from "../action"
 import { createInitialContext } from "../context"
-import { commandEffect, effectBatch } from "../effect"
+import { commandChannel, commandEffect, effectBatch } from "../effect"
 import { Runtime } from "../runtime"
 import { state } from "../state"
 
@@ -62,6 +62,28 @@ type EditorCommands = {
 }
 
 describe("effectBatch", () => {
+  test("should provide channel-bound command and batch helpers", () => {
+    const editor = commandChannel<EditorCommands, "notesEditor">("notesEditor")
+
+    const command = editor.command("setDocument", { document: "hello" })
+    const batch = editor.batch([command], {
+      onError: "continue",
+    })
+
+    expect(command.label).toBe("commandEffect")
+    expect(command.data).toMatchObject({
+      channel: "notesEditor",
+      commandType: "setDocument",
+      payload: { document: "hello" },
+    })
+
+    expect(batch.label).toBe("effectBatch")
+    expect(batch.data).toMatchObject({
+      channel: "notesEditor",
+      onError: "continue",
+    })
+  })
+
   test("should support omitted options and default failBatch behavior", async () => {
     const applyRemote = action("ApplyRemote")
     const applySucceeded = action("ApplySucceeded")
@@ -242,25 +264,24 @@ describe("effectBatch", () => {
     const applyRemote = action("ApplyRemote").withPayload<{ fail?: boolean }>()
     const batchCompleted = action("BatchCompleted")
     const batchFailed = action("BatchFailed").withPayload<{ message: string }>()
+    const editor = commandChannel<EditorCommands, "notesEditor">("notesEditor")
 
     type ApplyRemote = ActionCreatorType<typeof applyRemote>
 
     const Editing = state<ApplyRemote, undefined>(
       {
         ApplyRemote: (_, payload) =>
-          effectBatch([
-            commandEffect<EditorCommands, "notesEditor", "setDocument">(
-              "notesEditor",
-              "setDocument",
-              {
+          editor
+            .batch([
+              editor.command("setDocument", {
                 document: payload.fail ? "bad" : "good",
-              },
+              }),
+            ])
+            .chainToOutput(batchCompleted(), reason =>
+              batchFailed({
+                message: reason instanceof Error ? reason.message : "unknown",
+              }),
             ),
-          ]).chainToOutput(batchCompleted(), reason =>
-            batchFailed({
-              message: reason instanceof Error ? reason.message : "unknown",
-            }),
-          ),
       },
       { name: "Editing" },
     )
