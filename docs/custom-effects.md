@@ -74,6 +74,8 @@ Fizz treats several labels as built-in runtime commands, including:
 - `restartInterval`
 - `startFrame`
 - `cancelFrame`
+- `resource`
+- `subscription`
 - `goBack`
 - `confirm`
 - `prompt`
@@ -92,6 +94,50 @@ Fizz treats several labels as built-in runtime commands, including:
 Those are intercepted by the runtime's effect dispatcher.
 
 Any other label is treated as a normal custom effect, and the runtime runs the provided executor.
+
+## State Resources
+
+Fizz now supports state-scoped resources that are separate from state data and runtime context history.
+
+Use these helpers:
+
+- `resource(key, value, teardown?)`
+- `abortController(key)`
+- `subscription(key, subscribe)`
+
+Resources are available in handler utils under `resources` and are automatically released on state exit. Releasing a resource does not trigger context updates.
+
+```typescript
+import { abortController, resource, state, subscription } from "@tdreyno/fizz"
+
+type Data = { saved: string[] }
+type Resources = {
+  ac: AbortController
+  sessionId: string
+  unsubscribePresence: () => void
+}
+
+const Editing = state<any, Data, string, string, string, Resources>({
+  Enter: () => [
+    abortController("ac"),
+    resource("sessionId", crypto.randomUUID()),
+    subscription("unsubscribePresence", () =>
+      presenceStore.subscribe(() => {}),
+    ),
+  ],
+
+  Save: (data, payload, { resources, update }) => {
+    resources.ac.abort()
+
+    return update({
+      ...data,
+      saved: [...data.saved, `${payload}:${resources.sessionId}`],
+    })
+  },
+})
+```
+
+`teardown` is optional for `resource(...)`. If omitted, the value is simply removed from the state resource map at cleanup time.
 
 That means the label should be descriptive and stable. It is not just documentation. It is the machine-readable name of the effect.
 

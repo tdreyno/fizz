@@ -62,6 +62,7 @@ export type {
   RuntimeDebugCancellationReason,
   RuntimeDebugCommand,
   RuntimeDebugEvent,
+  RuntimeDebugResourceReleaseReason,
   RuntimeMonitor,
 } from "./runtime/runtimeContracts.js"
 export type {

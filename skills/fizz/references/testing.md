@@ -87,6 +87,9 @@ The intended direction is a dedicated test helper subpath:
 - `waitForState(predicate, options?)`
 - `waitForOutput(typeOrPredicate, options?)`
 - `respondToOutput(...)`
+- `resources()`
+- `waitForResource(key, options?)`
+- `waitForResourceRelease(key, options?)`
 
 This is current API surface for reusable Fizz testing helpers.
 
@@ -111,6 +114,22 @@ await harness.waitForState(state => state.is(Done))
 
 const output = await harness.waitForOutput("FetchProfile")
 expect(output.type).toBe("FetchProfile")
+```
+
+## Testing Custom State Resources
+
+Use harness resource helpers to verify resource registration and automatic cleanup.
+
+```ts
+await harness.start()
+await harness.waitForResource("sessionId")
+
+expect(harness.resources().keys).toContain("sessionId")
+
+await harness.run(done())
+await harness.waitForResourceRelease("sessionId")
+
+expect(harness.resources().keys).toEqual([])
 ```
 
 ## Source Anchors

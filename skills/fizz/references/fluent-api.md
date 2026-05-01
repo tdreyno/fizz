@@ -27,6 +27,32 @@ Guidance:
 - Keep handlers deterministic and return transitions/actions/effects.
 - Use `onEnter(...)` and `onExit(...)` for lifecycle responders.
 
+## Typed Resources With `withResources(...)`
+
+Use `withResources<Resources>()` to strongly type `utils.resources` across fluent handlers.
+
+```ts
+type Resources = {
+  ac: AbortController
+  sessionId: string
+}
+
+const Editing = state<{ name: string }>("Editing")
+  .withResources<Resources>()
+  .onEnter(() => [
+    abortController("ac"),
+    resource("sessionId", crypto.randomUUID()),
+  ])
+  .on(save, (data, payload, { resources, update }) => {
+    resources.ac.abort()
+
+    return update({
+      ...data,
+      name: `${payload}:${resources.sessionId}`,
+    })
+  })
+```
+
 If you want fluent creator references without manually naming action types, use `action<P>(debugLabel?: string)`:
 
 ```ts

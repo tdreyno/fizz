@@ -579,6 +579,17 @@ export type RestartIntervalEffectData<IntervalId extends string = string> = {
   delay: number
 }
 
+export type ResourceEffectData<Key extends string = string, Value = unknown> = {
+  key: Key
+  teardown?: (value: Value) => void
+  value: Value
+}
+
+export type SubscriptionEffectData<Key extends string = string> = {
+  key: Key
+  subscribe: () => () => void
+}
+
 export const startTimer = <TimeoutId extends string = string>(
   timeoutId: TimeoutId,
   delay: number,
@@ -616,6 +627,27 @@ export const restartInterval = <IntervalId extends string = string>(
 export const startFrame = (): Effect<undefined> => effect("startFrame")
 
 export const cancelFrame = (): Effect<undefined> => effect("cancelFrame")
+
+export const resource = <Key extends string = string, Value = unknown>(
+  key: Key,
+  value: Value,
+  teardown?: (value: Value) => void,
+): Effect<ResourceEffectData<Key, Value>> =>
+  effect(
+    "resource",
+    teardown === undefined ? { key, value } : { key, teardown, value },
+  )
+
+export const abortController = <Key extends string = string>(
+  key: Key,
+): Effect<ResourceEffectData<Key, AbortController>> =>
+  resource(key, new AbortController(), controller => controller.abort())
+
+export const subscription = <Key extends string = string>(
+  key: Key,
+  subscribe: () => () => void,
+): Effect<SubscriptionEffectData<Key>> =>
+  effect("subscription", { key, subscribe })
 
 export type ConfirmEffectData = {
   message: string

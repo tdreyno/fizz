@@ -29,6 +29,8 @@ Both `resolve` and `reject` handlers are required.
 
 If you provide an `asyncId`, the state can later cancel that specific operation with `cancelAsync(asyncId)`. If you omit the id, Fizz generates one internally so the operation still participates in stale-completion protection and state-exit cleanup, but you cannot target it later with manual cancellation.
 
+For non-promise external lifecycles (subscriptions, controllers, handles), prefer state resources via `resource(...)`, `abortController(...)`, and `subscription(...)`. Those values are available through handler `utils.resources` and are cleaned up automatically on state exit.
+
 ```text
 Async lifecycle
 

@@ -51,6 +51,7 @@ import {
   resetWrappedHandler,
   setPendingWrappedHandler,
 } from "./runtime/wrappedHandlerMachine.js"
+import { getStateResources } from "./stateResources.js"
 
 /**
  * States can return either:
@@ -106,6 +107,7 @@ type StateUtils<
   TimeoutId extends string,
   IntervalId extends string,
   AsyncId extends string,
+  Resources extends Record<string, unknown> = Record<string, unknown>,
 > = {
   update: (
     data: Data,
@@ -128,6 +130,7 @@ type StateUtils<
   restartInterval: (intervalId: IntervalId, delay: number) => Effect
   startFrame: () => Effect
   cancelFrame: () => Effect
+  resources: Resources
 }
 
 type Handler<
@@ -137,11 +140,20 @@ type Handler<
   TimeoutId extends string,
   IntervalId extends string,
   AsyncId extends string,
+  Resources extends Record<string, unknown> = Record<string, unknown>,
   A extends WithScheduledActions<Actions, TimeoutId, IntervalId, AsyncId>,
 > = (
   data: Data,
   payload: ActionPayload<A>,
-  utils: StateUtils<Name, Actions, Data, TimeoutId, IntervalId, AsyncId>,
+  utils: StateUtils<
+    Name,
+    Actions,
+    Data,
+    TimeoutId,
+    IntervalId,
+    AsyncId,
+    Resources
+  >,
 ) => HandlerReturn
 
 type WrappedHandlerMode = "debounce" | "throttle"
@@ -201,11 +213,21 @@ type HandlerValue<
   TimeoutId extends string,
   IntervalId extends string,
   AsyncId extends string,
+  Resources extends Record<string, unknown> = Record<string, unknown>,
   A extends WithScheduledActions<Actions, TimeoutId, IntervalId, AsyncId>,
 > =
-  | Handler<Name, Actions, Data, TimeoutId, IntervalId, AsyncId, A>
+  | Handler<Name, Actions, Data, TimeoutId, IntervalId, AsyncId, Resources, A>
   | WrappedHandler<
-      Handler<Name, Actions, Data, TimeoutId, IntervalId, AsyncId, A> &
+      Handler<
+        Name,
+        Actions,
+        Data,
+        TimeoutId,
+        IntervalId,
+        AsyncId,
+        Resources,
+        A
+      > &
         LooseHandler
     >
 
@@ -215,6 +237,7 @@ type StateHandlers<
   TimeoutId extends string,
   IntervalId extends string,
   AsyncId extends string,
+  Resources extends Record<string, unknown> = Record<string, unknown>,
 > = {
   [A in Actions as ActionName<A>]: HandlerValue<
     string,
@@ -223,6 +246,7 @@ type StateHandlers<
     TimeoutId,
     IntervalId,
     AsyncId,
+    Resources,
     A
   >
 } & {
@@ -237,6 +261,7 @@ type StateHandlers<
     TimeoutId,
     IntervalId,
     AsyncId,
+    Resources,
     A
   >
 }
@@ -775,10 +800,19 @@ export type State<
   TimeoutId extends string = string,
   IntervalId extends string = TimeoutId,
   AsyncId extends string = string,
+  Resources extends Record<string, unknown> = Record<string, unknown>,
 > = (
   action: WithScheduledActions<Actions, TimeoutId, IntervalId, AsyncId>,
   data: Data,
-  utils: StateUtils<Name, Actions, Data, TimeoutId, IntervalId, AsyncId>,
+  utils: StateUtils<
+    Name,
+    Actions,
+    Data,
+    TimeoutId,
+    IntervalId,
+    AsyncId,
+    Resources
+  >,
 ) => HandlerReturn
 
 export interface BoundStateFn<
@@ -806,6 +840,7 @@ export const stateWrapper = <
   TimeoutId extends string = string,
   IntervalId extends string = TimeoutId,
   AsyncId extends string = string,
+  Resources extends Record<string, unknown> = Record<string, unknown>,
 >(
   name: Name,
   executor: (
@@ -825,6 +860,7 @@ export const stateWrapper = <
       restartInterval: (intervalId: IntervalId, delay: number) => Effect
       startFrame: () => Effect
       cancelFrame: () => Effect
+      resources: Resources
     },
     runtime?: InternalRuntime,
   ) => HandlerReturn,
@@ -833,7 +869,7 @@ export const stateWrapper = <
     const isCurrentState: StateTransition<Name, A, Data>["is"] = testState =>
       testState === fn
 
-    return {
+    const transition: StateTransition<Name, A, Data> = {
       name,
       data,
       isStateTransition: true,
@@ -872,6 +908,13 @@ export const stateWrapper = <
               restartIntervalEffect(intervalId, delay),
             startFrame: () => startFrameEffect(),
             cancelFrame: () => cancelFrameEffect(),
+            resources: getStateResources(
+              transition as unknown as StateTransition<
+                string,
+                Action<string, unknown>,
+                unknown
+              >,
+            ) as Resources,
             ...(parentRuntime ? { parentRuntime } : {}),
           },
           runtime,
@@ -881,6 +924,8 @@ export const stateWrapper = <
       is: isCurrentState,
       isNamed: (testName: string): boolean => testName === name,
     }
+
+    return transition
   }
 
   Object.defineProperty(fn, "name", { value: name })
@@ -901,13 +946,29 @@ const matchAction =
     TimeoutId extends string,
     IntervalId extends string,
     AsyncId extends string,
+    Resources extends Record<string, unknown> = Record<string, unknown>,
   >(
-    handlers: StateHandlers<Actions, Data, TimeoutId, IntervalId, AsyncId>,
+    handlers: StateHandlers<
+      Actions,
+      Data,
+      TimeoutId,
+      IntervalId,
+      AsyncId,
+      Resources
+    >,
   ) =>
   (
     action: WithScheduledActions<Actions, TimeoutId, IntervalId, AsyncId>,
     data: Data,
-    utils: StateUtils<string, Actions, Data, TimeoutId, IntervalId, AsyncId>,
+    utils: StateUtils<
+      string,
+      Actions,
+      Data,
+      TimeoutId,
+      IntervalId,
+      AsyncId,
+      Resources
+    >,
     runtime?: InternalRuntime,
   ): HandlerReturn => {
     const wrappedHandlers = collectWrappedHandlers(
@@ -970,18 +1031,31 @@ export const state = <
   TimeoutId extends string = string,
   IntervalId extends string = TimeoutId,
   AsyncId extends string = string,
+  Resources extends Record<string, unknown> = Record<string, unknown>,
 >(
-  handlers: StateHandlers<Actions, Data, TimeoutId, IntervalId, AsyncId>,
+  handlers: StateHandlers<
+    Actions,
+    Data,
+    TimeoutId,
+    IntervalId,
+    AsyncId,
+    Resources
+  >,
   options?: { name?: string },
 ): BoundStateFn<
   string,
   WithScheduledActions<Actions, TimeoutId, IntervalId, AsyncId>,
   Data
 > =>
-  stateWrapper(
-    options?.name ?? `AnonymousState${counter++}`,
-    matchAction(handlers),
-  )
+  stateWrapper<
+    string,
+    WithScheduledActions<Actions, TimeoutId, IntervalId, AsyncId>,
+    Data,
+    TimeoutId,
+    IntervalId,
+    AsyncId,
+    Resources
+  >(options?.name ?? `AnonymousState${counter++}`, matchAction(handlers))
 
 export const NESTED = Symbol("Nested runtime")
 

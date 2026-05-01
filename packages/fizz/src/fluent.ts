@@ -78,6 +78,7 @@ type FluentStateUtils<
   Data,
   TimeoutId extends string,
   IntervalId extends string,
+  Resources extends Record<string, unknown> = Record<string, unknown>,
 > = {
   update: (
     data: Data,
@@ -100,6 +101,7 @@ type FluentStateUtils<
   startFrame: () => unknown
   cancelFrame: () => unknown
   parentRuntime?: unknown
+  resources: Resources
 }
 
 type FluentHandler<
@@ -108,11 +110,19 @@ type FluentHandler<
   Data,
   TimeoutId extends string,
   IntervalId extends string,
+  Resources extends Record<string, unknown> = Record<string, unknown>,
   A extends Action<string, unknown>,
 > = (
   data: Data,
   payload: ActionPayload<A>,
-  utils: FluentStateUtils<Name, Actions, Data, TimeoutId, IntervalId>,
+  utils: FluentStateUtils<
+    Name,
+    Actions,
+    Data,
+    TimeoutId,
+    IntervalId,
+    Resources
+  >,
 ) => HandlerReturn
 
 export type FluentStateDescription = {
@@ -134,7 +144,17 @@ export interface FluentState<
   Data,
   TimeoutId extends string = string,
   IntervalId extends string = string,
+  Resources extends Record<string, unknown> = Record<string, unknown>,
 > extends FluentStateBase<Name, Data> {
+  withResources<R extends Record<string, unknown>>(): FluentState<
+    Name,
+    Actions,
+    Data,
+    TimeoutId,
+    IntervalId,
+    R
+  >
+
   on<C extends AnyFluentActionCreator>(
     actionCreator: C,
     handler: FluentHandler<
@@ -143,6 +163,7 @@ export interface FluentState<
       Data,
       TimeoutId,
       IntervalId,
+      Resources,
       ActionCreatorType<C>
     >,
   ): FluentState<
@@ -150,7 +171,8 @@ export interface FluentState<
     Actions | ActionCreatorType<C>,
     Data,
     TimeoutId,
-    IntervalId
+    IntervalId,
+    Resources
   >
 
   onDebounce<C extends AnyFluentActionCreator>(
@@ -162,6 +184,7 @@ export interface FluentState<
       Data,
       TimeoutId,
       IntervalId,
+      Resources,
       ActionCreatorType<C>
     >,
   ): FluentState<
@@ -169,7 +192,8 @@ export interface FluentState<
     Actions | ActionCreatorType<C>,
     Data,
     TimeoutId,
-    IntervalId
+    IntervalId,
+    Resources
   >
 
   onThrottle<C extends AnyFluentActionCreator>(
@@ -181,6 +205,7 @@ export interface FluentState<
       Data,
       TimeoutId,
       IntervalId,
+      Resources,
       ActionCreatorType<C>
     >,
   ): FluentState<
@@ -188,16 +213,33 @@ export interface FluentState<
     Actions | ActionCreatorType<C>,
     Data,
     TimeoutId,
-    IntervalId
+    IntervalId,
+    Resources
   >
 
   onEnter(
-    handler: FluentHandler<Name, Actions, Data, TimeoutId, IntervalId, Enter>,
-  ): FluentState<Name, Actions | Enter, Data, TimeoutId, IntervalId>
+    handler: FluentHandler<
+      Name,
+      Actions,
+      Data,
+      TimeoutId,
+      IntervalId,
+      Resources,
+      Enter
+    >,
+  ): FluentState<Name, Actions | Enter, Data, TimeoutId, IntervalId, Resources>
 
   onExit(
-    handler: FluentHandler<Name, Actions, Data, TimeoutId, IntervalId, Exit>,
-  ): FluentState<Name, Actions | Exit, Data, TimeoutId, IntervalId>
+    handler: FluentHandler<
+      Name,
+      Actions,
+      Data,
+      TimeoutId,
+      IntervalId,
+      Resources,
+      Exit
+    >,
+  ): FluentState<Name, Actions | Exit, Data, TimeoutId, IntervalId, Resources>
 
   onTimeout<Id extends string>(
     timeoutId: Id,
@@ -207,9 +249,10 @@ export interface FluentState<
       Data,
       TimeoutId | Id,
       IntervalId,
+      Resources,
       TimerCompleted<Id>
     >,
-  ): FluentState<Name, Actions, Data, TimeoutId | Id, IntervalId>
+  ): FluentState<Name, Actions, Data, TimeoutId | Id, IntervalId, Resources>
 
   onInterval<Id extends string>(
     intervalId: Id,
@@ -219,12 +262,17 @@ export interface FluentState<
       Data,
       TimeoutId,
       IntervalId | Id,
+      Resources,
       IntervalTriggered<Id>
     >,
-  ): FluentState<Name, Actions, Data, TimeoutId, IntervalId | Id>
+  ): FluentState<Name, Actions, Data, TimeoutId, IntervalId | Id, Resources>
 
-  when(predicate: (data: Data) => boolean): FluentState<Name, Actions, Data>
-  unless(predicate: (data: Data) => boolean): FluentState<Name, Actions, Data>
+  when(
+    predicate: (data: Data) => boolean,
+  ): FluentState<Name, Actions, Data, TimeoutId, IntervalId, Resources>
+  unless(
+    predicate: (data: Data) => boolean,
+  ): FluentState<Name, Actions, Data, TimeoutId, IntervalId, Resources>
   describe(): FluentStateDescription
 }
 
@@ -406,6 +454,8 @@ export const state = <Data = undefined, Name extends string = string>(
   stateFn.on = (actionCreator, handler) =>
     registerHandler(actionCreator.type, handler as AnyHandler, "on") as never
 
+  stateFn.withResources = () => stateFn as never
+
   stateFn.onDebounce = (actionCreator, options, handler) =>
     registerHandler(
       actionCreator.type,
@@ -486,9 +536,17 @@ export const withDebouncedAction = <
   Data,
   TimeoutId extends string,
   IntervalId extends string,
+  Resources extends Record<string, unknown>,
   C extends AnyFluentActionCreator,
 >(
-  stateValue: FluentState<Name, Actions, Data, TimeoutId, IntervalId>,
+  stateValue: FluentState<
+    Name,
+    Actions,
+    Data,
+    TimeoutId,
+    IntervalId,
+    Resources
+  >,
   actionCreator: C,
   options: Parameters<typeof debounce>[1],
   handler: FluentHandler<
@@ -497,6 +555,7 @@ export const withDebouncedAction = <
     Data,
     TimeoutId,
     IntervalId,
+    Resources,
     ActionCreatorType<C>
   >,
 ) => stateValue.onDebounce(actionCreator, options, handler as never)

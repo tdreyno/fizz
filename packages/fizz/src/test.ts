@@ -13,6 +13,7 @@ import {
   Runtime as FizzRuntime,
 } from "./runtime.js"
 import type { StateTransition } from "./state.js"
+import { hasStateResource, listStateResourceKeys } from "./stateResources.js"
 
 type TestActionMap = {
   [key: string]: (...args: Array<any>) => Action<string, unknown>
@@ -114,6 +115,12 @@ export type TestHarness<
       | ((output: HarnessOutputAction<OAM>) => boolean),
     options?: WaitForOutputOptions,
   ) => Promise<HarnessOutputAction<OAM>>
+  resources: () => { keys: string[] }
+  waitForResource: (key: string, options?: WaitForStateOptions) => Promise<void>
+  waitForResourceRelease: (
+    key: string,
+    options?: WaitForStateOptions,
+  ) => Promise<void>
   clearRecords: () => void
   disconnect: () => void
 }
@@ -339,6 +346,42 @@ export const createTestHarness = <
     }
   }
 
+  const waitForResource = async (
+    key: string,
+    options?: WaitForStateOptions,
+  ): Promise<void> => {
+    const maxIterations = resolveMaxIterations(options?.maxIterations)
+    const settleBetweenChecks = options?.settleBetweenChecks ?? true
+
+    await waitForCondition({
+      check: () =>
+        hasStateResource(runtime.currentState() as HarnessState, key)
+          ? true
+          : undefined,
+      maxIterations,
+      settleBetweenChecks,
+      timeoutMessage: `Resource "${key}" did not become active within ${maxIterations} iterations.`,
+    })
+  }
+
+  const waitForResourceRelease = async (
+    key: string,
+    options?: WaitForStateOptions,
+  ): Promise<void> => {
+    const maxIterations = resolveMaxIterations(options?.maxIterations)
+    const settleBetweenChecks = options?.settleBetweenChecks ?? true
+
+    await waitForCondition({
+      check: () =>
+        hasStateResource(runtime.currentState() as HarnessState, key)
+          ? undefined
+          : true,
+      maxIterations,
+      settleBetweenChecks,
+      timeoutMessage: `Resource "${key}" did not release within ${maxIterations} iterations.`,
+    })
+  }
+
   return {
     context,
     runtime,
@@ -364,6 +407,11 @@ export const createTestHarness = <
     settle,
     waitForState,
     waitForOutput,
+    resources: () => ({
+      keys: listStateResourceKeys(runtime.currentState() as HarnessState),
+    }),
+    waitForResource,
+    waitForResourceRelease,
     clearRecords: () => {
       recordedStates.splice(0, recordedStates.length)
       recordedOutputs.splice(0, recordedOutputs.length)

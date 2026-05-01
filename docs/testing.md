@@ -175,6 +175,7 @@ The exported shape is:
 - `createTestHarness(...)` to compose context creation, runtime creation, controlled drivers, and state/output recording
 - `deferred()` as a small utility for promise-controlled tests
 - helper methods such as `run(...)`, `respondToOutput(...)`, `currentState()`, `currentHistory()`, `flushAsync()`, `advanceBy()`, `advanceFrames()`, `runAllAsync()`, `runAllTimers()`, `settle(...)`, `waitForState(...)`, and `waitForOutput(...)`
+- resource helpers such as `resources()`, `waitForResource(key, options?)`, and `waitForResourceRelease(key, options?)`
 - read-only inspection helpers such as recorded outputs and recorded state snapshots
 
 This subpath is preferred over adding test helpers to the root package export surface because it keeps production imports and test-only imports clearly separated.
@@ -203,6 +204,27 @@ await harness.waitForState(state => state.is(Done))
 const output = await harness.waitForOutput("FetchProfile")
 
 expect(output.type).toBe("FetchProfile")
+```
+
+## Testing State Resources
+
+When states use `resource(...)`, `abortController(...)`, or `subscription(...)`, use harness resource helpers to assert lifecycle without manual runtime wiring.
+
+```ts
+const harness = createTestHarness({
+  history: [Editing({ events: [] })],
+  internalActions: { save },
+})
+
+await harness.start()
+await harness.waitForResource("sessionId")
+
+expect(harness.resources().keys).toContain("sessionId")
+
+await harness.run(save())
+await harness.waitForResourceRelease("sessionId")
+
+expect(harness.resources().keys).toEqual([])
 ```
 
 ## Testing Guidance For Agents

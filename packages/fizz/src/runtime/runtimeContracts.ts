@@ -26,6 +26,7 @@ export type RuntimeDebugCommand =
     }
 
 export type RuntimeDebugCancellationReason = "cleanup" | "effect" | "restart"
+export type RuntimeDebugResourceReleaseReason = "cleanup" | "effect"
 
 export type RuntimeDebugEvent =
   | {
@@ -119,6 +120,24 @@ export type RuntimeDebugEvent =
   | {
       reason: RuntimeDebugCancellationReason
       type: "frame-cancelled"
+    }
+  | {
+      resourceKey: string
+      stateName: string
+      type: "resource-registered"
+    }
+  | {
+      reason: RuntimeDebugResourceReleaseReason
+      resourceKey: string
+      stateName: string
+      type: "resource-released"
+    }
+  | {
+      error: unknown
+      reason: RuntimeDebugResourceReleaseReason
+      resourceKey: string
+      stateName: string
+      type: "resource-release-failed"
     }
 
 export type RuntimeMonitor = (event: RuntimeDebugEvent) => void

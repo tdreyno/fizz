@@ -16,6 +16,7 @@ import type {
   RuntimeDebugEvent,
   RuntimeState,
 } from "./runtimeContracts.js"
+import { createRuntimeResourceModule } from "./runtimeResourceModule.js"
 import { createRuntimeSchedulingModule } from "./runtimeSchedulingModule.js"
 import type { RuntimeTimerDriver } from "./timerDriver.js"
 
@@ -57,6 +58,10 @@ export const createRuntimeModules = <OutputAction>(
     runAction: options.runAction,
     timerDriver: options.timerDriver,
   })
+  const resourceModule = createRuntimeResourceModule({
+    emitMonitor: options.emitMonitor,
+    getContext: options.getContext,
+  })
   const browserModule = createRuntimeBrowserModule({
     browserDriver: options.browserDriver,
     runAction: options.runAction,
@@ -82,12 +87,14 @@ export const createRuntimeModules = <OutputAction>(
   )
 
   registerEffectHandlers(effectHandlers, asyncModule.effectHandlers)
+  registerEffectHandlers(effectHandlers, resourceModule.effectHandlers)
   registerEffectHandlers(effectHandlers, browserModule.effectHandlers)
   registerEffectHandlers(effectHandlers, schedulingModule.effectHandlers)
 
   return {
     disconnect: () => {
       asyncModule.clear()
+      resourceModule.clear()
       browserModule.clear()
       schedulingModule.clear()
       registryRegistration.unregister()
@@ -95,6 +102,7 @@ export const createRuntimeModules = <OutputAction>(
     effectHandlers,
     prepareForGoBack: () => {
       asyncModule.clearForGoBack()
+      resourceModule.clearForGoBack()
       browserModule.clearForGoBack()
       schedulingModule.clearForGoBack()
     },
@@ -102,6 +110,10 @@ export const createRuntimeModules = <OutputAction>(
       const currentState = options.currentState()
 
       asyncModule.clearForTransition({
+        currentState,
+        targetState,
+      })
+      resourceModule.clearForTransition({
         currentState,
         targetState,
       })
