@@ -630,11 +630,13 @@ The one-way browser helpers (`alert`, copy, open, print, location, history, post
 
 Fizz exposes three first-party async effect helpers:
 
-- `startAsync(run, handlers, asyncId?)`
+- `startAsync(run, asyncId?)`
 - `cancelAsync(asyncId)`
-- `debounceAsync(run, options)`
+- `debounceAsync(run, options).chainToAction(resolve, reject?)`
 
 Use `startAsync(...)` for immediate async work, `cancelAsync(...)` to stop a known async lane, and `debounceAsync(...)` when the machine needs debounce plus latest-wins cancellation semantics in one helper.
+
+Use `startAsync(...).chainToAction(resolve, reject)` when settled async work should dispatch actions. Return `startAsync(...)` directly for fire-and-forget work.
 
 `debounceAsync(...)` requires a lazy run function and a required `asyncId`:
 
@@ -642,23 +644,21 @@ Use `startAsync(...)` for immediate async work, `cancelAsync(...)` to stop a kno
 debounceAsync(signal => saveDraft(signal), {
   asyncId: "draft",
   delayMs: 300,
-  reject: saveFailed,
-  resolve: saveSucceeded,
-})
+}).chainToAction(saveSucceeded, saveFailed)
 ```
 
 Option shape:
 
 ```ts
-type DebounceAsyncOptions<Resolved, AsyncId extends string> = {
+type DebounceAsyncOptions<AsyncId extends string> = {
   asyncId: AsyncId
   delayMs: number
-  resolve: (value: Resolved) => Action<string, unknown> | void
-  reject?: (reason: unknown) => Action<string, unknown> | void
   classifyAbort?: (reason: unknown, signal: AbortSignal) => boolean
   emitCancelled?: boolean
 }
 ```
+
+`debounceAsync(...).chainToAction(resolve, reject?)` requires `resolve` and allows an omitted `reject` mapper.
 
 Behavior summary:
 

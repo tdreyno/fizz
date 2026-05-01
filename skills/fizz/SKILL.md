@@ -61,7 +61,7 @@ Create the initial context, create the runtime, then run `enter()` to bootstrap 
 
 ### 4. Use async helpers instead of ad-hoc fetch orchestration
 
-Use `startAsync(...)` for generic promise-backed work. Use `requestJSONAsync(...)` for JSON fetch flows. Use `customJSONAsync(...)` when app client functions already return parsed JSON. Use `validate(...)` to narrow payloads with assert-style or parser-style validators, use `map(...)` for payload shaping, and use `chainToAction(...)` when the result should dispatch actions.
+Use `startAsync(...)` for generic promise-backed work. Use `requestJSONAsync(...)` for JSON fetch flows. Use `customJSONAsync(...)` when app client functions already return parsed JSON. Use `debounceAsync(...)` for latest-wins debounced async flows. Use `validate(...)` to narrow payloads with assert-style or parser-style validators, use `map(...)` for payload shaping, and use `chainToAction(...)` when the result should dispatch actions. Prefer fluent chaining over inline `resolve`/`reject` config whenever an effect helper supports both styles.
 
 ### 5. Treat cancellation and stale completions as part of the design
 
@@ -101,9 +101,11 @@ If the task is about adapter-facing output actions, read `references/output-acti
 
 ### Async and scheduling
 
-- Use `startAsync(...)` when the async source is not just `fetch(...).json()`.
+- Use `startAsync(...).chainToAction(resolve, reject)` when the async source is not just `fetch(...).json()` and the settled result should dispatch actions.
 - Use `requestJSONAsync(...)` when fetching JSON from an API.
 - Use `customJSONAsync(...)` when using app-level client methods (OpenAPI, Apollo, or similar) that already return parsed JSON.
+- Use `debounceAsync(...).chainToAction(resolve, reject?)` when an action burst should collapse into one latest-wins async request.
+- Prefer fluent `.chainToAction(...)` success/failure mapping over object-key `resolve`/`reject` config when the API offers both patterns.
 - Use `debounce(...)` when a handler should run after calls quiet down for a delay window.
 - Use `throttle(...)` when a handler should run at most once per window.
 - Call `validate(...)` before `chainToAction(...)` if the payload must be checked or narrowed.

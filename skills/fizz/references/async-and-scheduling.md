@@ -8,6 +8,8 @@ For machine-scoped service dependency patterns, use `references/data-clients.md`
 
 Fizz already exposes the lifecycle primitives needed for async and scheduled work. Prefer those helpers over manually wiring `setTimeout`, `setInterval`, or fetch bookkeeping in components.
 
+When a helper needs to map success or failure back into actions, prefer fluent chaining such as `.chainToAction(...)` over inline `resolve`/`reject` config keys.
+
 ## `startAsync(...)`
 
 Use `startAsync(...)` when you need to start async work from a state handler and map the settled result back into actions.
@@ -20,14 +22,7 @@ Supported patterns:
 Use an explicit `asyncId` when later cancellation matters.
 
 ```typescript
-startAsync(
-  loadProfile,
-  {
-    resolve: profileLoaded,
-    reject: profileFailed,
-  },
-  "profile",
-)
+startAsync(loadProfile, "profile").chainToAction(profileLoaded, profileFailed)
 ```
 
 ## `debounceAsync(...)`
@@ -52,19 +47,15 @@ Use it for autosave, incremental search, and other workflows that currently comb
 debounceAsync(signal => saveDraft(signal, payload.text), {
   asyncId: `draft:${payload.id}`,
   delayMs: 300,
-  reject: saveFailed,
-  resolve: saveSucceeded,
-})
+}).chainToAction(saveSucceeded, saveFailed)
 ```
 
 Current option shape:
 
 ```typescript
-type DebounceAsyncOptions<Resolved, AsyncId extends string> = {
+type DebounceAsyncOptions<AsyncId extends string> = {
   asyncId: AsyncId
   delayMs: number
-  resolve: (value: Resolved) => Action<string, unknown> | void
-  reject?: (reason: unknown) => Action<string, unknown> | void
   classifyAbort?: (reason: unknown, signal: AbortSignal) => boolean
   emitCancelled?: boolean
 }

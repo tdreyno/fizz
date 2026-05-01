@@ -921,8 +921,7 @@ export const stateWrapper = <
               void runtime?.run(a)
             },
             cancelAsync: (asyncId: AsyncId) => cancelAsyncEffect(asyncId),
-            startAsync: (run, handlers, asyncId) =>
-              startAsyncEffect(run, handlers, asyncId),
+            startAsync: (run, asyncId) => startAsyncEffect(run, asyncId),
             startTimer: (timeoutId: TimeoutId, delay: number) =>
               startTimerEffect(timeoutId, delay),
             cancelTimer: (timeoutId: TimeoutId) => cancelTimerEffect(timeoutId),

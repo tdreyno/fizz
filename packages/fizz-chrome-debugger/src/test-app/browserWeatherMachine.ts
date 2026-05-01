@@ -108,10 +108,10 @@ const requestWeather = (requestPath: string) =>
 const Loading = state<LoadingActions, BrowserWeatherData>(
   {
     Enter: () =>
-      startAsync(resolveWeatherRequestPath, {
-        reject: () => undefined,
-        resolve: requestPath => weatherRequestReady({ requestPath }),
-      }),
+      startAsync(resolveWeatherRequestPath).chainToAction(
+        requestPath => weatherRequestReady({ requestPath }),
+        () => undefined,
+      ),
 
     WeatherRequestReady: (_, payload) => requestWeather(payload.requestPath),
 

@@ -65,10 +65,8 @@ const Editing = state<
       {
         asyncId: `draft:${payload.draftId}`,
         delayMs: 300,
-        reject: error => draftSaveFailed(String(error)),
-        resolve: draftSaved,
       },
-    ),
+    ).chainToAction(draftSaved, error => draftSaveFailed(String(error))),
 })
 ```
 
@@ -108,7 +106,7 @@ mapped action re-enters the machine
 
 Fizz adds two async helpers to the state handler utils:
 
-- `startAsync(run, handlers, asyncId?)`
+- `startAsync(run, asyncId?)`
 - `cancelAsync(asyncId)`
 
 `startAsync(...)` accepts either:
@@ -116,16 +114,18 @@ Fizz adds two async helpers to the state handler utils:
 - A lazy function `(signal, context) => Promise<T>`
 - A `Promise<T>` that is already in flight
 
-The `handlers` object maps the settled result to your own actions:
+Use `.chainToAction(resolve, reject)` when the settled result should map back into machine actions:
 
 ```typescript
-{
-  resolve: value => someAction(value),
-  reject: reason => someOtherAction(reason),
-}
-
-Both `resolve` and `reject` handlers are required.
+startAsync(loadProfile, "profile").chainToAction(
+  value => someAction(value),
+  reason => someOtherAction(reason),
+)
 ```
+
+Both `resolve` and `reject` handlers are required when chaining.
+
+If you return `startAsync(...)` directly without chaining, Fizz still starts the work and ignores the settled value.
 
 If you provide an `asyncId`, the state can later cancel that specific operation with `cancelAsync(asyncId)`. If you omit the id, Fizz generates one internally so the operation still participates in stale-completion protection and state-exit cleanup, but you cannot target it later with manual cancellation.
 
@@ -494,12 +494,9 @@ const profilePromise = fetch("/api/profile").then(response => response.json())
 
 const Loading = state<Enter | typeof profileLoaded>({
   Enter: () =>
-    startAsync(
-      profilePromise,
-      {
-        resolve: profileLoaded,
-      },
-      "profile",
+    startAsync(profilePromise, "profile").chainToAction(
+      profileLoaded,
+      () => undefined,
     ),
 })
 ```

@@ -89,13 +89,9 @@ describe("Async scheduled operations", () => {
     const Loading = state<Enter | ProfileLoaded, Data, string, string, AsyncId>(
       {
         Enter: () =>
-          startAsync(
-            () => loadProfile.promise,
-            {
-              reject: ignoreAsync,
-              resolve: profileLoaded,
-            },
-            "profile",
+          startAsync(() => loadProfile.promise, "profile").chainToAction(
+            profileLoaded,
+            ignoreAsync,
           ),
 
         ProfileLoaded: (data, profile, { update }) => {
@@ -146,12 +142,10 @@ describe("Async scheduled operations", () => {
                   reject(new DOMException("Aborted", "AbortError"))
                 })
               }),
-            {
-              reject: ignoreAsync,
-              resolve: value =>
-                action("Unexpected").withPayload<string>()(value),
-            },
             "profile",
+          ).chainToAction(
+            value => action("Unexpected").withPayload<string>()(value),
+            ignoreAsync,
           ),
 
         CancelLoad: (_, __, { cancelAsync }) => cancelAsync("profile"),
@@ -205,10 +199,10 @@ describe("Async scheduled operations", () => {
     const Loading = state<Enter | Leave | ProfileLoaded, Data>(
       {
         Enter: () =>
-          startAsync(loadProfile.promise, {
-            reject: ignoreAsync,
-            resolve: profileLoaded,
-          }),
+          startAsync(loadProfile.promise).chainToAction(
+            profileLoaded,
+            ignoreAsync,
+          ),
 
         Leave: data => Done(appendEvent(data, "left")),
 
@@ -269,13 +263,9 @@ describe("Async scheduled operations", () => {
     >(
       {
         Enter: () =>
-          startAsync(
-            () => loadProfile.promise,
-            {
-              reject: ignoreAsync,
-              resolve: profileLoaded,
-            },
-            "profile",
+          startAsync(() => loadProfile.promise, "profile").chainToAction(
+            profileLoaded,
+            ignoreAsync,
           ),
 
         Refresh: (data, _, { update }) => update(appendEvent(data, "refresh")),
@@ -328,13 +318,9 @@ describe("Async scheduled operations", () => {
     const Loading = state<Enter | ProfileLoaded, Data, string, string, AsyncId>(
       {
         Enter: () =>
-          startAsync(
-            loadProfile.promise,
-            {
-              reject: ignoreAsync,
-              resolve: profileLoaded,
-            },
-            "profile",
+          startAsync(loadProfile.promise, "profile").chainToAction(
+            profileLoaded,
+            ignoreAsync,
           ),
 
         ProfileLoaded: (data, profile, { update }) => {
@@ -368,7 +354,7 @@ describe("Async scheduled operations", () => {
     })
   })
 
-  test("should type startAsync and cancelAsync with an id-last signature", () => {
+  test("should type startAsync and cancelAsync with a fluent id-last signature", () => {
     const profileLoaded = action("ProfileLoaded").withPayload<{
       id: string
       name: string
@@ -378,20 +364,19 @@ describe("Async scheduled operations", () => {
       Enter: (_, __, { cancelAsync, startAsync: startAsyncHelper }) => {
         startAsyncHelper(
           Promise.resolve({ id: "1", name: "Ada" }),
-          {
-            reject: ignoreAsync,
-            resolve: profileLoaded,
-          },
           "profile",
-        )
+        ).chainToAction(profileLoaded, ignoreAsync)
 
         cancelAsync("profile")
 
         // @ts-expect-error async id should stay in the last parameter slot
-        startAsyncHelper("profile", Promise.resolve({ id: "1", name: "Ada" }), {
-          reject: ignoreAsync,
-          resolve: profileLoaded,
-        })
+        startAsyncHelper("profile", Promise.resolve({ id: "1", name: "Ada" }))
+
+        // @ts-expect-error startAsync chain requires both resolve and reject
+        startAsyncHelper(
+          Promise.resolve({ id: "1", name: "Ada" }),
+          "profile",
+        ).chainToAction(profileLoaded)
 
         // @ts-expect-error async ids should be narrowed to the declared union
         cancelAsync("unknown")
@@ -1344,9 +1329,8 @@ describe("Async scheduled operations", () => {
             {
               asyncId: "draft",
               delayMs: 20,
-              resolve: saved,
             },
-          ),
+          ).chainToAction(saved),
 
         Saved: (data, value, { update }) =>
           update(appendEvent(data, `saved:${value}`)),
@@ -1424,9 +1408,8 @@ describe("Async scheduled operations", () => {
             {
               asyncId: "draft",
               delayMs: 10,
-              resolve: saved,
             },
-          ),
+          ).chainToAction(saved),
 
         Saved: (data, value, { update }) =>
           update(appendEvent(data, `saved:${value}`)),
@@ -1491,8 +1474,7 @@ describe("Async scheduled operations", () => {
           debounceAsync(async () => "saved", {
             asyncId: "draft",
             delayMs: 20,
-            resolve: () => undefined,
-          }),
+          }).chainToAction(() => undefined),
 
         CancelSave: (_, __, { cancelAsync }) => cancelAsync("draft"),
 
@@ -1570,10 +1552,8 @@ describe("Async scheduled operations", () => {
               classifyAbort: error =>
                 error instanceof Error && error.message === "cancelled",
               delayMs: 10,
-              reject: error => saveFailed(String(error)),
-              resolve: saveSettled,
             },
-          ),
+          ).chainToAction(saveSettled, error => saveFailed(String(error))),
 
         SaveFailed: (data, message, { update }) =>
           update(appendEvent(data, `failed:${message}`)),
@@ -1723,28 +1703,23 @@ describe("Async scheduled operations", () => {
     debounceAsync(async () => ({ id: "1", name: "Ada" }), {
       asyncId: "profile",
       delayMs: 50,
-      reject: error => profileFailed(String(error)),
-      resolve: profileLoaded,
-    })
+    }).chainToAction(profileLoaded, error => profileFailed(String(error)))
 
     debounceAsync(async () => ({ id: "1", name: "Ada" }), {
       asyncId: "profile",
       delayMs: 50,
-      resolve: profileLoaded,
-    })
+    }).chainToAction(profileLoaded)
 
     // @ts-expect-error debounceAsync requires asyncId
     debounceAsync(async () => ({ id: "1", name: "Ada" }), {
       delayMs: 50,
-      resolve: profileLoaded,
-    })
+    }).chainToAction(profileLoaded)
 
     // @ts-expect-error debounceAsync requires a lazy run function
     debounceAsync(Promise.resolve({ id: "1", name: "Ada" }), {
       asyncId: "profile",
       delayMs: 50,
-      resolve: profileLoaded,
-    })
+    }).chainToAction(profileLoaded)
   })
 
   test("should type parser-style validate and map stages", () => {

@@ -475,15 +475,13 @@ describe("runtime monitor", () => {
     const Loading = state<Enter, undefined, string, string, AsyncId>(
       {
         Enter: (_, __, { startAsync }) => [
-          startAsync(
-            profile.promise,
-            { reject: ignoreAsync, resolve: ignoreAsync },
-            "profile",
+          startAsync(profile.promise, "profile").chainToAction(
+            ignoreAsync,
+            ignoreAsync,
           ),
-          startAsync(
-            audit.promise,
-            { reject: ignoreAsync, resolve: ignoreAsync },
-            "audit",
+          startAsync(audit.promise, "audit").chainToAction(
+            ignoreAsync,
+            ignoreAsync,
           ),
         ],
       },
@@ -555,10 +553,9 @@ describe("runtime monitor", () => {
     >(
       {
         Enter: (_, __, { startAsync }) =>
-          startAsync(
-            settings.promise,
-            { reject: ignoreAsync, resolve: ignoreAsync },
-            "settings",
+          startAsync(settings.promise, "settings").chainToAction(
+            ignoreAsync,
+            ignoreAsync,
           ),
 
         CancelSettings: (_, __, { cancelAsync }) => cancelAsync("settings"),
@@ -616,10 +613,9 @@ describe("runtime monitor", () => {
     const Loading = state<Enter | Refresh | Leave, { events: string[] }>(
       {
         Enter: (_, __, { startAsync }) =>
-          startAsync(
-            settings.promise,
-            { reject: ignoreAsync, resolve: ignoreAsync },
-            "settings",
+          startAsync(settings.promise, "settings").chainToAction(
+            ignoreAsync,
+            ignoreAsync,
           ),
 
         Refresh: (data, _, { update }) =>

@@ -158,13 +158,9 @@ describe("Test harness", () => {
       {
         Enter: (data, _, { startAsync, startTimer, update }) => [
           update(appendEvent(data, "enter")),
-          startAsync(
-            loadProfile.promise,
-            {
-              reject: ignoreAsync,
-              resolve: profileLoaded,
-            },
-            "profile",
+          startAsync(loadProfile.promise, "profile").chainToAction(
+            profileLoaded,
+            ignoreAsync,
           ),
           startTimer("autosave", 10),
         ],

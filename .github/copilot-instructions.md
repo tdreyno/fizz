@@ -29,6 +29,7 @@
 - Model transitions with `state(...)` and `stateWithNested(...)` patterns already used in `packages/fizz/src`.
 - State handlers should return transitions/actions/effects in the same shapes already used by the runtime.
 - Avoid introducing hidden side effects inside transition logic; use explicit `effect(...)` helpers.
+- When mapping async or resource success/failure back into actions, prefer fluent chaining APIs such as `.chainToAction(...)` over config-object `resolve`/`reject` handler keys whenever the API supports both.
 
 ## Testing Expectations
 
