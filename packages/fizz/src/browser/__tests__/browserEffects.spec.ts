@@ -1,12 +1,12 @@
 import { jest } from "@jest/globals"
 
-import type { Action, ActionCreatorType, Enter } from "../action"
-import { action, enter } from "../action"
-import { createInitialContext } from "../context"
-import { confirm, copyToClipboard, noop, prompt } from "../effect"
-import { Runtime } from "../runtime"
-import { state } from "../state"
-import { timeout } from "./util"
+import { timeout } from "../../__tests__/util"
+import type { Action, ActionCreatorType, Enter } from "../../action"
+import { action, enter } from "../../action"
+import { createInitialContext } from "../../context"
+import { confirm, copyToClipboard, noop, prompt } from "../../effect"
+import { Runtime } from "../../runtime"
+import { state } from "../../state"
 
 const settle = async () => {
   await timeout(0)

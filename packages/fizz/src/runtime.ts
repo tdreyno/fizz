@@ -1,4 +1,5 @@
 import { beforeEnter, enter } from "./action.js"
+import type { RuntimeBrowserDriver } from "./browser/runtimeBrowserDriver.js"
 import type { Context } from "./context.js"
 import { createInitialContext } from "./context.js"
 import type { MachineDefinition } from "./createMachine.js"
@@ -6,7 +7,6 @@ import type { Effect } from "./effect.js"
 import { MissingCurrentState, UnknownStateReturnType } from "./errors.js"
 import type { RuntimeAsyncDriver } from "./runtime/asyncDriver.js"
 import { createDefaultAsyncDriver } from "./runtime/asyncDriver.js"
-import type { RuntimeBrowserDriver } from "./runtime/browserDriver.js"
 import type { RuntimeEffectHandlerRegistry } from "./runtime/effectDispatcher.js"
 import { dispatchEffect } from "./runtime/effectDispatcher.js"
 import type { StateSelector } from "./selectors.js"
@@ -53,12 +53,12 @@ import {
 } from "./runtime/transitions.js"
 import { arraySingleton } from "./util.js"
 
+export type { RuntimeBrowserDriver } from "./browser/runtimeBrowserDriver.js"
 export type {
   ControlledAsyncDriver,
   RuntimeAsyncDriver,
 } from "./runtime/asyncDriver.js"
 export { createControlledAsyncDriver } from "./runtime/asyncDriver.js"
-export type { RuntimeBrowserDriver } from "./runtime/browserDriver.js"
 export type {
   RuntimeDebugCancellationReason,
   RuntimeDebugCommand,

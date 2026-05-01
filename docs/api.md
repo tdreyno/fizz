@@ -273,7 +273,7 @@ Runtime creation options include:
 
 Use `browserDriver` when your machine returns browser-oriented built-in effects such as `confirm(...)`, `prompt(...)`, `alert(...)`, `copyToClipboard(...)`, or navigation helpers.
 
-The built-in browser implementation is exported from `@tdreyno/fizz/browser`.
+Import browser runtime drivers from the browser entrypoint only: `@tdreyno/fizz/browser`.
 
 ### `createRuntimeRegistry`
 

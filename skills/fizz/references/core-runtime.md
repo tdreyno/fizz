@@ -169,7 +169,8 @@ Modeling guidance:
 Driver guidance:
 
 - runtime creation accepts `browserDriver`
-- the built-in browser implementation is exported from `@tdreyno/fizz/browser` as `browserDriver`
+- import browser runtime drivers from `@tdreyno/fizz/browser`
+- `browserDriver` and `domDriver` are not exported from root `@tdreyno/fizz`
 
 ## Runtime Boot Sequence
 

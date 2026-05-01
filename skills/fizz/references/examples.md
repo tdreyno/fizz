@@ -196,6 +196,8 @@ const isDone = machine.currentState.is(machine.states.Done)
 
 ## React integration with browser driver
 
+Import browser runtime drivers from `@tdreyno/fizz/browser`.
+
 ```typescript
 import { browserDriver } from "@tdreyno/fizz/browser"
 import { useMachine } from "@tdreyno/fizz-react"

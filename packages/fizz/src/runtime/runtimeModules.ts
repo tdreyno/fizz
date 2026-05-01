@@ -1,7 +1,8 @@
+import type { RuntimeBrowserDriver } from "../browser/runtimeBrowserDriver.js"
+import { createRuntimeBrowserModule } from "../browser/runtimeBrowserModule.js"
 import type { Context } from "../context.js"
 import type { Runtime } from "../runtime.js"
 import type { RuntimeAsyncDriver } from "./asyncDriver.js"
-import type { RuntimeBrowserDriver } from "./browserDriver.js"
 import { registerRuntimeInChromeDebuggerRegistry } from "./debugHook.js"
 import type { RuntimeEffectHandlerRegistry } from "./effectDispatcher.js"
 import {
@@ -9,7 +10,6 @@ import {
   registerEffectHandlers,
 } from "./effectDispatcher.js"
 import { createRuntimeAsyncModule } from "./runtimeAsyncModule.js"
-import { createRuntimeBrowserModule } from "./runtimeBrowserModule.js"
 import type {
   RuntimeAction,
   RuntimeDebugCommand,
@@ -67,6 +67,7 @@ export const createRuntimeModules = <OutputAction>(
     ...(options.browserDriver === undefined
       ? {}
       : { browserDriver: options.browserDriver }),
+    getCurrentState: options.currentState,
     runAction: options.runAction,
   })
   const effectHandlers = createEffectHandlerRegistry<

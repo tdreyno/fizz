@@ -90,10 +90,14 @@ Fizz treats several labels as built-in runtime commands, including:
 - `historyForward`
 - `historyGo`
 - `postMessage`
+- `domAcquire`
+- `domListen`
+- `domObserveIntersection`
+- `domObserveResize`
 
 Those are intercepted by the runtime's effect dispatcher.
 
-Any other label is treated as a normal custom effect, and the runtime runs the provided executor.
+See [Browser & DOM Effects](browser-dom.md) for details on using the DOM and browser effect APIs.
 
 ## State Resources
 

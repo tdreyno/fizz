@@ -2,7 +2,7 @@ import { defineConfig } from "tsdown"
 
 export default defineConfig({
   entry: {
-    browser: "src/browser.ts",
+    browser: "src/browser/index.ts",
     cli: "src/cli.ts",
     fluent: "src/fluent.ts",
     index: "src/index.ts",

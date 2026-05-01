@@ -490,7 +490,9 @@ In the current implementation:
 - `restartOnInitialStateChange` exists in the type but is not currently used by the hook implementation
 - runtime `monitor` options are not currently forwarded through the hook setup
 
-Use the built-in browser implementation from core when you want a browser-backed driver:
+Use the built-in browser implementation from the browser entrypoint when you want a browser-backed driver:
+
+`browserDriver` is imported from `@tdreyno/fizz/browser` (not from `@tdreyno/fizz`).
 
 ```typescript
 import { browserDriver } from "@tdreyno/fizz/browser"
