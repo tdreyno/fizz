@@ -123,6 +123,8 @@ const isEditable = runStateSelector(
 )
 ```
 
+If you need to dispatch and read in one step, use `runtime.runAndSelect(...)` and keep selectors on the machine when the read will be reused.
+
 ### `createParallelMachine`
 
 Create a machine root that owns multiple child machines at the same time and broadcasts shared actions to every branch that can handle them.
@@ -253,6 +255,7 @@ For low-level usage where you already have a `Context`, construct `new Runtime(.
 The returned `Runtime` is the main execution object. The most commonly used methods are:
 
 - `run(action)`
+- `runAndSelect(action, selectorOrProject)`
 - `currentState()`
 - `currentHistory()`
 - `onContextChange(handler)`
@@ -274,6 +277,54 @@ Runtime creation options include:
 Use `browserDriver` when your machine returns browser-oriented built-in effects such as `confirm(...)`, `prompt(...)`, `alert(...)`, `copyToClipboard(...)`, or navigation helpers.
 
 Import browser runtime drivers from the browser entrypoint only: `@tdreyno/fizz/browser`.
+
+### `runAndSelect`
+
+Dispatch an action, wait for the same completion boundary as `run(action)`, then read a derived value from the resulting state.
+
+Prefer the selector form when the derived read belongs with the machine definition:
+
+```ts
+const machine = createMachine({
+  actions: { localChanged },
+  selectors: {
+    renderInputs: selectWhen(Editing, data => ({
+      canSave: data.value.length > 0,
+      preview: data.value.trim(),
+    })),
+  },
+  states: { Editing, Viewing },
+})
+
+const runtime = createRuntime(machine, Viewing({ value: "" }))
+
+const renderInputs = await runtime.runAndSelect(
+  localChanged({ value: " draft text " }),
+  machine.selectors.renderInputs,
+)
+```
+
+For narrow one-off adapter logic, pass a projection function instead:
+
+```ts
+const renderInputs = await runtime.runAndSelect(
+  localChanged({ value: " draft text " }),
+  state => {
+    if (!state.is(Editing)) {
+      return { canSave: false, preview: "" }
+    }
+
+    return {
+      canSave: state.data.value.length > 0,
+      preview: state.data.value.trim(),
+    }
+  },
+)
+```
+
+`runAndSelect(...)` does not wait for async effect settlement. It resolves after the same synchronous transition and effect work as `run(...)`, then reads from the final current state.
+
+See [Dispatch And Read](./dispatch-and-read.md) for guidance on when to use selectors vs inline projections.
 
 ### `createRuntimeRegistry`
 

@@ -10,7 +10,8 @@ import { createDefaultAsyncDriver } from "./runtime/asyncDriver.js"
 import type { RuntimeEffectHandlerRegistry } from "./runtime/effectDispatcher.js"
 import { dispatchEffect } from "./runtime/effectDispatcher.js"
 import type { RuntimeCommandHandlers } from "./runtime/runtimeCommandModule.js"
-import type { StateSelector } from "./selectors.js"
+import type { SelectorWhen, StateSelector } from "./selectors.js"
+import { runStateSelector } from "./selectors.js"
 export type {
   RuntimeChromeDebuggerRegistry,
   RuntimeChromeDebuggerRegistryEntry,
@@ -310,6 +311,33 @@ export class Runtime<
     await promise
 
     this.#contextDidChange()
+  }
+
+  async runAndSelect<W extends SelectorWhen, R>(
+    action: RuntimeAction,
+    selector: StateSelector<W, R>,
+  ): Promise<R | undefined>
+
+  async runAndSelect<R>(
+    action: RuntimeAction,
+    select: (state: RuntimeState, context: Context) => R,
+  ): Promise<R>
+
+  async runAndSelect<W extends SelectorWhen, R>(
+    action: RuntimeAction,
+    selectOrSelector:
+      | StateSelector<W, R>
+      | ((state: RuntimeState, context: Context) => R),
+  ): Promise<R | undefined> {
+    await this.run(action)
+
+    const currentState = this.currentState()
+
+    if (typeof selectOrSelector === "function") {
+      return selectOrSelector(currentState, this.context)
+    }
+
+    return runStateSelector(selectOrSelector, currentState, this.context)
   }
 
   async #processQueueHead(): Promise<void> {

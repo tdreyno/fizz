@@ -104,6 +104,10 @@ For complex nested matching, discriminated unions, or array/primitive matching, 
 
 For non-React usage, evaluate selector definitions directly with `runStateSelector(selector, currentState, context)`.
 
+When imperative adapter code needs to dispatch and immediately read from the resulting state, use `runtime.runAndSelect(action, selectorOrProject)`. Prefer the selector form for reusable reads and the projection form only for narrow one-off adapter logic.
+
+`runAndSelect(...)` resolves after the same synchronous transition/effect boundary as `runtime.run(...)`. It does not wait for async effect settlement.
+
 ## State Utils
 
 Fizz state handlers receive a utilities object from `state.ts`. Important helpers include:
@@ -223,6 +227,15 @@ const runtime = createRuntime(machine, machine.states.Ready(initialData), {
 })
 
 await runtime.run(enter())
+```
+
+For one-shot imperative reads after a dispatch:
+
+```typescript
+const nextRenderInputs = await runtime.runAndSelect(
+  actions.localChanged({ value: "draft" }),
+  machine.selectors.renderInputs,
+)
 ```
 
 If you want a declarative machine container first, build it with `createMachine(...)` and then create the runtime from the machine.

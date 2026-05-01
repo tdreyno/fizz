@@ -20,6 +20,7 @@ For React components that use `useMachine(...)`, the usual split is: test the ma
 Model the machine as usual, then test it by composing the runtime with controlled drivers.
 
 - Use plain `runtime.run(...)` for transition-only tests.
+- Use `runtime.runAndSelect(...)` when one test step needs dispatch plus an immediate derived read.
 - Use `createControlledAsyncDriver()` when a machine starts promise-backed work.
 - Use `createControlledTimerDriver()` when a machine uses timers, intervals, or frame-based work.
 - Capture state changes with `runtime.onContextChange(...)` when you need an ordered history of transitions.

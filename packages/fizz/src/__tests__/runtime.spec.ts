@@ -8,7 +8,8 @@ import { createMachine } from "../createMachine"
 import { commandEffect, goBack, log, noop } from "../effect"
 import { UnknownStateReturnType } from "../errors"
 import { commandHandlersFromClients, createRuntime, Runtime } from "../runtime"
-import { state } from "../state"
+import { selectWhen } from "../selectors"
+import { state, switch_ } from "../state"
 
 describe("Runtime", () => {
   test("should transition through multiple states", async () => {
@@ -68,6 +69,121 @@ describe("Runtime", () => {
     expect(runtime.currentState().is(B)).toBeTruthy()
   })
 
+  test("should run and select with a selector from the resulting state", async () => {
+    const localChanged = action("LocalChanged").withPayload<{
+      value: string
+    }>()
+    type LocalChanged = ActionCreatorType<typeof localChanged>
+
+    const Editing = state<Enter, { value: string }>(
+      {
+        Enter: noop,
+      },
+      { name: "Editing" },
+    )
+
+    const Viewing = state<Enter | LocalChanged, { value: string }>(
+      {
+        Enter: noop,
+        LocalChanged: (_, payload) => Editing({ value: payload.value }),
+      },
+      { name: "Viewing" },
+    )
+
+    const machine = createMachine({
+      actions: { localChanged },
+      selectors: {
+        renderInputs: selectWhen(Editing, data => ({
+          canSave: data.value.length > 0,
+          preview: data.value.trim(),
+        })),
+      },
+      states: { Editing, Viewing },
+    })
+
+    const runtime = createRuntime(machine, Viewing({ value: "" }))
+
+    const selected = await runtime.runAndSelect(
+      localChanged({ value: " draft text " }),
+      machine.selectors.renderInputs,
+    )
+
+    expect(selected).toEqual({
+      canSave: true,
+      preview: "draft text",
+    })
+  })
+
+  test("should return undefined when selector does not match the resulting state", async () => {
+    const localChanged = action("LocalChanged")
+
+    const Editing = state<Enter, { value: string }>(
+      {
+        Enter: noop,
+      },
+      { name: "Editing" },
+    )
+
+    const Viewing = state<Enter>(
+      {
+        Enter: noop,
+      },
+      { name: "Viewing" },
+    )
+
+    const machine = createMachine({
+      actions: { localChanged },
+      selectors: {
+        renderInputs: selectWhen(Editing, data => data.value.trim()),
+      },
+      states: { Editing, Viewing },
+    })
+
+    const runtime = createRuntime(machine, Viewing())
+
+    const selected = await runtime.runAndSelect(
+      localChanged(),
+      machine.selectors.renderInputs,
+    )
+
+    expect(selected).toBeUndefined()
+  })
+
+  test("should return false for matcher selectors when the resulting state does not match", async () => {
+    const localChanged = action("LocalChanged")
+
+    const Editing = state<Enter, { status: string }>(
+      {
+        Enter: noop,
+      },
+      { name: "Editing" },
+    )
+
+    const Viewing = state<Enter>(
+      {
+        Enter: noop,
+      },
+      { name: "Viewing" },
+    )
+
+    const machine = createMachine({
+      actions: { localChanged },
+      selectors: {
+        isReady: selectWhen(Editing, { status: "ready" }),
+      },
+      states: { Editing, Viewing },
+    })
+
+    const runtime = createRuntime(machine, Viewing())
+
+    const selected = await runtime.runAndSelect(
+      localChanged(),
+      machine.selectors.isReady,
+    )
+
+    expect(selected).toBe(false)
+  })
+
   test("should run the action returned", async () => {
     const trigger = action("Trigger")
     type Trigger = ActionCreatorType<typeof trigger>
@@ -117,6 +233,89 @@ describe("Runtime", () => {
     }
 
     expect(s.data.num).toBe(13)
+  })
+
+  test("should run and project from the final state after chained transitions", async () => {
+    const next = action("Next")
+    type Next = ActionCreatorType<typeof next>
+
+    const C = state<Enter, { count: number }>(
+      {
+        Enter: noop,
+      },
+      { name: "C" },
+    )
+
+    const B = state<Enter | Next, { count: number }>(
+      {
+        Enter: noop,
+        Next: data => C({ count: data.count + 1 }),
+      },
+      { name: "B" },
+    )
+
+    const A = state<Enter, { count: number }>(
+      {
+        Enter: data => [B(data), next()],
+      },
+      { name: "A" },
+    )
+
+    const runtime = new Runtime(createInitialContext([A({ count: 2 })]), {
+      next,
+    })
+
+    const selected = await runtime.runAndSelect<number | undefined>(
+      enter(),
+      state =>
+        switch_<number | undefined>(state)
+          .case_(C, data => data.count)
+          .run(),
+    )
+
+    expect(selected).toBe(3)
+  })
+
+  test("should project from the current state after an unhandled action", async () => {
+    const trigger = action("Trigger")
+
+    const A = state<Enter, { value: string }>(
+      {
+        Enter: noop,
+      },
+      { name: "A" },
+    )
+
+    const runtime = new Runtime(createInitialContext([A({ value: "ready" })]), {
+      trigger,
+    })
+
+    const selected = await runtime.runAndSelect<string | undefined>(
+      trigger(),
+      state =>
+        switch_<string | undefined>(state)
+          .case_(A, data => data.value)
+          .run(),
+    )
+
+    expect(selected).toBe("ready")
+  })
+
+  test("should reject when the projection throws", async () => {
+    const A = state<Enter>(
+      {
+        Enter: noop,
+      },
+      { name: "A" },
+    )
+
+    const runtime = new Runtime(createInitialContext([A()]))
+
+    await expect(
+      runtime.runAndSelect(enter(), () => {
+        throw new Error("selector failed")
+      }),
+    ).rejects.toThrow("selector failed")
   })
 
   test("should map command handler results with chainToAction", async () => {

@@ -21,6 +21,7 @@
 - [Chrome Debugger](docs/chrome-debugger.md)
 - [Custom Effects](docs/custom-effects.md)
 - [Complex Actions](docs/complex-actions.md)
+- [Dispatch And Read](docs/dispatch-and-read.md)
 - [Fluent API](docs/fluent-api.md)
 - [Nested State Machines](docs/nested-state-machines.md)
 - [Parallel State Machines](docs/parallel-state-machines.md)
