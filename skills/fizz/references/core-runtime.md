@@ -29,6 +29,8 @@ A Fizz machine is built from these pieces:
 
 Fizz works best when handlers are easy to read and each accepted action has a clear outcome.
 
+For output map aliases, command-channel emission APIs, and runtime output channel subscriptions, continue with `output-actions.md`.
+
 ## State Design
 
 ### `state(...)`

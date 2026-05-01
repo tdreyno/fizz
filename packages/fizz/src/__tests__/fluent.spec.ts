@@ -7,6 +7,7 @@ import {
   timerCompleted,
 } from "../action"
 import { createMachine } from "../createMachine"
+import { outputCommand } from "../effect"
 import {
   action,
   describeState,
@@ -271,6 +272,40 @@ describe("Fluent state API", () => {
     }
 
     expect((current.data as { count: number }).count).toBe(6)
+  })
+
+  test("should support withOutputs alias and connect output commands", async () => {
+    const setDocument = coreAction("notesEditor.setDocument").withPayload<{
+      document: string
+    }>()
+
+    const Editing = state<{ document: string }>("Editing").onEnter(data =>
+      outputCommand("notesEditor", "setDocument", {
+        document: data.document,
+      }),
+    )
+
+    const editorMachine = machine("EditorMachine")
+      .withStates({ Editing })
+      .withOutputs({ setDocument })
+
+    const runtime = createRuntime(
+      editorMachine,
+      Editing({ document: "hello fluent" }),
+    )
+    const sent = jest.fn()
+
+    runtime.connectOutputChannel({
+      notesEditor: {
+        setDocument: payload => {
+          sent(payload.document)
+        },
+      },
+    })
+
+    await runtime.run(enter())
+
+    expect(sent).toHaveBeenCalledWith("hello fluent")
   })
 
   test("should generate unique action types for action", () => {

@@ -1,7 +1,9 @@
 import type { Enter } from "../action"
+import { action, enter } from "../action"
 import { createInitialContext } from "../context"
 import { createMachine } from "../createMachine"
-import { noop } from "../effect"
+import { noop, output } from "../effect"
+import { createRuntime } from "../runtime"
 import { state } from "../state"
 
 describe("Fizz core", () => {
@@ -45,6 +47,45 @@ describe("Fizz core", () => {
 
       expect(nextMachine.initialState).toBeDefined()
       expect(nextMachine.withInitialState).toBeInstanceOf(Function)
+    })
+
+    test("should allow outputs alias as machine root config", async () => {
+      const notice = action("Notice").withPayload<string>()
+      const Start = state<Enter>(
+        {
+          Enter: () => output(notice("hello")),
+        },
+        { name: "Start" },
+      )
+
+      const machine = createMachine({
+        outputs: { notice },
+        states: { Start },
+      })
+      const runtime = createRuntime(machine, Start())
+      const outputs: string[] = []
+
+      runtime.onOutput(action => {
+        outputs.push(action.type)
+      })
+
+      await runtime.run(enter())
+
+      expect(outputs).toEqual(["Notice"])
+    })
+
+    test("should reject machine definitions that include both outputs and outputActions", () => {
+      const notice = action("Notice").withPayload<string>()
+
+      expect(() =>
+        createMachine({
+          outputActions: { notice },
+          outputs: { notice },
+          states: { Entry },
+        }),
+      ).toThrow(
+        "createMachine(...) accepts either outputs or outputActions, not both",
+      )
     })
   })
 

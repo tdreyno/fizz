@@ -1,4 +1,5 @@
 import type { Action } from "./action.js"
+import { action } from "./action.js"
 import type { Context } from "./context.js"
 
 export class Effect<T = unknown> {
@@ -23,6 +24,73 @@ export const goBack = (): Effect<void> => effect("goBack")
 export const output = <A extends Action<string, unknown>>(
   action: A,
 ): Effect<A> => effect("output", action)
+
+export type OutputActionMap = Record<
+  string,
+  Record<string, (payload: unknown) => unknown>
+>
+
+type OutputCommandChannel<Map extends OutputActionMap> = Extract<
+  keyof Map,
+  string
+>
+
+type OutputCommandType<
+  Map extends OutputActionMap,
+  Channel extends OutputCommandChannel<Map>,
+> = Extract<keyof Map[Channel], string>
+
+type OutputCommandPayload<
+  Map extends OutputActionMap,
+  Channel extends OutputCommandChannel<Map>,
+  CommandType extends OutputCommandType<Map, Channel>,
+> = Parameters<Map[Channel][CommandType]>[0]
+
+export const defineOutputMap = <Map extends OutputActionMap>(map: Map): Map =>
+  map
+
+export function outputCommand<
+  Channel extends string,
+  CommandType extends string,
+  Payload,
+>(
+  channel: Channel,
+  commandType: CommandType,
+  payload: Payload,
+): Effect<Action<`${Channel}.${CommandType}`, Payload>>
+
+export function outputCommand<
+  Map extends OutputActionMap,
+  Channel extends OutputCommandChannel<Map>,
+  CommandType extends OutputCommandType<Map, Channel>,
+>(
+  outputMap: Map,
+  channel: Channel,
+  commandType: CommandType,
+  payload: OutputCommandPayload<Map, Channel, CommandType>,
+): Effect<
+  Action<
+    `${Channel}.${CommandType}`,
+    OutputCommandPayload<Map, Channel, CommandType>
+  >
+>
+
+export function outputCommand(
+  mapOrChannel: OutputActionMap | string,
+  channelOrType: string,
+  commandTypeOrPayload: unknown,
+  payloadMaybe?: unknown,
+): Effect<Action<string, unknown>> {
+  if (typeof mapOrChannel === "string") {
+    return output(
+      action(`${mapOrChannel}.${channelOrType}`, commandTypeOrPayload),
+    )
+  }
+
+  return output(
+    action(`${channelOrType}.${String(commandTypeOrPayload)}`, payloadMaybe),
+  )
+}
 
 const handleLog =
   <T extends unknown[]>(

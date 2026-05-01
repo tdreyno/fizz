@@ -41,6 +41,8 @@ const EditorMachine = createMachine(
 
 Use `createMachine(...)` when you want one stable root for integrations, examples, or CLI discovery. Set `initialState` when the machine should carry a default starting state for helpers like `createParallelMachine(...)`. The CLI only discovers default-exported machine roots created this way.
 
+Output map aliases and command-channel output ergonomics are documented in [Output Actions](./output-actions.md).
+
 Each created machine also exposes `.withInitialState(...)` to produce a copy with a different runtime starting state.
 
 ```ts
@@ -264,6 +266,8 @@ The returned `Runtime` is the main execution object. The most commonly used meth
 - `bindActions(actions)`
 - `disconnect()`
 
+Typed output subscription helpers such as `onOutputType(...)` and channel wiring through `connectOutputChannel(...)` are documented in [Output Actions](./output-actions.md).
+
 Runtime creation options include:
 
 - `maxHistory`
@@ -396,6 +400,8 @@ const Saving = state<Enter>({
   Enter: () => output(saved()),
 })
 ```
+
+For `defineOutputMap(...)`, `outputCommand(...)`, and runtime output channel wiring, see [Output Actions](./output-actions.md).
 
 ### `commandEffect`
 

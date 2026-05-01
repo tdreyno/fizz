@@ -29,6 +29,7 @@ export type MachineDefinition<
   initialState?: InitialState
   name?: string
   outputActions?: OutputActions
+  outputs?: OutputActions
   selectors?: Selectors
   states: States
 }
@@ -151,13 +152,29 @@ export const createMachine = <
   Selectors,
   Clients
 > => {
-  const machineName = name ?? definition.name
+  if (
+    definition.outputActions !== undefined &&
+    definition.outputs !== undefined
+  ) {
+    throw new Error(
+      "createMachine(...) accepts either outputs or outputActions, not both",
+    )
+  }
 
-  const machine =
-    machineName === undefined
+  const machineName = name ?? definition.name
+  const normalizedDefinition =
+    definition.outputs === undefined
       ? definition
       : {
           ...definition,
+          outputActions: definition.outputs,
+        }
+
+  const machine =
+    machineName === undefined
+      ? normalizedDefinition
+      : {
+          ...normalizedDefinition,
           name: machineName,
         }
 

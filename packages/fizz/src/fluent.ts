@@ -673,6 +673,7 @@ type FluentMachineConfig<
   actions?: Actions
   name?: string
   outputActions?: OutputActions
+  outputs?: OutputActions
   selectors?: Selectors
   states: States
 }
@@ -718,6 +719,15 @@ type FluentMachineDefinition<
     Selectors,
     Clients
   >
+  withOutputs: <NextOutputActions>(
+    outputs: NextOutputActions,
+  ) => FluentMachineDefinition<
+    States,
+    Actions,
+    NextOutputActions,
+    Selectors,
+    Clients
+  >
   withSelectors: <NextSelectors extends FluentMachineSelectors<States>>(
     selectors: NextSelectors,
   ) => FluentMachineDefinition<
@@ -751,6 +761,9 @@ export type FluentMachineBuilder<
   >() => FluentMachineBuilder<Actions, OutputActions, NextClients>
   withOutputActions: <NextOutputActions>(
     outputActions: NextOutputActions,
+  ) => FluentMachineBuilder<Actions, NextOutputActions, Clients>
+  withOutputs: <NextOutputActions>(
+    outputs: NextOutputActions,
   ) => FluentMachineBuilder<Actions, NextOutputActions, Clients>
   withStates: <States extends FluentMachineStates>(
     states: States,
@@ -791,6 +804,7 @@ const createFluentMachine = <
     ...(config.outputActions === undefined
       ? {}
       : { outputActions: config.outputActions }),
+    ...(config.outputs === undefined ? {} : { outputs: config.outputs }),
     ...(config.selectors === undefined ? {} : { selectors: config.selectors }),
     states: config.states,
   })
@@ -810,6 +824,7 @@ const createFluentMachine = <
       ...(config.outputActions === undefined
         ? {}
         : { outputActions: config.outputActions }),
+      ...(config.outputs === undefined ? {} : { outputs: config.outputs }),
       states,
     })
 
@@ -828,6 +843,16 @@ const createFluentMachine = <
       {
         ...config,
         outputActions,
+        outputs: undefined,
+      },
+    )
+
+  const withOutputs = <NextOutputActions>(outputs: NextOutputActions) =>
+    createFluentMachine<States, Actions, NextOutputActions, Selectors, Clients>(
+      {
+        ...config,
+        outputActions: undefined,
+        outputs,
       },
     )
 
@@ -850,6 +875,7 @@ const createFluentMachine = <
     withActions,
     withClients,
     withOutputActions,
+    withOutputs,
     withSelectors,
     withStates,
   }) as FluentMachineDefinition<
@@ -869,6 +895,7 @@ const createFluentMachineBuilder = <
   actions?: Actions
   name?: string
   outputActions?: OutputActions
+  outputs?: OutputActions
 }): FluentMachineBuilder<Actions, OutputActions, Clients> => {
   const withStates = <States extends FluentMachineStates>(states: States) =>
     createFluentMachine<
@@ -883,6 +910,7 @@ const createFluentMachineBuilder = <
       ...(config.outputActions === undefined
         ? {}
         : { outputActions: config.outputActions }),
+      ...(config.outputs === undefined ? {} : { outputs: config.outputs }),
       states,
     })
 
@@ -898,6 +926,14 @@ const createFluentMachineBuilder = <
     createFluentMachineBuilder<Actions, NextOutputActions, Clients>({
       ...config,
       outputActions,
+      outputs: undefined,
+    })
+
+  const withOutputs = <NextOutputActions>(outputs: NextOutputActions) =>
+    createFluentMachineBuilder<Actions, NextOutputActions, Clients>({
+      ...config,
+      outputActions: undefined,
+      outputs,
     })
 
   const withClients = <NextClients extends Record<string, unknown>>() =>
@@ -907,6 +943,7 @@ const createFluentMachineBuilder = <
     withActions,
     withClients,
     withOutputActions,
+    withOutputs,
     withStates,
   }
 }

@@ -21,6 +21,7 @@ Use this skill when the task involves:
 - Adding async work with `startAsync(...)`, `requestJSONAsync(...)`, or `customJSONAsync(...)`
 - Injecting machine-scoped data clients and using `utils.clients` in handlers
 - Adding timers, intervals, or frame-driven behavior from a state handler
+- Designing output maps and adapter command channels with `outputs`, `defineOutputMap(...)`, `outputCommand(...)`, or runtime output subscriptions
 - Debouncing or throttling high-frequency handlers with `debounce(...)` and `throttle(...)`
 - Using state helper APIs like `switch_(...)`, `whichTimeout(...)`, `whichInterval(...)`, `waitState(...)`, or `isStateTransition(...)`
 - Defining colocated machine selectors with `selectWhen(...)` for derived read-only checks
@@ -96,6 +97,8 @@ Follow this sequence when wiring a machine manually:
 
 If the task is about runtime behavior, read `references/core-runtime.md`.
 
+If the task is about adapter-facing output actions, read `references/output-actions.md`.
+
 ### Async and scheduling
 
 - Use `startAsync(...)` when the async source is not just `fetch(...).json()`.
@@ -149,6 +152,7 @@ If the task is about React integration, read `references/react-integration.md`.
 - `references/async-and-scheduling.md` for `startAsync(...)`, `requestJSONAsync(...)`, `customJSONAsync(...)`, `debounce(...)`, `throttle(...)`, cancellation, timers, intervals, and frames
 - `references/data-clients.md` for machine-scoped client typing, runtime injection, handler access, and test mocking
 - `references/testing.md` for deterministic machine testing, controlled drivers, and the `@tdreyno/fizz/test` subpath
+- `references/output-actions.md` for output maps, output command channels, and runtime output subscription helpers
 - `references/react-integration.md` for `useMachine(...)`, `createMachineContext(...)`, and React-specific guidance
 - `references/examples.md` for short copyable usage patterns
 - `references/fluent-api.md` for the optional fluent state authoring entry point
