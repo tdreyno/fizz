@@ -5,8 +5,27 @@ Use this reference when a task explicitly asks for chain-first state authoring w
 ## Import
 
 ```ts
-import { state } from "@tdreyno/fizz/fluent"
+import { machine, state } from "@tdreyno/fizz/fluent"
 ```
+
+## Fluent Machine Builder (No `.build()`)
+
+Use `machine(name?)` when you want fluent configuration for `createMachine(...)` generics.
+
+```ts
+const ProfileMachine = machine("ProfileMachine")
+  .withClients<{
+    apiClient: {
+      getProfile: (userId: string) => Promise<{ id: string; name: string }>
+    }
+  }>()
+  .withStates({ Loading, Loaded, Failed })
+  .withActions({ loadRequested })
+  .withOutputActions({})
+  .withSelectors({})
+```
+
+`withStates(...)` returns a concrete machine definition immediately, so no terminal `.build()` call is required.
 
 ## Authoring Pattern
 
@@ -51,6 +70,36 @@ const Editing = state<{ name: string }>("Editing")
       name: `${payload}:${resources.sessionId}`,
     })
   })
+```
+
+## Typed Clients With `withClients(...)`
+
+Use `withClients<Clients>()` to strongly type `utils.clients` in fluent handlers.
+
+```ts
+const refresh = action<void>("refresh")
+
+const Loading = state<{ userId: string }>("Loading")
+  .withClients<{
+    apiClient: {
+      getProfile: (userId: string) => Promise<{ id: string }>
+    }
+  }>()
+  .on(refresh, (data, _, { clients }) =>
+    customJSONAsync(() =>
+      clients.apiClient.getProfile(data.userId),
+    ).chainToAction(profileLoaded, profileFailed),
+  )
+```
+
+Machine-level clients are injected when you create the runtime (or use `useMachine(...)` in React):
+
+```ts
+const runtime = createRuntime(ProfileMachine, Loading({ userId: "1" }), {
+  clients: {
+    apiClient: realApiClient,
+  },
+})
 ```
 
 If you want fluent creator references without manually naming action types, use `action<P>(debugLabel?: string)`:

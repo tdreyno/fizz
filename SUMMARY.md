@@ -9,6 +9,7 @@
 ## Scheduling
 
 - [Async](docs/async.md)
+- [Data Clients](docs/data-clients.md)
 - [Timers](docs/timers.md)
 - [Intervals](docs/intervals.md)
 - [Testing](docs/testing.md)

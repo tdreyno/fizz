@@ -9,6 +9,7 @@ import { createDefaultAsyncDriver } from "./runtime/asyncDriver.js"
 import type { RuntimeBrowserDriver } from "./runtime/browserDriver.js"
 import type { RuntimeEffectHandlerRegistry } from "./runtime/effectDispatcher.js"
 import { dispatchEffect } from "./runtime/effectDispatcher.js"
+import type { StateSelector } from "./selectors.js"
 export type {
   RuntimeChromeDebuggerRegistry,
   RuntimeChromeDebuggerRegistryEntry,
@@ -74,6 +75,7 @@ export { createControlledTimerDriver } from "./runtime/timerDriver.js"
 export type RuntimeOptions = {
   asyncDriver?: RuntimeAsyncDriver
   browserDriver?: RuntimeBrowserDriver
+  clients?: Record<string, unknown>
   debugLabel?: string
   monitor?: RuntimeMonitor
   timerDriver?: RuntimeTimerDriver
@@ -97,6 +99,13 @@ type RuntimeActionMap = {
 type RuntimeStateMap = {
   [key: string]: (...args: Array<any>) => RuntimeState
 }
+type RuntimeMachineSelectors<States extends RuntimeStateMap> = Record<
+  string,
+  StateSelector<
+    States[keyof States] | ReadonlyArray<States[keyof States]>,
+    unknown
+  >
+>
 type PromiseBoundActions<AM extends RuntimeActionMap> = {
   [K in keyof AM]: (...args: Parameters<AM[K]>) => {
     asPromise: () => Promise<void>
@@ -113,6 +122,7 @@ export class Runtime<
   OAM extends RuntimeActionMap,
 > {
   readonly #asyncDriver: RuntimeAsyncDriver
+  readonly clients: Record<string, unknown>
   readonly #contextChangeSubscribers = new Set<ContextChangeSubscriber>()
   readonly #disconnectSubscribers = new Set<() => void>()
   readonly #effectHandlers: RuntimeEffectHandlerRegistry<RuntimeDebugCommand>
@@ -136,6 +146,7 @@ export class Runtime<
       new Set<string>(),
     )
     this.#asyncDriver = options.asyncDriver ?? createDefaultAsyncDriver()
+    this.clients = options.clients ?? {}
     this.#lastContextState = context.currentState as RuntimeState | undefined
     this.#timerDriver = options.timerDriver ?? createDefaultTimerDriver()
 
@@ -470,6 +481,10 @@ const splitCreateRuntimeOptions = (options: CreateRuntimeOptions = {}) => {
     runtime.browserDriver = options.browserDriver
   }
 
+  if (options.clients) {
+    runtime.clients = options.clients
+  }
+
   if (options.debugLabel) {
     runtime.debugLabel = options.debugLabel
   }
@@ -492,20 +507,24 @@ export function createRuntime<
   SM extends RuntimeStateMap,
   AM extends RuntimeActionMap,
   OAM extends RuntimeActionMap,
+  Selectors extends RuntimeMachineSelectors<SM> = Record<string, never>,
+  Clients extends Record<string, unknown> = Record<string, unknown>,
 >(
-  machine: MachineDefinition<SM, AM, OAM>,
+  machine: MachineDefinition<SM, AM, OAM, unknown, Selectors, Clients>,
   initialState: ReturnType<SM[keyof SM]>,
-  options?: CreateRuntimeOptions,
+  options?: CreateRuntimeOptions & { clients?: Clients },
 ): Runtime<AM, OAM>
 
 export function createRuntime<
   SM extends RuntimeStateMap,
   AM extends RuntimeActionMap,
   OAM extends RuntimeActionMap,
+  Selectors extends RuntimeMachineSelectors<SM> = Record<string, never>,
+  Clients extends Record<string, unknown> = Record<string, unknown>,
 >(
-  machine: MachineDefinition<SM, AM, OAM>,
+  machine: MachineDefinition<SM, AM, OAM, unknown, Selectors, Clients>,
   initialState: ReturnType<SM[keyof SM]>,
-  options?: CreateRuntimeOptions,
+  options?: CreateRuntimeOptions & { clients?: Clients },
 ): Runtime<AM, OAM> {
   if (!initialState) {
     throw new Error(

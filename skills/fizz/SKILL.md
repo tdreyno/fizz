@@ -19,6 +19,7 @@ Use this skill when the task involves:
 - Creating or refactoring a machine/runtime with `createMachine(...)`, `createInitialContext(...)`, `createRuntime(...)`, or `enter()`
 - Designing or reviewing parallel composition with `createParallelMachine(...)` and `getParallelRuntimes(...)`
 - Adding async work with `startAsync(...)`, `requestJSONAsync(...)`, or `customJSONAsync(...)`
+- Injecting machine-scoped data clients and using `utils.clients` in handlers
 - Adding timers, intervals, or frame-driven behavior from a state handler
 - Debouncing or throttling high-frequency handlers with `debounce(...)` and `throttle(...)`
 - Using state helper APIs like `switch_(...)`, `whichTimeout(...)`, `whichInterval(...)`, `waitState(...)`, or `isStateTransition(...)`
@@ -146,6 +147,7 @@ If the task is about React integration, read `references/react-integration.md`.
 - `references/core-runtime.md` for states, actions, helper matchers, effects, runtime setup, and nested machines
 - `references/parallel-state-machines.md` for `createParallelMachine(...)`, branch broadcasting, lifecycle, and branch runtime inspection
 - `references/async-and-scheduling.md` for `startAsync(...)`, `requestJSONAsync(...)`, `customJSONAsync(...)`, `debounce(...)`, `throttle(...)`, cancellation, timers, intervals, and frames
+- `references/data-clients.md` for machine-scoped client typing, runtime injection, handler access, and test mocking
 - `references/testing.md` for deterministic machine testing, controlled drivers, and the `@tdreyno/fizz/test` subpath
 - `references/react-integration.md` for `useMachine(...)`, `createMachineContext(...)`, and React-specific guidance
 - `references/examples.md` for short copyable usage patterns

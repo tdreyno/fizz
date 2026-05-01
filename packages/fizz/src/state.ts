@@ -108,6 +108,7 @@ type StateUtils<
   IntervalId extends string,
   AsyncId extends string,
   Resources extends Record<string, unknown> = Record<string, unknown>,
+  Clients extends Record<string, unknown> = Record<string, unknown>,
 > = {
   update: (
     data: Data,
@@ -130,6 +131,7 @@ type StateUtils<
   restartInterval: (intervalId: IntervalId, delay: number) => Effect
   startFrame: () => Effect
   cancelFrame: () => Effect
+  clients: Clients
   resources: Resources
 }
 
@@ -141,6 +143,7 @@ type Handler<
   IntervalId extends string,
   AsyncId extends string,
   Resources extends Record<string, unknown> = Record<string, unknown>,
+  Clients extends Record<string, unknown> = Record<string, unknown>,
   A extends WithScheduledActions<Actions, TimeoutId, IntervalId, AsyncId> =
     WithScheduledActions<Actions, TimeoutId, IntervalId, AsyncId>,
 > = (
@@ -153,7 +156,8 @@ type Handler<
     TimeoutId,
     IntervalId,
     AsyncId,
-    Resources
+    Resources,
+    Clients
   >,
 ) => HandlerReturn
 
@@ -215,10 +219,21 @@ type HandlerValue<
   IntervalId extends string,
   AsyncId extends string,
   Resources extends Record<string, unknown> = Record<string, unknown>,
+  Clients extends Record<string, unknown> = Record<string, unknown>,
   A extends WithScheduledActions<Actions, TimeoutId, IntervalId, AsyncId> =
     WithScheduledActions<Actions, TimeoutId, IntervalId, AsyncId>,
 > =
-  | Handler<Name, Actions, Data, TimeoutId, IntervalId, AsyncId, Resources, A>
+  | Handler<
+      Name,
+      Actions,
+      Data,
+      TimeoutId,
+      IntervalId,
+      AsyncId,
+      Resources,
+      Clients,
+      A
+    >
   | WrappedHandler<
       Handler<
         Name,
@@ -228,6 +243,7 @@ type HandlerValue<
         IntervalId,
         AsyncId,
         Resources,
+        Clients,
         A
       > &
         LooseHandler
@@ -240,6 +256,7 @@ type StateHandlers<
   IntervalId extends string,
   AsyncId extends string,
   Resources extends Record<string, unknown> = Record<string, unknown>,
+  Clients extends Record<string, unknown> = Record<string, unknown>,
 > = {
   [A in Actions as ActionName<A>]: HandlerValue<
     string,
@@ -249,6 +266,7 @@ type StateHandlers<
     IntervalId,
     AsyncId,
     Resources,
+    Clients,
     A
   >
 } & {
@@ -264,6 +282,7 @@ type StateHandlers<
     IntervalId,
     AsyncId,
     Resources,
+    Clients,
     A
   >
 }
@@ -803,6 +822,7 @@ export type State<
   IntervalId extends string = TimeoutId,
   AsyncId extends string = string,
   Resources extends Record<string, unknown> = Record<string, unknown>,
+  Clients extends Record<string, unknown> = Record<string, unknown>,
 > = (
   action: WithScheduledActions<Actions, TimeoutId, IntervalId, AsyncId>,
   data: Data,
@@ -813,7 +833,8 @@ export type State<
     TimeoutId,
     IntervalId,
     AsyncId,
-    Resources
+    Resources,
+    Clients
   >,
 ) => HandlerReturn
 
@@ -843,6 +864,7 @@ export const stateWrapper = <
   IntervalId extends string = TimeoutId,
   AsyncId extends string = string,
   Resources extends Record<string, unknown> = Record<string, unknown>,
+  Clients extends Record<string, unknown> = Record<string, unknown>,
 >(
   name: Name,
   executor: (
@@ -862,6 +884,7 @@ export const stateWrapper = <
       restartInterval: (intervalId: IntervalId, delay: number) => Effect
       startFrame: () => Effect
       cancelFrame: () => Effect
+      clients: Clients
       resources: Resources
     },
     runtime?: InternalRuntime,
@@ -913,6 +936,7 @@ export const stateWrapper = <
               restartIntervalEffect(intervalId, delay),
             startFrame: () => startFrameEffect(),
             cancelFrame: () => cancelFrameEffect(),
+            clients: (runtime?.clients ?? {}) as Clients,
             resources: getStateResources(
               transition as unknown as StateTransition<
                 string,
@@ -951,6 +975,7 @@ const matchAction =
     IntervalId extends string,
     AsyncId extends string,
     Resources extends Record<string, unknown> = Record<string, unknown>,
+    Clients extends Record<string, unknown> = Record<string, unknown>,
   >(
     handlers: StateHandlers<
       Actions,
@@ -958,7 +983,8 @@ const matchAction =
       TimeoutId,
       IntervalId,
       AsyncId,
-      Resources
+      Resources,
+      Clients
     >,
   ) =>
   (
@@ -971,7 +997,8 @@ const matchAction =
       TimeoutId,
       IntervalId,
       AsyncId,
-      Resources
+      Resources,
+      Clients
     >,
     runtime?: InternalRuntime,
   ): HandlerReturn => {
@@ -1036,6 +1063,7 @@ export const state = <
   IntervalId extends string = TimeoutId,
   AsyncId extends string = string,
   Resources extends Record<string, unknown> = Record<string, unknown>,
+  Clients extends Record<string, unknown> = Record<string, unknown>,
 >(
   handlers: StateHandlers<
     Actions,
@@ -1043,7 +1071,8 @@ export const state = <
     TimeoutId,
     IntervalId,
     AsyncId,
-    Resources
+    Resources,
+    Clients
   >,
   options?: { name?: string },
 ): BoundStateFn<
@@ -1058,7 +1087,8 @@ export const state = <
     TimeoutId,
     IntervalId,
     AsyncId,
-    Resources
+    Resources,
+    Clients
   >(options?.name ?? `AnonymousState${counter++}`, matchAction(handlers))
 
 export const NESTED = Symbol("Nested runtime")

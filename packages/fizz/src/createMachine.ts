@@ -1,7 +1,12 @@
 import type { StateSelector } from "./selectors.js"
-import type { BoundStateFn } from "./state.js"
 
-type MachineStates = Record<string, BoundStateFn<any, any, any>>
+type MachineStates = Record<
+  string,
+  {
+    (...data: Array<any>): any
+    name: string
+  }
+>
 
 type MachineSelectors<States extends MachineStates> = Record<
   string,
@@ -17,8 +22,10 @@ export type MachineDefinition<
   OutputActions = Record<string, never>,
   InitialState = unknown,
   Selectors extends MachineSelectors<States> = Record<string, never>,
+  Clients extends Record<string, unknown> = Record<string, unknown>,
 > = {
   actions?: Actions
+  clients?: Clients
   initialState?: InitialState
   name?: string
   outputActions?: OutputActions
@@ -34,12 +41,14 @@ export type CreatedMachineDefinition<
   OutputActions = Record<string, never>,
   InitialState = unknown,
   Selectors extends MachineSelectors<States> = Record<string, never>,
+  Clients extends Record<string, unknown> = Record<string, unknown>,
 > = MachineDefinition<
   States,
   Actions,
   OutputActions,
   InitialState,
-  Selectors
+  Selectors,
+  Clients
 > & {
   [createdMachineSymbol]: true
   withInitialState: <NextInitialState>(
@@ -49,7 +58,8 @@ export type CreatedMachineDefinition<
     Actions,
     OutputActions,
     NextInitialState,
-    Selectors
+    Selectors,
+    Clients
   > & {
     initialState: NextInitialState
   }
@@ -61,20 +71,23 @@ const createMachineWithMethods = <
   OutputActions,
   InitialState,
   Selectors extends MachineSelectors<States>,
+  Clients extends Record<string, unknown>,
 >(
   machine: MachineDefinition<
     States,
     Actions,
     OutputActions,
     InitialState,
-    Selectors
+    Selectors,
+    Clients
   >,
 ): CreatedMachineDefinition<
   States,
   Actions,
   OutputActions,
   InitialState,
-  Selectors
+  Selectors,
+  Clients
 > => {
   const withInitialState = <NextInitialState>(initialState: NextInitialState) =>
     createMachine({
@@ -85,7 +98,8 @@ const createMachineWithMethods = <
       Actions,
       OutputActions,
       NextInitialState,
-      Selectors
+      Selectors,
+      Clients
     > & {
       initialState: NextInitialState
     }
@@ -102,7 +116,8 @@ const createMachineWithMethods = <
     Actions,
     OutputActions,
     InitialState,
-    Selectors
+    Selectors,
+    Clients
   >
 
   return Object.defineProperty(machineWithBrand, "withInitialState", {
@@ -117,13 +132,15 @@ export const createMachine = <
   OutputActions = Record<string, never>,
   InitialState = unknown,
   Selectors extends MachineSelectors<States> = Record<string, never>,
+  Clients extends Record<string, unknown> = Record<string, unknown>,
 >(
   definition: MachineDefinition<
     States,
     Actions,
     OutputActions,
     InitialState,
-    Selectors
+    Selectors,
+    Clients
   >,
   name?: string,
 ): CreatedMachineDefinition<
@@ -131,7 +148,8 @@ export const createMachine = <
   Actions,
   OutputActions,
   InitialState,
-  Selectors
+  Selectors,
+  Clients
 > => {
   const machineName = name ?? definition.name
 

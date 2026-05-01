@@ -10,6 +10,7 @@ import { createMachine } from "../createMachine"
 import {
   action,
   describeState,
+  machine,
   state,
   withDebouncedAction,
   withRetry,
@@ -224,6 +225,52 @@ describe("Fluent state API", () => {
     expect(increment.type).not.toBe(reset.type)
     expect(increment.type).toContain("increment")
     expect(reset.type).toContain("reset")
+  })
+
+  test("should support no-build machine chaining with typed clients", async () => {
+    const multiply = coreAction("Multiply")
+
+    const Counting = state<{ count: number }>("Counting")
+      .withClients<{
+        mathClient: {
+          multiply: (value: number) => number
+        }
+      }>()
+      .on(multiply, (data, _, { clients, update }) =>
+        update({
+          ...data,
+          count: clients.mathClient.multiply(data.count),
+        }),
+      )
+
+    const countingMachine = machine("CountingMachine")
+      .withClients<{
+        mathClient: {
+          multiply: (value: number) => number
+        }
+      }>()
+      .withStates({ Counting })
+      .withActions({ multiply })
+      .withOutputActions({})
+      .withSelectors({})
+
+    const runtime = createRuntime(countingMachine, Counting({ count: 2 }), {
+      clients: {
+        mathClient: {
+          multiply: value => value * 3,
+        },
+      },
+    })
+
+    await runtime.run(multiply())
+
+    const current = runtime.currentState()
+
+    if (current.name !== Counting.name) {
+      throw new Error("Expected Counting state")
+    }
+
+    expect((current.data as { count: number }).count).toBe(6)
   })
 
   test("should generate unique action types for action", () => {

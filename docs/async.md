@@ -4,6 +4,8 @@ Fizz async operations let a state start promise-backed work without leaving the 
 
 Async operations are a good fit for `fetch`, form submission, loading related resources, and other request-shaped work where stale completions should be ignored automatically.
 
+If the workflow uses app SDKs or service modules, see [Data Clients](data-clients.md) for machine-scoped client injection and test mocking patterns.
+
 ## Debounced latest-wins async with `debounceAsync`
 
 `debounceAsync(run, options)` is the composed helper for common autosave and typeahead flows where only the latest request should survive.

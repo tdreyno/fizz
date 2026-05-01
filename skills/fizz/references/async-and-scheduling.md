@@ -2,6 +2,8 @@
 
 Use this reference when the task involves promise-backed work, JSON requests, timers, intervals, animation frames, cancellation, or stale completion handling.
 
+For machine-scoped service dependency patterns, use `references/data-clients.md`.
+
 ## Prefer Fizz Helpers Over Ad-Hoc Control Flow
 
 Fizz already exposes the lifecycle primitives needed for async and scheduled work. Prefer those helpers over manually wiring `setTimeout`, `setInterval`, or fetch bookkeeping in components.
@@ -150,11 +152,13 @@ Key behavior:
 - it supports optional retry/backoff through `init.retry`
 
 ```typescript
+const userId = "user-1"
+
 customJSONAsync(
-  (signal, context) =>
-    context.apiClient.getProfile({
+  signal =>
+    clients.apiClient.getProfile({
       signal,
-      userId: context.userId,
+      userId,
     }),
   {
     asyncId: "profile",
@@ -170,6 +174,18 @@ customJSONAsync(
   .validate(assertProfile)
   .map(profile => profile.id)
   .chainToAction(profileLoaded, profileFailed)
+```
+
+In state handlers, prefer closing over `utils.clients` for service access:
+
+```typescript
+Enter: (data, _, { clients }) =>
+  customJSONAsync(signal =>
+    clients.apiClient.getProfile({
+      signal,
+      userId: data.userId,
+    }),
+  ).chainToAction(profileLoaded, profileFailed)
 ```
 
 Choose between the JSON helpers like this:

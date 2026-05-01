@@ -56,6 +56,7 @@ export interface ContextValue<
 }
 
 export interface Options {
+  clients?: Record<string, unknown>
   driver?: RuntimeBrowserDriver
   maxHistory: number
   restartOnInitialStateChange?: boolean
@@ -103,13 +104,14 @@ const createMachineRuntime = <
   initialState: ReturnType<SM[keyof SM]>,
   options: Partial<Options>,
 ) => {
-  const { maxHistory = 5, enableLogging = false, driver } = options
+  const { maxHistory = 5, enableLogging = false, driver, clients } = options
 
   const runtime = createRuntime(
     machine as MachineDefinition<SM, AM, OAM>,
     initialState,
     {
       ...(driver === undefined ? {} : { browserDriver: driver }),
+      ...(clients === undefined ? {} : { clients }),
       enableLogging,
       maxHistory,
     },

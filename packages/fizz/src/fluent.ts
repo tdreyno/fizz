@@ -18,8 +18,11 @@ import {
   intervalTriggered,
   timerCompleted,
 } from "./action.js"
+import type { CreatedMachineDefinition } from "./createMachine.js"
+import { createMachine } from "./createMachine.js"
 import type { RetryPolicy } from "./effect.js"
 import { retryAsync } from "./effect.js"
+import type { StateSelector } from "./selectors.js"
 import type {
   BoundStateFn,
   GetStateData,
@@ -79,6 +82,7 @@ type FluentStateUtils<
   TimeoutId extends string,
   IntervalId extends string,
   Resources extends Record<string, unknown> = Record<string, unknown>,
+  Clients extends Record<string, unknown> = Record<string, unknown>,
 > = {
   update: (
     data: Data,
@@ -100,6 +104,7 @@ type FluentStateUtils<
   restartInterval: (intervalId: IntervalId, delay: number) => unknown
   startFrame: () => unknown
   cancelFrame: () => unknown
+  clients: Clients
   parentRuntime?: unknown
   resources: Resources
 }
@@ -111,6 +116,7 @@ type FluentHandler<
   TimeoutId extends string,
   IntervalId extends string,
   Resources extends Record<string, unknown> = Record<string, unknown>,
+  Clients extends Record<string, unknown> = Record<string, unknown>,
   A extends Action<string, unknown> = Action<string, unknown>,
 > = (
   data: Data,
@@ -121,7 +127,8 @@ type FluentHandler<
     Data,
     TimeoutId,
     IntervalId,
-    Resources
+    Resources,
+    Clients
   >,
 ) => HandlerReturn
 
@@ -145,14 +152,26 @@ export interface FluentState<
   TimeoutId extends string = string,
   IntervalId extends string = string,
   Resources extends Record<string, unknown> = Record<string, unknown>,
+  Clients extends Record<string, unknown> = Record<string, unknown>,
 > extends FluentStateBase<Name, Data> {
+  withClients<C extends Record<string, unknown>>(): FluentState<
+    Name,
+    Actions,
+    Data,
+    TimeoutId,
+    IntervalId,
+    Resources,
+    C
+  >
+
   withResources<R extends Record<string, unknown>>(): FluentState<
     Name,
     Actions,
     Data,
     TimeoutId,
     IntervalId,
-    R
+    R,
+    Clients
   >
 
   on<C extends AnyFluentActionCreator>(
@@ -164,6 +183,7 @@ export interface FluentState<
       TimeoutId,
       IntervalId,
       Resources,
+      Clients,
       ActionCreatorType<C>
     >,
   ): FluentState<
@@ -172,7 +192,8 @@ export interface FluentState<
     Data,
     TimeoutId,
     IntervalId,
-    Resources
+    Resources,
+    Clients
   >
 
   onDebounce<C extends AnyFluentActionCreator>(
@@ -185,6 +206,7 @@ export interface FluentState<
       TimeoutId,
       IntervalId,
       Resources,
+      Clients,
       ActionCreatorType<C>
     >,
   ): FluentState<
@@ -193,7 +215,8 @@ export interface FluentState<
     Data,
     TimeoutId,
     IntervalId,
-    Resources
+    Resources,
+    Clients
   >
 
   onThrottle<C extends AnyFluentActionCreator>(
@@ -206,6 +229,7 @@ export interface FluentState<
       TimeoutId,
       IntervalId,
       Resources,
+      Clients,
       ActionCreatorType<C>
     >,
   ): FluentState<
@@ -214,7 +238,8 @@ export interface FluentState<
     Data,
     TimeoutId,
     IntervalId,
-    Resources
+    Resources,
+    Clients
   >
 
   onEnter(
@@ -225,9 +250,18 @@ export interface FluentState<
       TimeoutId,
       IntervalId,
       Resources,
+      Clients,
       Enter
     >,
-  ): FluentState<Name, Actions | Enter, Data, TimeoutId, IntervalId, Resources>
+  ): FluentState<
+    Name,
+    Actions | Enter,
+    Data,
+    TimeoutId,
+    IntervalId,
+    Resources,
+    Clients
+  >
 
   onExit(
     handler: FluentHandler<
@@ -237,9 +271,18 @@ export interface FluentState<
       TimeoutId,
       IntervalId,
       Resources,
+      Clients,
       Exit
     >,
-  ): FluentState<Name, Actions | Exit, Data, TimeoutId, IntervalId, Resources>
+  ): FluentState<
+    Name,
+    Actions | Exit,
+    Data,
+    TimeoutId,
+    IntervalId,
+    Resources,
+    Clients
+  >
 
   onTimeout<Id extends string>(
     timeoutId: Id,
@@ -250,9 +293,18 @@ export interface FluentState<
       TimeoutId | Id,
       IntervalId,
       Resources,
+      Clients,
       TimerCompleted<Id>
     >,
-  ): FluentState<Name, Actions, Data, TimeoutId | Id, IntervalId, Resources>
+  ): FluentState<
+    Name,
+    Actions,
+    Data,
+    TimeoutId | Id,
+    IntervalId,
+    Resources,
+    Clients
+  >
 
   onInterval<Id extends string>(
     intervalId: Id,
@@ -263,16 +315,25 @@ export interface FluentState<
       TimeoutId,
       IntervalId | Id,
       Resources,
+      Clients,
       IntervalTriggered<Id>
     >,
-  ): FluentState<Name, Actions, Data, TimeoutId, IntervalId | Id, Resources>
+  ): FluentState<
+    Name,
+    Actions,
+    Data,
+    TimeoutId,
+    IntervalId | Id,
+    Resources,
+    Clients
+  >
 
   when(
     predicate: (data: Data) => boolean,
-  ): FluentState<Name, Actions, Data, TimeoutId, IntervalId, Resources>
+  ): FluentState<Name, Actions, Data, TimeoutId, IntervalId, Resources, Clients>
   unless(
     predicate: (data: Data) => boolean,
-  ): FluentState<Name, Actions, Data, TimeoutId, IntervalId, Resources>
+  ): FluentState<Name, Actions, Data, TimeoutId, IntervalId, Resources, Clients>
   describe(): FluentStateDescription
 }
 
@@ -454,6 +515,8 @@ export const state = <Data = undefined, Name extends string = string>(
   stateFn.on = (actionCreator, handler) =>
     registerHandler(actionCreator.type, handler as AnyHandler, "on") as never
 
+  stateFn.withClients = () => stateFn as never
+
   stateFn.withResources = () => stateFn as never
 
   stateFn.onDebounce = (actionCreator, options, handler) =>
@@ -537,6 +600,7 @@ export const withDebouncedAction = <
   TimeoutId extends string,
   IntervalId extends string,
   Resources extends Record<string, unknown>,
+  Clients extends Record<string, unknown>,
   C extends AnyFluentActionCreator,
 >(
   stateValue: FluentState<
@@ -545,7 +609,8 @@ export const withDebouncedAction = <
     Data,
     TimeoutId,
     IntervalId,
-    Resources
+    Resources,
+    Clients
   >,
   actionCreator: C,
   options: Parameters<typeof debounce>[1],
@@ -556,6 +621,7 @@ export const withDebouncedAction = <
     TimeoutId,
     IntervalId,
     Resources,
+    Clients,
     ActionCreatorType<C>
   >,
 ) => stateValue.onDebounce(actionCreator, options, handler as never)
@@ -581,3 +647,273 @@ type OptimisticUpdateConfig<Data, Payload> = {
 export const withOptimisticUpdate = <Data, Payload>(
   config: OptimisticUpdateConfig<Data, Payload>,
 ) => config
+
+type FluentMachineStates = Record<
+  string,
+  {
+    (...data: Array<any>): any
+    name: string
+  }
+>
+
+type FluentMachineSelectors<States extends FluentMachineStates> = Record<
+  string,
+  StateSelector<
+    States[keyof States] | ReadonlyArray<States[keyof States]>,
+    unknown
+  >
+>
+
+type FluentMachineConfig<
+  States extends FluentMachineStates,
+  Actions,
+  OutputActions,
+  Selectors extends FluentMachineSelectors<States>,
+> = {
+  actions?: Actions
+  name?: string
+  outputActions?: OutputActions
+  selectors?: Selectors
+  states: States
+}
+
+type FluentMachineDefinition<
+  States extends FluentMachineStates,
+  Actions,
+  OutputActions,
+  Selectors extends FluentMachineSelectors<States>,
+  Clients extends Record<string, unknown>,
+> = CreatedMachineDefinition<
+  States,
+  Actions,
+  OutputActions,
+  unknown,
+  Selectors,
+  Clients
+> & {
+  withActions: <NextActions>(
+    actions: NextActions,
+  ) => FluentMachineDefinition<
+    States,
+    NextActions,
+    OutputActions,
+    Selectors,
+    Clients
+  >
+  withClients: <
+    NextClients extends Record<string, unknown>,
+  >() => FluentMachineDefinition<
+    States,
+    Actions,
+    OutputActions,
+    Selectors,
+    NextClients
+  >
+  withOutputActions: <NextOutputActions>(
+    outputActions: NextOutputActions,
+  ) => FluentMachineDefinition<
+    States,
+    Actions,
+    NextOutputActions,
+    Selectors,
+    Clients
+  >
+  withSelectors: <NextSelectors extends FluentMachineSelectors<States>>(
+    selectors: NextSelectors,
+  ) => FluentMachineDefinition<
+    States,
+    Actions,
+    OutputActions,
+    NextSelectors,
+    Clients
+  >
+  withStates: <NextStates extends FluentMachineStates>(
+    states: NextStates,
+  ) => FluentMachineDefinition<
+    NextStates,
+    Actions,
+    OutputActions,
+    Record<string, never>,
+    Clients
+  >
+}
+
+export type FluentMachineBuilder<
+  Actions = Record<string, never>,
+  OutputActions = Record<string, never>,
+  Clients extends Record<string, unknown> = Record<string, unknown>,
+> = {
+  withActions: <NextActions>(
+    actions: NextActions,
+  ) => FluentMachineBuilder<NextActions, OutputActions, Clients>
+  withClients: <
+    NextClients extends Record<string, unknown>,
+  >() => FluentMachineBuilder<Actions, OutputActions, NextClients>
+  withOutputActions: <NextOutputActions>(
+    outputActions: NextOutputActions,
+  ) => FluentMachineBuilder<Actions, NextOutputActions, Clients>
+  withStates: <States extends FluentMachineStates>(
+    states: States,
+  ) => FluentMachineDefinition<
+    States,
+    Actions,
+    OutputActions,
+    Record<string, never>,
+    Clients
+  >
+}
+
+const createFluentMachine = <
+  States extends FluentMachineStates,
+  Actions,
+  OutputActions,
+  Selectors extends FluentMachineSelectors<States>,
+  Clients extends Record<string, unknown>,
+>(
+  config: FluentMachineConfig<States, Actions, OutputActions, Selectors>,
+): FluentMachineDefinition<
+  States,
+  Actions,
+  OutputActions,
+  Selectors,
+  Clients
+> => {
+  const createdMachine = createMachine<
+    States,
+    Actions,
+    OutputActions,
+    unknown,
+    Selectors,
+    Clients
+  >({
+    ...(config.actions === undefined ? {} : { actions: config.actions }),
+    ...(config.name === undefined ? {} : { name: config.name }),
+    ...(config.outputActions === undefined
+      ? {}
+      : { outputActions: config.outputActions }),
+    ...(config.selectors === undefined ? {} : { selectors: config.selectors }),
+    states: config.states,
+  })
+
+  const withStates = <NextStates extends FluentMachineStates>(
+    states: NextStates,
+  ) =>
+    createFluentMachine<
+      NextStates,
+      Actions,
+      OutputActions,
+      Record<string, never>,
+      Clients
+    >({
+      ...(config.actions === undefined ? {} : { actions: config.actions }),
+      ...(config.name === undefined ? {} : { name: config.name }),
+      ...(config.outputActions === undefined
+        ? {}
+        : { outputActions: config.outputActions }),
+      states,
+    })
+
+  const withActions = <NextActions>(actions: NextActions) =>
+    createFluentMachine<States, NextActions, OutputActions, Selectors, Clients>(
+      {
+        ...config,
+        actions,
+      },
+    )
+
+  const withOutputActions = <NextOutputActions>(
+    outputActions: NextOutputActions,
+  ) =>
+    createFluentMachine<States, Actions, NextOutputActions, Selectors, Clients>(
+      {
+        ...config,
+        outputActions,
+      },
+    )
+
+  const withSelectors = <NextSelectors extends FluentMachineSelectors<States>>(
+    selectors: NextSelectors,
+  ) =>
+    createFluentMachine<States, Actions, OutputActions, NextSelectors, Clients>(
+      {
+        ...config,
+        selectors,
+      },
+    )
+
+  const withClients = <NextClients extends Record<string, unknown>>() =>
+    createFluentMachine<States, Actions, OutputActions, Selectors, NextClients>(
+      config,
+    )
+
+  return Object.assign(createdMachine, {
+    withActions,
+    withClients,
+    withOutputActions,
+    withSelectors,
+    withStates,
+  }) as FluentMachineDefinition<
+    States,
+    Actions,
+    OutputActions,
+    Selectors,
+    Clients
+  >
+}
+
+const createFluentMachineBuilder = <
+  Actions,
+  OutputActions,
+  Clients extends Record<string, unknown>,
+>(config: {
+  actions?: Actions
+  name?: string
+  outputActions?: OutputActions
+}): FluentMachineBuilder<Actions, OutputActions, Clients> => {
+  const withStates = <States extends FluentMachineStates>(states: States) =>
+    createFluentMachine<
+      States,
+      Actions,
+      OutputActions,
+      Record<string, never>,
+      Clients
+    >({
+      ...(config.actions === undefined ? {} : { actions: config.actions }),
+      ...(config.name === undefined ? {} : { name: config.name }),
+      ...(config.outputActions === undefined
+        ? {}
+        : { outputActions: config.outputActions }),
+      states,
+    })
+
+  const withActions = <NextActions>(actions: NextActions) =>
+    createFluentMachineBuilder<NextActions, OutputActions, Clients>({
+      ...config,
+      actions,
+    })
+
+  const withOutputActions = <NextOutputActions>(
+    outputActions: NextOutputActions,
+  ) =>
+    createFluentMachineBuilder<Actions, NextOutputActions, Clients>({
+      ...config,
+      outputActions,
+    })
+
+  const withClients = <NextClients extends Record<string, unknown>>() =>
+    createFluentMachineBuilder<Actions, OutputActions, NextClients>(config)
+
+  return {
+    withActions,
+    withClients,
+    withOutputActions,
+    withStates,
+  }
+}
+
+export const machine = (name?: string) =>
+  createFluentMachineBuilder<
+    Record<string, never>,
+    Record<string, never>,
+    Record<string, unknown>
+  >(name === undefined ? {} : { name })
