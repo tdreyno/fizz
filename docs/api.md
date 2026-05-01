@@ -471,6 +471,53 @@ const runtime = createRuntime(machine, Editing(initialData), {
 })
 ```
 
+### `effectBatch`
+
+Run multiple `commandEffect(...)` items as one ordered batch.
+
+```ts
+const applySucceeded = action("ApplySucceeded")
+const applyFailed = action("ApplyFailed")
+
+const Editing = state({
+  ApplyRemote: (_data, payload) =>
+    effectBatch(
+      [
+        commandEffect<Commands, "notesEditor", "setDocument">(
+          "notesEditor",
+          "setDocument",
+          { document: payload.document },
+        ),
+        commandEffect<Commands, "notesEditor", "setEditable">(
+          "notesEditor",
+          "setEditable",
+          { editable: payload.editable },
+        ),
+      ],
+      {
+        channel: "editor",
+        onError: "continue",
+      },
+    ).chainToAction(applySucceeded(), () => applyFailed()),
+})
+```
+
+`effectBatch` options:
+
+- `channel?`: optional serialization key; batches with the same channel execute without interleaving
+- `onError?`: `"failBatch" | "continue"` (defaults to `"failBatch"`)
+
+`effectBatch` chaining:
+
+- `chainToAction(resolveAction, reject?)`: map batch completion/failure into internal actions
+- `chainToOutput(resolveOutputAction, reject?)`: map batch completion/failure into emitted outputs
+
+Current behavior:
+
+- batches run child effects in listed order
+- `effectBatch` currently accepts `commandEffect(...)` entries
+- same-channel batches are serialized; omitted `channel` keeps normal queue behavior
+
 ### `log`
 
 Create a logging effect.

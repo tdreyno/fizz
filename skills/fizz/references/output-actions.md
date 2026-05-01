@@ -41,6 +41,15 @@ Map-aware overload:
 
 This variant infers payload shape from the map entry.
 
+### `effectBatch(...).chainToOutput(...)`
+
+Use this when multiple imperative commands must run in order and then emit one success/failure output signal.
+
+- Batch entries should be `commandEffect(...)` calls.
+- `channel` is optional; when set, same-channel batches are serialized.
+- `onError` defaults to `"failBatch"`.
+- Prefer `chainToAction(...)` instead when completion/failure should change machine state directly.
+
 ## Runtime Subscription APIs
 
 Use based on intent:

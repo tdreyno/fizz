@@ -62,6 +62,40 @@ const Editing = state<{ document: string }>({
 
 `outputCommand(...)` is direct-use in handlers. Do not wrap it in `output(...)`.
 
+### `effectBatch(...).chainToOutput(...)`
+
+When adapter commands must run in strict order and still emit integration-facing output signals, chain a batch to outputs.
+
+```ts
+const applySucceeded = action("ApplySucceeded")
+const applyFailed = action("ApplyFailed").withPayload<{ message: string }>()
+
+const Editing = state({
+  ApplyRemote: (_data, payload) =>
+    effectBatch(
+      [
+        commandEffect<Commands, "notesEditor", "setDocument">(
+          "notesEditor",
+          "setDocument",
+          { document: payload.document },
+        ),
+        commandEffect<Commands, "notesEditor", "setEditable">(
+          "notesEditor",
+          "setEditable",
+          { editable: payload.editable },
+        ),
+      ],
+      { channel: "editor" },
+    ).chainToOutput(applySucceeded(), reason =>
+      applyFailed({
+        message: reason instanceof Error ? reason.message : "Unknown error",
+      }),
+    ),
+})
+```
+
+Use `chainToAction(...)` instead when completion/failure should drive internal machine transitions.
+
 ## Defining Command Maps
 
 ### `defineOutputMap(...)`

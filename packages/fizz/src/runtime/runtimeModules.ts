@@ -78,6 +78,9 @@ export const createRuntimeModules = <OutputAction>(
   const commandModule = createRuntimeCommandModule({
     actionCommand: options.actionCommand,
     commandHandlers: options.commandHandlers,
+    emitOutput: output => {
+      options.emitOutput(output as OutputAction)
+    },
     emitMonitor: options.emitMonitor,
     missingHandlerPolicy: options.missingCommandHandlerPolicy,
     runAction: options.runAction,

@@ -179,6 +179,144 @@ export type CommandEffectData<
   payload: Payload
 }
 
+export type EffectBatchOnError = "continue" | "failBatch"
+
+type BatchResolveHandler<Resolved extends Action<string, unknown> | void> =
+  () => Resolved
+
+type BatchRejectHandler<Rejected extends Action<string, unknown> | void> = (
+  reason: unknown,
+) => Rejected
+
+export type EffectBatchOptions = {
+  channel?: string
+  onError?: EffectBatchOnError
+}
+
+export type EffectBatchEffectData<
+  ResolvedAction extends Action<string, unknown> | void = void,
+  RejectedAction extends Action<string, unknown> | void = void,
+  ResolvedOutput extends Action<string, unknown> | void = void,
+  RejectedOutput extends Action<string, unknown> | void = void,
+> = {
+  channel?: string
+  effects: ReadonlyArray<Effect<unknown>>
+  handlers: {
+    rejectAction: BatchRejectHandler<RejectedAction>
+    rejectOutput: BatchRejectHandler<RejectedOutput>
+    resolveAction: BatchResolveHandler<ResolvedAction>
+    resolveOutput: BatchResolveHandler<ResolvedOutput>
+  }
+  onError: EffectBatchOnError
+}
+
+export type EffectBatchBuilder<
+  ResolvedAction extends Action<string, unknown> | void = void,
+  RejectedAction extends Action<string, unknown> | void = void,
+  ResolvedOutput extends Action<string, unknown> | void = void,
+  RejectedOutput extends Action<string, unknown> | void = void,
+> = Effect<
+  EffectBatchEffectData<
+    ResolvedAction,
+    RejectedAction,
+    ResolvedOutput,
+    RejectedOutput
+  >
+> & {
+  chainToAction: <
+    NextResolvedAction extends Action<string, unknown> | void,
+    NextRejectedAction extends Action<string, unknown> | void = void,
+  >(
+    resolve: NextResolvedAction,
+    reject?: BatchRejectHandler<NextRejectedAction>,
+  ) => EffectBatchBuilder<
+    NextResolvedAction,
+    NextRejectedAction,
+    ResolvedOutput,
+    RejectedOutput
+  >
+
+  chainToOutput: <
+    NextResolvedOutput extends Action<string, unknown> | void,
+    NextRejectedOutput extends Action<string, unknown> | void = void,
+  >(
+    resolve: NextResolvedOutput,
+    reject?: BatchRejectHandler<NextRejectedOutput>,
+  ) => EffectBatchBuilder<
+    ResolvedAction,
+    RejectedAction,
+    NextResolvedOutput,
+    NextRejectedOutput
+  >
+}
+
+const ignoreBatchResult = () => undefined
+const ignoreBatchError = () => undefined
+
+const createEffectBatchBuilder = <
+  ResolvedAction extends Action<string, unknown> | void,
+  RejectedAction extends Action<string, unknown> | void,
+  ResolvedOutput extends Action<string, unknown> | void,
+  RejectedOutput extends Action<string, unknown> | void,
+>(
+  data: EffectBatchEffectData<
+    ResolvedAction,
+    RejectedAction,
+    ResolvedOutput,
+    RejectedOutput
+  >,
+): EffectBatchBuilder<
+  ResolvedAction,
+  RejectedAction,
+  ResolvedOutput,
+  RejectedOutput
+> => {
+  const batch = effect("effectBatch", data) as EffectBatchBuilder<
+    ResolvedAction,
+    RejectedAction,
+    ResolvedOutput,
+    RejectedOutput
+  >
+
+  batch.chainToAction = <
+    NextResolvedAction extends Action<string, unknown> | void,
+    NextRejectedAction extends Action<string, unknown> | void = void,
+  >(
+    resolve: NextResolvedAction,
+    reject?: BatchRejectHandler<NextRejectedAction>,
+  ) =>
+    createEffectBatchBuilder({
+      ...data,
+      handlers: {
+        ...data.handlers,
+        rejectAction:
+          reject ??
+          (ignoreBatchError as unknown as BatchRejectHandler<NextRejectedAction>),
+        resolveAction: () => resolve,
+      },
+    })
+
+  batch.chainToOutput = <
+    NextResolvedOutput extends Action<string, unknown> | void,
+    NextRejectedOutput extends Action<string, unknown> | void = void,
+  >(
+    resolve: NextResolvedOutput,
+    reject?: BatchRejectHandler<NextRejectedOutput>,
+  ) =>
+    createEffectBatchBuilder({
+      ...data,
+      handlers: {
+        ...data.handlers,
+        rejectOutput:
+          reject ??
+          (ignoreBatchError as unknown as BatchRejectHandler<NextRejectedOutput>),
+        resolveOutput: () => resolve,
+      },
+    })
+
+  return batch
+}
+
 type CommandEffectChainToActionBuilder<
   Channel extends string,
   CommandType extends string,
@@ -271,6 +409,22 @@ export const commandEffect = <
 
   return command
 }
+
+export const effectBatch = (
+  effects: ReadonlyArray<Effect<unknown>>,
+  options?: EffectBatchOptions,
+): EffectBatchBuilder =>
+  createEffectBatchBuilder({
+    ...(options?.channel === undefined ? {} : { channel: options.channel }),
+    effects,
+    handlers: {
+      rejectAction: ignoreBatchError,
+      rejectOutput: ignoreBatchError,
+      resolveAction: ignoreBatchResult,
+      resolveOutput: ignoreBatchResult,
+    },
+    onError: options?.onError ?? "failBatch",
+  })
 
 type RequestJSONRejectHandler<
   RejectedAction extends Action<string, unknown> | void,

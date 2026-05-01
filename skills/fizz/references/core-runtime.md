@@ -282,8 +282,18 @@ Use explicit effects when the machine needs to:
 - log or warn
 - emit output actions
 - dispatch typed imperative adapter commands with `commandEffect(...).chainToAction(...)`
+- run ordered imperative command groups with `effectBatch([...], options?)`
 - schedule async or timed work
 - represent a no-op intentionally
+
+`effectBatch(...)` guidance:
+
+- Use it for multi-step adapter sequences that must stay ordered.
+- `channel` is optional; when provided, same-channel batches are serialized.
+- `onError` defaults to `"failBatch"`; set `"continue"` to process remaining commands after a failure.
+- Chain completion/failure with either:
+  - `chainToAction(resolveAction, reject?)` for internal machine workflow
+  - `chainToOutput(resolveOutputAction, reject?)` for integration-facing notifications
 
 Do not describe handler behavior as “pure” if it directly performs IO inline instead of returning an effect or async helper result.
 
