@@ -1,5 +1,25 @@
 # @tdreyno/fizz-react
 
+## 7.7.0
+
+### Minor Changes
+
+- 45b32d3: Add typed machine clients support via runtime options and state handler utilities, including `utils.clients` access in handlers.
+
+  Add a no-build fluent machine API with `machine(name?)` and chainable `withStates`, `withActions`, `withOutputActions`, `withSelectors`, and `withClients` methods.
+
+  Expose fluent state `withClients<...>()` typing so service dependencies are easy to inject and mock in tests.
+
+### Patch Changes
+
+- Updated dependencies [73e07f7]
+- Updated dependencies [ecd14d7]
+- Updated dependencies [1a1606a]
+- Updated dependencies [45b32d3]
+- Updated dependencies [63c683b]
+- Updated dependencies [51481e7]
+  - @tdreyno/fizz@8.6.0
+
 ## 7.6.0
 
 ### Minor Changes
