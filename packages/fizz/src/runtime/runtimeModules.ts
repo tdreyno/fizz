@@ -51,6 +51,7 @@ export const createRuntimeModules = <OutputAction>(
     emitMonitor: options.emitMonitor,
     getContext: options.getContext,
     runAction: options.runAction,
+    timerDriver: options.timerDriver,
   })
   const schedulingModule = createRuntimeSchedulingModule({
     actionCommand: options.actionCommand,

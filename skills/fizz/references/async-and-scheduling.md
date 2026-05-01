@@ -28,6 +28,53 @@ startAsync(
 )
 ```
 
+## `debounceAsync(...)`
+
+Use `debounceAsync(...)` when an action burst should collapse into one latest-wins async request.
+
+Current v1 behavior from `packages/fizz/src/effect.ts`, `packages/fizz/src/runtime/runtimeAsyncModule.ts`, and async tests:
+
+- requires a lazy run function `(signal, context) => Promise<T>`
+- requires `asyncId`
+- requires `delayMs`
+- maps success through `resolve`
+- optionally maps non-abort failures through `reject`
+- automatically cancels an older in-flight request when newer work with the same `asyncId` is scheduled
+- lets `cancelAsync(asyncId)` cancel both pending debounce timers and active async work
+- ignores stale completions automatically
+- treats abort-like failures as non-errors for `reject` mapping by default
+
+Use it for autosave, incremental search, and other workflows that currently combine debounce plus `startAsync(...)` plus stale guards manually.
+
+```typescript
+debounceAsync(signal => saveDraft(signal, payload.text), {
+  asyncId: `draft:${payload.id}`,
+  delayMs: 300,
+  reject: saveFailed,
+  resolve: saveSucceeded,
+})
+```
+
+Current option shape:
+
+```typescript
+type DebounceAsyncOptions<Resolved, AsyncId extends string> = {
+  asyncId: AsyncId
+  delayMs: number
+  resolve: (value: Resolved) => Action<string, unknown> | void
+  reject?: (reason: unknown) => Action<string, unknown> | void
+  classifyAbort?: (reason: unknown, signal: AbortSignal) => boolean
+  emitCancelled?: boolean
+}
+```
+
+Review guidance:
+
+- prefer `debounceAsync(...)` over ad-hoc timer plus async glue for latest-wins request flows
+- keep `asyncId` stable for the intended cancellation domain
+- do not pass an already-created promise; the run must stay lazy
+- if a task needs queueing, leading-edge behavior, or last-success caching, note that those are not part of this helper yet
+
 ## `requestJSONAsync(...)`
 
 Use `requestJSONAsync(...)` for JSON request flows handled by Fizz.
@@ -182,6 +229,7 @@ Design for `AsyncCancelled` only when the state needs to observe that cancellati
 Important runtime behavior:
 
 - explicit cancellation dispatches `AsyncCancelled`
+- `cancelAsync(asyncId)` also cancels pending `debounceAsync(...)` timers for that same id
 - stale completions are ignored
 - abort-style rejections should not be treated as normal failures
 - state exit can invalidate work started by that state instance

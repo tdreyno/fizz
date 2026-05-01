@@ -378,6 +378,48 @@ Fizz exposes first-party browser effect helpers:
 
 The one-way browser helpers (`alert`, copy, open, print, location, history, postMessage) do not emit follow-up actions.
 
+### Async effects
+
+Fizz exposes three first-party async effect helpers:
+
+- `startAsync(run, handlers, asyncId?)`
+- `cancelAsync(asyncId)`
+- `debounceAsync(run, options)`
+
+Use `startAsync(...)` for immediate async work, `cancelAsync(...)` to stop a known async lane, and `debounceAsync(...)` when the machine needs debounce plus latest-wins cancellation semantics in one helper.
+
+`debounceAsync(...)` requires a lazy run function and a required `asyncId`:
+
+```ts
+debounceAsync(signal => saveDraft(signal), {
+  asyncId: "draft",
+  delayMs: 300,
+  reject: saveFailed,
+  resolve: saveSucceeded,
+})
+```
+
+Option shape:
+
+```ts
+type DebounceAsyncOptions<Resolved, AsyncId extends string> = {
+  asyncId: AsyncId
+  delayMs: number
+  resolve: (value: Resolved) => Action<string, unknown> | void
+  reject?: (reason: unknown) => Action<string, unknown> | void
+  classifyAbort?: (reason: unknown, signal: AbortSignal) => boolean
+  emitCancelled?: boolean
+}
+```
+
+Behavior summary:
+
+- new work for the same `asyncId` replaces pending debounce state
+- a replacement cancels any currently running request on that same id
+- `cancelAsync(asyncId)` cancels pending debounce state and running work
+- stale completions are ignored automatically
+- abort-classified failures skip the `reject` mapper
+
 ### `requestJSONAsync` and `customJSONAsync` retry policy
 
 Both JSON async builders support an optional `retry` policy in their `init` argument.

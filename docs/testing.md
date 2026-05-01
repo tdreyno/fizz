@@ -51,7 +51,7 @@ Prefer asserting state identity and machine-visible data rather than internal sc
 
 ## Async Tests
 
-Use `createControlledAsyncDriver()` whenever a state starts work through `startAsync(...)` or `requestJSONAsync(...)`.
+Use `createControlledAsyncDriver()` whenever a state starts work through `startAsync(...)`, `debounceAsync(...)`, or `requestJSONAsync(...)`.
 
 ```ts
 import {
@@ -101,6 +101,22 @@ const deferred = <T>(): Deferred<T> => {
 ```
 
 That local helper is the current best way to control when async work resolves or rejects.
+
+When testing `debounceAsync(...)`, pair the deferred helper with `createControlledTimerDriver()` so both the debounce delay and the async settlement stay deterministic.
+
+```ts
+const asyncDriver = createControlledAsyncDriver()
+const timerDriver = createControlledTimerDriver()
+const runtime = createRuntime(machine, Editing({ events: [] }), {
+  asyncDriver,
+  timerDriver,
+})
+
+await runtime.run(draftChanged({ draftId: "1", text: "ab" }))
+await timerDriver.advanceBy(300)
+deferredSave.resolve("ok")
+await asyncDriver.flush()
+```
 
 ## Timer And Interval Tests
 

@@ -1,8 +1,106 @@
 # Async
 
-Fizz async operations let a state start promise-backed work without leaving the state machine model. You can use the low-level async helpers directly, use `requestJSONAsync(...)` for the common JSON request flow, or use `customJSONAsync(...)` when an app client already returns parsed JSON.
+Fizz async operations let a state start promise-backed work without leaving the state machine model. You can use the low-level async helpers directly, use `debounceAsync(...)` for latest-wins save and search flows, use `requestJSONAsync(...)` for the common JSON request flow, or use `customJSONAsync(...)` when an app client already returns parsed JSON.
 
 Async operations are a good fit for `fetch`, form submission, loading related resources, and other request-shaped work where stale completions should be ignored automatically.
+
+## Debounced latest-wins async with `debounceAsync`
+
+`debounceAsync(run, options)` is the composed helper for common autosave and typeahead flows where only the latest request should survive.
+
+Use it when a handler needs all of the following at once:
+
+- debounce before work starts
+- a required cancellation domain through `asyncId`
+- automatic cancellation of an older in-flight request when a newer one replaces it
+- stale completion suppression
+- explicit action mapping for success and optional failure
+
+`debounceAsync(...)` requires a lazy run function:
+
+- `(signal, context) => Promise<T>`
+
+Unlike `startAsync(...)`, it does not accept an already-created promise. The debounce delay only works correctly when the work is created lazily after the timer fires.
+
+Options:
+
+- `asyncId`: required cancellation domain
+- `delayMs`: debounce delay in milliseconds
+- `resolve`: maps the settled value to an action
+- `reject?`: optional non-abort failure mapper
+- `classifyAbort?`: optional abort classifier override
+- `emitCancelled?`: when true, internal replacement emits `AsyncCancelled`
+
+Semantics:
+
+- A new `debounceAsync(...)` with the same `asyncId` replaces any pending debounce timer.
+- If an older request is already running for that `asyncId`, the new one cancels it before scheduling the replacement.
+- `cancelAsync(asyncId)` cancels both pending debounce timers and in-flight work for that id.
+- Abort-classified failures do not flow through `reject(...)`.
+- Queue mode, leading-edge execution, and last-success caching are not part of this first version.
+
+```typescript
+import { action, debounceAsync, state } from "@tdreyno/fizz"
+
+const draftChanged = action("DraftChanged").withPayload<{
+  draftId: string
+  text: string
+}>()
+const draftSaved = action("DraftSaved").withPayload<string>()
+const draftSaveFailed = action("DraftSaveFailed").withPayload<string>()
+
+const Editing = state<
+  | ReturnType<typeof draftChanged>
+  | ReturnType<typeof draftSaved>
+  | ReturnType<typeof draftSaveFailed>
+>({
+  DraftChanged: (_data, payload) =>
+    debounceAsync(
+      signal =>
+        saveDraft(payload.draftId, payload.text, {
+          signal,
+        }),
+      {
+        asyncId: `draft:${payload.draftId}`,
+        delayMs: 300,
+        reject: error => draftSaveFailed(String(error)),
+        resolve: draftSaved,
+      },
+    ),
+})
+```
+
+```text
+debounceAsync(...) flow
+
+DraftChanged
+    |
+    v
+schedule latest timer for asyncId
+    |
+    +--> newer DraftChanged arrives
+    |        |
+    |        v
+    |    cancel pending timer and any active request
+    |    reschedule latest run
+    |
+    v
+timer fires
+    |
+    v
+start lazy async run
+    |
+    +--> replacement arrives
+    |        |
+    |        v
+    |    abort active request and reschedule latest
+    |
+    v
+resolve or reject
+    |
+    v
+mapped action re-enters the machine
+```
 
 ## Low-level helpers
 
@@ -28,6 +126,8 @@ Both `resolve` and `reject` handlers are required.
 ```
 
 If you provide an `asyncId`, the state can later cancel that specific operation with `cancelAsync(asyncId)`. If you omit the id, Fizz generates one internally so the operation still participates in stale-completion protection and state-exit cleanup, but you cannot target it later with manual cancellation.
+
+If the workflow also needs debounce and latest-wins replacement, prefer `debounceAsync(...)` over manually combining `startAsync(...)`, timers, and stale guards.
 
 For non-promise external lifecycles (subscriptions, controllers, handles), prefer state resources via `resource(...)`, `abortController(...)`, and `subscription(...)`. Those values are available through handler `utils.resources` and are cleaned up automatically on state exit.
 

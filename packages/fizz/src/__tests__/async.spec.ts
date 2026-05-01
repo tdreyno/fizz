@@ -6,12 +6,17 @@ import { action, enter } from "../action"
 import { createInitialContext } from "../context"
 import {
   customJSONAsync,
+  debounceAsync,
   noop,
   requestJSONAsync,
   resolveRetryDelayMs,
   startAsync,
 } from "../effect"
-import { createControlledAsyncDriver, Runtime } from "../runtime"
+import {
+  createControlledAsyncDriver,
+  createControlledTimerDriver,
+  Runtime,
+} from "../runtime"
 import { state } from "../state"
 
 type Deferred<T> = {
@@ -1310,6 +1315,307 @@ describe("Async scheduled operations", () => {
     })
   })
 
+  test("should debounce async work and only run the latest scheduled payload", async () => {
+    const saveDraft = action("SaveDraft").withPayload<string>()
+    type SaveDraft = ActionCreatorType<typeof saveDraft>
+
+    const saved = action("Saved").withPayload<string>()
+    type Saved = ActionCreatorType<typeof saved>
+
+    const runs: string[] = []
+
+    const Editing = state<
+      Enter | SaveDraft | Saved,
+      Data,
+      string,
+      string,
+      "draft"
+    >(
+      {
+        Enter: noop,
+
+        SaveDraft: (_, draft) =>
+          debounceAsync(
+            async () => {
+              runs.push(draft)
+
+              return draft.toUpperCase()
+            },
+            {
+              asyncId: "draft",
+              delayMs: 20,
+              resolve: saved,
+            },
+          ),
+
+        Saved: (data, value, { update }) =>
+          update(appendEvent(data, `saved:${value}`)),
+      },
+      { name: "Editing" },
+    )
+
+    const context = createInitialContext([Editing({ events: [] })])
+    const asyncDriver = createControlledAsyncDriver()
+    const timerDriver = createControlledTimerDriver()
+    const runtime = new Runtime(
+      context,
+      { saveDraft, saved },
+      {},
+      {
+        asyncDriver,
+        timerDriver,
+      },
+    )
+
+    await runtime.run(enter())
+    await runtime.run(saveDraft("a"))
+    await timerDriver.advanceBy(10)
+    await runtime.run(saveDraft("ab"))
+    await timerDriver.advanceBy(19)
+
+    expect(runs).toEqual([])
+
+    await timerDriver.advanceBy(1)
+    await asyncDriver.flush()
+
+    const currentState = runtime.currentState()
+
+    if (!currentState.is(Editing)) {
+      throw new Error("Expected Editing state")
+    }
+
+    expect(runs).toEqual(["ab"])
+    expect(currentState.data.events).toEqual(["saved:AB"])
+  })
+
+  test("should cancel in-flight debounced async work when replaced and ignore stale completion", async () => {
+    const saveDraft = action("SaveDraft").withPayload<string>()
+    type SaveDraft = ActionCreatorType<typeof saveDraft>
+
+    const saved = action("Saved").withPayload<string>()
+    type Saved = ActionCreatorType<typeof saved>
+
+    const requests = new Map<string, Deferred<string>>()
+    const aborted: string[] = []
+
+    const Editing = state<
+      Enter | SaveDraft | Saved,
+      Data,
+      string,
+      string,
+      "draft"
+    >(
+      {
+        Enter: noop,
+
+        SaveDraft: (_, draft) =>
+          debounceAsync(
+            signal => {
+              const request = deferred<string>()
+
+              signal.addEventListener("abort", () => {
+                aborted.push(draft)
+              })
+
+              requests.set(draft, request)
+
+              return request.promise
+            },
+            {
+              asyncId: "draft",
+              delayMs: 10,
+              resolve: saved,
+            },
+          ),
+
+        Saved: (data, value, { update }) =>
+          update(appendEvent(data, `saved:${value}`)),
+      },
+      { name: "Editing" },
+    )
+
+    const context = createInitialContext([Editing({ events: [] })])
+    const asyncDriver = createControlledAsyncDriver()
+    const timerDriver = createControlledTimerDriver()
+    const runtime = new Runtime(
+      context,
+      { saveDraft, saved },
+      {},
+      {
+        asyncDriver,
+        timerDriver,
+      },
+    )
+
+    await runtime.run(enter())
+    await runtime.run(saveDraft("a"))
+    await timerDriver.advanceBy(10)
+    await runtime.run(saveDraft("ab"))
+
+    requests.get("a")?.resolve("A")
+    await asyncDriver.flush()
+
+    await timerDriver.advanceBy(10)
+
+    requests.get("ab")?.resolve("AB")
+    await asyncDriver.flush()
+
+    const currentState = runtime.currentState()
+
+    if (!currentState.is(Editing)) {
+      throw new Error("Expected Editing state")
+    }
+
+    expect(aborted).toEqual(["a"])
+    expect(currentState.data.events).toEqual(["saved:AB"])
+  })
+
+  test("should cancel pending debounced async work through cancelAsync", async () => {
+    const saveDraft = action("SaveDraft")
+    type SaveDraft = ActionCreatorType<typeof saveDraft>
+
+    const cancelSave = action("CancelSave")
+    type CancelSave = ActionCreatorType<typeof cancelSave>
+
+    const Editing = state<
+      Enter | SaveDraft | CancelSave,
+      Data,
+      string,
+      string,
+      "draft"
+    >(
+      {
+        Enter: noop,
+
+        SaveDraft: () =>
+          debounceAsync(async () => "saved", {
+            asyncId: "draft",
+            delayMs: 20,
+            resolve: () => undefined,
+          }),
+
+        CancelSave: (_, __, { cancelAsync }) => cancelAsync("draft"),
+
+        AsyncCancelled: (data, payload, { update }) =>
+          update(appendEvent(data, `cancelled:${payload.asyncId}`)),
+      },
+      { name: "Editing" },
+    )
+
+    const context = createInitialContext([Editing({ events: [] })])
+    const asyncDriver = createControlledAsyncDriver()
+    const timerDriver = createControlledTimerDriver()
+    const runtime = new Runtime(
+      context,
+      { cancelSave, saveDraft },
+      {},
+      {
+        asyncDriver,
+        timerDriver,
+      },
+    )
+
+    await runtime.run(enter())
+    await runtime.run(saveDraft())
+    await runtime.run(cancelSave())
+    await timerDriver.advanceBy(25)
+    await asyncDriver.flush()
+
+    const currentState = runtime.currentState()
+
+    if (!currentState.is(Editing)) {
+      throw new Error("Expected Editing state")
+    }
+
+    expect(currentState.data.events).toEqual(["cancelled:draft"])
+  })
+
+  test("should skip reject mapping for abort-classified debounceAsync failures", async () => {
+    const saveDraft = action("SaveDraft")
+    type SaveDraft = ActionCreatorType<typeof saveDraft>
+
+    const saveFailed = action("SaveFailed").withPayload<string>()
+    type SaveFailed = ActionCreatorType<typeof saveFailed>
+
+    const saveSettled = action("SaveSettled").withPayload<string>()
+    type SaveSettled = ActionCreatorType<typeof saveSettled>
+
+    const requests = new Map<string, Deferred<string>>()
+
+    const Editing = state<
+      Enter | SaveDraft | SaveFailed | SaveSettled,
+      Data,
+      string,
+      string,
+      "draft"
+    >(
+      {
+        Enter: noop,
+
+        SaveDraft: () =>
+          debounceAsync(
+            signal => {
+              const request = deferred<string>()
+
+              signal.addEventListener("abort", () => {
+                request.reject(new Error("cancelled"))
+              })
+
+              requests.set("draft", request)
+
+              return request.promise
+            },
+            {
+              asyncId: "draft",
+              classifyAbort: error =>
+                error instanceof Error && error.message === "cancelled",
+              delayMs: 10,
+              reject: error => saveFailed(String(error)),
+              resolve: saveSettled,
+            },
+          ),
+
+        SaveFailed: (data, message, { update }) =>
+          update(appendEvent(data, `failed:${message}`)),
+
+        SaveSettled: (data, message, { update }) =>
+          update(appendEvent(data, `saved:${message}`)),
+      },
+      { name: "Editing" },
+    )
+
+    const context = createInitialContext([Editing({ events: [] })])
+    const asyncDriver = createControlledAsyncDriver()
+    const timerDriver = createControlledTimerDriver()
+    const runtime = new Runtime(
+      context,
+      { saveDraft, saveFailed, saveSettled },
+      {},
+      {
+        asyncDriver,
+        timerDriver,
+      },
+    )
+
+    await runtime.run(enter())
+    await runtime.run(saveDraft())
+    await timerDriver.advanceBy(10)
+    await runtime.run(saveDraft())
+    await asyncDriver.flush()
+    await timerDriver.advanceBy(10)
+
+    requests.get("draft")?.resolve("saved")
+    await asyncDriver.flush()
+
+    const currentState = runtime.currentState()
+
+    if (!currentState.is(Editing)) {
+      throw new Error("Expected Editing state")
+    }
+
+    expect(currentState.data.events).toEqual(["saved:saved"])
+  })
+
   test("should type requestJSONAsync with optional validate before chainToAction", () => {
     const profileLoaded = action("ProfileLoaded").withPayload<Profile>()
     const profileFailed = action("ProfileFailed").withPayload<string>()
@@ -1408,6 +1714,37 @@ describe("Async scheduled operations", () => {
     // @ts-expect-error validate should only be allowed once
     type ValidateTwice = ValidatedBuilder["validate"]
     /* eslint-enable @typescript-eslint/no-unused-vars */
+  })
+
+  test("should type debounceAsync with required asyncId and optional reject", () => {
+    const profileLoaded = action("ProfileLoaded").withPayload<Profile>()
+    const profileFailed = action("ProfileFailed").withPayload<string>()
+
+    debounceAsync(async () => ({ id: "1", name: "Ada" }), {
+      asyncId: "profile",
+      delayMs: 50,
+      reject: error => profileFailed(String(error)),
+      resolve: profileLoaded,
+    })
+
+    debounceAsync(async () => ({ id: "1", name: "Ada" }), {
+      asyncId: "profile",
+      delayMs: 50,
+      resolve: profileLoaded,
+    })
+
+    // @ts-expect-error debounceAsync requires asyncId
+    debounceAsync(async () => ({ id: "1", name: "Ada" }), {
+      delayMs: 50,
+      resolve: profileLoaded,
+    })
+
+    // @ts-expect-error debounceAsync requires a lazy run function
+    debounceAsync(Promise.resolve({ id: "1", name: "Ada" }), {
+      asyncId: "profile",
+      delayMs: 50,
+      resolve: profileLoaded,
+    })
   })
 
   test("should type parser-style validate and map stages", () => {
