@@ -67,6 +67,8 @@ export const createRuntimeModules = <OutputAction>(
   const resourceModule = createRuntimeResourceModule({
     emitMonitor: options.emitMonitor,
     getContext: options.getContext,
+    runAction: options.runAction,
+    timerDriver: options.timerDriver,
   })
   const browserModule = createRuntimeBrowserModule({
     ...(options.browserDriver === undefined

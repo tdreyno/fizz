@@ -21,6 +21,7 @@
 - [Debugging](docs/debugging.md)
 - [Chrome Debugger](docs/chrome-debugger.md)
 - [Custom Effects](docs/custom-effects.md)
+- [State Resources](docs/resources.md)
 - [Complex Actions](docs/complex-actions.md)
 - [Dispatch And Read](docs/dispatch-and-read.md)
 - [Fluent API](docs/fluent-api.md)

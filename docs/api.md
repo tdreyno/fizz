@@ -558,6 +558,47 @@ const Idle = state({
 })
 ```
 
+### `resource`
+
+Register a state-scoped resource value, optionally with teardown.
+
+```ts
+const Editing = state({
+  Enter: () => resource("sessionId", crypto.randomUUID()),
+})
+```
+
+`resource(...)` also supports fluent event bridging with `.bridge(options).chainToAction(...)`.
+
+For bridge options, lifecycle behavior, and full examples, see [State Resources](./resources.md).
+
+### `subscription`
+
+Register a state-scoped subscription teardown directly.
+
+```ts
+const Editing = state({
+  Enter: () =>
+    subscription("unsubscribePresence", () =>
+      presenceStore.subscribe(() => {}),
+    ),
+})
+```
+
+See [State Resources](./resources.md) for lifecycle and resource ownership details.
+
+### `abortController`
+
+Register an `AbortController` resource with automatic `abort()` on cleanup.
+
+```ts
+const Editing = state({
+  Enter: () => abortController("requestAc"),
+})
+```
+
+See [State Resources](./resources.md) for state-scoped resource semantics.
+
 ### Browser effects
 
 Fizz exposes first-party browser effect helpers:

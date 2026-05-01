@@ -1,5 +1,9 @@
 import type { Context } from "../context.js"
-import type { ResourceEffectData, SubscriptionEffectData } from "../effect.js"
+import type {
+  ResourceBridgeData,
+  ResourceEffectData,
+  SubscriptionEffectData,
+} from "../effect.js"
 import {
   disposeStateResources,
   hasStateResource,
@@ -9,10 +13,12 @@ import {
 } from "../stateResources.js"
 import type { RuntimeEffectHandlerRegistry } from "./effectDispatcher.js"
 import type {
+  RuntimeAction,
   RuntimeDebugCommand,
   RuntimeDebugEvent,
   RuntimeState,
 } from "./runtimeContracts.js"
+import type { RuntimeTimerDriver } from "./timerDriver.js"
 
 export type RuntimeResourceModule = {
   clear: () => void
@@ -27,7 +33,165 @@ export type RuntimeResourceModule = {
 export const createRuntimeResourceModule = (options: {
   emitMonitor: (event: RuntimeDebugEvent) => void
   getContext: () => Context
+  runAction: (action: RuntimeAction) => Promise<void>
+  timerDriver: RuntimeTimerDriver
 }): RuntimeResourceModule => {
+  const runMappedAction = async (action: RuntimeAction | void) => {
+    if (action === undefined) {
+      return
+    }
+
+    await options.runAction(action)
+  }
+
+  const toSubscribedResource = <Event>(value: unknown) => {
+    if (typeof value !== "object" || value === null) {
+      return undefined
+    }
+
+    const withSubscribe = value as {
+      subscribe?: (onEvent: (event: Event) => void) => () => void
+    }
+
+    if (typeof withSubscribe.subscribe === "function") {
+      return withSubscribe.subscribe.bind(value)
+    }
+
+    const withOnDidChange = value as {
+      onDidChange?: (onEvent: (event: Event) => void) => () => void
+    }
+
+    if (typeof withOnDidChange.onDidChange === "function") {
+      return withOnDidChange.onDidChange.bind(value)
+    }
+
+    return undefined
+  }
+
+  const createBridgeTeardown = <Event>(optionsWithBridge: {
+    bridge: ResourceBridgeData<unknown, Event>
+    value: unknown
+  }): (() => void) | undefined => {
+    const subscribe =
+      optionsWithBridge.bridge.subscribe === undefined
+        ? toSubscribedResource<Event>(optionsWithBridge.value)
+        : (onEvent: (event: Event) => void) =>
+            optionsWithBridge.bridge.subscribe!(
+              optionsWithBridge.value,
+              onEvent,
+            )
+
+    if (!subscribe || !optionsWithBridge.bridge.handlers) {
+      return undefined
+    }
+
+    let active = true
+    let debounceHandle: unknown = undefined
+    let hasDebounceHandle = false
+    let latestHandle: unknown = undefined
+    let hasLatestHandle = false
+    let latestEvent: Event | undefined
+
+    const dispatchValue = async (event: Event) => {
+      if (!active) {
+        return
+      }
+
+      try {
+        if (optionsWithBridge.bridge.filter?.(event) === false) {
+          return
+        }
+
+        await runMappedAction(optionsWithBridge.bridge.handlers?.resolve(event))
+      } catch (error) {
+        await runMappedAction(
+          optionsWithBridge.bridge.handlers?.reject?.(error),
+        )
+      }
+    }
+
+    const queueLatest = () => {
+      if (hasLatestHandle) {
+        return
+      }
+
+      latestHandle = options.timerDriver.start(0, () => {
+        hasLatestHandle = false
+
+        if (!active || latestEvent === undefined) {
+          return
+        }
+
+        const event = latestEvent
+
+        latestEvent = undefined
+        return dispatchValue(event)
+      })
+      hasLatestHandle = true
+    }
+
+    const onEvent = (event: Event) => {
+      if (!active) {
+        return
+      }
+
+      const pace = optionsWithBridge.bridge.pace
+
+      if (!pace) {
+        void dispatchValue(event)
+        return
+      }
+
+      if (pace === "latest") {
+        latestEvent = event
+        queueLatest()
+        return
+      }
+
+      latestEvent = event
+
+      if (hasDebounceHandle) {
+        options.timerDriver.cancel(debounceHandle)
+      }
+
+      debounceHandle = options.timerDriver.start(pace.debounceMs, () => {
+        if (!active || latestEvent === undefined) {
+          return
+        }
+
+        const pending = latestEvent
+
+        latestEvent = undefined
+        return dispatchValue(pending)
+      })
+      hasDebounceHandle = true
+    }
+
+    let teardown: (() => void) | undefined
+
+    try {
+      teardown = subscribe(onEvent)
+    } catch (error) {
+      void runMappedAction(optionsWithBridge.bridge.handlers.reject?.(error))
+    }
+
+    return () => {
+      active = false
+
+      if (hasDebounceHandle) {
+        options.timerDriver.cancel(debounceHandle)
+        hasDebounceHandle = false
+      }
+
+      if (hasLatestHandle) {
+        options.timerDriver.cancel(latestHandle)
+        hasLatestHandle = false
+      }
+
+      teardown?.()
+    }
+  }
+
   const emitRelease = (result: {
     error?: unknown
     key: string
@@ -106,12 +270,29 @@ export const createRuntimeResourceModule = (options: {
       )
     }
 
+    const bridgeTeardown =
+      data.bridge === undefined
+        ? undefined
+        : createBridgeTeardown({
+            bridge: data.bridge,
+            value: data.value,
+          })
+
+    const combinedTeardown =
+      data.teardown === undefined && bridgeTeardown === undefined
+        ? undefined
+        : (value: unknown) => {
+            bridgeTeardown?.()
+
+            if (data.teardown !== undefined) {
+              data.teardown(value)
+            }
+          }
+
     setStateResource({
       key: data.key,
       state,
-      ...(data.teardown === undefined
-        ? {}
-        : { teardown: data.teardown as (value: unknown) => void }),
+      ...(combinedTeardown === undefined ? {} : { teardown: combinedTeardown }),
       value: data.value,
     })
 

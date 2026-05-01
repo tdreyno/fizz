@@ -4,9 +4,28 @@ import type { ActionCreatorType, Enter } from "../action"
 import { action, enter } from "../action"
 import { createInitialContext } from "../context"
 import { abortController, noop, resource, subscription } from "../effect"
-import { Runtime } from "../runtime"
+import { createControlledTimerDriver, Runtime } from "../runtime"
 import { state } from "../state"
 import { createTestHarness } from "../test"
+
+const createEventResource = <Event>() => {
+  const listeners = new Set<(event: Event) => void>()
+
+  return {
+    emit: (event: Event) => {
+      listeners.forEach(listener => {
+        listener(event)
+      })
+    },
+    subscribe: (onEvent: (event: Event) => void) => {
+      listeners.add(onEvent)
+
+      return () => {
+        listeners.delete(onEvent)
+      }
+    },
+  }
+}
 
 describe("state resources", () => {
   test("should expose resources in handler utils with state-scoped lifecycle", async () => {
@@ -204,5 +223,142 @@ describe("state resources", () => {
     await harness.waitForResourceRelease("sessionId")
 
     expect(harness.resources().keys).toEqual([])
+  })
+
+  test("should bridge subscribed resource events to actions with debounce pacing", async () => {
+    const localChanged = action("LocalChanged").withPayload<string>()
+    const done = action("Done")
+    type Done = ActionCreatorType<typeof done>
+    type LocalChanged = ActionCreatorType<typeof localChanged>
+
+    const timerDriver = createControlledTimerDriver()
+    const editor = createEventResource<string>()
+
+    const Finished = state<Enter, { logs: string[] }>(
+      {
+        Enter: noop,
+      },
+      { name: "Finished" },
+    )
+
+    const Editing = state<Enter | Done | LocalChanged, { logs: string[] }>(
+      {
+        Done: data => Finished({ logs: data.logs }),
+        Enter: () =>
+          resource("editor", editor)
+            .bridge({ pace: { debounceMs: 10 } })
+            .chainToAction(text => localChanged(String(text))),
+        LocalChanged: (data, payload, { update }) =>
+          update({
+            ...data,
+            logs: [...data.logs, payload],
+          }),
+      },
+      { name: "Editing" },
+    )
+
+    const runtime = new Runtime(
+      createInitialContext([Editing({ logs: [] })]),
+      {
+        done,
+        localChanged,
+      },
+      {},
+      { timerDriver },
+    )
+
+    await runtime.run(enter())
+
+    editor.emit("a")
+    editor.emit("ab")
+
+    await timerDriver.advanceBy(9)
+
+    const stillEditing = runtime.currentState()
+
+    expect(stillEditing.is(Editing)).toBeTruthy()
+
+    if (!stillEditing.is(Editing)) {
+      throw new Error("Expected Editing state")
+    }
+
+    expect(stillEditing.data.logs).toEqual([])
+
+    editor.emit("abc")
+    await timerDriver.advanceBy(10)
+
+    const afterDebounce = runtime.currentState()
+
+    expect(afterDebounce.is(Editing)).toBeTruthy()
+
+    if (!afterDebounce.is(Editing)) {
+      throw new Error("Expected Editing state")
+    }
+
+    expect(afterDebounce.data.logs).toEqual(["abc"])
+
+    await runtime.run(done())
+
+    editor.emit("post-exit")
+    await timerDriver.runAll()
+
+    const finished = runtime.currentState()
+
+    expect(finished.is(Finished)).toBeTruthy()
+
+    if (!finished.is(Finished)) {
+      throw new Error("Expected Finished state")
+    }
+
+    expect(finished.data.logs).toEqual(["abc"])
+  })
+
+  test("should bridge with latest pacing", async () => {
+    const localChanged = action("LocalChanged").withPayload<string>()
+    type LocalChanged = ActionCreatorType<typeof localChanged>
+    const editor = createEventResource<string>()
+    const timerDriver = createControlledTimerDriver()
+
+    const Editing = state<Enter | LocalChanged, { logs: string[] }>(
+      {
+        Enter: () =>
+          resource("editor", editor)
+            .bridge({ pace: "latest" })
+            .chainToAction(text => localChanged(String(text))),
+        LocalChanged: (data, payload, { update }) =>
+          update({
+            ...data,
+            logs: [...data.logs, payload],
+          }),
+      },
+      { name: "Editing" },
+    )
+
+    const runtime = new Runtime(
+      createInitialContext([Editing({ logs: [] })]),
+      {
+        localChanged,
+      },
+      {},
+      { timerDriver },
+    )
+
+    await runtime.run(enter())
+
+    editor.emit("v1")
+    editor.emit("v2")
+    editor.emit("v3")
+
+    await timerDriver.advanceBy(0)
+
+    const current = runtime.currentState()
+
+    expect(current.is(Editing)).toBeTruthy()
+
+    if (!current.is(Editing)) {
+      throw new Error("Expected Editing state")
+    }
+
+    expect(current.data.logs).toEqual(["v3"])
   })
 })

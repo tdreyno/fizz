@@ -1050,9 +1050,182 @@ export type RestartIntervalEffectData<IntervalId extends string = string> = {
 }
 
 export type ResourceEffectData<Key extends string = string, Value = unknown> = {
+  bridge?: ResourceBridgeData<Value>
   key: Key
   teardown?: (value: Value) => void
   value: Value
+}
+
+export type ResourceBridgePace = "latest" | { debounceMs: number }
+
+type ResourceBridgeFilter<Event> = (event: Event) => boolean
+
+type ResourceBridgeRejectHandler<
+  RejectedAction extends Action<string, unknown> | void,
+> = (reason: unknown) => RejectedAction
+
+type ResourceBridgeResolveHandler<
+  Event,
+  ResolvedAction extends Action<string, unknown> | void,
+> = (event: Event) => ResolvedAction
+
+type ResourceBridgeSubscribe<Value, Event> = (
+  value: Value,
+  onEvent: (event: Event) => void,
+) => () => void
+
+type ResourceBridgeOptionsBase<Value, Event> = {
+  filter?: ResourceBridgeFilter<Event>
+  pace?: ResourceBridgePace
+  subscribe?: ResourceBridgeSubscribe<Value, Event>
+}
+
+export type ResourceBridgeOptions<Value, Event> =
+  | (ResourceBridgeOptionsBase<Value, Event> & {
+      filter: ResourceBridgeFilter<Event>
+    })
+  | (ResourceBridgeOptionsBase<Value, Event> & {
+      pace: ResourceBridgePace
+    })
+  | (ResourceBridgeOptionsBase<Value, Event> & {
+      subscribe: ResourceBridgeSubscribe<Value, Event>
+    })
+
+export type ResourceBridgeData<
+  Value = unknown,
+  Event = unknown,
+  ResolvedAction extends Action<string, unknown> | void = Action<
+    string,
+    unknown
+  >,
+  RejectedAction extends Action<string, unknown> | void = void,
+> = {
+  filter?: ResourceBridgeFilter<Event>
+  handlers?: {
+    reject?: ResourceBridgeRejectHandler<RejectedAction>
+    resolve: ResourceBridgeResolveHandler<Event, ResolvedAction>
+  }
+  pace?: ResourceBridgePace
+  subscribe?: ResourceBridgeSubscribe<Value, Event>
+}
+
+type ResourceBridgeBuilder<
+  Key extends string,
+  Value,
+  Event = unknown,
+  ResolvedAction extends Action<string, unknown> | void = void,
+  RejectedAction extends Action<string, unknown> | void = void,
+> = Effect<
+  ResourceEffectData<Key, Value> & {
+    bridge?: ResourceBridgeData<Value, Event, ResolvedAction, RejectedAction>
+  }
+> & {
+  bridge: (
+    options: ResourceBridgeOptions<Value, Event>,
+  ) => ResourceBridgeBuilder<Key, Value, Event, ResolvedAction, RejectedAction>
+  chainToAction: <
+    NextResolvedAction extends Action<string, unknown> | void,
+    NextRejectedAction extends Action<string, unknown> | void = void,
+  >(
+    resolve: ResourceBridgeResolveHandler<Event, NextResolvedAction>,
+    reject?: ResourceBridgeRejectHandler<NextRejectedAction>,
+  ) => ResourceBridgeBuilder<
+    Key,
+    Value,
+    Event,
+    NextResolvedAction,
+    NextRejectedAction
+  >
+}
+
+const createResourceBridgeBuilder = <
+  Key extends string,
+  Value,
+  Event = unknown,
+  ResolvedAction extends Action<string, unknown> | void = void,
+  RejectedAction extends Action<string, unknown> | void = void,
+>(data: {
+  bridge?: ResourceBridgeData<Value, Event, ResolvedAction, RejectedAction>
+  key: Key
+  teardown?: (value: Value) => void
+  value: Value
+}): ResourceBridgeBuilder<
+  Key,
+  Value,
+  Event,
+  ResolvedAction,
+  RejectedAction
+> => {
+  const resourceEffect = effect("resource", data) as ResourceBridgeBuilder<
+    Key,
+    Value,
+    Event,
+    ResolvedAction,
+    RejectedAction
+  >
+
+  resourceEffect.bridge = options => {
+    const nextBridge: ResourceBridgeData<
+      Value,
+      Event,
+      ResolvedAction,
+      RejectedAction
+    > = data.bridge ? { ...data.bridge } : {}
+
+    if (options.filter !== undefined) {
+      nextBridge.filter = options.filter
+    }
+
+    if (options.pace !== undefined) {
+      nextBridge.pace = options.pace
+    }
+
+    if (options.subscribe !== undefined) {
+      nextBridge.subscribe = options.subscribe
+    }
+
+    return createResourceBridgeBuilder({
+      ...data,
+      bridge: nextBridge,
+    })
+  }
+
+  resourceEffect.chainToAction = <
+    NextResolvedAction extends Action<string, unknown> | void,
+    NextRejectedAction extends Action<string, unknown> | void = void,
+  >(
+    resolve: ResourceBridgeResolveHandler<Event, NextResolvedAction>,
+    reject?: ResourceBridgeRejectHandler<NextRejectedAction>,
+  ) => {
+    const nextBridge: ResourceBridgeData<
+      Value,
+      Event,
+      NextResolvedAction,
+      NextRejectedAction
+    > = {}
+
+    if (data.bridge?.filter !== undefined) {
+      nextBridge.filter = data.bridge.filter
+    }
+
+    if (data.bridge?.pace !== undefined) {
+      nextBridge.pace = data.bridge.pace
+    }
+
+    if (data.bridge?.subscribe !== undefined) {
+      nextBridge.subscribe = data.bridge.subscribe
+    }
+
+    nextBridge.handlers =
+      reject === undefined ? { resolve } : { reject, resolve }
+
+    return createResourceBridgeBuilder({
+      ...data,
+      bridge: nextBridge,
+    })
+  }
+
+  return resourceEffect
 }
 
 export type SubscriptionEffectData<Key extends string = string> = {
@@ -1102,9 +1275,8 @@ export const resource = <Key extends string = string, Value = unknown>(
   key: Key,
   value: Value,
   teardown?: (value: Value) => void,
-): Effect<ResourceEffectData<Key, Value>> =>
-  effect(
-    "resource",
+): ResourceBridgeBuilder<Key, Value> =>
+  createResourceBridgeBuilder(
     teardown === undefined ? { key, value } : { key, teardown, value },
   )
 

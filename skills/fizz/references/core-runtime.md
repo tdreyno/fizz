@@ -124,26 +124,9 @@ Fizz state handlers receive a utilities object from `state.ts`. Important helper
 
 ### State Resources
 
-Fizz supports state-scoped resources that are independent from state data updates:
+State resources and fluent resource-event bridging are documented in detail in `references/resources.md`.
 
-- `resource(key, value, teardown?)`
-- `abortController(key)`
-- `subscription(key, subscribe)`
-
-Lifecycle behavior:
-
-- resources are available through handler `utils.resources`
-- resources are preserved across same-state `update(...)` transitions
-- resources are released automatically on state exit
-- resource release does not trigger context change events
-
-Runtime monitor events include resource lifecycle signals:
-
-- `resource-registered`
-- `resource-released`
-- `resource-release-failed`
-
-Use these helpers instead of manually reproducing runtime behavior.
+Use that reference for helper signatures, lifecycle rules, bridge behavior, and usage examples.
 
 ## Browser Driver Effects
 

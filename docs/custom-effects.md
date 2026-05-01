@@ -101,47 +101,11 @@ See [Browser & DOM Effects](browser-dom.md) for details on using the DOM and bro
 
 ## State Resources
 
-Fizz now supports state-scoped resources that are separate from state data and runtime context history.
+State resources and fluent resource-event bridging now have their own guide:
 
-Use these helpers:
+- [State Resources](./resources.md)
 
-- `resource(key, value, teardown?)`
-- `abortController(key)`
-- `subscription(key, subscribe)`
-
-Resources are available in handler utils under `resources` and are automatically released on state exit. Releasing a resource does not trigger context updates.
-
-```typescript
-import { abortController, resource, state, subscription } from "@tdreyno/fizz"
-
-type Data = { saved: string[] }
-type Resources = {
-  ac: AbortController
-  sessionId: string
-  unsubscribePresence: () => void
-}
-
-const Editing = state<any, Data, string, string, string, Resources>({
-  Enter: () => [
-    abortController("ac"),
-    resource("sessionId", crypto.randomUUID()),
-    subscription("unsubscribePresence", () =>
-      presenceStore.subscribe(() => {}),
-    ),
-  ],
-
-  Save: (data, payload, { resources, update }) => {
-    resources.ac.abort()
-
-    return update({
-      ...data,
-      saved: [...data.saved, `${payload}:${resources.sessionId}`],
-    })
-  },
-})
-```
-
-`teardown` is optional for `resource(...)`. If omitted, the value is simply removed from the state resource map at cleanup time.
+Use that page for helper signatures, lifecycle rules, and bridging examples.
 
 That means the label should be descriptive and stable. It is not just documentation. It is the machine-readable name of the effect.
 
@@ -232,5 +196,6 @@ If you need to verify the executor behavior too, do that at the runtime or adapt
 
 - [Architecture](./architecture.md)
 - [Complex Actions](./complex-actions.md)
+- [State Resources](./resources.md)
 - [Async](./async.md)
 - [Testing](./testing.md)

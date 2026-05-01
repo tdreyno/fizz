@@ -151,6 +151,7 @@ If the task is about React integration, read `references/react-integration.md`.
 - `references/parallel-state-machines.md` for `createParallelMachine(...)`, branch broadcasting, lifecycle, and branch runtime inspection
 - `references/async-and-scheduling.md` for `startAsync(...)`, `requestJSONAsync(...)`, `customJSONAsync(...)`, `debounce(...)`, `throttle(...)`, cancellation, timers, intervals, and frames
 - `references/data-clients.md` for machine-scoped client typing, runtime injection, handler access, and test mocking
+- `references/resources.md` for state-scoped resources, lifecycle ownership, and fluent resource-event bridging
 - `references/testing.md` for deterministic machine testing, controlled drivers, and the `@tdreyno/fizz/test` subpath
 - `references/output-actions.md` for output maps, output command channels, and runtime output subscription helpers
 - `references/react-integration.md` for `useMachine(...)`, `createMachineContext(...)`, and React-specific guidance

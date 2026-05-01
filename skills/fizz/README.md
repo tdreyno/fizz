@@ -34,6 +34,7 @@ skills/fizz/
   references/
     async-and-scheduling.md
     core-runtime.md
+    resources.md
     examples.md
     fluent-api.md
     react-integration.md
@@ -47,6 +48,7 @@ skills/fizz/
 - `skills/fizz/SKILL.md`
 - `skills/fizz/references/core-runtime.md`
 - `skills/fizz/references/async-and-scheduling.md`
+- `skills/fizz/references/resources.md`
 - `skills/fizz/references/testing.md`
 - `skills/fizz/references/react-integration.md`
 - `skills/fizz/references/examples.md`
