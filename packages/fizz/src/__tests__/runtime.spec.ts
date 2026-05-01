@@ -5,9 +5,9 @@ import { action, enter } from "../action"
 import type { Context } from "../context"
 import { createInitialContext } from "../context"
 import { createMachine } from "../createMachine"
-import { goBack, log, noop } from "../effect"
+import { commandEffect, goBack, log, noop } from "../effect"
 import { UnknownStateReturnType } from "../errors"
-import { createRuntime, Runtime } from "../runtime"
+import { commandHandlersFromClients, createRuntime, Runtime } from "../runtime"
 import { state } from "../state"
 
 describe("Runtime", () => {
@@ -117,6 +117,244 @@ describe("Runtime", () => {
     }
 
     expect(s.data.num).toBe(13)
+  })
+
+  test("should map command handler results with chainToAction", async () => {
+    type Commands = {
+      notesEditor: {
+        setDocument: {
+          payload: { document: string }
+          result: { saved: true }
+        }
+      }
+    }
+
+    const applyClicked = action("ApplyClicked").withPayload<{
+      document: string
+    }>()
+    const applySucceeded = action("ApplySucceeded")
+    type ApplyClicked = ActionCreatorType<typeof applyClicked>
+    type ApplySucceeded = ActionCreatorType<typeof applySucceeded>
+
+    const Editing = state<ApplyClicked | ApplySucceeded, { status: string }>(
+      {
+        ApplyClicked: (_, payload) =>
+          commandEffect<Commands, "notesEditor", "setDocument">(
+            "notesEditor",
+            "setDocument",
+            { document: payload.document },
+          ).chainToAction(() => applySucceeded()),
+        ApplySucceeded: (data, _, { update }) =>
+          update({
+            ...data,
+            status: "applied",
+          }),
+      },
+      { name: "Editing" },
+    )
+
+    const runtime = createRuntime(
+      createMachine({
+        actions: { applyClicked, applySucceeded },
+        states: { Editing },
+      }),
+      Editing({ status: "idle" }),
+      {
+        commandHandlers: {
+          notesEditor: {
+            setDocument: () => ({ saved: true as const }),
+          },
+        },
+      },
+    )
+
+    await runtime.run(applyClicked({ document: "Hello" }))
+
+    const currentState = runtime.currentState()
+
+    if (!currentState.is(Editing)) {
+      throw new Error("Expected Editing state")
+    }
+
+    expect(currentState.data.status).toBe("applied")
+  })
+
+  test("should map command handler errors with chainToAction reject", async () => {
+    type Commands = {
+      notesEditor: {
+        setDocument: {
+          payload: { document: string }
+          result: { saved: true }
+        }
+      }
+    }
+
+    const applyClicked = action("ApplyClicked").withPayload<{
+      document: string
+    }>()
+    const applyFailed = action("ApplyFailed").withPayload<{ message: string }>()
+    type ApplyClicked = ActionCreatorType<typeof applyClicked>
+    type ApplyFailed = ActionCreatorType<typeof applyFailed>
+
+    const Editing = state<ApplyClicked | ApplyFailed, { error?: string }>(
+      {
+        ApplyClicked: (_, payload) =>
+          commandEffect<Commands, "notesEditor", "setDocument">(
+            "notesEditor",
+            "setDocument",
+            { document: payload.document },
+          ).chainToAction(
+            () => undefined,
+            error =>
+              applyFailed({
+                message:
+                  error instanceof Error ? error.message : "Unknown error",
+              }),
+          ),
+        ApplyFailed: (data, payload, { update }) =>
+          update({
+            ...data,
+            error: payload.message,
+          }),
+      },
+      { name: "Editing" },
+    )
+
+    const runtime = createRuntime(
+      createMachine({
+        actions: { applyClicked, applyFailed },
+        states: { Editing },
+      }),
+      Editing({}),
+      {
+        commandHandlers: {
+          notesEditor: {
+            setDocument: () => {
+              throw new Error("no editor")
+            },
+          },
+        },
+      },
+    )
+
+    await runtime.run(applyClicked({ document: "Hello" }))
+
+    const currentState = runtime.currentState()
+
+    if (!currentState.is(Editing)) {
+      throw new Error("Expected Editing state")
+    }
+
+    expect(currentState.data.error).toBe("no editor")
+  })
+
+  test("should noop when command handler is missing by default", async () => {
+    type Commands = {
+      notesEditor: {
+        setEditable: {
+          payload: { editable: boolean }
+          result: { ok: true }
+        }
+      }
+    }
+
+    const toggle = action("Toggle")
+    type Toggle = ActionCreatorType<typeof toggle>
+
+    const Editing = state<Toggle, { count: number }>(
+      {
+        Toggle: (data, _, { update }) => [
+          update({
+            ...data,
+            count: data.count + 1,
+          }),
+          commandEffect<Commands, "notesEditor", "setEditable">(
+            "notesEditor",
+            "setEditable",
+            { editable: true },
+          ).chainToAction(() => undefined),
+        ],
+      },
+      { name: "Editing" },
+    )
+
+    const runtime = createRuntime(
+      createMachine({
+        actions: { toggle },
+        states: { Editing },
+      }),
+      Editing({ count: 0 }),
+    )
+
+    await runtime.run(toggle())
+
+    const currentState = runtime.currentState()
+
+    if (!currentState.is(Editing)) {
+      throw new Error("Expected Editing state")
+    }
+
+    expect(currentState.data.count).toBe(1)
+  })
+
+  test("should derive command handlers from clients helper", async () => {
+    type Commands = {
+      notesEditor: {
+        setDocument: {
+          payload: { document: string }
+          result: { saved: true }
+        }
+      }
+    }
+
+    const applyClicked = action("ApplyClicked").withPayload<{
+      document: string
+    }>()
+    const applySucceeded = action("ApplySucceeded")
+    type ApplyClicked = ActionCreatorType<typeof applyClicked>
+    type ApplySucceeded = ActionCreatorType<typeof applySucceeded>
+
+    const clients = {
+      notesEditor: {
+        setDocument: jest.fn(() => ({ saved: true as const })),
+      },
+    }
+
+    const Editing = state<ApplyClicked | ApplySucceeded, { status: string }>(
+      {
+        ApplyClicked: (_, payload) =>
+          commandEffect<Commands, "notesEditor", "setDocument">(
+            "notesEditor",
+            "setDocument",
+            { document: payload.document },
+          ).chainToAction(() => applySucceeded()),
+        ApplySucceeded: (data, _, { update }) =>
+          update({
+            ...data,
+            status: "applied",
+          }),
+      },
+      { name: "Editing" },
+    )
+
+    const runtime = createRuntime(
+      createMachine({
+        actions: { applyClicked, applySucceeded },
+        states: { Editing },
+      }),
+      Editing({ status: "idle" }),
+      {
+        clients,
+        commandHandlers: commandHandlersFromClients<Commands>(clients),
+      },
+    )
+
+    await runtime.run(applyClicked({ document: "Hello" }))
+
+    expect(clients.notesEditor.setDocument).toHaveBeenCalledWith({
+      document: "Hello",
+    })
+    expect(runtime.currentState().data.status).toBe("applied")
   })
 
   test("should not throw exception when sending unhandled actions", async () => {

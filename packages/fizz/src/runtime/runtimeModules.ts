@@ -10,10 +10,13 @@ import {
   registerEffectHandlers,
 } from "./effectDispatcher.js"
 import { createRuntimeAsyncModule } from "./runtimeAsyncModule.js"
+import type { RuntimeCommandHandlers } from "./runtimeCommandModule.js"
+import { createRuntimeCommandModule } from "./runtimeCommandModule.js"
 import type {
   RuntimeAction,
   RuntimeDebugCommand,
   RuntimeDebugEvent,
+  RuntimeMissingCommandHandlerPolicy,
   RuntimeState,
 } from "./runtimeContracts.js"
 import { createRuntimeResourceModule } from "./runtimeResourceModule.js"
@@ -26,10 +29,12 @@ type RuntimeModulesOptions<OutputAction> = {
   browserDriver?: RuntimeBrowserDriver
   currentState: () => RuntimeState | undefined
   debugLabel?: string
+  commandHandlers: RuntimeCommandHandlers
   emitMonitor: (event: RuntimeDebugEvent) => void
   emitOutput: (output: OutputAction) => void
   getContext: () => Context
   handleGoBack: () => RuntimeDebugCommand[]
+  missingCommandHandlerPolicy: RuntimeMissingCommandHandlerPolicy
   runAction: (action: RuntimeAction) => Promise<void>
   runtime: Runtime<any, any>
   timerDriver: RuntimeTimerDriver
@@ -70,6 +75,13 @@ export const createRuntimeModules = <OutputAction>(
     getCurrentState: options.currentState,
     runAction: options.runAction,
   })
+  const commandModule = createRuntimeCommandModule({
+    actionCommand: options.actionCommand,
+    commandHandlers: options.commandHandlers,
+    emitMonitor: options.emitMonitor,
+    missingHandlerPolicy: options.missingCommandHandlerPolicy,
+    runAction: options.runAction,
+  })
   const effectHandlers = createEffectHandlerRegistry<
     RuntimeDebugCommand,
     OutputAction
@@ -93,6 +105,7 @@ export const createRuntimeModules = <OutputAction>(
   registerEffectHandlers(effectHandlers, asyncModule.effectHandlers)
   registerEffectHandlers(effectHandlers, resourceModule.effectHandlers)
   registerEffectHandlers(effectHandlers, browserModule.effectHandlers)
+  registerEffectHandlers(effectHandlers, commandModule.effectHandlers)
   registerEffectHandlers(effectHandlers, schedulingModule.effectHandlers)
 
   return {
@@ -100,6 +113,7 @@ export const createRuntimeModules = <OutputAction>(
       asyncModule.clear()
       resourceModule.clear()
       browserModule.clear()
+      commandModule.clear()
       schedulingModule.clear()
       registryRegistration.unregister()
     },
@@ -108,6 +122,7 @@ export const createRuntimeModules = <OutputAction>(
       asyncModule.clearForGoBack()
       resourceModule.clearForGoBack()
       browserModule.clearForGoBack()
+      commandModule.clearForGoBack()
       schedulingModule.clearForGoBack()
     },
     prepareForTransition: targetState => {
@@ -122,6 +137,10 @@ export const createRuntimeModules = <OutputAction>(
         targetState,
       })
       browserModule.clearForTransition({
+        currentState,
+        targetState,
+      })
+      commandModule.clearForTransition({
         currentState,
         targetState,
       })

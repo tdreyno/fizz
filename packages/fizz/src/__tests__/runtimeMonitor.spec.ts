@@ -4,7 +4,7 @@ import type { ActionCreatorType, Enter, OnFrame } from "../action"
 import { action, enter } from "../action"
 import { createInitialContext } from "../context"
 import { createMachine } from "../createMachine"
-import { noop, output } from "../effect"
+import { commandEffect, noop, output } from "../effect"
 import type {
   RuntimeChromeDebuggerRegistry,
   RuntimeDebugEvent,
@@ -288,6 +288,182 @@ describe("runtime monitor", () => {
       },
       error,
     })
+  })
+
+  test("should emit imperative command started and completed events", async () => {
+    type Commands = {
+      notesEditor: {
+        setDocument: {
+          payload: { document: string }
+          result: { saved: true }
+        }
+      }
+    }
+
+    const applyClicked = action("ApplyClicked").withPayload<{
+      document: string
+    }>()
+    const applySucceeded = action("ApplySucceeded")
+    type ApplyClicked = ActionCreatorType<typeof applyClicked>
+    type ApplySucceeded = ActionCreatorType<typeof applySucceeded>
+
+    const Editing = state<ApplyClicked | ApplySucceeded, { status: string }>(
+      {
+        ApplyClicked: (_, payload) =>
+          commandEffect<Commands, "notesEditor", "setDocument">(
+            "notesEditor",
+            "setDocument",
+            { document: payload.document },
+          ).chainToAction(() => applySucceeded()),
+        ApplySucceeded: (data, _, { update }) =>
+          update({
+            ...data,
+            status: "applied",
+          }),
+      },
+      { name: "Editing" },
+    )
+
+    const events: RuntimeDebugEvent[] = []
+    const runtime = createRuntime(
+      createMachine({
+        actions: { applyClicked, applySucceeded },
+        states: { Editing },
+      }),
+      Editing({ status: "idle" }),
+      {
+        commandHandlers: {
+          notesEditor: {
+            setDocument: () => ({ saved: true as const }),
+          },
+        },
+        monitor: event => {
+          events.push(event)
+        },
+      },
+    )
+
+    await runtime.run(applyClicked({ document: "Hello" }))
+
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "imperative-command-started",
+          channel: "notesEditor",
+          commandType: "setDocument",
+          payload: { document: "Hello" },
+        }),
+        expect.objectContaining({
+          type: "imperative-command-completed",
+          channel: "notesEditor",
+          commandType: "setDocument",
+          result: { saved: true },
+        }),
+      ]),
+    )
+  })
+
+  test("should emit imperative command failed and missing handler events", async () => {
+    type Commands = {
+      notesEditor: {
+        setDocument: {
+          payload: { document: string }
+          result: { saved: true }
+        }
+      }
+    }
+
+    const applyClicked = action("ApplyClicked").withPayload<{
+      document: string
+    }>()
+    const applyFailed = action("ApplyFailed").withPayload<{ message: string }>()
+    type ApplyClicked = ActionCreatorType<typeof applyClicked>
+    type ApplyFailed = ActionCreatorType<typeof applyFailed>
+
+    const Editing = state<ApplyClicked | ApplyFailed, { error?: string }>(
+      {
+        ApplyClicked: (_, payload) =>
+          commandEffect<Commands, "notesEditor", "setDocument">(
+            "notesEditor",
+            "setDocument",
+            { document: payload.document },
+          ).chainToAction(
+            () => undefined,
+            error =>
+              applyFailed({
+                message:
+                  error instanceof Error ? error.message : "Unknown error",
+              }),
+          ),
+        ApplyFailed: (data, payload, { update }) =>
+          update({
+            ...data,
+            error: payload.message,
+          }),
+      },
+      { name: "Editing" },
+    )
+
+    const failedEvents: RuntimeDebugEvent[] = []
+    const failedRuntime = createRuntime(
+      createMachine({
+        actions: { applyClicked, applyFailed },
+        states: { Editing },
+      }),
+      Editing({}),
+      {
+        commandHandlers: {
+          notesEditor: {
+            setDocument: () => {
+              throw new Error("no editor")
+            },
+          },
+        },
+        monitor: event => {
+          failedEvents.push(event)
+        },
+      },
+    )
+
+    await failedRuntime.run(applyClicked({ document: "Hello" }))
+
+    expect(failedEvents).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "imperative-command-failed",
+          channel: "notesEditor",
+          commandType: "setDocument",
+          error: expect.any(Error),
+        }),
+      ]),
+    )
+
+    const missingEvents: RuntimeDebugEvent[] = []
+    const missingRuntime = createRuntime(
+      createMachine({
+        actions: { applyClicked, applyFailed },
+        states: { Editing },
+      }),
+      Editing({}),
+      {
+        monitor: event => {
+          missingEvents.push(event)
+        },
+      },
+    )
+
+    await missingRuntime.run(applyClicked({ document: "Hello" }))
+
+    expect(missingEvents).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "imperative-command-missing-handler",
+          channel: "notesEditor",
+          commandType: "setDocument",
+          policy: "noop",
+        }),
+      ]),
+    )
   })
 
   test("should emit async started, resolved, and rejected events", async () => {

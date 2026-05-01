@@ -346,6 +346,74 @@ const Saving = state<Enter>({
 })
 ```
 
+### `commandEffect`
+
+Create a typed imperative command effect and optionally chain command results/errors into actions.
+
+```ts
+type Commands = {
+  notesEditor: {
+    setDocument: {
+      payload: { document: string }
+      result: { saved: true }
+    }
+  }
+}
+
+const applySucceeded = action("ApplySucceeded")
+const applyFailed = action("ApplyFailed").withPayload<{ message: string }>()
+
+const Editing = state({
+  ApplyClicked: (_data, payload) =>
+    commandEffect<Commands, "notesEditor", "setDocument">(
+      "notesEditor",
+      "setDocument",
+      { document: payload.document },
+    ).chainToAction(
+      () => applySucceeded(),
+      error =>
+        applyFailed({
+          message: error instanceof Error ? error.message : "Unknown error",
+        }),
+    ),
+})
+```
+
+Register command handlers with `createRuntime(..., { commandHandlers })`.
+
+```ts
+const runtime = createRuntime(machine, Editing(initialData), {
+  commandHandlers: {
+    notesEditor: {
+      setDocument: async payload => {
+        await editorAdapter.setDocument(payload.document)
+
+        return { saved: true as const }
+      },
+    },
+  },
+})
+```
+
+When your runtime already injects adapter objects through `clients`, derive a typed handler map with `commandHandlersFromClients(...)`.
+
+```ts
+const clients = {
+  notesEditor: {
+    setDocument: async (payload: { document: string }) => {
+      await editorAdapter.setDocument(payload.document)
+
+      return { saved: true as const }
+    },
+  },
+}
+
+const runtime = createRuntime(machine, Editing(initialData), {
+  clients,
+  commandHandlers: commandHandlersFromClients<Commands>(clients),
+})
+```
+
 ### `log`
 
 Create a logging effect.

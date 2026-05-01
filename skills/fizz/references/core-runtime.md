@@ -266,6 +266,7 @@ Use explicit effects when the machine needs to:
 
 - log or warn
 - emit output actions
+- dispatch typed imperative adapter commands with `commandEffect(...).chainToAction(...)`
 - schedule async or timed work
 - represent a no-op intentionally
 

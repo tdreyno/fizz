@@ -27,6 +27,7 @@ export type RuntimeDebugCommand =
 
 export type RuntimeDebugCancellationReason = "cleanup" | "effect" | "restart"
 export type RuntimeDebugResourceReleaseReason = "cleanup" | "effect"
+export type RuntimeMissingCommandHandlerPolicy = "error" | "noop" | "warn"
 
 export type RuntimeDebugEvent =
   | {
@@ -138,6 +139,30 @@ export type RuntimeDebugEvent =
       resourceKey: string
       stateName: string
       type: "resource-release-failed"
+    }
+  | {
+      channel: string
+      commandType: string
+      payload: unknown
+      type: "imperative-command-started"
+    }
+  | {
+      channel: string
+      commandType: string
+      result: unknown
+      type: "imperative-command-completed"
+    }
+  | {
+      channel: string
+      commandType: string
+      policy: RuntimeMissingCommandHandlerPolicy
+      type: "imperative-command-missing-handler"
+    }
+  | {
+      channel: string
+      commandType: string
+      error: unknown
+      type: "imperative-command-failed"
     }
 
 export type RuntimeMonitor = (event: RuntimeDebugEvent) => void

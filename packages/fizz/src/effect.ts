@@ -49,6 +49,161 @@ export const warn = <T extends unknown[]>(...msgs: T): Effect<T> =>
 
 export const noop = (): Effect<void> => effect("noop")
 
+export type CommandSchema = Record<
+  string,
+  Record<
+    string,
+    {
+      payload: unknown
+      result: unknown
+    }
+  >
+>
+
+type CommandResolveHandler<
+  Result,
+  ResolvedAction extends Action<string, unknown> | void,
+> = (value: Result) => ResolvedAction
+
+type CommandRejectHandler<
+  RejectedAction extends Action<string, unknown> | void,
+> = (reason: unknown) => RejectedAction
+
+type CommandChannelName<Schema extends CommandSchema> = Extract<
+  keyof Schema,
+  string
+>
+
+type CommandTypeName<
+  Schema extends CommandSchema,
+  Channel extends CommandChannelName<Schema>,
+> = Extract<keyof Schema[Channel], string>
+
+type CommandPayload<
+  Schema extends CommandSchema,
+  Channel extends CommandChannelName<Schema>,
+  CommandType extends CommandTypeName<Schema, Channel>,
+> = Schema[Channel][CommandType]["payload"]
+
+type CommandResult<
+  Schema extends CommandSchema,
+  Channel extends CommandChannelName<Schema>,
+  CommandType extends CommandTypeName<Schema, Channel>,
+> = Schema[Channel][CommandType]["result"]
+
+export type CommandEffectData<
+  Channel extends string = string,
+  CommandType extends string = string,
+  Payload = unknown,
+  Result = unknown,
+  ResolvedAction extends Action<string, unknown> | void = Action<
+    string,
+    unknown
+  >,
+  RejectedAction extends Action<string, unknown> | void = void,
+> = {
+  channel: Channel
+  commandType: CommandType
+  handlers: {
+    reject: CommandRejectHandler<RejectedAction>
+    resolve: CommandResolveHandler<Result, ResolvedAction>
+  }
+  payload: Payload
+}
+
+type CommandEffectChainToActionBuilder<
+  Channel extends string,
+  CommandType extends string,
+  Payload,
+  Result,
+> = Effect<
+  CommandEffectData<
+    Channel,
+    CommandType,
+    Payload,
+    Result,
+    Action<string, unknown> | void,
+    void
+  >
+> & {
+  chainToAction: <
+    ResolvedAction extends Action<string, unknown> | void,
+    RejectedAction extends Action<string, unknown> | void = void,
+  >(
+    resolve: CommandResolveHandler<Result, ResolvedAction>,
+    reject?: CommandRejectHandler<RejectedAction>,
+  ) => Effect<
+    CommandEffectData<
+      Channel,
+      CommandType,
+      Payload,
+      Result,
+      ResolvedAction,
+      RejectedAction
+    >
+  >
+}
+
+export const commandEffect = <
+  Schema extends CommandSchema,
+  Channel extends CommandChannelName<Schema>,
+  CommandType extends CommandTypeName<Schema, Channel>,
+>(
+  channel: Channel,
+  commandType: CommandType,
+  payload: CommandPayload<Schema, Channel, CommandType>,
+): CommandEffectChainToActionBuilder<
+  Channel,
+  CommandType,
+  CommandPayload<Schema, Channel, CommandType>,
+  CommandResult<Schema, Channel, CommandType>
+> => {
+  const ignoreCommandResult = () => undefined
+  const ignoreCommandError = () => undefined
+
+  const command = effect("commandEffect", {
+    channel,
+    commandType,
+    handlers: {
+      reject: ignoreCommandError,
+      resolve: ignoreCommandResult,
+    },
+    payload,
+  }) as CommandEffectChainToActionBuilder<
+    Channel,
+    CommandType,
+    CommandPayload<Schema, Channel, CommandType>,
+    CommandResult<Schema, Channel, CommandType>
+  >
+
+  command.chainToAction = <
+    ResolvedAction extends Action<string, unknown> | void,
+    RejectedAction extends Action<string, unknown> | void = void,
+  >(
+    resolve: CommandResolveHandler<
+      CommandResult<Schema, Channel, CommandType>,
+      ResolvedAction
+    >,
+    reject?: CommandRejectHandler<RejectedAction>,
+  ) => {
+    const rejectHandler =
+      reject ??
+      (ignoreCommandError as unknown as CommandRejectHandler<RejectedAction>)
+
+    return effect("commandEffect", {
+      channel,
+      commandType,
+      handlers: {
+        reject: rejectHandler,
+        resolve,
+      },
+      payload,
+    })
+  }
+
+  return command
+}
+
 type RequestJSONRejectHandler<
   RejectedAction extends Action<string, unknown> | void,
 > = (reason: unknown) => RejectedAction

@@ -207,6 +207,58 @@ const eventFormatters = {
     ],
     level: "log",
   }),
+  "imperative-command-completed": (
+    event: RuntimeDebugEventByType<"imperative-command-completed">,
+    prefix: string,
+  ): RuntimeDebugConsoleEntry => ({
+    args: [
+      withPrefix(
+        prefix,
+        `Imperative command completed ${event.channel}.${event.commandType}`,
+      ),
+      event.result,
+    ],
+    level: "log",
+  }),
+  "imperative-command-failed": (
+    event: RuntimeDebugEventByType<"imperative-command-failed">,
+    prefix: string,
+  ): RuntimeDebugConsoleEntry => ({
+    args: [
+      withPrefix(
+        prefix,
+        `Imperative command failed ${event.channel}.${event.commandType}`,
+      ),
+      event.error,
+    ],
+    level: "error",
+  }),
+  "imperative-command-missing-handler": (
+    event: RuntimeDebugEventByType<"imperative-command-missing-handler">,
+    prefix: string,
+  ): RuntimeDebugConsoleEntry => ({
+    args: [
+      withPrefix(
+        prefix,
+        `Imperative command missing handler ${event.channel}.${event.commandType}`,
+      ),
+      { policy: event.policy },
+    ],
+    level: "warn",
+  }),
+  "imperative-command-started": (
+    event: RuntimeDebugEventByType<"imperative-command-started">,
+    prefix: string,
+  ): RuntimeDebugConsoleEntry => ({
+    args: [
+      withPrefix(
+        prefix,
+        `Imperative command started ${event.channel}.${event.commandType}`,
+      ),
+      event.payload,
+    ],
+    level: "log",
+  }),
   "interval-cancelled": (
     event: RuntimeDebugEventByType<"interval-cancelled">,
     prefix: string,

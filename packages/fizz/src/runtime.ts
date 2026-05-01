@@ -9,6 +9,7 @@ import type { RuntimeAsyncDriver } from "./runtime/asyncDriver.js"
 import { createDefaultAsyncDriver } from "./runtime/asyncDriver.js"
 import type { RuntimeEffectHandlerRegistry } from "./runtime/effectDispatcher.js"
 import { dispatchEffect } from "./runtime/effectDispatcher.js"
+import type { RuntimeCommandHandlers } from "./runtime/runtimeCommandModule.js"
 import type { StateSelector } from "./selectors.js"
 export type {
   RuntimeChromeDebuggerRegistry,
@@ -60,10 +61,16 @@ export type {
 } from "./runtime/asyncDriver.js"
 export { createControlledAsyncDriver } from "./runtime/asyncDriver.js"
 export type {
+  RuntimeCommandHandlers,
+  RuntimeCommandHandlersFromClients,
+} from "./runtime/runtimeCommandModule.js"
+export { commandHandlersFromClients } from "./runtime/runtimeCommandModule.js"
+export type {
   RuntimeDebugCancellationReason,
   RuntimeDebugCommand,
   RuntimeDebugEvent,
   RuntimeDebugResourceReleaseReason,
+  RuntimeMissingCommandHandlerPolicy,
   RuntimeMonitor,
 } from "./runtime/runtimeContracts.js"
 export type {
@@ -75,6 +82,8 @@ export { createControlledTimerDriver } from "./runtime/timerDriver.js"
 export type RuntimeOptions = {
   asyncDriver?: RuntimeAsyncDriver
   browserDriver?: RuntimeBrowserDriver
+  commandHandlers?: RuntimeCommandHandlers
+  commandMissingHandler?: "error" | "noop" | "warn"
   clients?: Record<string, unknown>
   debugLabel?: string
   monitor?: RuntimeMonitor
@@ -164,6 +173,7 @@ export class Runtime<
       ...(options.debugLabel === undefined
         ? {}
         : { debugLabel: options.debugLabel }),
+      commandHandlers: options.commandHandlers ?? {},
       emitMonitor: event => this.#emitMonitor(event),
       emitOutput: output => {
         this.#emitMonitor({
@@ -177,6 +187,7 @@ export class Runtime<
       },
       getContext: () => this.context,
       handleGoBack: () => this.#handleGoBack(),
+      missingCommandHandlerPolicy: options.commandMissingHandler ?? "noop",
       runAction: action => this.run(action),
       runtime: this as Runtime<any, any>,
       timerDriver: this.#timerDriver,
@@ -479,6 +490,14 @@ const splitCreateRuntimeOptions = (options: CreateRuntimeOptions = {}) => {
 
   if (options.browserDriver) {
     runtime.browserDriver = options.browserDriver
+  }
+
+  if (options.commandHandlers) {
+    runtime.commandHandlers = options.commandHandlers
+  }
+
+  if (options.commandMissingHandler) {
+    runtime.commandMissingHandler = options.commandMissingHandler
   }
 
   if (options.clients) {

@@ -112,6 +112,34 @@ const machineValue = useMachine(ProfileMachine, initialState, {
 })
 ```
 
+If a machine uses imperative command effects, you can derive runtime `commandHandlers` directly from the injected client objects when their shape matches the command schema.
+
+```ts
+type Commands = {
+  notesEditor: {
+    setDocument: {
+      payload: { document: string }
+      result: { saved: true }
+    }
+  }
+}
+
+const clients = {
+  notesEditor: {
+    setDocument: async ({ document }: { document: string }) => {
+      await editorApi.setDocument(document)
+
+      return { saved: true as const }
+    },
+  },
+}
+
+const runtime = createRuntime(ProfileMachine, initialState, {
+  clients,
+  commandHandlers: commandHandlersFromClients<Commands>(clients),
+})
+```
+
 ## Testing Pattern
 
 ```ts
