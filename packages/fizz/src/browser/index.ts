@@ -1,4 +1,7 @@
-import type { RuntimeBrowserDriver } from "./runtimeBrowserDriver.js"
+import type {
+  RuntimeBrowserDriver,
+  RuntimeDomDriver,
+} from "./runtimeBrowserDriver.js"
 
 export * from "./domEffects.js"
 export type { RuntimeDomDriver } from "./runtimeBrowserDriver.js"
