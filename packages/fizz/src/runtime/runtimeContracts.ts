@@ -164,5 +164,11 @@ export type RuntimeDebugEvent =
       error: unknown
       type: "imperative-command-failed"
     }
+  | {
+      channel: string
+      commandType: string
+      latestOnlyKey: string
+      type: "imperative-command-replaced"
+    }
 
 export type RuntimeMonitor = (event: RuntimeDebugEvent) => void

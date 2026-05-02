@@ -176,6 +176,7 @@ export type CommandEffectData<
     reject: CommandRejectHandler<RejectedAction>
     resolve: CommandResolveHandler<Result, ResolvedAction>
   }
+  latestOnlyKey?: string
   payload: Payload
 }
 
@@ -200,6 +201,7 @@ export type EffectBatchEffectData<
   RejectedOutput extends Action<string, unknown> | void = void,
 > = {
   channel?: string
+  latestOnlyKey?: string
   effects: ReadonlyArray<Effect<unknown>>
   handlers: {
     rejectAction: BatchRejectHandler<RejectedAction>
@@ -362,6 +364,7 @@ export type CommandChannelBuilder<
   command: <CommandType extends CommandTypeName<Schema, Channel>>(
     commandType: CommandType,
     payload: CommandPayload<Schema, Channel, CommandType>,
+    options?: { latestOnlyKey?: string },
   ) => CommandEffectChainToActionBuilder<
     Channel,
     CommandType,
@@ -378,6 +381,7 @@ export const commandEffect = <
   channel: Channel,
   commandType: CommandType,
   payload: CommandPayload<Schema, Channel, CommandType>,
+  commandOptions?: { latestOnlyKey?: string },
 ): CommandEffectChainToActionBuilder<
   Channel,
   CommandType,
@@ -394,6 +398,9 @@ export const commandEffect = <
       reject: ignoreCommandError,
       resolve: ignoreCommandResult,
     },
+    ...(commandOptions?.latestOnlyKey !== undefined
+      ? { latestOnlyKey: commandOptions.latestOnlyKey }
+      : {}),
     payload,
   }) as CommandEffectChainToActionBuilder<
     Channel,
@@ -423,6 +430,9 @@ export const commandEffect = <
         reject: rejectHandler,
         resolve,
       },
+      ...(commandOptions?.latestOnlyKey !== undefined
+        ? { latestOnlyKey: commandOptions.latestOnlyKey }
+        : {}),
       payload,
     })
   }
@@ -458,11 +468,12 @@ export const commandChannel = <
       ...options,
       channel,
     }),
-  command: (commandType, payload) =>
+  command: (commandType, payload, commandOptions) =>
     commandEffect<Schema, Channel, typeof commandType>(
       channel,
       commandType,
       payload,
+      commandOptions,
     ),
 })
 

@@ -98,6 +98,12 @@ Use `dom.from(scopeResourceId).closest(resourceId, selector)` to traverse from a
 
 Chain `.listen(type, toAction, options?)` directly on a DOM resource builder. The listener is registered when the resource is acquired and removed when the state exits.
 
+`options` accepts standard listener flags and optional event coalescing:
+
+- `coalesce: "none"` (default) dispatches every event
+- `coalesce: "animation-frame"` dispatches only the latest event per frame
+- `coalesce: "microtask"` dispatches only the latest event per microtask turn
+
 ```typescript
 import { dom } from "@tdreyno/fizz/browser"
 
@@ -117,6 +123,18 @@ const Watching = state<Enter | ReturnType<typeof Clicked>>({
 ```
 
 `listen(...)` returns an array of effects: `[acquireEffect, listenEffect]`. Spread with `...` when combining with other effects.
+
+For high-frequency events, use coalescing to avoid flooding actions:
+
+```typescript
+...dom
+  .window()
+  .listen(
+    "pointermove",
+    event => PointerMoved({ x: (event as PointerEvent).clientX }),
+    { coalesce: "animation-frame", passive: true },
+  )
+```
 
 ---
 

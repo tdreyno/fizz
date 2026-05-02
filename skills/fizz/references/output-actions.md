@@ -45,8 +45,12 @@ This variant infers payload shape from the map entry.
 
 Use `commandChannel(...)` when one state repeatedly targets the same channel and should not repeat channel literals in every command and batch call.
 
-- `command(type, payload)` creates a channel-scoped `commandEffect(...)`
+- `command(type, payload, options?)` creates a channel-scoped `commandEffect(...)`
 - `batch(commands, options?)` creates a channel-scoped `effectBatch(...)`
+
+`command(..., options?)` supports:
+
+- `latestOnlyKey?`: latest-only replacement key in the channel queue so pending same-key commands collapse to the newest one
 
 This helper is ergonomic sugar over `commandEffect(...)` and `effectBatch(...)`; it does not change runtime behavior.
 

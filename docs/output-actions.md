@@ -88,8 +88,12 @@ const Editing = state({
 
 `commandChannel(...)` methods:
 
-- `command(type, payload)`: creates a `commandEffect(...)` for the bound channel
+- `command(type, payload, options?)`: creates a `commandEffect(...)` for the bound channel
 - `batch(commands, options?)`: creates an `effectBatch(...)` with the bound channel
+
+`command(..., options?)` supports:
+
+- `latestOnlyKey?`: latest-only replacement key inside the channel queue so pending commands with the same key collapse to the newest one
 
 ### `effectBatch(...).chainToOutput(...)`
 

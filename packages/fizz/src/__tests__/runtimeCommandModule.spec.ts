@@ -309,4 +309,212 @@ describe("runtime command module", () => {
       }),
     ).toBeUndefined()
   })
+
+  test("latestOnlyKey: only last queued command with same key executes", async () => {
+    const monitorEvents: Array<string> = []
+    const executions: Array<string> = []
+    const runAction = jest.fn(async () => undefined)
+
+    const module = createRuntimeCommandModule({
+      actionCommand: action => ({ action, kind: "action" }),
+      commandHandlers: {
+        drag: {
+          updatePreview: async (payload: unknown) => {
+            executions.push((payload as { id: string }).id)
+            return "done"
+          },
+        },
+      },
+      emitMonitor: event => {
+        monitorEvents.push(event.type)
+      },
+      emitOutput: () => undefined,
+      missingHandlerPolicy: "noop",
+      runAction,
+    })
+
+    const commandHandler = module.effectHandlers.get("commandEffect")!
+
+    // Enqueue first (will start executing immediately since queue is empty)
+    commandHandler({
+      data: {
+        channel: "drag",
+        commandType: "updatePreview",
+        handlers: { reject: () => undefined, resolve: () => undefined },
+        latestOnlyKey: "drag-preview",
+        payload: { id: "1" },
+      },
+      label: "commandEffect",
+    } as never)
+
+    // Enqueue second, third with same key — second should be replaced by third
+    commandHandler({
+      data: {
+        channel: "drag",
+        commandType: "updatePreview",
+        handlers: { reject: () => undefined, resolve: () => undefined },
+        latestOnlyKey: "drag-preview",
+        payload: { id: "2" },
+      },
+      label: "commandEffect",
+    } as never)
+
+    commandHandler({
+      data: {
+        channel: "drag",
+        commandType: "updatePreview",
+        handlers: { reject: () => undefined, resolve: () => undefined },
+        latestOnlyKey: "drag-preview",
+        payload: { id: "3" },
+      },
+      label: "commandEffect",
+    } as never)
+
+    await waitFor(() => executions.length === 2)
+
+    // id: "1" runs first (was already executing), id: "3" runs after (id: "2" was replaced)
+    expect(executions).toEqual(["1", "3"])
+    expect(monitorEvents).toContain("imperative-command-replaced")
+  })
+
+  test("latestOnlyKey: commands on different keys are not affected", async () => {
+    const executions: Array<string> = []
+    const runAction = jest.fn(async () => undefined)
+
+    const module = createRuntimeCommandModule({
+      actionCommand: action => ({ action, kind: "action" }),
+      commandHandlers: {
+        drag: {
+          updatePreview: async (payload: unknown) => {
+            executions.push((payload as { id: string }).id)
+            return "done"
+          },
+        },
+      },
+      emitMonitor: () => undefined,
+      emitOutput: () => undefined,
+      missingHandlerPolicy: "noop",
+      runAction,
+    })
+
+    const commandHandler = module.effectHandlers.get("commandEffect")!
+
+    // First occupies the channel (running)
+    commandHandler({
+      data: {
+        channel: "drag",
+        commandType: "updatePreview",
+        handlers: { reject: () => undefined, resolve: () => undefined },
+        latestOnlyKey: "key-a",
+        payload: { id: "a1" },
+      },
+      label: "commandEffect",
+    } as never)
+
+    // Two with key-b and key-a pending
+    commandHandler({
+      data: {
+        channel: "drag",
+        commandType: "updatePreview",
+        handlers: { reject: () => undefined, resolve: () => undefined },
+        latestOnlyKey: "key-b",
+        payload: { id: "b1" },
+      },
+      label: "commandEffect",
+    } as never)
+
+    commandHandler({
+      data: {
+        channel: "drag",
+        commandType: "updatePreview",
+        handlers: { reject: () => undefined, resolve: () => undefined },
+        latestOnlyKey: "key-a",
+        payload: { id: "a2" },
+      },
+      label: "commandEffect",
+    } as never)
+
+    await waitFor(() => executions.length === 3)
+
+    // key-a latest replaces previous key-a; key-b is untouched
+    expect(executions).toContain("a1") // already running when replacement happened
+    expect(executions).toContain("a2")
+    expect(executions).toContain("b1")
+    expect(executions).not.toContain("a1a1") // sanity
+  })
+
+  test("latestOnlyKey: running task at index 0 is never replaced", async () => {
+    let resolveFirst!: () => void
+    const executions: Array<string> = []
+    const runAction = jest.fn(async () => undefined)
+
+    const module = createRuntimeCommandModule({
+      actionCommand: action => ({ action, kind: "action" }),
+      commandHandlers: {
+        drag: {
+          updatePreview: async (payload: unknown) => {
+            const id = (payload as { id: string }).id
+
+            if (id === "1") {
+              await new Promise<void>(resolve => {
+                resolveFirst = resolve
+              })
+            }
+
+            executions.push(id)
+            return "done"
+          },
+        },
+      },
+      emitMonitor: () => undefined,
+      emitOutput: () => undefined,
+      missingHandlerPolicy: "noop",
+      runAction,
+    })
+
+    const commandHandler = module.effectHandlers.get("commandEffect")!
+
+    // Start first — will block until resolveFirst() is called
+    commandHandler({
+      data: {
+        channel: "drag",
+        commandType: "updatePreview",
+        handlers: { reject: () => undefined, resolve: () => undefined },
+        latestOnlyKey: "drag-preview",
+        payload: { id: "1" },
+      },
+      label: "commandEffect",
+    } as never)
+
+    // Enqueue two pending entries — second should replace first pending
+    commandHandler({
+      data: {
+        channel: "drag",
+        commandType: "updatePreview",
+        handlers: { reject: () => undefined, resolve: () => undefined },
+        latestOnlyKey: "drag-preview",
+        payload: { id: "2" },
+      },
+      label: "commandEffect",
+    } as never)
+
+    commandHandler({
+      data: {
+        channel: "drag",
+        commandType: "updatePreview",
+        handlers: { reject: () => undefined, resolve: () => undefined },
+        latestOnlyKey: "drag-preview",
+        payload: { id: "3" },
+      },
+      label: "commandEffect",
+    } as never)
+
+    // Unblock the running task
+    resolveFirst()
+
+    await waitFor(() => executions.length === 2)
+
+    // id "1" completes (was running), id "3" runs next, id "2" was replaced
+    expect(executions).toEqual(["1", "3"])
+  })
 })

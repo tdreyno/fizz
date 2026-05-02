@@ -32,6 +32,7 @@ import type {
   RuntimeDebugCommand,
   RuntimeState,
 } from "../runtime/runtimeContracts.js"
+import type { RuntimeTimerDriver } from "../runtime/timerDriver.js"
 import {
   getStateResources,
   listStateResourceKeys,
@@ -69,6 +70,7 @@ export const createRuntimeBrowserModule = (options: {
   browserDriver?: RuntimeBrowserDriver
   getCurrentState?: () => RuntimeState | undefined
   runAction: (action: RuntimeAction) => Promise<void>
+  timerDriver: RuntimeTimerDriver
 }): RuntimeBrowserModule => {
   const driver = options.browserDriver
 
@@ -355,9 +357,55 @@ export const createRuntimeBrowserModule = (options: {
       driver?.removeEventListener,
     )
 
-    const callback: EventListener = event => {
+    const coalesce = data.coalesce ?? "none"
+
+    let latestEvent: Event | undefined
+    let pendingHandle: unknown = null
+
+    const dispatch = (event: Event) => {
       void options.runAction(data.toAction(event))
     }
+
+    const callback: EventListener =
+      coalesce === "animation-frame"
+        ? event => {
+            latestEvent = event
+
+            if (pendingHandle !== null) {
+              return
+            }
+
+            pendingHandle = options.timerDriver.startFrame(() => {
+              pendingHandle = null
+
+              if (latestEvent !== undefined) {
+                const e = latestEvent
+                latestEvent = undefined
+                dispatch(e)
+              }
+            })
+          }
+        : coalesce === "microtask"
+          ? event => {
+              latestEvent = event
+
+              if (pendingHandle !== null) {
+                return
+              }
+
+              pendingHandle = options.timerDriver.start(0, () => {
+                pendingHandle = null
+
+                if (latestEvent !== undefined) {
+                  const e = latestEvent
+                  latestEvent = undefined
+                  dispatch(e)
+                }
+              })
+            }
+          : event => {
+              dispatch(event)
+            }
 
     addEventListener(target, data.type, callback, data.options)
 
@@ -371,6 +419,12 @@ export const createRuntimeBrowserModule = (options: {
       state,
       teardown: () => {
         removeEventListener(target, data.type, callback, data.options)
+
+        if (pendingHandle !== null) {
+          options.timerDriver.cancel(pendingHandle)
+          pendingHandle = null
+          latestEvent = undefined
+        }
       },
       value: callback,
     })

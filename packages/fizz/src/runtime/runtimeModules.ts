@@ -81,6 +81,7 @@ export const createRuntimeModules = <OutputAction>(
             : { browserDriver: options.browserDriver }),
           getCurrentState: options.currentState,
           runAction: options.runAction,
+          timerDriver: options.timerDriver,
         })
   const commandModule = createRuntimeCommandModule({
     actionCommand: options.actionCommand,

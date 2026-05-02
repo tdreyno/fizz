@@ -54,7 +54,15 @@ export const createRuntimeCommandModule = (options: {
   missingHandlerPolicy: RuntimeMissingCommandHandlerPolicy
   runAction: (action: Action<string, unknown>) => Promise<void>
 }): RuntimeCommandModule => {
-  const channelQueues = new Map<string, Array<() => Promise<void>>>()
+  const channelQueues = new Map<
+    string,
+    Array<{
+      commandType: string
+      latestOnlyKey?: string
+      skip: () => void
+      task: () => Promise<void>
+    }>
+  >()
 
   const runMappedAction = async (action: Action<string, unknown> | void) => {
     if (!action) {
@@ -72,58 +80,84 @@ export const createRuntimeCommandModule = (options: {
     options.emitOutput(action)
   }
 
-  const enqueueChannelTask = (
-    channel: string,
-    task: () => Promise<void>,
-  ): void => {
-    const drainChannelQueue = (activeChannel: string): void => {
-      const activeQueue = channelQueues.get(activeChannel)
+  const drainChannelQueue = (activeChannel: string): void => {
+    const activeQueue = channelQueues.get(activeChannel)
 
-      if (!activeQueue || activeQueue.length === 0) {
-        channelQueues.delete(activeChannel)
+    if (!activeQueue || activeQueue.length === 0) {
+      channelQueues.delete(activeChannel)
 
-        return
-      }
-
-      const currentTask = activeQueue[0]
-
-      if (!currentTask) {
-        channelQueues.delete(activeChannel)
-
-        return
-      }
-
-      void currentTask().finally(() => {
-        const nextQueue = channelQueues.get(activeChannel)
-
-        if (!nextQueue || nextQueue.length === 0) {
-          channelQueues.delete(activeChannel)
-
-          return
-        }
-
-        nextQueue.shift()
-
-        if (nextQueue.length === 0) {
-          channelQueues.delete(activeChannel)
-
-          return
-        }
-
-        drainChannelQueue(activeChannel)
-      })
-    }
-
-    const queue = channelQueues.get(channel) ?? []
-
-    queue.push(task)
-    channelQueues.set(channel, queue)
-
-    if (queue.length !== 1) {
       return
     }
 
-    drainChannelQueue(channel)
+    const currentEntry = activeQueue[0]
+
+    if (!currentEntry) {
+      channelQueues.delete(activeChannel)
+
+      return
+    }
+
+    void currentEntry.task().finally(() => {
+      const nextQueue = channelQueues.get(activeChannel)
+
+      if (!nextQueue || nextQueue.length === 0) {
+        channelQueues.delete(activeChannel)
+
+        return
+      }
+
+      nextQueue.shift()
+
+      if (nextQueue.length === 0) {
+        channelQueues.delete(activeChannel)
+
+        return
+      }
+
+      drainChannelQueue(activeChannel)
+    })
+  }
+
+  const enqueueChannelTask = (
+    channel: string,
+    entry: {
+      commandType: string
+      latestOnlyKey?: string
+      skip: () => void
+      task: () => Promise<void>
+    },
+  ): void => {
+    const queue = channelQueues.get(channel) ?? []
+
+    channelQueues.set(channel, queue)
+
+    const { latestOnlyKey } = entry
+
+    // Replace a pending entry with the same key (index 0 is running - never touch it).
+    if (latestOnlyKey !== undefined && queue.length > 1) {
+      const pendingIndex = queue.findIndex(
+        (e, i) => i > 0 && e.latestOnlyKey === latestOnlyKey,
+      )
+
+      if (pendingIndex !== -1) {
+        options.emitMonitor({
+          channel,
+          commandType: entry.commandType,
+          latestOnlyKey,
+          type: "imperative-command-replaced",
+        })
+        queue[pendingIndex]!.skip()
+        queue.splice(pendingIndex, 1, entry)
+
+        return
+      }
+    }
+
+    queue.push(entry)
+
+    if (queue.length === 1) {
+      drainChannelQueue(channel)
+    }
   }
 
   const executeCommandEffect = async (
@@ -245,6 +279,28 @@ export const createRuntimeCommandModule = (options: {
     )
   }
 
+  const handleMissingCommandHandler = (
+    channel: string,
+    commandType: string,
+  ): void => {
+    options.emitMonitor({
+      channel,
+      commandType,
+      policy: options.missingHandlerPolicy,
+      type: "imperative-command-missing-handler",
+    })
+
+    if (options.missingHandlerPolicy === "warn") {
+      console.warn(`Fizz missing command handler for ${channel}.${commandType}`)
+    }
+
+    if (options.missingHandlerPolicy === "error") {
+      throw new Error(
+        `Fizz missing command handler for ${channel}.${commandType}`,
+      )
+    }
+  }
+
   const handleCommandEffect = (
     data: CommandEffectData<
       string,
@@ -255,6 +311,59 @@ export const createRuntimeCommandModule = (options: {
       Action<string, unknown> | void
     >,
   ): RuntimeDebugCommand[] => {
+    // Queued path: when latestOnlyKey is set, defer onto the channel queue so
+    // pending commands with the same key can be replaced before they execute.
+    if (data.latestOnlyKey !== undefined) {
+      const handler = options.commandHandlers[data.channel]?.[data.commandType]
+
+      if (!handler) {
+        handleMissingCommandHandler(data.channel, data.commandType)
+
+        return []
+      }
+
+      const task = async () => {
+        options.emitMonitor({
+          channel: data.channel,
+          commandType: data.commandType,
+          payload: data.payload,
+          type: "imperative-command-started",
+        })
+
+        try {
+          const result = await handler(data.payload)
+
+          options.emitMonitor({
+            channel: data.channel,
+            commandType: data.commandType,
+            result,
+            type: "imperative-command-completed",
+          })
+
+          await runMappedAction(data.handlers.resolve(result))
+        } catch (error) {
+          options.emitMonitor({
+            channel: data.channel,
+            commandType: data.commandType,
+            error,
+            type: "imperative-command-failed",
+          })
+
+          await runMappedAction(data.handlers.reject(error))
+        }
+      }
+
+      enqueueChannelTask(data.channel, {
+        commandType: data.commandType,
+        latestOnlyKey: data.latestOnlyKey,
+        skip: () => undefined,
+        task,
+      })
+
+      return []
+    }
+
+    // Standard path: run immediately (preserves sync return for sync handlers).
     options.emitMonitor({
       channel: data.channel,
       commandType: data.commandType,
@@ -265,24 +374,7 @@ export const createRuntimeCommandModule = (options: {
     const handler = options.commandHandlers[data.channel]?.[data.commandType]
 
     if (!handler) {
-      options.emitMonitor({
-        channel: data.channel,
-        commandType: data.commandType,
-        policy: options.missingHandlerPolicy,
-        type: "imperative-command-missing-handler",
-      })
-
-      if (options.missingHandlerPolicy === "warn") {
-        console.warn(
-          `Fizz missing command handler for ${data.channel}.${data.commandType}`,
-        )
-      }
-
-      if (options.missingHandlerPolicy === "error") {
-        throw new Error(
-          `Fizz missing command handler for ${data.channel}.${data.commandType}`,
-        )
-      }
+      handleMissingCommandHandler(data.channel, data.commandType)
 
       return []
     }
@@ -445,7 +537,12 @@ export const createRuntimeCommandModule = (options: {
       return []
     }
 
-    enqueueChannelTask(data.channel, runBatch)
+    enqueueChannelTask(data.channel, {
+      commandType: "effectBatch",
+      latestOnlyKey: data.latestOnlyKey,
+      skip: () => undefined,
+      task: runBatch,
+    })
 
     return []
   }

@@ -246,7 +246,13 @@ Arguments:
 - `targetResourceId`: Resource ID of the event target (must be an EventTarget)
 - `eventType`: Event type string (e.g., `"click"`, `"input"`, `"scroll"`)
 - `callback`: Handler that receives the event and fires an action
-- `options`: Optional `AddEventListenerOptions`
+- `options`: Optional `AddEventListenerOptions` with optional `coalesce`
+
+`coalesce` controls how bursty DOM events are collapsed before dispatch:
+
+- `"none"` (default): fire every event
+- `"animation-frame"`: dispatch only the latest event per animation frame
+- `"microtask"`: dispatch only the latest event per microtask tick
 
 The callback receives the DOM event and should return an action:
 
@@ -281,6 +287,22 @@ const Tracking = state({
     dom.listen("window", "resize", () => windowResized()),
     dom.listen("window", "scroll", () => windowScrolled()),
     dom.listen("window", "beforeunload", () => beforeUnload()),
+  ],
+})
+```
+
+Coalescing example for drag/scroll style high-frequency events:
+
+```typescript
+const Dragging = state({
+  Enter: () => [
+    dom.window("window"),
+    dom.listen(
+      "window",
+      "pointermove",
+      event => pointerMoved((event as PointerEvent).clientX),
+      { coalesce: "animation-frame", passive: true },
+    ),
   ],
 })
 ```

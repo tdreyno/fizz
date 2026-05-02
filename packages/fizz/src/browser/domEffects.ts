@@ -227,7 +227,8 @@ const createTargetBuilder = <
 
       const hasListenerOptions =
         eventOptions !== undefined &&
-        (typeof eventOptions !== "object" || Object.keys(restOptions).length > 0)
+        (typeof eventOptions !== "object" ||
+          Object.keys(restOptions).length > 0)
 
       return [
         builder,

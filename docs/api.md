@@ -435,6 +435,7 @@ const Editing = state({
       "notesEditor",
       "setDocument",
       { document: payload.document },
+      { latestOnlyKey: "set-document" },
     ).chainToAction(
       () => applySucceeded(),
       error =>
@@ -446,6 +447,10 @@ const Editing = state({
 ```
 
 Register command handlers with `createRuntime(..., { commandHandlers })`.
+
+`commandEffect(...)` optional fourth argument:
+
+- `latestOnlyKey?`: when present, pending same-channel commands with the same key are replaced by the newest queued command before execution
 
 ```ts
 const runtime = createRuntime(machine, Editing(initialData), {
@@ -505,8 +510,12 @@ const Editing = state({
 
 `commandChannel(...)` methods:
 
-- `command(type, payload)`: creates a `commandEffect(...)` for the bound channel
+- `command(type, payload, options?)`: creates a `commandEffect(...)` for the bound channel
 - `batch(commands, options?)`: creates an `effectBatch(...)` with the bound channel
+
+`command(..., options?)` supports:
+
+- `latestOnlyKey?`: latest-only replacement key within the bound channel queue
 
 Use this helper when the same channel appears repeatedly in one state or machine.
 For narrative guidance and runtime subscription patterns, see [Output Actions](./output-actions.md).
