@@ -52,6 +52,16 @@ await runtime.run(enter())
 import { action, commandChannel, state } from "@tdreyno/fizz"
 
 type Commands = {
+  drag: {
+    updatePreview: {
+      payload: { x: number; y: number }
+      result: void
+    }
+    commit: {
+      payload: { x: number; y: number }
+      result: void
+    }
+  }
   notesEditor: {
     setDocument: {
       payload: { document: string }
@@ -67,17 +77,40 @@ type Commands = {
 const applySucceeded = action("ApplySucceeded")
 const applyFailed = action("ApplyFailed")
 
-const editor = commandChannel<Commands, "notesEditor">("notesEditor")
+// FIFO — commands run in arrival order
+const editorCommands = commandChannel<Commands, "notesEditor">("notesEditor")
+
+// Replace pending AND abort running — ideal for animation-frame work
+const dragCommands = commandChannel<Commands, "drag">("drag", {
+  scheduling: {
+    mode: "replace-pending-and-cancel-running",
+    keyPrefix: "drag",
+  },
+})
 
 const Editing = state({
   ApplyRemote: (_data, payload: { document: string; editable: boolean }) =>
-    editor
+    editorCommands
       .batch([
-        editor.command("setDocument", { document: payload.document }),
-        editor.command("setEditable", { editable: payload.editable }),
+        editorCommands.command("setDocument", { document: payload.document }),
+        editorCommands.command("setEditable", { editable: payload.editable }),
       ])
       .chainToAction(applySucceeded(), () => applyFailed()),
 })
+
+// Command handlers receive (payload, { signal: AbortSignal })
+const commandHandlers = {
+  drag: {
+    async updatePreview(
+      payload: { x: number; y: number },
+      { signal }: { signal: AbortSignal },
+    ) {
+      await waitForFrame(signal)
+      if (signal.aborted) return
+      applyDragPreview(payload)
+    },
+  },
+}
 ```
 
 ## JSON request mapped back into actions

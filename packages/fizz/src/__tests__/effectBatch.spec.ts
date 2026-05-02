@@ -320,3 +320,112 @@ describe("effectBatch", () => {
     expect(outputs).toEqual(["BatchCompleted", "BatchFailed"])
   })
 })
+
+describe("commandChannel scheduling policy", () => {
+  type DragCommands = {
+    dragPreview: {
+      updatePreview: {
+        payload: { x: number; y: number }
+        result: void
+      }
+      restoreGeometry: {
+        payload: { x: number; y: number }
+        result: void
+      }
+    }
+    session: {
+      update: {
+        payload: { duration: number }
+        result: void
+      }
+    }
+    toolbar: {
+      focusToggle: {
+        payload: void
+        result: void
+      }
+    }
+  }
+
+  test("fifo mode does not set a latestOnlyKey", () => {
+    const ch = commandChannel<DragCommands, "session">("session", {
+      scheduling: { mode: "fifo" },
+    })
+
+    const cmd = ch.command("update", { duration: 100 })
+
+    expect(cmd.data).toMatchObject({
+      channel: "session",
+      commandType: "update",
+      payload: { duration: 100 },
+    })
+    expect(cmd.data?.latestOnlyKey).toBeUndefined()
+    expect(cmd.data?.schedulingMode).toBeUndefined()
+  })
+
+  test("replace-pending mode generates latestOnlyKey from keyPrefix and commandType", () => {
+    const ch = commandChannel<DragCommands, "dragPreview">("dragPreview", {
+      scheduling: { mode: "replace-pending", keyPrefix: "drag-preview" },
+    })
+
+    const cmd = ch.command("updatePreview", { x: 10, y: 20 })
+
+    expect(cmd.data?.latestOnlyKey).toBe("drag-preview-updatePreview")
+    expect(cmd.data?.schedulingMode).toBe("replace-pending")
+  })
+
+  test("replace-pending-and-cancel-running mode sets schedulingMode on effect data", () => {
+    const ch = commandChannel<DragCommands, "dragPreview">("dragPreview", {
+      scheduling: {
+        mode: "replace-pending-and-cancel-running",
+        keyPrefix: "drag-preview",
+      },
+    })
+
+    const cmd = ch.command("updatePreview", { x: 10, y: 20 })
+
+    expect(cmd.data?.latestOnlyKey).toBe("drag-preview-updatePreview")
+    expect(cmd.data?.schedulingMode).toBe("replace-pending-and-cancel-running")
+  })
+
+  test("per-command key override takes precedence over generated key", () => {
+    const ch = commandChannel<DragCommands, "dragPreview">("dragPreview", {
+      scheduling: {
+        mode: "replace-pending",
+        keyPrefix: "drag-preview",
+        commands: {
+          updatePreview: { key: "custom-preview-key" },
+          restoreGeometry: { key: "custom-preview-key" },
+        },
+      },
+    })
+
+    const update = ch.command("updatePreview", { x: 10, y: 20 })
+    const restore = ch.command("restoreGeometry", { x: 0, y: 0 })
+
+    expect(update.data?.latestOnlyKey).toBe("custom-preview-key")
+    expect(restore.data?.latestOnlyKey).toBe("custom-preview-key")
+  })
+
+  test("commandChannel without options behaves as fifo (no latestOnlyKey)", () => {
+    const ch = commandChannel<DragCommands, "session">("session")
+
+    const cmd = ch.command("update", { duration: 100 })
+
+    expect(cmd.data?.latestOnlyKey).toBeUndefined()
+    expect(cmd.data?.schedulingMode).toBeUndefined()
+  })
+
+  test("payload-less command can be called without payload argument", () => {
+    const ch = commandChannel<DragCommands, "toolbar">("toolbar")
+
+    // TypeScript should allow omitting payload when schema declares it as void
+    const cmd = ch.command("focusToggle")
+
+    expect(cmd.label).toBe("commandEffect")
+    expect(cmd.data).toMatchObject({
+      channel: "toolbar",
+      commandType: "focusToggle",
+    })
+  })
+})

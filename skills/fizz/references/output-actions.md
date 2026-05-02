@@ -41,18 +41,64 @@ Map-aware overload:
 
 This variant infers payload shape from the map entry.
 
-### `commandChannel(channel)`
+### `commandChannel(channel, options?)`
 
-Use `commandChannel(...)` when one state repeatedly targets the same channel and should not repeat channel literals in every command and batch call.
+Use `commandChannel(...)` when one state repeatedly targets the same channel and should not repeat channel literals in every command and batch call. Pass an optional scheduling policy to control coalescing and cancellation.
 
-- `command(type, payload, options?)` creates a channel-scoped `commandEffect(...)`
+- `command(type, payload?)` creates a channel-scoped `commandEffect(...)`. Payload may be omitted when the schema declares it as `void` or `undefined`.
 - `batch(commands, options?)` creates a channel-scoped `effectBatch(...)`
 
-`command(..., options?)` supports:
+#### Scheduling policies
 
-- `latestOnlyKey?`: latest-only replacement key in the channel queue so pending same-key commands collapse to the newest one
+| Mode                                   | Behaviour                                                                                  |
+| -------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `"fifo"` (default)                     | Commands run in arrival order; nothing is dropped                                          |
+| `"replace-pending"`                    | A queued (not yet running) command is replaced by a newer one with the same coalescing key |
+| `"replace-pending-and-cancel-running"` | Same as above, plus the currently executing handler has its `AbortSignal` aborted          |
 
-This helper is ergonomic sugar over `commandEffect(...)` and `effectBatch(...)`; it does not change runtime behavior.
+Key derivation: `<keyPrefix>-<commandType>` by default. Override per-command with `commands.<type>.key`.
+
+```ts
+// FIFO (no options)
+const sessionCommands = commandChannel<Commands, "session">("session")
+
+// Replace pending — collapses queued commands with same key
+const editorCommands = commandChannel<Commands, "notesEditor">("notesEditor", {
+  scheduling: { mode: "replace-pending", keyPrefix: "editor" },
+})
+
+// Replace pending AND abort running — ideal for animation-frame work
+const dragCommands = commandChannel<Commands, "drag">("drag", {
+  scheduling: {
+    mode: "replace-pending-and-cancel-running",
+    keyPrefix: "drag",
+    commands: {
+      updatePreview: { key: "drag-frame" },
+      restoreGeometry: { key: "drag-frame" },
+    },
+  },
+})
+```
+
+#### AbortSignal in handlers
+
+Every command handler receives `{ signal: AbortSignal }` as its second argument:
+
+```ts
+const commandHandlers = {
+  drag: {
+    async updatePreview(payload, { signal }) {
+      await waitForFrame(signal)
+      if (signal.aborted) return
+      applyDragPreview(payload)
+    },
+  },
+}
+```
+
+The signal is aborted only when a `replace-pending-and-cancel-running` channel supersedes the running task. For `fifo` and `replace-pending` channels the signal is never aborted.
+
+This helper is ergonomic sugar over `commandEffect(...)` and `effectBatch(...)`; the scheduling policy is the primary behavioral addition.
 
 ### `effectBatch(...).chainToOutput(...)`
 

@@ -128,6 +128,23 @@ export type CommandSchema = Record<
   >
 >
 
+export type CommandChannelSchedulingPolicy =
+  | { mode: "fifo" }
+  | {
+      commands?: Record<string, { key: string }>
+      keyPrefix: string
+      mode: "replace-pending"
+    }
+  | {
+      commands?: Record<string, { key: string }>
+      keyPrefix: string
+      mode: "replace-pending-and-cancel-running"
+    }
+
+export type CommandChannelOptions = {
+  scheduling?: CommandChannelSchedulingPolicy
+}
+
 type CommandResolveHandler<
   Result,
   ResolvedAction extends Action<string, unknown> | void,
@@ -178,6 +195,7 @@ export type CommandEffectData<
   }
   latestOnlyKey?: string
   payload: Payload
+  schedulingMode?: "replace-pending" | "replace-pending-and-cancel-running"
 }
 
 export type EffectBatchOnError = "continue" | "failBatch"
@@ -352,6 +370,15 @@ type CommandEffectChainToActionBuilder<
   >
 }
 
+type PayloadArg<
+  Schema extends CommandSchema,
+  Channel extends CommandChannelName<Schema>,
+  CommandType extends CommandTypeName<Schema, Channel>,
+> =
+  CommandPayload<Schema, Channel, CommandType> extends void | undefined
+    ? [] | [payload?: CommandPayload<Schema, Channel, CommandType>]
+    : [payload: CommandPayload<Schema, Channel, CommandType>]
+
 export type CommandChannelBuilder<
   Schema extends CommandSchema,
   Channel extends CommandChannelName<Schema>,
@@ -363,8 +390,7 @@ export type CommandChannelBuilder<
   ) => EffectBatchBuilder
   command: <CommandType extends CommandTypeName<Schema, Channel>>(
     commandType: CommandType,
-    payload: CommandPayload<Schema, Channel, CommandType>,
-    options?: { latestOnlyKey?: string },
+    ...args: PayloadArg<Schema, Channel, CommandType>
   ) => CommandEffectChainToActionBuilder<
     Channel,
     CommandType,
@@ -381,7 +407,10 @@ export const commandEffect = <
   channel: Channel,
   commandType: CommandType,
   payload: CommandPayload<Schema, Channel, CommandType>,
-  commandOptions?: { latestOnlyKey?: string },
+  commandOptions?: {
+    latestOnlyKey?: string
+    schedulingMode?: "replace-pending" | "replace-pending-and-cancel-running"
+  },
 ): CommandEffectChainToActionBuilder<
   Channel,
   CommandType,
@@ -400,6 +429,9 @@ export const commandEffect = <
     },
     ...(commandOptions?.latestOnlyKey !== undefined
       ? { latestOnlyKey: commandOptions.latestOnlyKey }
+      : {}),
+    ...(commandOptions?.schedulingMode !== undefined
+      ? { schedulingMode: commandOptions.schedulingMode }
       : {}),
     payload,
   }) as CommandEffectChainToActionBuilder<
@@ -433,6 +465,9 @@ export const commandEffect = <
       ...(commandOptions?.latestOnlyKey !== undefined
         ? { latestOnlyKey: commandOptions.latestOnlyKey }
         : {}),
+      ...(commandOptions?.schedulingMode !== undefined
+        ? { schedulingMode: commandOptions.schedulingMode }
+        : {}),
       payload,
     })
   }
@@ -461,21 +496,45 @@ export const commandChannel = <
   Channel extends CommandChannelName<Schema>,
 >(
   channel: Channel,
-): CommandChannelBuilder<Schema, Channel> => ({
-  channel,
-  batch: (commands, options) =>
-    effectBatch(commands, {
-      ...options,
-      channel,
-    }),
-  command: (commandType, payload, commandOptions) =>
-    commandEffect<Schema, Channel, typeof commandType>(
-      channel,
-      commandType,
-      payload,
-      commandOptions,
-    ),
-})
+  options?: CommandChannelOptions,
+): CommandChannelBuilder<Schema, Channel> => {
+  const scheduling = options?.scheduling
+
+  const resolveLatestOnlyKey = (commandType: string): string | undefined => {
+    if (!scheduling || scheduling.mode === "fifo") return undefined
+    const commandOverride = (
+      scheduling as { commands?: Record<string, { key: string }> }
+    ).commands?.[commandType]?.key
+    return (
+      commandOverride ??
+      `${(scheduling as { keyPrefix: string }).keyPrefix}-${commandType}`
+    )
+  }
+
+  const resolveSchedulingMode = ():
+    | "replace-pending"
+    | "replace-pending-and-cancel-running"
+    | undefined => {
+    if (!scheduling || scheduling.mode === "fifo") return undefined
+    return scheduling.mode
+  }
+
+  return {
+    channel,
+    batch: (commands, batchOptions) =>
+      effectBatch(commands, { ...batchOptions, channel }),
+    command: (commandType, ...args) =>
+      commandEffect<Schema, Channel, typeof commandType>(
+        channel,
+        commandType,
+        args[0] as CommandPayload<Schema, Channel, typeof commandType>,
+        {
+          latestOnlyKey: resolveLatestOnlyKey(commandType),
+          schedulingMode: resolveSchedulingMode(),
+        },
+      ),
+  }
+}
 
 type RequestJSONRejectHandler<
   RejectedAction extends Action<string, unknown> | void,

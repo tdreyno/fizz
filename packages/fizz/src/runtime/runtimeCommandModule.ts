@@ -15,6 +15,7 @@ import type {
 
 export type RuntimeCommandHandler<Result = unknown> = (
   payload: unknown,
+  context: { signal: AbortSignal },
 ) => Result | Promise<Result>
 
 export type RuntimeCommandHandlers = Record<
@@ -26,6 +27,7 @@ export type RuntimeCommandHandlersFromClients<Schema extends CommandSchema> = {
   [Channel in Extract<keyof Schema, string>]: {
     [CommandType in Extract<keyof Schema[Channel], string>]: (
       payload: Schema[Channel][CommandType]["payload"],
+      context: { signal: AbortSignal },
     ) =>
       | Schema[Channel][CommandType]["result"]
       | Promise<Schema[Channel][CommandType]["result"]>
@@ -56,8 +58,10 @@ export const createRuntimeCommandModule = (options: {
   runAction: (action: Action<string, unknown>) => Promise<void>
 }): RuntimeCommandModule => {
   type ChannelQueueEntry = {
+    abortController: AbortController
     commandType: string
     latestOnlyKey?: string
+    schedulingMode?: "replace-pending" | "replace-pending-and-cancel-running"
     skip: () => void
     task: () => Promise<void>
   }
@@ -143,14 +147,51 @@ export const createRuntimeCommandModule = (options: {
     })
   }
 
+  const abortRunningIfCancelMode = (
+    queue: ChannelQueueEntry[],
+    entry: ChannelQueueEntry,
+    latestOnlyKey: string,
+  ): void => {
+    if (
+      entry.schedulingMode === "replace-pending-and-cancel-running" &&
+      queue[0]?.latestOnlyKey === latestOnlyKey
+    ) {
+      queue[0].abortController.abort()
+    }
+  }
+
+  const replacePendingEntry = (
+    channel: string,
+    state: {
+      entries: ChannelQueueEntry[]
+      pendingLatestOnlyKeys: Map<string, number>
+    },
+    entry: ChannelQueueEntry,
+    latestOnlyKey: string,
+    pendingIndex: number,
+  ): boolean => {
+    const pendingEntry = state.entries[pendingIndex]
+
+    if (!pendingEntry) {
+      state.pendingLatestOnlyKeys.delete(latestOnlyKey)
+      return false
+    }
+
+    options.emitMonitor({
+      channel,
+      commandType: entry.commandType,
+      latestOnlyKey,
+      type: "imperative-command-replaced",
+    })
+    pendingEntry.skip()
+    state.entries.splice(pendingIndex, 1, entry)
+    state.pendingLatestOnlyKeys.set(latestOnlyKey, pendingIndex)
+    return true
+  }
+
   const enqueueChannelTask = (
     channel: string,
-    entry: {
-      commandType: string
-      latestOnlyKey?: string
-      skip: () => void
-      task: () => Promise<void>
-    },
+    entry: ChannelQueueEntry,
   ): void => {
     const state = channelQueues.get(channel) ?? {
       entries: [],
@@ -160,38 +201,25 @@ export const createRuntimeCommandModule = (options: {
     channelQueues.set(channel, state)
 
     const queue = state.entries
-
     const { latestOnlyKey } = entry
 
     if (latestOnlyKey !== undefined) {
+      abortRunningIfCancelMode(queue, entry, latestOnlyKey)
+
       const pendingIndex = state.pendingLatestOnlyKeys.get(latestOnlyKey)
 
       if (pendingIndex !== undefined) {
-        const pendingEntry = queue[pendingIndex]
+        const replaced = replacePendingEntry(
+          channel,
+          state,
+          entry,
+          latestOnlyKey,
+          pendingIndex,
+        )
 
-        if (!pendingEntry) {
-          state.pendingLatestOnlyKeys.delete(latestOnlyKey)
-
-          queue.push(entry)
-
-          if (queue.length === 1) {
-            drainChannelQueue(channel)
-          }
-
+        if (replaced) {
           return
         }
-
-        options.emitMonitor({
-          channel,
-          commandType: entry.commandType,
-          latestOnlyKey,
-          type: "imperative-command-replaced",
-        })
-        pendingEntry.skip()
-        queue.splice(pendingIndex, 1, entry)
-        state.pendingLatestOnlyKeys.set(latestOnlyKey, pendingIndex)
-
-        return
       }
     }
 
@@ -219,6 +247,7 @@ export const createRuntimeCommandModule = (options: {
       failOnError: boolean
       failOnMissingHandler: boolean
     },
+    signal: AbortSignal = new AbortController().signal,
   ): Promise<RuntimeDebugCommand[]> => {
     options.emitMonitor({
       channel: data.channel,
@@ -259,7 +288,7 @@ export const createRuntimeCommandModule = (options: {
     }
 
     try {
-      const result = await handler(data.payload)
+      const result = await handler(data.payload, { signal })
 
       options.emitMonitor({
         channel: data.channel,
@@ -368,6 +397,8 @@ export const createRuntimeCommandModule = (options: {
         return []
       }
 
+      const abortController = new AbortController()
+
       const onQueuedCommandResolved = (result: unknown) => {
         options.emitMonitor({
           channel: data.channel,
@@ -399,7 +430,9 @@ export const createRuntimeCommandModule = (options: {
         })
 
         try {
-          const result = handler(data.payload)
+          const result = handler(data.payload, {
+            signal: abortController.signal,
+          })
 
           if (result instanceof Promise) {
             return result
@@ -414,8 +447,12 @@ export const createRuntimeCommandModule = (options: {
       }
 
       enqueueChannelTask(data.channel, {
+        abortController,
         commandType: data.commandType,
         latestOnlyKey: data.latestOnlyKey,
+        ...(data.schedulingMode === undefined
+          ? {}
+          : { schedulingMode: data.schedulingMode }),
         skip: () => undefined,
         task,
       })
@@ -439,8 +476,10 @@ export const createRuntimeCommandModule = (options: {
       return []
     }
 
+    const abortController = new AbortController()
+
     try {
-      const result = handler(data.payload)
+      const result = handler(data.payload, { signal: abortController.signal })
 
       if (result instanceof Promise) {
         void result

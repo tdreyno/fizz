@@ -302,9 +302,13 @@ Use explicit effects when the machine needs to:
 `commandChannel(...)` guidance:
 
 - Bind one channel once for local machine ergonomics.
-- Use `command(...)` to create channel-scoped command effects.
+- Pass a scheduling policy as the second argument to control coalescing and cancellation:
+  - `{ mode: "fifo" }` (default) — no coalescing
+  - `{ mode: "replace-pending", keyPrefix: "..." }` — supersedes queued same-key commands
+  - `{ mode: "replace-pending-and-cancel-running", keyPrefix: "..." }` — also aborts the running handler
+- Use `command(type, payload?)` to create channel-scoped command effects. Payload may be omitted when the schema declares it as `void` or `undefined`.
 - Use `batch(...)` to create channel-scoped `effectBatch(...)` calls without repeating `channel` options.
-- This is ergonomic sugar over existing APIs, not a runtime behavior change.
+- All command handlers receive `(payload, { signal: AbortSignal })`. Check `signal.aborted` at async yield points when using `replace-pending-and-cancel-running`.
 
 `effectBatch(...)` guidance:
 

@@ -933,3 +933,187 @@ describe("runtime command module", () => {
     expect(runAction).not.toHaveBeenCalledWith(shouldNotRun())
   })
 })
+
+describe("channel scheduling modes", () => {
+  test("replace-pending: replaces queued command and does not abort running", async () => {
+    const runningSignals: AbortSignal[] = []
+    let resolveRunning!: () => void
+    let releaseTask!: () => void
+    const runningStarted = new Promise<void>(resolve => {
+      resolveRunning = resolve
+    })
+
+    const module = createRuntimeCommandModule({
+      actionCommand: a => ({ action: a, kind: "action" }),
+      commandHandlers: {
+        preview: {
+          update: async (_payload, { signal }) => {
+            runningSignals.push(signal)
+            resolveRunning()
+            await new Promise<void>(r => {
+              signal.addEventListener("abort", () => r())
+              releaseTask = r
+            })
+          },
+        },
+      },
+      emitMonitor: () => undefined,
+      emitOutput: () => undefined,
+      missingHandlerPolicy: "noop",
+      runAction: async () => undefined,
+    })
+
+    const commandHandler = module.effectHandlers.get("commandEffect")!
+
+    // First command: starts running
+    commandHandler({
+      data: {
+        channel: "preview",
+        commandType: "update",
+        handlers: { reject: () => undefined, resolve: () => undefined },
+        latestOnlyKey: "preview-update",
+        payload: { frame: 1 },
+        schedulingMode: "replace-pending",
+      },
+      label: "commandEffect",
+    } as never)
+
+    await runningStarted
+
+    // Second command: pending (not yet running)
+    commandHandler({
+      data: {
+        channel: "preview",
+        commandType: "update",
+        handlers: { reject: () => undefined, resolve: () => undefined },
+        latestOnlyKey: "preview-update",
+        payload: { frame: 2 },
+        schedulingMode: "replace-pending",
+      },
+      label: "commandEffect",
+    } as never)
+
+    // Third command: replaces second (pending), running task NOT aborted
+    commandHandler({
+      data: {
+        channel: "preview",
+        commandType: "update",
+        handlers: { reject: () => undefined, resolve: () => undefined },
+        latestOnlyKey: "preview-update",
+        payload: { frame: 3 },
+        schedulingMode: "replace-pending",
+      },
+      label: "commandEffect",
+    } as never)
+
+    // The running task's signal should NOT be aborted
+    expect(runningSignals[0]?.aborted).toBe(false)
+
+    // Release the running task so Jest can exit cleanly
+    releaseTask()
+  })
+
+  test("replace-pending-and-cancel-running: aborts the running task when a new command arrives", async () => {
+    const runningSignals: AbortSignal[] = []
+    let resolveRunning!: () => void
+    const releaseFunctions: Array<() => void> = []
+    const runningStarted = new Promise<void>(resolve => {
+      resolveRunning = resolve
+    })
+
+    const module = createRuntimeCommandModule({
+      actionCommand: a => ({ action: a, kind: "action" }),
+      commandHandlers: {
+        preview: {
+          update: async (_payload, { signal }) => {
+            runningSignals.push(signal)
+            resolveRunning()
+            await new Promise<void>(r => {
+              signal.addEventListener("abort", () => r())
+              releaseFunctions.push(r)
+            })
+          },
+        },
+      },
+      emitMonitor: () => undefined,
+      emitOutput: () => undefined,
+      missingHandlerPolicy: "noop",
+      runAction: async () => undefined,
+    })
+
+    const commandHandler = module.effectHandlers.get("commandEffect")!
+
+    // First command: starts running
+    commandHandler({
+      data: {
+        channel: "preview",
+        commandType: "update",
+        handlers: { reject: () => undefined, resolve: () => undefined },
+        latestOnlyKey: "preview-update",
+        payload: { frame: 1 },
+        schedulingMode: "replace-pending-and-cancel-running",
+      },
+      label: "commandEffect",
+    } as never)
+
+    await runningStarted
+
+    // Second command: should abort the running task
+    commandHandler({
+      data: {
+        channel: "preview",
+        commandType: "update",
+        handlers: { reject: () => undefined, resolve: () => undefined },
+        latestOnlyKey: "preview-update",
+        payload: { frame: 2 },
+        schedulingMode: "replace-pending-and-cancel-running",
+      },
+      label: "commandEffect",
+    } as never)
+
+    await waitFor(() => runningSignals[0]?.aborted === true)
+
+    expect(runningSignals[0]?.aborted).toBe(true)
+
+    // Clean up: release any remaining pending handlers so Jest can exit
+    for (const release of releaseFunctions) {
+      release()
+    }
+  })
+
+  test("handlers receive AbortSignal in context", async () => {
+    const receivedContexts: Array<{ signal: AbortSignal }> = []
+
+    const module = createRuntimeCommandModule({
+      actionCommand: a => ({ action: a, kind: "action" }),
+      commandHandlers: {
+        notes: {
+          load: (_payload, context) => {
+            receivedContexts.push(context)
+
+            return "ok"
+          },
+        },
+      },
+      emitMonitor: () => undefined,
+      emitOutput: () => undefined,
+      missingHandlerPolicy: "noop",
+      runAction: async () => undefined,
+    })
+
+    const commandHandler = module.effectHandlers.get("commandEffect")!
+
+    commandHandler({
+      data: {
+        channel: "notes",
+        commandType: "load",
+        handlers: { reject: () => undefined, resolve: () => undefined },
+        payload: { id: "1" },
+      },
+      label: "commandEffect",
+    } as never)
+
+    expect(receivedContexts).toHaveLength(1)
+    expect(receivedContexts[0]?.signal).toBeInstanceOf(AbortSignal)
+  })
+})

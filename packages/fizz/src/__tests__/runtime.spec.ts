@@ -550,9 +550,11 @@ describe("Runtime", () => {
 
     await runtime.run(applyClicked({ document: "Hello" }))
 
-    expect(clients.notesEditor.setDocument).toHaveBeenCalledWith({
-      document: "Hello",
-    })
+    expect(clients.notesEditor.setDocument).toHaveBeenCalledWith(
+      { document: "Hello" },
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    )
     expect(runtime.currentState().data.status).toBe("applied")
   })
 

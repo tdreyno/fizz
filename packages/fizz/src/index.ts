@@ -43,9 +43,9 @@ export {
   timerCompleted,
   timerStarted,
 } from "./action.js"
-export * from "./context.js"
 export type { ConnectExternalSnapshotOptions } from "./connectExternalSnapshot.js"
 export { connectExternalSnapshot } from "./connectExternalSnapshot.js"
+export * from "./context.js"
 export type {
   CreatedMachineDefinition,
   MachineDefinition,

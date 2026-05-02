@@ -530,19 +530,40 @@ const runtime = createRuntime(machine, Editing(initialData), {
 ### `commandChannel`
 
 Bind a command channel once, then create channel-scoped commands and batches without repeating channel strings.
-`commandChannel(...)` is already available in the core package; use it instead of writing local channel-wrapper helpers.
+`commandChannel(...)` accepts an optional scheduling policy that controls how queued commands behave when multiple arrive for the same key.
 
 ```ts
-const editor = commandChannel<Commands, "notesEditor">("notesEditor")
+// FIFO — default when no options are passed
+const sessionCommands = commandChannel<Commands, "session">("session")
 
+// Replace pending: new command supersedes a queued-but-not-yet-running command
+const editorCommands = commandChannel<Commands, "notesEditor">("notesEditor", {
+  scheduling: { mode: "replace-pending", keyPrefix: "editor" },
+})
+
+// Replace pending AND cancel running: aborts the currently executing handler
+const dragCommands = commandChannel<Commands, "drag">("drag", {
+  scheduling: {
+    mode: "replace-pending-and-cancel-running",
+    keyPrefix: "drag",
+    // Optional per-command key overrides (two types sharing the same key will coalesce):
+    commands: {
+      updatePreview: { key: "drag-frame" },
+      restoreGeometry: { key: "drag-frame" },
+    },
+  },
+})
+```
+
+```ts
 const Editing = state({
   ApplyRemote: (_data, payload) =>
-    editor
+    editorCommands
       .batch([
-        editor.command("setDocument", {
+        editorCommands.command("setDocument", {
           document: payload.document,
         }),
-        editor.command("setEditable", {
+        editorCommands.command("setEditable", {
           editable: payload.editable,
         }),
       ])
@@ -552,12 +573,36 @@ const Editing = state({
 
 `commandChannel(...)` methods:
 
-- `command(type, payload, options?)`: creates a `commandEffect(...)` for the bound channel
+- `command(type, payload?)`: creates a `commandEffect(...)` for the bound channel. Payload may be omitted when the schema declares it as `void` or `undefined`.
 - `batch(commands, options?)`: creates an `effectBatch(...)` with the bound channel
 
-`command(..., options?)` supports:
+### Scheduling policies
 
-- `latestOnlyKey?`: latest-only replacement key within the bound channel queue
+| Mode                                   | Behavior                                                                              |
+| -------------------------------------- | ------------------------------------------------------------------------------------- |
+| `"fifo"` (default)                     | Commands run in arrival order; no coalescing                                          |
+| `"replace-pending"`                    | A queued (not yet running) command is replaced by a newer one with the same key       |
+| `"replace-pending-and-cancel-running"` | Same as above, plus the currently executing handler receives an aborted `AbortSignal` |
+
+Key derivation: each command gets the key `<keyPrefix>-<commandType>` unless an explicit per-command override is provided via `commands.<type>.key`.
+
+### Handlers and AbortSignal
+
+All command handlers receive a second argument `{ signal: AbortSignal }`:
+
+```ts
+const commandHandlers = {
+  drag: {
+    async updatePreview(payload, { signal }) {
+      await waitForFrame(signal)
+      if (signal.aborted) return
+      applyPreview(payload)
+    },
+  },
+}
+```
+
+The `signal` is aborted when a `replace-pending-and-cancel-running` channel cancels the running task. For `fifo` and `replace-pending` channels the signal is never aborted.
 
 Use this helper when the same channel appears repeatedly in one state or machine.
 For narrative guidance and runtime subscription patterns, see [Output Actions](./output-actions.md).
