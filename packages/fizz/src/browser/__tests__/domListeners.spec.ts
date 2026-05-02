@@ -33,7 +33,7 @@ describe("DOM listeners", () => {
           update({
             clicks: data.clicks + 1,
           }),
-        Enter: () => dom.window().listen("click", didClick),
+        Enter: () => dom.window().onClick(didClick),
         Finish: data => Done(data),
       },
       { name: "Listening" },

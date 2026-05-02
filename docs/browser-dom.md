@@ -307,6 +307,31 @@ const Dragging = state({
 })
 ```
 
+### Convenience onEvent helpers
+
+Every DOM builder now exposes convenience listener helpers for valid event keys on that target.
+
+Example:
+
+```typescript
+const Tracking = state({
+  Enter: () => [
+    ...dom.document().onMouseDown(event => {
+      return didPress((event as MouseEvent).button)
+    }),
+    ...dom.window().onResize(() => viewportChanged()),
+  ],
+})
+```
+
+Helpers are type-safe per target and map directly to `.listen(...)`:
+
+- `dom.document().onMouseDown(handler)` -> `dom.document().listen("mousedown", handler)`
+- `dom.history().onPopState(handler)` -> `dom.history().listen("popstate", handler)`
+- `dom.location().onHashChange(handler)` -> `dom.location().listen("hashchange", handler)`
+
+For the full event-to-helper mapping table across `window`, `document`, element targets, `visualViewport`, `history`, and `location`, see [DOM Listener Convenience Helper Mappings](dom-listener-helper-mappings.md).
+
 ## Observers
 
 Fizz supports both `IntersectionObserver` and `ResizeObserver` with state-scoped lifecycle management.

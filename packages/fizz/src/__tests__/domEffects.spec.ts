@@ -124,6 +124,46 @@ describe("dom effects", () => {
     })
   })
 
+  test("onEvent helpers map to listen with target-specific typing", () => {
+    const moved = action("Moved").withPayload<string>()
+
+    const windowEffects = dom
+      .window("window")
+      .onMouseDown(event => moved(event.type), { passive: true })
+
+    expect(windowEffects[1]?.data).toEqual({
+      options: { passive: true },
+      targetResourceId: "window",
+      toAction: expect.any(Function),
+      type: "mousedown",
+    })
+
+    const historyEffects = dom.history().onPopState(event => moved(event.type))
+
+    expect(historyEffects[1]?.data).toEqual({
+      targetResourceId: "history",
+      toAction: expect.any(Function),
+      type: "popstate",
+    })
+
+    const locationEffects = dom
+      .location()
+      .onHashChange(event => moved(event.type))
+
+    expect(locationEffects[1]?.data).toEqual({
+      targetResourceId: "location",
+      toAction: expect.any(Function),
+      type: "hashchange",
+    })
+
+    dom.window().onKeyDown(event => moved(event.key))
+
+    // @ts-expect-error onPopState is not a valid helper for location targets
+    const missingHelper: ReturnType<typeof dom.location>["onPopState"] = null
+
+    expect(missingHelper).toBeNull()
+  })
+
   test("mutate and resource preserve target resource id", () => {
     const builder = dom.document("document-root")
     const effects = builder.mutate(() => undefined)

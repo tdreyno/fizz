@@ -136,6 +136,25 @@ For high-frequency events, use coalescing to avoid flooding actions:
   )
 ```
 
+### Convenience onEvent helpers
+
+All DOM builders expose typed convenience methods for valid event keys on that target.
+
+Example:
+
+```typescript
+...dom.document().onMouseDown(event => Started((event as MouseEvent).button))
+...dom.window().onResize(() => WindowResized())
+```
+
+Each helper delegates to `.listen(...)` with the matching string event name:
+
+- `onMouseDown(...)` -> `.listen("mousedown", ...)`
+- `onPopState(...)` -> `.listen("popstate", ...)`
+- `onHashChange(...)` -> `.listen("hashchange", ...)`
+
+See [DOM Listener Convenience Helper Mappings](./dom-listener-helper-mappings.md) for the full table of all event-name to helper-name mappings.
+
 ---
 
 ## Intersection observer

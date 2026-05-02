@@ -5,6 +5,7 @@
 - [Choosing The Right Scale](docs/choosing-scale.md)
 - [Architecture](docs/architecture.md)
 - [Browser & DOM Effects](docs/browser-dom.md)
+- [DOM Listener Helper Mappings](docs/dom-listener-helper-mappings.md)
 - [React Integration](docs/react-integration.md)
 
 ## Scheduling
