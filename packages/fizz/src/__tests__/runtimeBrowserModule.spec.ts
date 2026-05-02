@@ -388,4 +388,189 @@ describe("runtime browser module — domListen coalescing", () => {
 
     expect(runAction).toHaveBeenCalledTimes(1)
   })
+
+  test("default order remains registration-stable", async () => {
+    const timerDriver = createControlledTimerDriver()
+    const state = createState("Dragging")
+    const runAction = jest.fn(async () => undefined)
+    const { target, fire } = createMockEventTarget()
+
+    setStateResource({ key: "el", state: state as never, value: target })
+
+    const module = createRuntimeBrowserModule({
+      browserDriver: createDomDriver(),
+      getCurrentState: () => state as never,
+      runAction,
+      timerDriver,
+    })
+
+    const listenHandler = module.effectHandlers.get("domListen")!
+
+    listenHandler({
+      data: {
+        targetResourceId: "el",
+        toAction: () => Move({ x: 1 }),
+        type: "pointermove",
+      },
+      label: "domListen",
+    } as never)
+
+    listenHandler({
+      data: {
+        targetResourceId: "el",
+        toAction: () => Move({ x: 2 }),
+        type: "pointermove",
+      },
+      label: "domListen",
+    } as never)
+
+    fire("pointermove", createMockEvent())
+
+    expect(runAction).toHaveBeenCalledTimes(2)
+    expect(runAction.mock.calls).toEqual([[Move({ x: 1 })], [Move({ x: 2 })]])
+  })
+
+  test("before/default/after listener ordering is deterministic", async () => {
+    const timerDriver = createControlledTimerDriver()
+    const state = createState("Dragging")
+    const runAction = jest.fn(async () => undefined)
+    const { target, fire } = createMockEventTarget()
+
+    setStateResource({ key: "el", state: state as never, value: target })
+
+    const module = createRuntimeBrowserModule({
+      browserDriver: createDomDriver(),
+      getCurrentState: () => state as never,
+      runAction,
+      timerDriver,
+    })
+
+    const listenHandler = module.effectHandlers.get("domListen")!
+
+    listenHandler({
+      data: {
+        order: "after-default",
+        targetResourceId: "el",
+        toAction: () => Move({ x: 3 }),
+        type: "pointermove",
+      },
+      label: "domListen",
+    } as never)
+
+    listenHandler({
+      data: {
+        targetResourceId: "el",
+        toAction: () => Move({ x: 2 }),
+        type: "pointermove",
+      },
+      label: "domListen",
+    } as never)
+
+    listenHandler({
+      data: {
+        order: "before-default",
+        targetResourceId: "el",
+        toAction: () => Move({ x: 1 }),
+        type: "pointermove",
+      },
+      label: "domListen",
+    } as never)
+
+    fire("pointermove", createMockEvent())
+
+    expect(runAction).toHaveBeenCalledTimes(3)
+    expect(runAction.mock.calls).toEqual([
+      [Move({ x: 1 })],
+      [Move({ x: 2 })],
+      [Move({ x: 3 })],
+    ])
+  })
+
+  test("when last handler is removed, native listener is removed once", async () => {
+    const timerDriver = createControlledTimerDriver()
+    const state = createState("Dragging")
+    const runAction = jest.fn(async () => undefined)
+    const { target } = createMockEventTarget()
+
+    setStateResource({ key: "el", state: state as never, value: target })
+
+    const module = createRuntimeBrowserModule({
+      browserDriver: createDomDriver(),
+      getCurrentState: () => state as never,
+      runAction,
+      timerDriver,
+    })
+
+    const listenHandler = module.effectHandlers.get("domListen")!
+
+    listenHandler({
+      data: {
+        targetResourceId: "el",
+        toAction: () => Move({ x: 1 }),
+        type: "pointermove",
+      },
+      label: "domListen",
+    } as never)
+
+    listenHandler({
+      data: {
+        targetResourceId: "el",
+        toAction: () => Move({ x: 2 }),
+        type: "pointermove",
+      },
+      label: "domListen",
+    } as never)
+
+    disposeStateResources(state as never)
+
+    expect((target.removeEventListener as jest.Mock).mock.calls.length).toBe(1)
+  })
+
+  test("coalesced before-default action may run after default action", async () => {
+    const timerDriver = createControlledTimerDriver()
+    const state = createState("Dragging")
+    const runAction = jest.fn(async () => undefined)
+    const { target, fire } = createMockEventTarget()
+
+    setStateResource({ key: "el", state: state as never, value: target })
+
+    const module = createRuntimeBrowserModule({
+      browserDriver: createDomDriver(),
+      getCurrentState: () => state as never,
+      runAction,
+      timerDriver,
+    })
+
+    const listenHandler = module.effectHandlers.get("domListen")!
+
+    listenHandler({
+      data: {
+        coalesce: "animation-frame",
+        order: "before-default",
+        targetResourceId: "el",
+        toAction: () => Move({ x: 1 }),
+        type: "pointermove",
+      },
+      label: "domListen",
+    } as never)
+
+    listenHandler({
+      data: {
+        targetResourceId: "el",
+        toAction: () => Move({ x: 2 }),
+        type: "pointermove",
+      },
+      label: "domListen",
+    } as never)
+
+    fire("pointermove", createMockEvent())
+
+    expect(runAction).toHaveBeenCalledTimes(1)
+    expect(runAction).toHaveBeenNthCalledWith(1, Move({ x: 2 }))
+
+    await timerDriver.advanceFrames(1)
+
+    expect(runAction).toHaveBeenCalledTimes(2)
+    expect(runAction).toHaveBeenNthCalledWith(2, Move({ x: 1 }))
+  })
 })

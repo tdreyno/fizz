@@ -61,9 +61,11 @@ export type DomAcquireEffectData =
     }
 
 export type DomListenCoalesceMode = "animation-frame" | "microtask" | "none"
+export type ListenOrder = "after-default" | "before-default" | "default"
 
 export type DomListenEffectData = {
   coalesce?: DomListenCoalesceMode
+  order?: ListenOrder
   options?: AddEventListenerOptions | boolean
   targetResourceId: string
   toAction: (event: Event) => AnyAction | undefined
@@ -97,7 +99,10 @@ export type DomMutateEffectData = {
 
 export type DomListenOptions =
   | boolean
-  | (AddEventListenerOptions & { coalesce?: DomListenCoalesceMode })
+  | (AddEventListenerOptions & {
+      coalesce?: DomListenCoalesceMode
+      order?: ListenOrder
+    })
 
 export type KeyMatcher = {
   altKey?: boolean
@@ -309,14 +314,20 @@ const domMutate = (data: DomMutateEffectData): Effect<DomMutateEffectData> =>
 
 const parseListenOptions = (eventOptions?: DomListenOptions) => {
   let coalesce: DomListenCoalesceMode | undefined
+  let order: ListenOrder | undefined
   let listenerOptions: AddEventListenerOptions | boolean | undefined
 
   if (typeof eventOptions === "boolean") {
     listenerOptions = eventOptions
   } else if (eventOptions !== undefined) {
-    const { coalesce: parsedCoalesce, ...restOptions } = eventOptions
+    const {
+      coalesce: parsedCoalesce,
+      order: parsedOrder,
+      ...restOptions
+    } = eventOptions
 
     coalesce = parsedCoalesce
+    order = parsedOrder
 
     if (Object.keys(restOptions).length > 0) {
       listenerOptions = restOptions
@@ -325,6 +336,7 @@ const parseListenOptions = (eventOptions?: DomListenOptions) => {
 
   return {
     coalesce,
+    order,
     listenerOptions,
   }
 }
@@ -595,12 +607,14 @@ const createTargetBuilder = <
         toAction: (event: Event) => AnyAction | undefined,
         listenOptions?: DomListenOptions,
       ) => {
-        const { coalesce, listenerOptions } = parseListenOptions(listenOptions)
+        const { coalesce, listenerOptions, order } =
+          parseListenOptions(listenOptions)
 
         return [
           builder,
           domListen({
             ...(coalesce === undefined ? {} : { coalesce }),
+            ...(order === undefined ? {} : { order }),
             ...(listenerOptions === undefined
               ? {}
               : { options: listenerOptions }),

@@ -246,13 +246,25 @@ Arguments:
 - `targetResourceId`: Resource ID of the event target (must be an EventTarget)
 - `eventType`: Event type string (e.g., `"click"`, `"input"`, `"scroll"`)
 - `callback`: Handler that receives the event and fires an action
-- `options`: Optional `AddEventListenerOptions` with optional `coalesce`
+- `options`: Optional `AddEventListenerOptions` with optional `coalesce` and `order`
 
 `coalesce` controls how bursty DOM events are collapsed before dispatch:
 
 - `"none"` (default): fire every event
 - `"animation-frame"`: dispatch only the latest event per animation frame
 - `"microtask"`: dispatch only the latest event per microtask tick
+
+`order` controls deterministic same-turn listener invocation among listeners
+registered through the same runtime, for the same target, event type, and
+capture/passive mode:
+
+- `"before-default"`: invoke before default listeners
+- `"default"` (default): preserve existing behavior
+- `"after-default"`: invoke after default listeners
+
+Note: ordering applies to listener invocation. If a `"before-default"` listener
+uses coalescing, its action can still dispatch later than a non-coalesced
+`"default"` listener.
 
 The callback receives the DOM event and should return an action:
 
@@ -265,10 +277,15 @@ const submitted = action("Submitted")
 const Editing = state({
   Enter: () => [
     dom.querySelector("input[name='query']", "searchInput"),
-    dom.listen("searchInput", "input", event => {
-      const target = event.target as HTMLInputElement
-      return inputChanged(target.value)
-    }),
+    dom.listen(
+      "searchInput",
+      "input",
+      event => {
+        const target = event.target as HTMLInputElement
+        return inputChanged(target.value)
+      },
+      { order: "before-default" },
+    ),
   ],
 
   Submit: () => [

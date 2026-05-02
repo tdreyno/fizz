@@ -44,6 +44,7 @@ import type {
   DomMutateEffectData,
   DomObserveIntersectionEffectData,
   DomObserveResizeEffectData,
+  ListenOrder,
 } from "./domEffects.js"
 import type { RuntimeBrowserDriver } from "./runtimeBrowserDriver.js"
 
@@ -66,6 +67,102 @@ const isEventTarget = (value: unknown): value is EventTarget =>
 const isElement = (value: unknown): value is Element =>
   !!value && typeof value === "object" && "nodeType" in value
 
+type OrderedListenerEntry = {
+  invoke: EventListener
+  order: ListenOrder
+  teardown: () => void
+}
+
+type OrderedListenerGroup = {
+  handlers: OrderedListenerEntry[]
+  nativeCallback: EventListener
+  nativeOptions: AddEventListenerOptions | boolean
+}
+
+const getListenOrderRank = (order: ListenOrder): number => {
+  if (order === "before-default") {
+    return 0
+  }
+
+  if (order === "default") {
+    return 1
+  }
+
+  return 2
+}
+
+const insertOrderedListener = (options: {
+  entry: OrderedListenerEntry
+  handlers: OrderedListenerEntry[]
+}) => {
+  const entryRank = getListenOrderRank(options.entry.order)
+  const index = options.handlers.findIndex(
+    handler => getListenOrderRank(handler.order) > entryRank,
+  )
+
+  if (index < 0) {
+    options.handlers.push(options.entry)
+
+    return
+  }
+
+  options.handlers.splice(index, 0, options.entry)
+}
+
+const removeOrderedListener = (options: {
+  entry: OrderedListenerEntry
+  handlers: OrderedListenerEntry[]
+}) => {
+  const index = options.handlers.findIndex(handler => handler === options.entry)
+
+  if (index < 0) {
+    return
+  }
+
+  options.handlers.splice(index, 1)
+}
+
+const getCaptureOption = (
+  options: AddEventListenerOptions | boolean | undefined,
+): boolean => {
+  if (typeof options === "boolean") {
+    return options
+  }
+
+  return options?.capture === true
+}
+
+const getPassiveOption = (
+  options: AddEventListenerOptions | boolean | undefined,
+): boolean => {
+  if (typeof options === "boolean") {
+    return false
+  }
+
+  return options?.passive === true
+}
+
+const getNativeListenerOptions = (options: {
+  capture: boolean
+  passive: boolean
+}): AddEventListenerOptions | boolean => {
+  if (!options.passive) {
+    return options.capture
+  }
+
+  return {
+    capture: options.capture,
+    passive: true,
+  }
+}
+
+const getListenGroupKey = (options: {
+  capture: boolean
+  passive: boolean
+  type: string
+}): string =>
+  `${options.type}:${options.capture ? "capture" : "bubble"}:${options.passive ? "passive" : "active"}`
+
 export const createRuntimeBrowserModule = (options: {
   browserDriver?: RuntimeBrowserDriver
   getCurrentState?: () => RuntimeState | undefined
@@ -76,6 +173,10 @@ export const createRuntimeBrowserModule = (options: {
 
   let hasPendingConfirm = false
   let hasPendingPrompt = false
+  const targetListenerGroups = new WeakMap<
+    EventTarget,
+    Map<string, OrderedListenerGroup>
+  >()
 
   const assertDriverMethod = <T>(
     methodName: string,
@@ -357,7 +458,23 @@ export const createRuntimeBrowserModule = (options: {
       driver?.removeEventListener,
     )
 
+    const listenOrder = data.order ?? "default"
+    const capture = getCaptureOption(data.options)
+    const passive = getPassiveOption(data.options)
+    const nativeOptions = getNativeListenerOptions({
+      capture,
+      passive,
+    })
+    const groupKey = getListenGroupKey({
+      capture,
+      passive,
+      type: data.type,
+    })
+
     const coalesce = data.coalesce ?? "none"
+    const once = typeof data.options === "object" && data.options?.once === true
+    const abortSignal =
+      typeof data.options === "object" ? data.options?.signal : undefined
 
     let latestEvent: Event | undefined
     let pendingHandle: unknown = null
@@ -435,7 +552,144 @@ export const createRuntimeBrowserModule = (options: {
             scheduleLatestDispatch()
           }
 
-    addEventListener(target, data.type, callback, data.options)
+    const stopCoalescing = () => {
+      isTornDown = true
+
+      if (pendingHandle !== null) {
+        options.timerDriver.cancel(pendingHandle)
+        pendingHandle = null
+      }
+
+      latestEvent = undefined
+    }
+
+    const targetGroups =
+      targetListenerGroups.get(target) ??
+      new Map<string, OrderedListenerGroup>()
+
+    if (!targetListenerGroups.has(target)) {
+      targetListenerGroups.set(target, targetGroups)
+    }
+
+    let group = targetGroups.get(groupKey)
+
+    if (!group) {
+      const handlers: OrderedListenerEntry[] = []
+      const nativeCallback: EventListener = event => {
+        for (const handler of [...handlers]) {
+          handler.invoke(event)
+        }
+      }
+
+      group = {
+        handlers,
+        nativeCallback,
+        nativeOptions,
+      }
+
+      targetGroups.set(groupKey, group)
+      addEventListener(
+        target,
+        data.type,
+        group.nativeCallback,
+        group.nativeOptions,
+      )
+
+      setStateResource({
+        key: `dom:listen:group:${groupKey}:${nextGeneratedResourceKey(state, "group")}`,
+        state,
+        teardown: () => {
+          if (!targetGroups.has(groupKey)) {
+            return
+          }
+
+          removeEventListener(
+            target,
+            data.type,
+            group.nativeCallback,
+            group.nativeOptions,
+          )
+          targetGroups.delete(groupKey)
+
+          if (targetGroups.size === 0) {
+            targetListenerGroups.delete(target)
+          }
+        },
+        value: group.nativeCallback,
+      })
+    }
+
+    const cleanupGroupIfEmpty = () => {
+      if (group.handlers.length > 0 || !targetGroups.has(groupKey)) {
+        return
+      }
+
+      removeEventListener(
+        target,
+        data.type,
+        group.nativeCallback,
+        group.nativeOptions,
+      )
+      targetGroups.delete(groupKey)
+
+      if (targetGroups.size === 0) {
+        targetListenerGroups.delete(target)
+      }
+    }
+
+    let isRemoved = false
+
+    const removeFromGroup = () => {
+      if (isRemoved) {
+        return
+      }
+
+      isRemoved = true
+      removeOrderedListener({
+        entry,
+        handlers: group.handlers,
+      })
+      cleanupGroupIfEmpty()
+    }
+
+    const entry: OrderedListenerEntry = {
+      invoke: event => {
+        if (isRemoved) {
+          return
+        }
+
+        callback(event)
+
+        if (once) {
+          removeFromGroup()
+          stopCoalescing()
+        }
+      },
+      order: listenOrder,
+      teardown: () => {
+        removeFromGroup()
+        stopCoalescing()
+      },
+    }
+
+    insertOrderedListener({
+      entry,
+      handlers: group.handlers,
+    })
+
+    const onAbort = () => {
+      entry.teardown()
+    }
+
+    if (abortSignal) {
+      if (abortSignal.aborted) {
+        entry.teardown()
+      } else {
+        abortSignal.addEventListener("abort", onAbort, {
+          once: true,
+        })
+      }
+    }
 
     const key = nextGeneratedResourceKey(
       state,
@@ -446,13 +700,10 @@ export const createRuntimeBrowserModule = (options: {
       key,
       state,
       teardown: () => {
-        isTornDown = true
-        removeEventListener(target, data.type, callback, data.options)
+        entry.teardown()
 
-        if (pendingHandle !== null) {
-          options.timerDriver.cancel(pendingHandle)
-          pendingHandle = null
-          latestEvent = undefined
+        if (abortSignal && !abortSignal.aborted) {
+          abortSignal.removeEventListener("abort", onAbort)
         }
       },
       value: callback,

@@ -103,6 +103,14 @@ Chain `.listen(type, toAction, options?)` directly on a DOM resource builder. Th
 - `coalesce: "none"` (default) dispatches every event
 - `coalesce: "animation-frame"` dispatches only the latest event per frame
 - `coalesce: "microtask"` dispatches only the latest event per microtask turn
+- `order: "before-default" | "default" | "after-default"` controls
+  deterministic same-turn listener invocation order
+
+Ordering is runtime-local and applies to listeners on the same target, event
+type, and capture/passive mode. `"default"` preserves existing behavior.
+
+When `order` is combined with coalescing, order controls wrapper invocation,
+but coalesced actions can still dispatch later than non-coalesced actions.
 
 ```typescript
 import { dom } from "@tdreyno/fizz/browser"
