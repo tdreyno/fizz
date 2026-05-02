@@ -394,7 +394,7 @@ Use `startFrame()` instead of `startFrameLoop()` when you only need a single fra
 import { Enter, OnFrame, state } from "@tdreyno/fizz"
 import { dom } from "@tdreyno/fizz/browser"
 
-const FlashFocus = state<Enter | OnFrame>({  
+const FlashFocus = state<Enter | OnFrame>({
   Enter: (_, __, { startFrame }) => startFrame(),
 
   OnFrame: (data, _, { update }) => {

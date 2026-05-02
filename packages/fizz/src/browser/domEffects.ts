@@ -86,9 +86,9 @@ export type DomMutateEffectData = {
   targetResourceId: string
 }
 
-export type DomListenOptions = (AddEventListenerOptions | boolean) & {
-  coalesce?: DomListenCoalesceMode
-}
+export type DomListenOptions =
+  | boolean
+  | (AddEventListenerOptions & { coalesce?: DomListenCoalesceMode })
 
 type TargetBuilder<
   EventMap extends EventMapLike,
@@ -220,25 +220,27 @@ const createTargetBuilder = <
       toAction: (event: Event) => AnyAction,
       eventOptions?: DomListenOptions,
     ) => {
-      const { coalesce, ...restOptions } =
-        eventOptions !== undefined && typeof eventOptions === "object"
-          ? eventOptions
-          : ({} as DomListenOptions)
+      let coalesce: DomListenCoalesceMode | undefined
+      let listenerOptions: AddEventListenerOptions | boolean | undefined
 
-      const hasListenerOptions =
-        eventOptions !== undefined &&
-        (typeof eventOptions !== "object" ||
-          Object.keys(restOptions).length > 0)
+      if (typeof eventOptions === "boolean") {
+        listenerOptions = eventOptions
+      } else if (eventOptions !== undefined) {
+        const { coalesce: parsedCoalesce, ...restOptions } = eventOptions
+
+        coalesce = parsedCoalesce
+
+        if (Object.keys(restOptions).length > 0) {
+          listenerOptions = restOptions
+        }
+      }
 
       return [
         builder,
         domListen({
           ...(coalesce !== undefined ? { coalesce } : {}),
-          ...(hasListenerOptions
-            ? {
-                options:
-                  typeof eventOptions === "object" ? restOptions : eventOptions,
-              }
+          ...(listenerOptions !== undefined
+            ? { options: listenerOptions }
             : {}),
           targetResourceId: options.resourceId,
           toAction,

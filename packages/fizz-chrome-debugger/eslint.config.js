@@ -1,6 +1,8 @@
 import config from "@repo/eslint-config/eslint.config.js"
+import { globalIgnores } from "eslint/config"
 
 export default [
+  globalIgnores(["dist-test-app/**", "src/coverage/**"]),
   ...config,
   {
     files: ["scripts/**/*.mjs"],

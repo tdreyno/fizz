@@ -1,6 +1,7 @@
 import { describe, expect, jest, test } from "@jest/globals"
 
 import { action } from "../action"
+import type { RuntimeBrowserDriver } from "../browser/runtimeBrowserDriver"
 import { createRuntimeBrowserModule } from "../browser/runtimeBrowserModule"
 import { createControlledTimerDriver } from "../runtime/timerDriver"
 import { disposeStateResources, setStateResource } from "../stateResources"
@@ -38,7 +39,7 @@ const createMockEventTarget = () => {
       addEventListener: jest.fn((type: string, listener: EventListener) => {
         listeners.set(type, listener)
       }),
-      removeEventListener: jest.fn((type: string, _listener: EventListener) => {
+      removeEventListener: jest.fn((type: string) => {
         listeners.delete(type)
       }),
     } as unknown as EventTarget,
@@ -52,6 +53,13 @@ const createMockEvent = (type = "pointermove") =>
   new Event(type) as PointerEvent
 
 const Move = action("Move").withPayload<{ x: number }>()
+
+const createDomDriver = (): RuntimeBrowserDriver => ({
+  addEventListener: (target, type, listener, options) =>
+    target.addEventListener(type, listener, options),
+  removeEventListener: (target, type, listener, options) =>
+    target.removeEventListener(type, listener, options),
+})
 
 describe("runtime browser module — domListen coalescing", () => {
   test("domListen returns no-op when there is no current state", () => {
@@ -124,15 +132,7 @@ describe("runtime browser module — domListen coalescing", () => {
     setStateResource({ key: "el", state: state as never, value: target })
 
     const module = createRuntimeBrowserModule({
-      browserDriver: {
-        addEventListener: (t, type, listener) =>
-          (t as EventTarget).addEventListener(type, listener as EventListener),
-        removeEventListener: (t, type, listener) =>
-          (t as EventTarget).removeEventListener(
-            type,
-            listener as EventListener,
-          ),
-      } as never,
+      browserDriver: createDomDriver(),
       getCurrentState: () => state as never,
       runAction,
       timerDriver,
@@ -166,15 +166,7 @@ describe("runtime browser module — domListen coalescing", () => {
     setStateResource({ key: "el", state: state as never, value: target })
 
     const module = createRuntimeBrowserModule({
-      browserDriver: {
-        addEventListener: (t, type, listener) =>
-          (t as EventTarget).addEventListener(type, listener as EventListener),
-        removeEventListener: (t, type, listener) =>
-          (t as EventTarget).removeEventListener(
-            type,
-            listener as EventListener,
-          ),
-      } as never,
+      browserDriver: createDomDriver(),
       getCurrentState: () => state as never,
       runAction,
       timerDriver,
@@ -216,15 +208,7 @@ describe("runtime browser module — domListen coalescing", () => {
     setStateResource({ key: "el", state: state as never, value: target })
 
     const module = createRuntimeBrowserModule({
-      browserDriver: {
-        addEventListener: (t, type, listener) =>
-          (t as EventTarget).addEventListener(type, listener as EventListener),
-        removeEventListener: (t, type, listener) =>
-          (t as EventTarget).removeEventListener(
-            type,
-            listener as EventListener,
-          ),
-      } as never,
+      browserDriver: createDomDriver(),
       getCurrentState: () => state as never,
       runAction,
       timerDriver,
@@ -269,15 +253,7 @@ describe("runtime browser module — domListen coalescing", () => {
     setStateResource({ key: "el", state: state as never, value: target })
 
     const module = createRuntimeBrowserModule({
-      browserDriver: {
-        addEventListener: (t, type, listener) =>
-          (t as EventTarget).addEventListener(type, listener as EventListener),
-        removeEventListener: (t, type, listener) =>
-          (t as EventTarget).removeEventListener(
-            type,
-            listener as EventListener,
-          ),
-      } as never,
+      browserDriver: createDomDriver(),
       getCurrentState: () => state as never,
       runAction,
       timerDriver,
@@ -315,15 +291,7 @@ describe("runtime browser module — domListen coalescing", () => {
     setStateResource({ key: "el", state: state as never, value: target })
 
     const module = createRuntimeBrowserModule({
-      browserDriver: {
-        addEventListener: (t, type, listener) =>
-          (t as EventTarget).addEventListener(type, listener as EventListener),
-        removeEventListener: (t, type, listener) =>
-          (t as EventTarget).removeEventListener(
-            type,
-            listener as EventListener,
-          ),
-      } as never,
+      browserDriver: createDomDriver(),
       getCurrentState: () => state as never,
       runAction,
       timerDriver,
