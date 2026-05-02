@@ -21,8 +21,9 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           cache: "npm"
-      - run: npm ci
+      - run: npm ci --ignore-scripts
       - run: npm run build
+      - run: npm run lint
       - run: npm run test:ci
       - run: npm run test:npm
       - name: Generate size report
