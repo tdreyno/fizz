@@ -2,6 +2,8 @@
  * @jest-environment jsdom
  */
 
+import "@tdreyno/fizz/browser"
+
 import { jest } from "@jest/globals"
 import type { ActionCreatorType, Enter } from "@tdreyno/fizz"
 import { action, createMachine, effect, noop, state } from "@tdreyno/fizz"

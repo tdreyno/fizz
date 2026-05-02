@@ -3,7 +3,6 @@ import {
   action,
   createInitialContext,
   createMachine,
-  createRuntimeConsoleMonitor,
   log,
   output,
   requestJSONAsync,
@@ -200,13 +199,16 @@ export const createServerWeatherRuntime = (
   requestId: string,
   options: CreateServerWeatherRuntimeOptions = {},
 ): Runtime<typeof ServerWeatherActions, typeof ServerWeatherOutputActions> => {
+  const createDefaultMonitor =
+    (id: string): RuntimeMonitor =>
+    event => {
+      console.log(`[Weather API ${id}]`, event)
+    }
+
   const enableConsoleMonitor =
     options.enableConsoleMonitor ?? process.env["NODE_ENV"] !== "test"
   const consoleMonitor = enableConsoleMonitor
-    ? (options.monitorFactory?.(requestId) ??
-      createRuntimeConsoleMonitor({
-        prefix: `[Weather API ${requestId}]`,
-      }))
+    ? (options.monitorFactory?.(requestId) ?? createDefaultMonitor(requestId))
     : undefined
 
   const contextOptions = {
