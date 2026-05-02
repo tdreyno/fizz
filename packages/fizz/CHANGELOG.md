@@ -1,5 +1,12 @@
 # @tdreyno/fizz
 
+## 8.10.1
+
+### Patch Changes
+
+- 53d2a97: Fix coalesced DOM listener dispatching so animation-frame and microtask modes correctly keep the latest event while an action is still running, and harden latest-only imperative command queueing so synchronous handlers and queued replacements resolve through runAction reliably.
+- 72865ad: Skip same-state `update(...)` transitions when the new data is strictly equal (`===`) to the current state data.
+
 ## 8.10.0
 
 ### Minor Changes
