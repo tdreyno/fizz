@@ -62,6 +62,35 @@ const Editing = state<{ document: string }>({
 
 `outputCommand(...)` is direct-use in handlers. Do not wrap it in `output(...)`.
 
+### `commandChannel(channel)`
+
+`commandChannel(...)` is already available in the core API. It binds one channel once and returns helpers for channel-scoped commands and batches.
+
+Use it when a state repeatedly targets one channel and you want to avoid repeating channel literals and channel batch options.
+
+```ts
+const editor = commandChannel<Commands, "notesEditor">("notesEditor")
+
+const Editing = state({
+  ApplyRemote: (_data, payload) =>
+    editor
+      .batch([
+        editor.command("setDocument", {
+          document: payload.document,
+        }),
+        editor.command("setEditable", {
+          editable: payload.editable,
+        }),
+      ])
+      .chainToOutput(applySucceeded(), () => applyFailed()),
+})
+```
+
+`commandChannel(...)` methods:
+
+- `command(type, payload)`: creates a `commandEffect(...)` for the bound channel
+- `batch(commands, options?)`: creates an `effectBatch(...)` with the bound channel
+
 ### `effectBatch(...).chainToOutput(...)`
 
 When adapter commands must run in strict order and still emit integration-facing output signals, chain a batch to outputs.

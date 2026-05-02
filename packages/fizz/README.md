@@ -16,6 +16,7 @@ npm install --save @tdreyno/fizz
 ```
 
 Start with the main docs [Getting Started](https://fizz.tdreyno.com/getting-started) page for a minimal setup and runtime demo.
+For adapter-facing command workflows, see [Output Actions](https://fizz.tdreyno.com/output-actions), including `commandChannel(...)` for channel-bound command and batch ergonomics.
 
 ## A small component-local example
 

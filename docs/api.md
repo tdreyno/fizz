@@ -474,6 +474,7 @@ const runtime = createRuntime(machine, Editing(initialData), {
 ### `commandChannel`
 
 Bind a command channel once, then create channel-scoped commands and batches without repeating channel strings.
+`commandChannel(...)` is already available in the core package; use it instead of writing local channel-wrapper helpers.
 
 ```ts
 const editor = commandChannel<Commands, "notesEditor">("notesEditor")
@@ -499,6 +500,7 @@ const Editing = state({
 - `batch(commands, options?)`: creates an `effectBatch(...)` with the bound channel
 
 Use this helper when the same channel appears repeatedly in one state or machine.
+For narrative guidance and runtime subscription patterns, see [Output Actions](./output-actions.md).
 
 ### `effectBatch`
 

@@ -152,6 +152,7 @@ The same pattern works inside `whichTimeout(...)` and `whichInterval(...)` branc
 ## Use outputs to keep integration work separate
 
 When a complex action needs to notify another layer, prefer `output(...)` over direct integration logic in the handler.
+When one state repeatedly issues command-style outputs for the same adapter channel, use `commandChannel(...)` so command creation and batching stay concise and consistent.
 
 ```typescript
 import { ActionCreatorType, action, output, state } from "@tdreyno/fizz"
@@ -191,6 +192,7 @@ If one parent mode still needs a smaller internal workflow, see [Nested State Ma
 
 - [Getting Started](./getting-started.md)
 - [Architecture](./architecture.md)
+- [Output Actions](./output-actions.md)
 - [Nested State Machines](./nested-state-machines.md)
 - [Custom Effects](./custom-effects.md)
 - [Async](./async.md)

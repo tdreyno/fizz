@@ -16,6 +16,7 @@ npx skills add tdreyno/fizz
 - `@tdreyno/fizz` machine construction with `createMachine(...)`
 - `@tdreyno/fizz` async, timers, intervals, and cancellation helpers
 - `@tdreyno/fizz` `debounce(...)` and `throttle(...)` handler wrappers
+- `@tdreyno/fizz` output actions and channel-bound command helpers via `commandChannel(...)`
 - `@tdreyno/fizz` state helpers such as `switch_(...)`, `whichTimeout(...)`, `whichInterval(...)`, `waitState(...)`, and `isStateTransition(...)`
 - `@tdreyno/fizz` testing guidance for controlled drivers and deterministic runtime tests
 - `@tdreyno/fizz-react` integration through `useMachine(...)` and `createMachineContext(...)`
@@ -34,6 +35,7 @@ skills/fizz/
   references/
     async-and-scheduling.md
     core-runtime.md
+    output-actions.md
     resources.md
     examples.md
     fluent-api.md
@@ -48,6 +50,7 @@ skills/fizz/
 - `skills/fizz/SKILL.md`
 - `skills/fizz/references/core-runtime.md`
 - `skills/fizz/references/async-and-scheduling.md`
+- `skills/fizz/references/output-actions.md`
 - `skills/fizz/references/resources.md`
 - `skills/fizz/references/testing.md`
 - `skills/fizz/references/react-integration.md`

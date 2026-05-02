@@ -11,7 +11,6 @@
 
 - [Async](docs/async.md)
 - [Data Clients](docs/data-clients.md)
-- [Output Actions](docs/output-actions.md)
 - [Timers](docs/timers.md)
 - [Intervals](docs/intervals.md)
 - [Testing](docs/testing.md)
@@ -21,6 +20,7 @@
 - [Debugging](docs/debugging.md)
 - [Chrome Debugger](docs/chrome-debugger.md)
 - [Custom Effects](docs/custom-effects.md)
+- [Output Actions](docs/output-actions.md)
 - [State Resources](docs/resources.md)
 - [Complex Actions](docs/complex-actions.md)
 - [Dispatch And Read](docs/dispatch-and-read.md)

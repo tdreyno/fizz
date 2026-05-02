@@ -21,7 +21,7 @@ Use this skill when the task involves:
 - Adding async work with `startAsync(...)`, `requestJSONAsync(...)`, or `customJSONAsync(...)`
 - Injecting machine-scoped data clients and using `utils.clients` in handlers
 - Adding timers, intervals, or frame-driven behavior from a state handler
-- Designing output maps and adapter command channels with `outputs`, `defineOutputMap(...)`, `outputCommand(...)`, or runtime output subscriptions
+- Designing output maps and adapter command channels with `outputs`, `defineOutputMap(...)`, `outputCommand(...)`, `commandChannel(...)`, or runtime output subscriptions
 - Debouncing or throttling high-frequency handlers with `debounce(...)` and `throttle(...)`
 - Using state helper APIs like `switch_(...)`, `whichTimeout(...)`, `whichInterval(...)`, `waitState(...)`, or `isStateTransition(...)`
 - Defining colocated machine selectors with `selectWhen(...)` for derived read-only checks
@@ -82,6 +82,7 @@ If async work may outlive the current state instance, give it an explicit `async
 - Use `selectWhen(...)` to colocate derived read-only checks directly on `createMachine(...)` definitions and keep selector state filters explicit.
 - For complex selector matching (nested objects, discriminated unions, arrays, primitives), prefer `ts-pattern` and pass `isMatching(...)` directly to `selectWhen(...)`.
 - Use `waitState(...)` for request-on-enter and response-driven transition flows.
+- Prefer `commandChannel(...)` when multiple command effects in one state target the same channel. Use direct `commandEffect(...)` and `effectBatch(...)` calls for one-off or mixed-channel cases.
 - Use named actions created up front and wire them into the runtime action map.
 - Return transitions, actions, and effects from handlers instead of mutating external systems directly.
 - Favor small, readable state handlers over dense helper indirection.

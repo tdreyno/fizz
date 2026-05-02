@@ -41,6 +41,15 @@ Map-aware overload:
 
 This variant infers payload shape from the map entry.
 
+### `commandChannel(channel)`
+
+Use `commandChannel(...)` when one state repeatedly targets the same channel and should not repeat channel literals in every command and batch call.
+
+- `command(type, payload)` creates a channel-scoped `commandEffect(...)`
+- `batch(commands, options?)` creates a channel-scoped `effectBatch(...)`
+
+This helper is ergonomic sugar over `commandEffect(...)` and `effectBatch(...)`; it does not change runtime behavior.
+
 ### `effectBatch(...).chainToOutput(...)`
 
 Use this when multiple imperative commands must run in order and then emit one success/failure output signal.

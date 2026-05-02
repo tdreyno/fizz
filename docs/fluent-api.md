@@ -173,6 +173,10 @@ const run = withRetry(fetchProfile, {
 
 ## Positioning
 
+Output actions and command-channel helpers are fully compatible with fluent states. Use `commandChannel(...)` when one fluent state repeatedly targets a single adapter channel, and use `effectBatch(...)` when command ordering matters.
+
+See [Output Actions](./output-actions.md) for command and output subscription examples.
+
 - Use root `@tdreyno/fizz` object-style `state(...)` when map-style definitions are clearer for your team.
 - Use `@tdreyno/fizz/fluent` when chain readability and creator-first responder registration fit your workflow better.
 
@@ -181,6 +185,7 @@ Both approaches compile to the same runtime state behavior.
 ## Related Docs
 
 - [API Documentation](./api.md)
+- [Output Actions](./output-actions.md)
 - [Complex Actions](./complex-actions.md)
 - [Nested State Machines](./nested-state-machines.md)
 - [React Integration](./react-integration.md)

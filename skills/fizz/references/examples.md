@@ -46,6 +46,40 @@ const runtime = createRuntime(machine, machine.states.Start())
 await runtime.run(enter())
 ```
 
+## Channel-bound command and batch helpers
+
+```typescript
+import { action, commandChannel, state } from "@tdreyno/fizz"
+
+type Commands = {
+  notesEditor: {
+    setDocument: {
+      payload: { document: string }
+      result: { saved: true }
+    }
+    setEditable: {
+      payload: { editable: boolean }
+      result: { saved: true }
+    }
+  }
+}
+
+const applySucceeded = action("ApplySucceeded")
+const applyFailed = action("ApplyFailed")
+
+const editor = commandChannel<Commands, "notesEditor">("notesEditor")
+
+const Editing = state({
+  ApplyRemote: (_data, payload: { document: string; editable: boolean }) =>
+    editor
+      .batch([
+        editor.command("setDocument", { document: payload.document }),
+        editor.command("setEditable", { editable: payload.editable }),
+      ])
+      .chainToAction(applySucceeded(), () => applyFailed()),
+})
+```
+
 ## JSON request mapped back into actions
 
 ```typescript

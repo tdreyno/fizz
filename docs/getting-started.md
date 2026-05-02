@@ -166,6 +166,7 @@ If you want guidance on when to stop at component-local state and when to move t
 ## What to read next
 
 - Read [Architecture](./architecture.md) for the mental model behind states, actions, transitions, outputs, and effects.
+- Read [Output Actions](./output-actions.md) when adapters need command-style integrations. It includes `commandChannel(...)`, which is already available for channel-bound command and batch ergonomics.
 - Read [Debugging](./debugging.md) when you want to inspect transitions, outputs, async work, or scheduler lifecycles in Node or the browser.
 - Read [Chrome Debugger](./chrome-debugger.md) when you want a DevTools panel for running browser machines instead of raw console-only inspection.
 - Read [React Integration](./react-integration.md) if you are using React and want the full hook API and integration patterns.
@@ -178,6 +179,7 @@ If you want guidance on when to stop at component-local state and when to move t
 ## Related Docs
 
 - [Architecture](./architecture.md)
+- [Output Actions](./output-actions.md)
 - [Debugging](./debugging.md)
 - [Chrome Debugger](./chrome-debugger.md)
 - [React Integration](./react-integration.md)
