@@ -28,7 +28,7 @@
     "@tdreyno/fizz-react": "*",
     "esbuild": "^0.25.4",
     "prettier": "^3.8.1",
-    "turbo": "^2.8.13"
+    "turbo": "^2.9.7"
   },
   "engines": {
     "node": ">=20"
