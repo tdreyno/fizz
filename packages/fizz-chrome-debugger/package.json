@@ -22,7 +22,7 @@
     "@tdreyno/fizz": "*",
     "@tdreyno/fizz-react": "*",
     "react": "19.2.0",
-    "react-dom": "19.2.0"
+    "react-dom": "19.2.5"
   },
   "devDependencies": {
     "@repo/eslint-config": "*",
