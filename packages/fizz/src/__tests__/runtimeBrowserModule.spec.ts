@@ -280,7 +280,7 @@ describe("runtime browser module — domListen coalescing", () => {
       data: {
         coalesce: "animation-frame",
         targetResourceId: "el",
-        toAction: event => Move({ x: event.clientX }),
+        toAction: (event: PointerEvent) => Move({ x: event.clientX }),
         type: "pointermove",
       },
       label: "domListen",
