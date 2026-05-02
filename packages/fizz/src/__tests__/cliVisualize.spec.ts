@@ -452,6 +452,174 @@ describe("fizz visualize", () => {
     }
   })
 
+  test("discovers named-exported machine constants", async () => {
+    const searchRoot = await mkdtemp(join(tmpdir(), "fizz-machine-named-"))
+
+    try {
+      const machineDirectory = resolve(searchRoot, "src/machine")
+
+      await mkdir(machineDirectory, { recursive: true })
+      await writeFile(
+        resolve(machineDirectory, "Ready.ts"),
+        [
+          'import { state } from "../../state.js"',
+          "",
+          'const Ready = state({}, { name: "Ready" })',
+          "",
+          "export { Ready }",
+          "",
+        ].join("\n"),
+        "utf8",
+      )
+      await writeFile(
+        resolve(machineDirectory, "states.ts"),
+        [
+          'import { Ready } from "./Ready.js"',
+          "",
+          "const States = { Ready }",
+          "",
+          "export { States }",
+          "",
+        ].join("\n"),
+        "utf8",
+      )
+      await writeFile(
+        resolve(machineDirectory, "index.ts"),
+        [
+          'import { createMachine } from "../../createMachine.js"',
+          'import { States } from "./states.js"',
+          "",
+          'const AppMachine = createMachine({ states: States }, "AppMachine")',
+          "",
+          "export { AppMachine }",
+          "",
+        ].join("\n"),
+        "utf8",
+      )
+
+      const project = await createProjectForRoot(searchRoot)
+      const candidates = discoverMachineCandidates.findCandidates(
+        project,
+        searchRoot,
+      )
+
+      expect(candidates.map(candidate => candidate.name)).toEqual([
+        "AppMachine",
+      ])
+    } finally {
+      await rm(searchRoot, { force: true, recursive: true })
+    }
+  })
+
+  test("discovers unexported machine constants", async () => {
+    const searchRoot = await mkdtemp(join(tmpdir(), "fizz-machine-local-"))
+
+    try {
+      const machineDirectory = resolve(searchRoot, "src/machine")
+
+      await mkdir(machineDirectory, { recursive: true })
+      await writeFile(
+        resolve(machineDirectory, "Ready.ts"),
+        [
+          'import { state } from "../../state.js"',
+          "",
+          'const Ready = state({}, { name: "Ready" })',
+          "",
+        ].join("\n"),
+        "utf8",
+      )
+      await writeFile(
+        resolve(machineDirectory, "states.ts"),
+        [
+          'import Ready from "./Ready.js"',
+          "",
+          "const States = { Ready }",
+          "",
+          "export default States",
+          "",
+        ].join("\n"),
+        "utf8",
+      )
+      await writeFile(
+        resolve(machineDirectory, "index.ts"),
+        [
+          'import { createMachine } from "../../createMachine.js"',
+          'import States from "./states.js"',
+          "",
+          'const LocalMachine = createMachine({ states: States }, "LocalMachine")',
+          "",
+          "export const marker = true",
+          "",
+        ].join("\n"),
+        "utf8",
+      )
+
+      const project = await createProjectForRoot(searchRoot)
+      const candidates = discoverMachineCandidates.findCandidates(
+        project,
+        searchRoot,
+      )
+
+      expect(candidates.map(candidate => candidate.name)).toEqual([
+        "LocalMachine",
+      ])
+    } finally {
+      await rm(searchRoot, { force: true, recursive: true })
+    }
+  })
+
+  test("builds graph for single-file js machines with inline states", async () => {
+    const searchRoot = await mkdtemp(join(tmpdir(), "fizz-machine-js-inline-"))
+
+    try {
+      const machineDirectory = resolve(searchRoot, "public")
+
+      await mkdir(machineDirectory, { recursive: true })
+      await writeFile(
+        resolve(machineDirectory, "notesPageMachine.js"),
+        [
+          'import { createMachine } from "../../createMachine.js"',
+          'import { state } from "../../state.js"',
+          "",
+          'const Viewing = state({ Edit: () => Editing() }, { name: "Viewing" })',
+          'const Editing = state({ Save: () => Viewing() }, { name: "Editing" })',
+          "",
+          "const machine = createMachine({",
+          "  states: { Viewing, Editing },",
+          "  initialState: Viewing(),",
+          "})",
+          "",
+          "export { machine }",
+          "",
+        ].join("\n"),
+        "utf8",
+      )
+
+      const project = await createProjectForRoot(searchRoot)
+      const candidates = discoverMachineCandidates.findCandidates(
+        project,
+        searchRoot,
+      )
+
+      expect(candidates).toHaveLength(1)
+
+      const graph = buildMachineGraph(project, candidates[0])
+
+      expect(graph.states.map(state => state.name)).toEqual([
+        "Editing",
+        "Viewing",
+      ])
+      expect(
+        graph.states.find(state => state.name === "Viewing")?.transitions,
+      ).toEqual([{ action: "Edit", kind: "normal", target: "Editing" }])
+      expect(
+        graph.states.find(state => state.name === "Editing")?.transitions,
+      ).toEqual([{ action: "Save", kind: "normal", target: "Viewing" }])
+    } finally {
+      await rm(searchRoot, { force: true, recursive: true })
+    }
+  })
+
   test("lists discovered machines without prompting", async () => {
     const { io, stderr, stdout } = createNonInteractiveIo()
     const exitCode = await runCli(["machines", "--cwd", packageRoot], io)

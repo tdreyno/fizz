@@ -4,6 +4,9 @@ import type {
   CallExpression,
   Expression,
   Identifier,
+  ImportClause,
+  ImportSpecifier,
+  ObjectLiteralExpression,
   SourceFile,
 } from "ts-morph"
 import { Node, Project, SyntaxKind } from "ts-morph"
@@ -43,6 +46,21 @@ export type MachineGraph = {
 type GraphBuilderContext = {
   project: Project
   stateCache: Map<string, MachineState>
+}
+
+type MachineEntry = {
+  callExpression: CallExpression
+  definitionObject: ObjectLiteralExpression
+  sourceFilePath: string
+  symbolName?: string
+}
+
+type StateEntry = {
+  callExpression?: CallExpression
+  filePath: string
+  id: string
+  nameHint: string
+  referenceKey?: string
 }
 
 const SPECIAL_HISTORY_NODE = "History"
@@ -103,7 +121,8 @@ const collectSourceFiles = async (rootDir: string): Promise<Array<string>> => {
             return visit(absolutePath)
           }
 
-          return /\.(ts|tsx)$/.test(entry.name) && !entry.name.endsWith(".d.ts")
+          return /\.(ts|tsx|js|jsx)$/.test(entry.name) &&
+            !entry.name.endsWith(".d.ts")
             ? [absolutePath]
             : []
         }),
@@ -127,10 +146,14 @@ const resolveModulePath = (
   const basePath = resolve(sourceDirectory, moduleSpecifier)
   const candidates = [
     basePath,
+    `${basePath}.js`,
+    `${basePath}.jsx`,
     `${basePath}.ts`,
     `${basePath}.tsx`,
     basePath.replace(/\.js$/, ".ts"),
     basePath.replace(/\.js$/, ".tsx"),
+    resolve(basePath, "index.js"),
+    resolve(basePath, "index.jsx"),
     resolve(basePath, "index.ts"),
     resolve(basePath, "index.tsx"),
   ]
@@ -139,6 +162,9 @@ const resolveModulePath = (
     sourceFile.getProject().getSourceFile(candidate),
   )
 }
+
+const getDeclarationKey = (declaration: Node): string =>
+  `${declaration.getSourceFile().getFilePath()}:${declaration.getStart()}`
 
 const getDefaultExportExpression = (
   sourceFile: SourceFile,
@@ -150,47 +176,247 @@ const getDefaultExportExpression = (
   return exportAssignment?.getExpression()
 }
 
-const getCreateMachineCallFromExpression = (
-  expression: Expression,
-): CallExpression | undefined => {
-  if (Node.isCallExpression(expression)) {
-    return getCallIdentifierName(expression) === "createMachine"
-      ? expression
-      : undefined
-  }
+const isReferenceToNamedImport = (
+  identifier: Identifier,
+  importName: string,
+): boolean => {
+  const symbol =
+    identifier.getSymbol()?.getAliasedSymbol() ?? identifier.getSymbol()
+  const declarations = symbol?.getDeclarations() ?? []
+
+  return declarations.some(declaration => {
+    if (!Node.isImportSpecifier(declaration)) {
+      return false
+    }
+
+    return declaration.getNameNode().getText() === importName
+  })
+}
+
+const isCallToNamedFunction = (
+  callExpression: CallExpression,
+  name: string,
+): boolean => {
+  const expression = callExpression.getExpression()
 
   if (!Node.isIdentifier(expression)) {
-    return undefined
+    return false
   }
 
-  const declarationNode = expression
-    .getDefinitions()
-    .map(definition => definition.getDeclarationNode())
-    .find(declaration => declaration && Node.isVariableDeclaration(declaration))
+  return (
+    expression.getText() === name || isReferenceToNamedImport(expression, name)
+  )
+}
 
-  if (!declarationNode || !Node.isVariableDeclaration(declarationNode)) {
-    return undefined
-  }
+const resolveExportedExpression = (
+  sourceFile: SourceFile,
+  exportName: string,
+  visitedDeclarationKeys: Set<string>,
+): Expression | undefined => {
+  const exportedDeclarations =
+    sourceFile.getExportedDeclarations().get(exportName) ?? []
 
-  const initializer = declarationNode.getInitializer()
+  return exportedDeclarations
+    .map(declaration =>
+      resolveDeclarationToExpression(declaration, visitedDeclarationKeys),
+    )
+    .find(expression => expression !== undefined)
+}
 
-  return initializer && Node.isCallExpression(initializer)
-    ? getCreateMachineCallFromExpression(initializer)
+const getImportedSourceFile = (
+  sourceFile: SourceFile,
+  moduleSpecifier: string,
+): SourceFile | undefined => {
+  const modulePath = resolveModulePath(sourceFile, moduleSpecifier)
+
+  return modulePath
+    ? sourceFile.getProject().getSourceFile(modulePath)
     : undefined
 }
 
-const getDefaultCreateMachineCall = (
-  sourceFile: SourceFile,
-): CallExpression | undefined => {
-  const expression = getDefaultExportExpression(sourceFile)
+const resolveImportSpecifierExpression = (
+  declaration: ImportSpecifier,
+  visitedDeclarationKeys: Set<string>,
+): Expression | undefined => {
+  const importDeclaration = declaration.getImportDeclaration()
+  const importedSourceFile = getImportedSourceFile(
+    importDeclaration.getSourceFile(),
+    importDeclaration.getModuleSpecifierValue(),
+  )
 
-  return expression ? getCreateMachineCallFromExpression(expression) : undefined
+  if (!importedSourceFile) {
+    return undefined
+  }
+
+  return resolveExportedExpression(
+    importedSourceFile,
+    declaration.getNameNode().getText(),
+    visitedDeclarationKeys,
+  )
+}
+
+const resolveImportClauseExpression = (
+  declaration: ImportClause,
+  visitedDeclarationKeys: Set<string>,
+): Expression | undefined => {
+  const importDeclaration = declaration.getFirstAncestorByKind(
+    SyntaxKind.ImportDeclaration,
+  )
+
+  if (!importDeclaration) {
+    return undefined
+  }
+
+  const importedSourceFile = getImportedSourceFile(
+    importDeclaration.getSourceFile(),
+    importDeclaration.getModuleSpecifierValue(),
+  )
+
+  if (!importedSourceFile) {
+    return undefined
+  }
+
+  return resolveExportedExpression(
+    importedSourceFile,
+    "default",
+    visitedDeclarationKeys,
+  )
+}
+
+const resolveIdentifierDeclarationExpression = (
+  declaration: Node,
+  visitedDeclarationKeys: Set<string>,
+): Expression | undefined => {
+  if (!Node.isIdentifier(declaration)) {
+    return undefined
+  }
+
+  const importClause = declaration.getFirstAncestorByKind(
+    SyntaxKind.ImportClause,
+  )
+
+  if (importClause) {
+    return resolveImportClauseExpression(importClause, visitedDeclarationKeys)
+  }
+
+  const importSpecifier = declaration.getFirstAncestorByKind(
+    SyntaxKind.ImportSpecifier,
+  )
+
+  if (importSpecifier) {
+    return resolveImportSpecifierExpression(
+      importSpecifier,
+      visitedDeclarationKeys,
+    )
+  }
+
+  const variableDeclaration = declaration.getFirstAncestorByKind(
+    SyntaxKind.VariableDeclaration,
+  )
+
+  if (!variableDeclaration) {
+    return undefined
+  }
+
+  const initializer = variableDeclaration.getInitializer()
+
+  return initializer && Node.isExpression(initializer) ? initializer : undefined
+}
+
+const resolveDeclarationToExpression = (
+  declaration: Node,
+  visitedDeclarationKeys: Set<string>,
+): Expression | undefined => {
+  const declarationKey = getDeclarationKey(declaration)
+
+  if (visitedDeclarationKeys.has(declarationKey)) {
+    return undefined
+  }
+
+  visitedDeclarationKeys.add(declarationKey)
+
+  if (Node.isVariableDeclaration(declaration)) {
+    const initializer = declaration.getInitializer()
+
+    return initializer && Node.isExpression(initializer)
+      ? initializer
+      : undefined
+  }
+
+  if (Node.isExportAssignment(declaration)) {
+    return declaration.getExpression()
+  }
+
+  if (Node.isImportSpecifier(declaration)) {
+    return resolveImportSpecifierExpression(declaration, visitedDeclarationKeys)
+  }
+
+  if (Node.isImportClause(declaration)) {
+    return resolveImportClauseExpression(declaration, visitedDeclarationKeys)
+  }
+
+  return resolveIdentifierDeclarationExpression(
+    declaration,
+    visitedDeclarationKeys,
+  )
+}
+
+const resolveIdentifierExpression = (
+  identifier: Identifier,
+  visitedDeclarationKeys: Set<string>,
+): Expression | undefined => {
+  const symbol =
+    identifier.getSymbol()?.getAliasedSymbol() ?? identifier.getSymbol()
+  const declarations = symbol?.getDeclarations() ?? []
+
+  return declarations
+    .map(declaration =>
+      resolveDeclarationToExpression(declaration, visitedDeclarationKeys),
+    )
+    .find(expression => expression !== undefined)
+}
+
+const resolveExpressionValue = (
+  expression: Expression,
+  visitedDeclarationKeys: Set<string> = new Set<string>(),
+): Expression => {
+  if (!Node.isIdentifier(expression)) {
+    return expression
+  }
+
+  const resolved = resolveIdentifierExpression(
+    expression,
+    visitedDeclarationKeys,
+  )
+
+  if (!resolved || resolved === expression) {
+    return expression
+  }
+
+  return resolveExpressionValue(resolved, visitedDeclarationKeys)
+}
+
+const getObjectPropertyExpression = (
+  property: Node,
+): Expression | undefined => {
+  if (Node.isShorthandPropertyAssignment(property)) {
+    return property.getNameNode()
+  }
+
+  if (Node.isPropertyAssignment(property)) {
+    const initializer = property.getInitializer()
+
+    return initializer && Node.isExpression(initializer)
+      ? initializer
+      : undefined
+  }
+
+  return undefined
 }
 
 const getMachineDefinitionObject = (
-  sourceFile: SourceFile,
-): Expression | undefined => {
-  const callExpression = getDefaultCreateMachineCall(sourceFile)
+  callExpression: CallExpression,
+): ObjectLiteralExpression | undefined => {
   const [firstArgument] = callExpression?.getArguments() ?? []
 
   return firstArgument && Node.isObjectLiteralExpression(firstArgument)
@@ -199,15 +425,9 @@ const getMachineDefinitionObject = (
 }
 
 const getMachineDefinitionIdentifier = (
-  sourceFile: SourceFile,
+  definitionObject: ObjectLiteralExpression,
   propertyName: string,
 ): Identifier | undefined => {
-  const definitionObject = getMachineDefinitionObject(sourceFile)
-
-  if (!definitionObject || !Node.isObjectLiteralExpression(definitionObject)) {
-    return undefined
-  }
-
   const property = definitionObject.getProperty(propertyName)
 
   if (!property) {
@@ -218,17 +438,38 @@ const getMachineDefinitionIdentifier = (
 }
 
 const getMachineStateIndexPath = (
-  sourceFile: SourceFile,
+  machineEntry: MachineEntry,
 ): string | undefined => {
-  const statesIdentifier = getMachineDefinitionIdentifier(sourceFile, "states")
+  const statesIdentifier = getMachineDefinitionIdentifier(
+    machineEntry.definitionObject,
+    "states",
+  )
 
-  return statesIdentifier
-    ? getSourceFilePathForIdentifier(statesIdentifier)
+  if (statesIdentifier) {
+    return getSourceFilePathForIdentifier(statesIdentifier)
+  }
+
+  const statesProperty = machineEntry.definitionObject.getProperty("states")
+
+  if (!statesProperty) {
+    return undefined
+  }
+
+  const statesExpression = getObjectPropertyExpression(statesProperty)
+
+  if (!statesExpression) {
+    return undefined
+  }
+
+  const resolvedStatesExpression = resolveExpressionValue(statesExpression)
+
+  return Node.isObjectLiteralExpression(resolvedStatesExpression)
+    ? machineEntry.sourceFilePath
     : undefined
 }
 
-const getMachineName = (sourceFile: SourceFile): string => {
-  const callExpression = getDefaultCreateMachineCall(sourceFile)
+const getMachineName = (machineEntry: MachineEntry): string => {
+  const callExpression = machineEntry.callExpression
   const [, nameArgument] = callExpression?.getArguments() ?? []
 
   const explicitName = getStringLiteralValue(nameArgument)
@@ -237,23 +478,78 @@ const getMachineName = (sourceFile: SourceFile): string => {
     return explicitName
   }
 
-  const definitionObject = getMachineDefinitionObject(sourceFile)
-
-  if (!definitionObject || !Node.isObjectLiteralExpression(definitionObject)) {
-    return createCandidateName(sourceFile.getFilePath())
-  }
+  const definitionObject = machineEntry.definitionObject
 
   const nameProperty = definitionObject.getProperty("name")
 
   if (!nameProperty || !Node.isPropertyAssignment(nameProperty)) {
-    return createCandidateName(sourceFile.getFilePath())
+    return (
+      machineEntry.symbolName ??
+      createCandidateName(machineEntry.sourceFilePath)
+    )
   }
 
   return (
     getStringLiteralValue(nameProperty.getInitializer()) ??
-    createCandidateName(sourceFile.getFilePath())
+    machineEntry.symbolName ??
+    createCandidateName(machineEntry.sourceFilePath)
   )
 }
+
+const getVariableDeclarationName = (
+  callExpression: CallExpression,
+): string | undefined => {
+  const declaration = callExpression.getFirstAncestorByKind(
+    SyntaxKind.VariableDeclaration,
+  )
+
+  if (declaration?.getInitializer() !== callExpression) {
+    return undefined
+  }
+
+  return declaration.getName()
+}
+
+const isNestedInFunctionLike = (callExpression: CallExpression): boolean =>
+  Boolean(
+    callExpression.getFirstAncestor(
+      ancestor =>
+        Node.isArrowFunction(ancestor) ||
+        Node.isFunctionDeclaration(ancestor) ||
+        Node.isFunctionExpression(ancestor) ||
+        Node.isMethodDeclaration(ancestor),
+    ),
+  )
+
+const getMachineEntriesForSourceFile = (
+  sourceFile: SourceFile,
+): Array<MachineEntry> =>
+  sourceFile
+    .getDescendantsOfKind(SyntaxKind.CallExpression)
+    .flatMap(callExpression => {
+      if (!isCallToNamedFunction(callExpression, "createMachine")) {
+        return []
+      }
+
+      if (isNestedInFunctionLike(callExpression)) {
+        return []
+      }
+
+      const definitionObject = getMachineDefinitionObject(callExpression)
+
+      if (!definitionObject) {
+        return []
+      }
+
+      return [
+        {
+          callExpression,
+          definitionObject,
+          sourceFilePath: sourceFile.getFilePath(),
+          symbolName: getVariableDeclarationName(callExpression),
+        },
+      ]
+    })
 
 const findNestedStateIndexPath = (
   stateFilePath: string,
@@ -268,7 +564,7 @@ const getNestedStateEntriesForStateFile = (
   stateFilePath: string,
 ): Array<{ filePath: string }> => {
   const sourceFile = project.getSourceFileOrThrow(stateFilePath)
-  const callExpression = getDefaultStateCall(sourceFile)
+  const callExpression = getStateCallForSourceFile(sourceFile)
 
   if (!callExpression) {
     return []
@@ -338,9 +634,207 @@ const getNamedObjectPropertyIdentifier = (
   return undefined
 }
 
-const extractStateEntriesFromStateIndex = (
+const getReferenceKeyForIdentifier = (
+  identifier: Identifier,
+): string | undefined => {
+  const symbol =
+    identifier.getSymbol()?.getAliasedSymbol() ?? identifier.getSymbol()
+  const declarations = symbol?.getDeclarations() ?? []
+  const variableDeclaration = declarations.find(declaration =>
+    Node.isVariableDeclaration(declaration),
+  )
+
+  if (variableDeclaration && Node.isVariableDeclaration(variableDeclaration)) {
+    return `${variableDeclaration
+      .getSourceFile()
+      .getFilePath()}::${variableDeclaration.getName()}`
+  }
+
+  return undefined
+}
+
+const isStateCallExpression = (callExpression: CallExpression): boolean => {
+  const expression = callExpression.getExpression()
+
+  if (!Node.isIdentifier(expression)) {
+    return false
+  }
+
+  return (
+    expression.getText() === "state" ||
+    expression.getText() === "stateWithNested" ||
+    isReferenceToNamedImport(expression, "state") ||
+    isReferenceToNamedImport(expression, "stateWithNested")
+  )
+}
+
+const resolveStateEntryFromExpression = (
+  expression: Expression,
+  nameHint: string,
+): Array<StateEntry> => {
+  const resolvedExpression = resolveExpressionValue(expression)
+  const referenceKey = Node.isIdentifier(expression)
+    ? getReferenceKeyForIdentifier(expression)
+    : undefined
+
+  if (Node.isCallExpression(resolvedExpression)) {
+    if (!isStateCallExpression(resolvedExpression)) {
+      return []
+    }
+
+    return [
+      {
+        callExpression: resolvedExpression,
+        filePath: resolvedExpression.getSourceFile().getFilePath(),
+        id: `${resolvedExpression
+          .getSourceFile()
+          .getFilePath()}:${resolvedExpression.getStart()}`,
+        nameHint,
+        ...(referenceKey === undefined ? {} : { referenceKey }),
+      },
+    ]
+  }
+
+  return []
+}
+
+const resolveStateEntriesFromStatesExpression = (
+  expression: Expression,
+): Array<StateEntry> => {
+  const resolvedExpression = resolveExpressionValue(expression)
+
+  if (!Node.isObjectLiteralExpression(resolvedExpression)) {
+    return []
+  }
+
+  return resolvedExpression.getProperties().flatMap((property, index) => {
+    const stateExpression = getObjectPropertyExpression(property)
+
+    if (!stateExpression) {
+      return []
+    }
+
+    const nameHint =
+      (Node.isPropertyAssignment(property) ||
+        Node.isShorthandPropertyAssignment(property)) &&
+      property.getName()
+        ? property.getName()
+        : `State${index + 1}`
+
+    return resolveStateEntryFromExpression(stateExpression, nameHint)
+  })
+}
+
+const getStateEntriesForMachineEntry = (
+  machineEntry: MachineEntry,
+): Array<StateEntry> => {
+  const statesProperty = machineEntry.definitionObject.getProperty("states")
+
+  if (!statesProperty) {
+    return []
+  }
+
+  const statesExpression = getObjectPropertyExpression(statesProperty)
+
+  if (!statesExpression) {
+    return []
+  }
+
+  const directStateEntries =
+    resolveStateEntriesFromStatesExpression(statesExpression)
+
+  if (directStateEntries.length > 0) {
+    return directStateEntries
+  }
+
+  const statesIdentifier = getMachineDefinitionIdentifier(
+    machineEntry.definitionObject,
+    "states",
+  )
+  const stateIndexPath = statesIdentifier
+    ? getSourceFilePathForIdentifier(statesIdentifier)
+    : undefined
+  const stateIndexFile = stateIndexPath
+    ? machineEntry.callExpression
+        .getSourceFile()
+        .getProject()
+        .getSourceFile(stateIndexPath)
+    : undefined
+
+  return stateIndexFile ? extractStateEntriesFromStateIndex(stateIndexFile) : []
+}
+
+const extractInlineStateEntriesForMachineCandidate = (
   sourceFile: SourceFile,
-): Array<{ filePath: string }> => {
+  machineName: string,
+): Array<StateEntry> => {
+  const machineEntry = getMachineEntriesForSourceFile(sourceFile).find(
+    entry => getMachineName(entry) === machineName,
+  )
+
+  if (!machineEntry) {
+    return []
+  }
+
+  const statesProperty = machineEntry.definitionObject.getProperty("states")
+
+  if (!statesProperty) {
+    return []
+  }
+
+  const statesExpression = getObjectPropertyExpression(statesProperty)
+
+  if (!statesExpression || !Node.isObjectLiteralExpression(statesExpression)) {
+    return []
+  }
+
+  return statesExpression.getProperties().flatMap((property, index) => {
+    const nameHint =
+      (Node.isPropertyAssignment(property) ||
+        Node.isShorthandPropertyAssignment(property)) &&
+      property.getName()
+        ? property.getName()
+        : `State${index + 1}`
+    const expression = getObjectPropertyExpression(property)
+
+    if (!expression) {
+      return []
+    }
+
+    const resolvedCallExpression = Node.isIdentifier(expression)
+      ? sourceFile
+          .getVariableDeclarations()
+          .find(declaration => declaration.getName() === expression.getText())
+          ?.getInitializer()
+      : expression
+
+    if (
+      !resolvedCallExpression ||
+      !Node.isCallExpression(resolvedCallExpression) ||
+      !isStateCallExpression(resolvedCallExpression)
+    ) {
+      return []
+    }
+
+    const referenceKey = Node.isIdentifier(expression)
+      ? `${sourceFile.getFilePath()}::${expression.getText()}`
+      : undefined
+
+    return [
+      {
+        callExpression: resolvedCallExpression,
+        filePath: sourceFile.getFilePath(),
+        id: `${sourceFile.getFilePath()}:${resolvedCallExpression.getStart()}`,
+        nameHint,
+        ...(referenceKey ? { referenceKey } : {}),
+      },
+    ]
+  })
+}
+
+const extractClassicStateFilePathsFromStateIndex = (
+  sourceFile: SourceFile,
+): Array<string> => {
   const expression = getDefaultExportExpression(sourceFile)
 
   if (Node.isObjectLiteralExpression(expression)) {
@@ -353,7 +847,7 @@ const extractStateEntriesFromStateIndex = (
 
       const definitionFilePath = getSourceFilePathForIdentifier(identifier)
 
-      return definitionFilePath ? [{ filePath: definitionFilePath }] : []
+      return definitionFilePath ? [definitionFilePath] : []
     })
   }
 
@@ -370,12 +864,71 @@ const extractStateEntriesFromStateIndex = (
 
         const definitionFilePath = getSourceFilePathForIdentifier(identifier)
 
-        return definitionFilePath ? [{ filePath: definitionFilePath }] : []
+        return definitionFilePath ? [definitionFilePath] : []
+      }),
+    )
+
+  return Array.from(new Set(namedExportEntries))
+}
+
+const extractStateEntriesFromStateIndex = (
+  sourceFile: SourceFile,
+): Array<StateEntry> => {
+  const machineEntries = getMachineEntriesForSourceFile(sourceFile)
+
+  if (machineEntries.length > 0) {
+    const machineStateEntries = getStateEntriesForMachineEntry(
+      machineEntries[0],
+    )
+
+    if (machineStateEntries.length > 0) {
+      return machineStateEntries
+    }
+  }
+
+  const defaultExportExpression = sourceFile
+    .getExportAssignments()
+    .find(assignment => !assignment.isExportEquals())
+    ?.getExpression()
+  const expression = defaultExportExpression
+    ? resolveExpressionValue(defaultExportExpression)
+    : undefined
+
+  if (Node.isObjectLiteralExpression(expression)) {
+    return expression.getProperties().flatMap(property => {
+      const stateExpression = getObjectPropertyExpression(property)
+
+      if (!stateExpression) {
+        return []
+      }
+
+      return resolveStateEntryFromExpression(
+        stateExpression,
+        Node.isPropertyAssignment(property) ||
+          Node.isShorthandPropertyAssignment(property)
+          ? property.getName()
+          : "State",
+      )
+    })
+  }
+
+  const namedExportEntries = sourceFile
+    .getExportDeclarations()
+    .flatMap(exportDeclaration =>
+      exportDeclaration.getNamedExports().flatMap(exportSpecifier => {
+        const identifier =
+          exportSpecifier.getAliasNode() ?? exportSpecifier.getNameNode()
+
+        if (!Node.isIdentifier(identifier)) {
+          return []
+        }
+
+        return resolveStateEntryFromExpression(identifier, identifier.getText())
       }),
     )
 
   return Array.from(
-    new Map(namedExportEntries.map(entry => [entry.filePath, entry])).values(),
+    new Map(namedExportEntries.map(entry => [entry.id, entry])).values(),
   )
 }
 
@@ -556,6 +1109,7 @@ const getExplicitStateName = (
 const analyzeExpression = (
   expression: Expression,
   currentStateName: string,
+  knownStatesByReferenceKey: Map<string, string>,
   knownStatesByFilePath: Map<string, string>,
   outputs: Set<string>,
   notes: Set<string>,
@@ -669,10 +1223,13 @@ const analyzeExpression = (
 
     recordIdentifier(expressionNode)
 
+    const referenceKey = getReferenceKeyForIdentifier(expressionNode)
     const stateFilePath = getSourceFilePathForIdentifier(expressionNode)
-    const targetStateName = stateFilePath
-      ? knownStatesByFilePath.get(stateFilePath)
-      : undefined
+    const targetStateName =
+      (referenceKey
+        ? knownStatesByReferenceKey.get(referenceKey)
+        : undefined) ??
+      (stateFilePath ? knownStatesByFilePath.get(stateFilePath) : undefined)
 
     if (!targetStateName) {
       return false
@@ -727,6 +1284,7 @@ const analyzeExpression = (
 const analyzeHandler = (
   property: Node,
   currentStateName: string,
+  knownStatesByReferenceKey: Map<string, string>,
   knownStatesByFilePath: Map<string, string>,
 ): {
   action: string
@@ -763,6 +1321,7 @@ const analyzeHandler = (
         const result = analyzeExpression(
           expression,
           currentStateName,
+          knownStatesByReferenceKey,
           knownStatesByFilePath,
           outputs,
           notes,
@@ -828,6 +1387,7 @@ const analyzeHandler = (
           const result = analyzeExpression(
             expression,
             currentStateName,
+            knownStatesByReferenceKey,
             knownStatesByFilePath,
             outputs,
             notes,
@@ -854,6 +1414,7 @@ const analyzeHandler = (
       const result = analyzeExpression(
         body,
         currentStateName,
+        knownStatesByReferenceKey,
         knownStatesByFilePath,
         outputs,
         notes,
@@ -879,6 +1440,7 @@ const analyzeHandler = (
   const result = analyzeExpression(
     initializer,
     currentStateName,
+    knownStatesByReferenceKey,
     knownStatesByFilePath,
     outputs,
     notes,
@@ -897,143 +1459,135 @@ const analyzeHandler = (
   }
 }
 
-const getDefaultStateCall = (
+const getStateCallForSourceFile = (
   sourceFile: SourceFile,
 ): CallExpression | undefined => {
-  const expression = getDefaultExportExpression(sourceFile)
-
-  return expression && Node.isCallExpression(expression)
-    ? expression
+  const defaultExportExpression = sourceFile
+    .getExportAssignments()
+    .find(assignment => !assignment.isExportEquals())
+    ?.getExpression()
+  const resolvedDefaultExpression = defaultExportExpression
+    ? resolveExpressionValue(defaultExportExpression)
     : undefined
+
+  if (
+    resolvedDefaultExpression &&
+    Node.isCallExpression(resolvedDefaultExpression) &&
+    isStateCallExpression(resolvedDefaultExpression)
+  ) {
+    return resolvedDefaultExpression
+  }
+
+  return sourceFile
+    .getDescendantsOfKind(SyntaxKind.CallExpression)
+    .find(callExpression => isStateCallExpression(callExpression))
 }
 
 const getPreliminaryStateName = (
   project: Project,
-  stateFilePath: string,
+  stateEntry: StateEntry,
 ): string => {
-  const sourceFile = project.getSourceFileOrThrow(stateFilePath)
-  const callExpression = getDefaultStateCall(sourceFile)
+  const sourceFile = project.getSourceFileOrThrow(stateEntry.filePath)
+  const callExpression =
+    stateEntry.callExpression ?? getStateCallForSourceFile(sourceFile)
 
   if (!callExpression) {
-    return createCandidateName(stateFilePath)
+    return toPascalCase(stateEntry.nameHint)
   }
 
-  return getExplicitStateName(
-    callExpression,
-    toPascalCase(fileStem(stateFilePath)),
-  )
+  return getExplicitStateName(callExpression, toPascalCase(stateEntry.nameHint))
 }
 
-const analyzeStateFile = (
-  context: GraphBuilderContext,
-  stateFilePath: string,
-  knownStatesByFilePath: Map<string, string>,
-  kind: MachineState["kind"] = "state",
-  nestedParentState?: string,
-): MachineState => {
-  const cachedState = context.stateCache.get(stateFilePath)
-
-  if (cachedState) {
-    return cachedState
-  }
-
-  const sourceFile = context.project.getSourceFileOrThrow(stateFilePath)
-  const callExpression = getDefaultStateCall(sourceFile)
-
-  if (!callExpression) {
-    const fallbackState: MachineState = {
-      filePath: stateFilePath,
-      kind,
-      name: createCandidateName(stateFilePath),
-      ...(nestedParentState === undefined ? {} : { nestedParentState }),
-      notes: [],
-      outputs: [],
-      transitions: [],
-    }
-
-    context.stateCache.set(stateFilePath, fallbackState)
-    return fallbackState
-  }
-
-  const fallbackName = toPascalCase(fileStem(stateFilePath))
-  const name = getExplicitStateName(callExpression, fallbackName)
-  const expression = callExpression.getExpression()
-  const stateKind =
-    Node.isIdentifier(expression) && expression.getText() === "stateWithNested"
-      ? "nested-parent"
-      : kind
-  const analysis: MachineState = {
-    filePath: stateFilePath,
-    kind: stateKind,
-    name,
-    ...(nestedParentState === undefined ? {} : { nestedParentState }),
-    notes: [],
-    outputs: [],
-    transitions: [],
-  }
-
-  context.stateCache.set(stateFilePath, analysis)
-  knownStatesByFilePath.set(stateFilePath, name)
-
-  const [handlersArgument, nestedInitialArgument] =
-    callExpression.getArguments()
-  const handlers =
-    handlersArgument && Node.isObjectLiteralExpression(handlersArgument)
-      ? handlersArgument.getProperties()
-      : []
-  const notes = new Set<string>()
-  const outputs = new Set<string>()
-
-  handlers.forEach(property => {
-    const handler = analyzeHandler(property, name, knownStatesByFilePath)
-
-    handler.targets.forEach(target => {
-      analysis.transitions.push({
-        action: handler.action,
-        kind: target === name ? "self" : "normal",
-        target,
-      })
+const appendTransitions = (
+  analysis: MachineState,
+  handler: {
+    action: string
+    outputs: Set<string>
+    specialTargets: Set<string>
+    targets: Set<string>
+    notes: Set<string>
+  },
+  notes: Set<string>,
+  outputs: Set<string>,
+): void => {
+  handler.targets.forEach(target => {
+    analysis.transitions.push({
+      action: handler.action,
+      kind: target === analysis.name ? "self" : "normal",
+      target,
     })
-
-    handler.specialTargets.forEach(target => {
-      analysis.transitions.push({
-        action: handler.action,
-        kind: "special",
-        ...(target === SPECIAL_HISTORY_NODE ? { note: "history back" } : {}),
-        target,
-      })
-    })
-
-    handler.outputs.forEach(output => outputs.add(output))
-    handler.notes.forEach(note => notes.add(`${handler.action}: ${note}`))
   })
 
-  if (
-    stateKind === "nested-parent" &&
-    nestedInitialArgument &&
-    Node.isCallExpression(nestedInitialArgument)
-  ) {
-    const nestedInitialIdentifier = nestedInitialArgument.getExpression()
+  handler.specialTargets.forEach(target => {
+    analysis.transitions.push({
+      action: handler.action,
+      kind: "special",
+      ...(target === SPECIAL_HISTORY_NODE ? { note: "history back" } : {}),
+      target,
+    })
+  })
 
-    if (Node.isIdentifier(nestedInitialIdentifier)) {
-      const nestedStateFilePath = getSourceFilePathForIdentifier(
-        nestedInitialIdentifier,
-      )
+  handler.outputs.forEach(output => outputs.add(output))
+  handler.notes.forEach(note => notes.add(`${handler.action}: ${note}`))
+}
 
-      if (nestedStateFilePath) {
-        const nestedState = analyzeStateFile(
-          context,
-          nestedStateFilePath,
-          knownStatesByFilePath,
-          "nested-state",
-          name,
-        )
-        analysis.nestedInitialState = nestedState.name
-        notes.add(`nested initial state: ${nestedState.name}`)
-      }
-    }
+const maybeAnalyzeNestedInitialState = (
+  context: GraphBuilderContext,
+  analysis: MachineState,
+  nestedInitialArgument: Node | undefined,
+  knownStatesByReferenceKey: Map<string, string>,
+  knownStatesByFilePath: Map<string, string>,
+  notes: Set<string>,
+): void => {
+  if (!nestedInitialArgument || !Node.isCallExpression(nestedInitialArgument)) {
+    return
   }
 
+  const nestedInitialIdentifier = nestedInitialArgument.getExpression()
+
+  if (!Node.isIdentifier(nestedInitialIdentifier)) {
+    return
+  }
+
+  const nestedStateFilePath = getSourceFilePathForIdentifier(
+    nestedInitialIdentifier,
+  )
+
+  if (!nestedStateFilePath) {
+    return
+  }
+
+  const nestedReferenceKey = getReferenceKeyForIdentifier(
+    nestedInitialIdentifier,
+  )
+  const nestedSourceFile =
+    context.project.getSourceFileOrThrow(nestedStateFilePath)
+  const nestedStateCall =
+    getStateCallForSourceFile(nestedSourceFile) ?? nestedInitialArgument
+  const nestedState = analyzeStateFile(
+    context,
+    {
+      callExpression: nestedStateCall,
+      filePath: nestedStateFilePath,
+      id: nestedReferenceKey ?? `${nestedStateFilePath}:nested`,
+      nameHint: nestedInitialIdentifier.getText(),
+      ...(nestedReferenceKey ? { referenceKey: nestedReferenceKey } : {}),
+    },
+    knownStatesByReferenceKey,
+    knownStatesByFilePath,
+    "nested-state",
+    analysis.name,
+  )
+
+  analysis.nestedInitialState = nestedState.name
+  notes.add(`nested initial state: ${nestedState.name}`)
+}
+
+const finalizeStateAnalysis = (
+  analysis: MachineState,
+  notes: Set<string>,
+  outputs: Set<string>,
+): MachineState => {
   analysis.notes = Array.from(notes).sort((left, right) =>
     left.localeCompare(right),
   )
@@ -1056,6 +1610,96 @@ const analyzeStateFile = (
   analysis.transitions = sortedTransitions
 
   return analysis
+}
+
+const analyzeStateFile = (
+  context: GraphBuilderContext,
+  stateEntry: StateEntry,
+  knownStatesByReferenceKey: Map<string, string>,
+  knownStatesByFilePath: Map<string, string>,
+  kind: MachineState["kind"] = "state",
+  nestedParentState?: string,
+): MachineState => {
+  const cachedState = context.stateCache.get(stateEntry.id)
+
+  if (cachedState) {
+    return cachedState
+  }
+
+  const sourceFile = context.project.getSourceFileOrThrow(stateEntry.filePath)
+  const callExpression =
+    stateEntry.callExpression ?? getStateCallForSourceFile(sourceFile)
+
+  if (!callExpression) {
+    const fallbackState: MachineState = {
+      filePath: stateEntry.filePath,
+      kind,
+      name: toPascalCase(stateEntry.nameHint),
+      ...(nestedParentState === undefined ? {} : { nestedParentState }),
+      notes: [],
+      outputs: [],
+      transitions: [],
+    }
+
+    context.stateCache.set(stateEntry.id, fallbackState)
+    return fallbackState
+  }
+
+  const fallbackName = toPascalCase(stateEntry.nameHint)
+  const name = getExplicitStateName(callExpression, fallbackName)
+  const expression = callExpression.getExpression()
+  const stateKind =
+    Node.isIdentifier(expression) && expression.getText() === "stateWithNested"
+      ? "nested-parent"
+      : kind
+  const analysis: MachineState = {
+    filePath: stateEntry.filePath,
+    kind: stateKind,
+    name,
+    ...(nestedParentState === undefined ? {} : { nestedParentState }),
+    notes: [],
+    outputs: [],
+    transitions: [],
+  }
+
+  context.stateCache.set(stateEntry.id, analysis)
+  knownStatesByFilePath.set(stateEntry.filePath, name)
+  if (stateEntry.referenceKey) {
+    knownStatesByReferenceKey.set(stateEntry.referenceKey, name)
+  }
+
+  const [handlersArgument, nestedInitialArgument] =
+    callExpression.getArguments()
+  const handlers =
+    handlersArgument && Node.isObjectLiteralExpression(handlersArgument)
+      ? handlersArgument.getProperties()
+      : []
+  const notes = new Set<string>()
+  const outputs = new Set<string>()
+
+  handlers.forEach(property => {
+    const handler = analyzeHandler(
+      property,
+      name,
+      knownStatesByReferenceKey,
+      knownStatesByFilePath,
+    )
+
+    appendTransitions(analysis, handler, notes, outputs)
+  })
+
+  if (stateKind === "nested-parent") {
+    maybeAnalyzeNestedInitialState(
+      context,
+      analysis,
+      nestedInitialArgument,
+      knownStatesByReferenceKey,
+      knownStatesByFilePath,
+      notes,
+    )
+  }
+
+  return finalizeStateAnalysis(analysis, notes, outputs)
 }
 
 const includeSpecialNodes = (
@@ -1091,19 +1735,28 @@ export const discoverMachineCandidates = {
     const candidateMap = new Map<string, MachineCandidate>()
 
     project.getSourceFiles().forEach(sourceFile => {
-      const stateIndexPath = getMachineStateIndexPath(sourceFile)
-
-      if (!stateIndexPath || !sourceFile.getFilePath().startsWith(rootDir)) {
+      if (!sourceFile.getFilePath().startsWith(rootDir)) {
         return
       }
 
-      const candidate: MachineCandidate = {
-        name: getMachineName(sourceFile),
-        sourceFilePath: sourceFile.getFilePath(),
-        stateIndexPath,
-      }
+      getMachineEntriesForSourceFile(sourceFile).forEach(machineEntry => {
+        const stateEntries = getStateEntriesForMachineEntry(machineEntry)
+        const stateIndexPath =
+          getMachineStateIndexPath(machineEntry) ??
+          stateEntries[0]?.filePath ??
+          sourceFile.getFilePath()
 
-      candidateMap.set(candidate.sourceFilePath, candidate)
+        const candidate: MachineCandidate = {
+          name: getMachineName(machineEntry),
+          sourceFilePath: machineEntry.sourceFilePath,
+          stateIndexPath,
+        }
+
+        candidateMap.set(
+          `${candidate.sourceFilePath}:${candidate.name}:${candidate.stateIndexPath}`,
+          candidate,
+        )
+      })
     })
 
     return Array.from(candidateMap.values()).sort((left, right) =>
@@ -1120,21 +1773,78 @@ export const buildMachineGraph = (
     project,
     stateCache: new Map<string, MachineState>(),
   }
-  const stateIndexFile = project.getSourceFileOrThrow(candidate.stateIndexPath)
-  const stateEntries = extractStateEntriesFromStateIndex(stateIndexFile)
+  const machineSourceFile = project.getSourceFile(candidate.sourceFilePath)
+  const matchingMachineEntry = machineSourceFile
+    ? getMachineEntriesForSourceFile(machineSourceFile).find(machineEntry => {
+        const machineName = getMachineName(machineEntry)
+        const stateIndexPath =
+          getMachineStateIndexPath(machineEntry) ?? machineEntry.sourceFilePath
+
+        return (
+          machineName === candidate.name &&
+          stateIndexPath === candidate.stateIndexPath
+        )
+      })
+    : undefined
+  const machineStateEntries = matchingMachineEntry
+    ? getStateEntriesForMachineEntry(matchingMachineEntry)
+    : []
+  let stateEntries: Array<StateEntry>
+
+  if (machineStateEntries.length > 0) {
+    stateEntries = machineStateEntries
+  } else if (candidate.stateIndexPath === candidate.sourceFilePath) {
+    stateEntries = extractStateEntriesFromStateIndex(
+      project.getSourceFileOrThrow(candidate.stateIndexPath),
+    )
+
+    if (stateEntries.length === 0) {
+      stateEntries = extractInlineStateEntriesForMachineCandidate(
+        project.getSourceFileOrThrow(candidate.sourceFilePath),
+        candidate.name,
+      )
+    }
+  } else {
+    stateEntries = extractClassicStateFilePathsFromStateIndex(
+      project.getSourceFileOrThrow(candidate.stateIndexPath),
+    ).map((filePath, index) => ({
+      callExpression: getStateCallForSourceFile(
+        project.getSourceFileOrThrow(filePath),
+      ),
+      filePath,
+      id: `${filePath}:${index}`,
+      nameHint: fileStem(filePath),
+    }))
+  }
+  const knownStatesByReferenceKey = new Map<string, string>()
   const knownStatesByFilePath = new Map<string, string>(
     stateEntries.map(entry => [
       entry.filePath,
-      getPreliminaryStateName(project, entry.filePath),
+      getPreliminaryStateName(project, entry),
     ]),
   )
+  stateEntries.forEach(entry => {
+    if (entry.referenceKey) {
+      knownStatesByReferenceKey.set(
+        entry.referenceKey,
+        getPreliminaryStateName(project, entry),
+      )
+    }
+  })
 
   stateEntries.forEach(entry => {
     getNestedStateEntriesForStateFile(project, entry.filePath).forEach(
       nestedEntry => {
         knownStatesByFilePath.set(
           nestedEntry.filePath,
-          getPreliminaryStateName(project, nestedEntry.filePath),
+          getPreliminaryStateName(project, {
+            callExpression: getStateCallForSourceFile(
+              project.getSourceFileOrThrow(nestedEntry.filePath),
+            ),
+            filePath: nestedEntry.filePath,
+            id: `${nestedEntry.filePath}:nested`,
+            nameHint: fileStem(nestedEntry.filePath),
+          }),
         )
       },
     )
@@ -1143,7 +1853,8 @@ export const buildMachineGraph = (
   const analyzedStates = stateEntries.flatMap(entry => {
     const analyzedState = analyzeStateFile(
       context,
-      entry.filePath,
+      entry,
+      knownStatesByReferenceKey,
       knownStatesByFilePath,
       "state",
     )
@@ -1158,7 +1869,15 @@ export const buildMachineGraph = (
     ).map(nestedEntry =>
       analyzeStateFile(
         context,
-        nestedEntry.filePath,
+        {
+          callExpression: getStateCallForSourceFile(
+            project.getSourceFileOrThrow(nestedEntry.filePath),
+          ),
+          filePath: nestedEntry.filePath,
+          id: `${nestedEntry.filePath}:nested`,
+          nameHint: fileStem(nestedEntry.filePath),
+        },
+        knownStatesByReferenceKey,
         knownStatesByFilePath,
         "nested-state",
         analyzedState.name,
