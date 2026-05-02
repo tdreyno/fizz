@@ -6,6 +6,12 @@ That means starting with explicit state names, current state data, output action
 
 This page covers the current runtime debugging tools in `@tdreyno/fizz`, with examples for Node.js runtimes and browser runtimes.
 
+**Bundle size note:** Debugging utilities are available via the `@tdreyno/fizz/debug` subpath for tree-shakable imports when you want to avoid bundling debug code in production builds.
+
+```ts
+import { createRuntimeConsoleMonitor } from "@tdreyno/fizz/debug"
+```
+
 If you want a dedicated DevTools workflow for browser machines, read [Chrome Debugger](./chrome-debugger.md). That guide covers the zero-config extension setup, panel workflow, and current browser-specific limitations.
 
 ## The current debugging surfaces

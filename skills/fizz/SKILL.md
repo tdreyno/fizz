@@ -27,6 +27,8 @@ Use this skill when the task involves:
 - Defining colocated machine selectors with `selectWhen(...)` for derived read-only checks
 - Evaluating selectors outside React with core runtime helpers when needed
 - Using the optional fluent entry point `@tdreyno/fizz/fluent` for chain-first state authoring
+- Using optional debugging utilities from `@tdreyno/fizz/debug` (`createRuntimeConsoleMonitor`, `createRuntimeDebugConsole`, etc.)
+- Using optional registry utilities from `@tdreyno/fizz/registry` (`createRuntimeRegistry`)
 - Writing or reviewing deterministic tests for Fizz machines or runtimes
 - Debugging stale async completions, cancellation, or state-entry behavior
 - Integrating a Fizz machine into React with `useMachine(...)` or `createMachineContext(...)`

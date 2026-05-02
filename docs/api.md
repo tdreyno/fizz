@@ -19,6 +19,15 @@ Use the fluent entry point when you prefer chain-first state definitions:
 import { state } from "@tdreyno/fizz/fluent"
 ```
 
+Optional browser, debugging, and utility subpaths:
+
+- `@tdreyno/fizz/browser` — DOM/browser drivers
+- `@tdreyno/fizz/debug` — Runtime debugging utilities (tree-shakable)
+- `@tdreyno/fizz/registry` — Registry lifecycle APIs (tree-shakable)
+- `@tdreyno/fizz/nested` — Nested machine helpers
+- `@tdreyno/fizz/parallel` — Parallel machine API
+- `@tdreyno/fizz/test` — Testing utilities
+
 The root `@tdreyno/fizz` object-style APIs remain fully supported.
 
 ## Machines
