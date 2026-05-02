@@ -24,6 +24,11 @@ Prefer assertions against:
 - emitted output actions
 - ordered intermediate states when the sequence matters
 
+For teardown-sensitive scenarios, also assert runtime diagnostics:
+
+- call `runtime.getDiagnosticsSnapshot()` to inspect active listeners/resources/timers/async operations/channel queues
+- call `runtime.assertCleanTeardown()` after `runtime.disconnect()` to fail fast on leaked runtime work
+
 Avoid centering tests on private runtime details that consumers cannot rely on.
 
 ## Transition Tests

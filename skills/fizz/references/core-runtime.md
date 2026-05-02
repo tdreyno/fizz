@@ -228,6 +228,30 @@ const nextRenderInputs = await runtime.runAndSelect(
 )
 ```
 
+Runtime teardown diagnostics:
+
+```typescript
+const snapshot = runtime.getDiagnosticsSnapshot()
+
+runtime.assertCleanTeardown()
+
+runtime.assertCleanTeardown({
+  allow: {
+    timers: true,
+  },
+})
+```
+
+`getDiagnosticsSnapshot()` returns active runtime diagnostics grouped by:
+
+- `listeners`: normalized listener counts by target/type
+- `resources`: active state resources with key/state name
+- `timers`: active timeout/interval/frame entries
+- `asyncOps`: active async/debounced operation ids
+- `channelQueues`: active imperative command queue depth per channel
+
+`assertCleanTeardown()` throws when non-allowed diagnostics groups still contain active entries. Use `allow` for expected exceptions in tests/migrations.
+
 If you want a declarative machine container first, build it with `createMachine(...)` and then create the runtime from the machine.
 
 This matters because the first `enter()` automatically performs Fizz's pre-entry bootstrap before any `Enter` handlers run.

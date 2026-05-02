@@ -209,4 +209,36 @@ describe("runtime resource module", () => {
     expect(hasStateResource(updatedState as never, "session")).toBeFalsy()
     expect(teardown).toHaveBeenCalled()
   })
+
+  test("getDiagnostics returns empty when there is no current state", () => {
+    const module = createRuntimeResourceModule({
+      emitMonitor: () => undefined,
+      getContext: () => ({ currentState: undefined }) as never,
+      runAction: async () => undefined,
+      timerDriver: createControlledTimerDriver(),
+    })
+
+    expect(module.getDiagnostics()).toEqual([])
+  })
+
+  test("getDiagnostics returns active resource keys for current state", () => {
+    const state = createState("Editing")
+
+    setStateResource({ key: "session", state: state as never, value: "abc" })
+    setStateResource({ key: "editor", state: state as never, value: { id: 1 } })
+
+    const module = createRuntimeResourceModule({
+      emitMonitor: () => undefined,
+      getContext: () => ({ currentState: state }) as never,
+      runAction: async () => undefined,
+      timerDriver: createControlledTimerDriver(),
+    })
+
+    expect(module.getDiagnostics()).toEqual(
+      expect.arrayContaining([
+        { key: "editor", stateName: "Editing" },
+        { key: "session", stateName: "Editing" },
+      ]),
+    )
+  })
 })

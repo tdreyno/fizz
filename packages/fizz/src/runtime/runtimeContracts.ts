@@ -29,6 +29,18 @@ export type RuntimeDebugCancellationReason = "cleanup" | "effect" | "restart"
 export type RuntimeDebugResourceReleaseReason = "cleanup" | "effect"
 export type RuntimeMissingCommandHandlerPolicy = "error" | "noop" | "warn"
 
+export type RuntimeDiagnosticsSnapshot = {
+  listeners: Array<{ target: string; type: string; count: number }>
+  resources: Array<{ key: string; stateName: string }>
+  timers: Array<{ id: string; kind: "timeout" | "interval" | "frame" }>
+  asyncOps: Array<{ id: string; status: string }>
+  channelQueues: Array<{ channel: string; queued: number }>
+}
+
+export type RuntimeAssertCleanTeardownOptions = {
+  allow?: Partial<Record<keyof RuntimeDiagnosticsSnapshot, boolean>>
+}
+
 export type RuntimeDebugEvent =
   | {
       action: RuntimeAction

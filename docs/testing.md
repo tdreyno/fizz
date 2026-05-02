@@ -42,6 +42,11 @@ const machine = createMachine({
 const runtime = createRuntime(machine, Editing({ events: [] }))
 
 await runtime.run(enter())
+
+For teardown-sensitive tests, also assert runtime diagnostics:
+
+- call `runtime.getDiagnosticsSnapshot()` to inspect active listeners/resources/timers/async/queues
+- call `runtime.assertCleanTeardown()` after `runtime.disconnect()` for leak checks
 await runtime.run(save())
 
 expect(runtime.currentState().is(machine.states.Editing)).toBeTruthy()

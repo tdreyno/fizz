@@ -37,8 +37,10 @@ import {
 } from "./runtime/runtimeCommandFactory.js"
 import type {
   RuntimeAction,
+  RuntimeAssertCleanTeardownOptions,
   RuntimeDebugCommand,
   RuntimeDebugEvent,
+  RuntimeDiagnosticsSnapshot,
   RuntimeMonitor,
   RuntimeState,
 } from "./runtime/runtimeContracts.js"
@@ -67,10 +69,12 @@ export type {
 } from "./runtime/runtimeCommandModule.js"
 export { commandHandlersFromClients } from "./runtime/runtimeCommandModule.js"
 export type {
+  RuntimeAssertCleanTeardownOptions,
   RuntimeDebugCancellationReason,
   RuntimeDebugCommand,
   RuntimeDebugEvent,
   RuntimeDebugResourceReleaseReason,
+  RuntimeDiagnosticsSnapshot,
   RuntimeMissingCommandHandlerPolicy,
   RuntimeMonitor,
 } from "./runtime/runtimeContracts.js"
@@ -339,6 +343,35 @@ export class Runtime<
       disconnect()
     })
     this.#disconnectSubscribers.clear()
+  }
+
+  getDiagnosticsSnapshot(): RuntimeDiagnosticsSnapshot {
+    return this.#modules.getDiagnostics()
+  }
+
+  assertCleanTeardown(options: RuntimeAssertCleanTeardownOptions = {}): void {
+    const diagnostics = this.getDiagnosticsSnapshot()
+    const allow = options.allow ?? {}
+
+    const failingBuckets = (
+      Object.keys(diagnostics) as Array<keyof RuntimeDiagnosticsSnapshot>
+    )
+      .filter(bucket => allow[bucket] !== true)
+      .filter(bucket => diagnostics[bucket].length > 0)
+
+    if (failingBuckets.length === 0) {
+      return
+    }
+
+    const details = failingBuckets
+      .map(bucket => {
+        const entries = diagnostics[bucket]
+
+        return `${bucket}: ${entries.length} active (${JSON.stringify(entries.slice(0, 5))})`
+      })
+      .join("; ")
+
+    throw new Error(`Runtime teardown is not clean. ${details}`)
   }
 
   canHandle(action: RuntimeAction): boolean {

@@ -274,8 +274,50 @@ The returned `Runtime` is the main execution object. The most commonly used meth
 - `respondToOutput(type, handler)`
 - `bindActions(actions)`
 - `disconnect()`
+- `getDiagnosticsSnapshot()`
+- `assertCleanTeardown(options?)`
 
 Typed output subscription helpers such as `onOutputType(...)` and channel wiring through `connectOutputChannel(...)` are documented in [Output Actions](./output-actions.md).
+
+### `getDiagnosticsSnapshot`
+
+Read a snapshot of active runtime diagnostics. This is useful in tests and debugging when you need to confirm resources were cleaned up.
+
+```ts
+const snapshot = runtime.getDiagnosticsSnapshot()
+
+expect(snapshot).toEqual({
+  asyncOps: [],
+  channelQueues: [],
+  listeners: [],
+  resources: [],
+  timers: [],
+})
+```
+
+Snapshot groups:
+
+- `listeners`: normalized listener counts by target/type
+- `resources`: active state resources (`key`, `stateName`)
+- `timers`: active timeout/interval/frame entries
+- `asyncOps`: active async or debounced operation ids
+- `channelQueues`: pending imperative command queue depth per channel
+
+### `assertCleanTeardown`
+
+Assert that teardown is clean by throwing when any diagnostics group still has active entries.
+
+```ts
+runtime.assertCleanTeardown()
+
+runtime.assertCleanTeardown({
+  allow: {
+    timers: true,
+  },
+})
+```
+
+Use `allow` when a test intentionally tolerates specific groups.
 
 Runtime creation options include:
 

@@ -8,6 +8,10 @@
 - Prettier checks may be skipped for files under `.github`.
 - For formatting validation, run Prettier with `--write` on changed files directly instead of a `--check` pass first.
 - In repos using Changesets, generate a changeset only when package library code changes.
+- For feature work that adds or changes package library behavior or API, always include all of the following in the same change:
+  - a changeset for affected published package(s)
+  - docs updates under `docs/**` describing the feature behavior
+  - skill reference updates under `skills/fizz/references/**` reflecting the same behavior/API
 - Do not generate changesets for private packages, docs, CI, repo config, instructions, or other non-library-code-only changes.
 - When a changeset is needed, inspect `.changeset/config.json` and existing `.changeset/*.md` files before creating a new one.
 - Changesets should use the published workspace package name in frontmatter, for example `"@tdreyno/fizz": patch|minor|major`.

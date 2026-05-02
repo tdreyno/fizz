@@ -36,6 +36,7 @@ export type RuntimeAsyncModule = {
     targetState: RuntimeState
   }) => void
   effectHandlers: RuntimeEffectHandlerRegistry<RuntimeDebugCommand>
+  getDiagnostics: () => Array<{ id: string; status: string }>
 }
 
 export const createRuntimeAsyncModule = (options: {
@@ -341,5 +342,19 @@ export const createRuntimeAsyncModule = (options: {
         item => handleCancelAsync(item.data as CancelAsyncEffectData<string>),
       ],
     ]),
+    getDiagnostics: () => {
+      const operations = [...asyncOperations.keys()].map(id => ({
+        id,
+        status: "running",
+      }))
+      const debounced = [...debounceTimers.keys()]
+        .filter(id => !asyncOperations.has(id))
+        .map(id => ({
+          id,
+          status: "debouncing",
+        }))
+
+      return [...operations, ...debounced]
+    },
   }
 }

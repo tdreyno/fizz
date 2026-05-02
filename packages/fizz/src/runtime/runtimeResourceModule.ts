@@ -7,6 +7,7 @@ import type {
 import {
   disposeStateResources,
   hasStateResource,
+  listStateResourceKeys,
   releaseStateResource,
   setStateResource,
   transferStateResources,
@@ -28,6 +29,7 @@ export type RuntimeResourceModule = {
     targetState: RuntimeState
   }) => void
   effectHandlers: RuntimeEffectHandlerRegistry<RuntimeDebugCommand>
+  getDiagnostics: () => Array<{ key: string; stateName: string }>
 }
 
 export const createRuntimeResourceModule = (options: {
@@ -355,5 +357,19 @@ export const createRuntimeResourceModule = (options: {
         item => handleSubscription(item.data as SubscriptionEffectData<string>),
       ],
     ]),
+    getDiagnostics: () => {
+      const currentState = options.getContext().currentState as
+        | RuntimeState
+        | undefined
+
+      if (!currentState) {
+        return []
+      }
+
+      return listStateResourceKeys(currentState).map(key => ({
+        key,
+        stateName: currentState.name,
+      }))
+    },
   }
 }

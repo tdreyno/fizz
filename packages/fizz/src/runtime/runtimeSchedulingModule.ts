@@ -49,6 +49,10 @@ export type RuntimeSchedulingModule = {
     targetState: RuntimeState
   }) => void
   effectHandlers: RuntimeEffectHandlerRegistry<RuntimeDebugCommand>
+  getDiagnostics: () => Array<{
+    id: string
+    kind: "timeout" | "interval" | "frame"
+  }>
 }
 
 export const createRuntimeSchedulingModule = (options: {
@@ -414,5 +418,23 @@ export const createRuntimeSchedulingModule = (options: {
         },
       ],
     ]),
+    getDiagnostics: () => [
+      ...[...timers.keys()].map(id => ({
+        id,
+        kind: "timeout" as const,
+      })),
+      ...[...intervals.keys()].map(id => ({
+        id,
+        kind: "interval" as const,
+      })),
+      ...(frame
+        ? [
+            {
+              id: "frame",
+              kind: "frame" as const,
+            },
+          ]
+        : []),
+    ],
   }
 }

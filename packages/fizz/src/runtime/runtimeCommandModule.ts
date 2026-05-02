@@ -44,6 +44,7 @@ export type RuntimeCommandModule = {
     targetState: RuntimeState
   }) => void
   effectHandlers: RuntimeEffectHandlerRegistry<RuntimeDebugCommand>
+  getDiagnostics: () => Array<{ channel: string; queued: number }>
 }
 
 export const createRuntimeCommandModule = (options: {
@@ -166,13 +167,27 @@ export const createRuntimeCommandModule = (options: {
       const pendingIndex = state.pendingLatestOnlyKeys.get(latestOnlyKey)
 
       if (pendingIndex !== undefined) {
+        const pendingEntry = queue[pendingIndex]
+
+        if (!pendingEntry) {
+          state.pendingLatestOnlyKeys.delete(latestOnlyKey)
+
+          queue.push(entry)
+
+          if (queue.length === 1) {
+            drainChannelQueue(channel)
+          }
+
+          return
+        }
+
         options.emitMonitor({
           channel,
           commandType: entry.commandType,
           latestOnlyKey,
           type: "imperative-command-replaced",
         })
-        queue[pendingIndex].skip()
+        pendingEntry.skip()
         queue.splice(pendingIndex, 1, entry)
         state.pendingLatestOnlyKeys.set(latestOnlyKey, pendingIndex)
 
@@ -584,7 +599,9 @@ export const createRuntimeCommandModule = (options: {
 
     enqueueChannelTask(data.channel, {
       commandType: "effectBatch",
-      latestOnlyKey: data.latestOnlyKey,
+      ...(data.latestOnlyKey === undefined
+        ? {}
+        : { latestOnlyKey: data.latestOnlyKey }),
       skip: () => undefined,
       task: runBatch,
     })
@@ -629,5 +646,10 @@ export const createRuntimeCommandModule = (options: {
     clearForGoBack: () => undefined,
     clearForTransition: () => undefined,
     effectHandlers,
+    getDiagnostics: () =>
+      [...channelQueues.entries()].map(([channel, state]) => ({
+        channel,
+        queued: state.entries.length,
+      })),
   }
 }
