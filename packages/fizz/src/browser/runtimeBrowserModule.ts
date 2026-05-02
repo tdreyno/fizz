@@ -365,7 +365,13 @@ export const createRuntimeBrowserModule = (options: {
     let isTornDown = false
 
     const dispatch = (event: Event) => {
-      void options.runAction(data.toAction(event))
+      const action = data.toAction(event)
+
+      if (!action) {
+        return
+      }
+
+      void options.runAction(action)
     }
 
     let scheduleCoalescedDispatch:
@@ -403,7 +409,13 @@ export const createRuntimeBrowserModule = (options: {
         isDispatching = true
 
         try {
-          await options.runAction(data.toAction(event))
+          const action = data.toAction(event)
+
+          if (!action) {
+            return
+          }
+
+          await options.runAction(action)
         } catch {
           // Ignore action failures so listener teardown still works.
         } finally {

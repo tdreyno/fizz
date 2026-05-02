@@ -155,6 +155,67 @@ Each helper delegates to `.listen(...)` with the matching string event name:
 
 See [DOM Listener Convenience Helper Mappings](./dom-listener-helper-mappings.md) for the full table of all event-name to helper-name mappings.
 
+### Fluent listener chains
+
+Call `listen(...)` or `onKeyDown`/`onKeyUp`/`onKeyPress` without a handler to build a fluent chain and map actions with `chainToAction(...)`.
+
+```typescript
+const SaveRequested = action("SaveRequested")
+
+...dom
+  .document()
+  .onKeyDown()
+  .matchesKeyCombo({ key: "s", ctrlKey: true })
+  .preventDefault()
+  .chainToAction(SaveRequested)
+```
+
+```typescript
+const SubmitRequested = action("SubmitRequested")
+const IgnoredKey = action("IgnoredKey")
+
+...dom
+  .document()
+  .onKeyPress()
+  .matchesKey("Enter")
+  .chainToAction(SubmitRequested, IgnoredKey)
+```
+
+Current fluent chain helpers:
+
+- `matchesKey("Enter" | matcher)`
+- `matchesKeyCombo({ key, ctrlKey?, metaKey?, altKey?, shiftKey? })`
+- `onlyPrimaryButton()`
+- `noModifiers()`
+- `preventDefault()`
+- `stopPropagation()`
+- `withKeyRepeat()` / `withoutKeyRepeat()`
+- `once()`
+- `when(predicate)`
+- `mapEvent(mapper)`
+
+### Outside helpers
+
+Use document-scoped outside checks for dismissal flows.
+
+```typescript
+const DismissRequested = action("DismissRequested")
+
+...dom
+  .outsidePointerDown({ inside: [menuRoot], includeTrigger: menuButton })
+  .chainToAction(DismissRequested)
+```
+
+```typescript
+...dom
+  .outsideFocusIn({ inside: [menuRoot], includeTrigger: menuButton })
+  .chainToAction(DismissRequested)
+```
+
+### Link bypass helper
+
+`isBypassedLinkActivation(event)` is a plain helper (not fluent). It returns `true` for events that should bypass SPA interception (`defaultPrevented`, non-primary button, or modifier keys).
+
 ---
 
 ## Intersection observer

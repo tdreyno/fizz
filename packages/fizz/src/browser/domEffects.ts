@@ -66,7 +66,7 @@ export type DomListenEffectData = {
   coalesce?: DomListenCoalesceMode
   options?: AddEventListenerOptions | boolean
   targetResourceId: string
-  toAction: (event: Event) => AnyAction
+  toAction: (event: Event) => AnyAction | undefined
   type: string
 }
 
@@ -99,14 +99,64 @@ export type DomListenOptions =
   | boolean
   | (AddEventListenerOptions & { coalesce?: DomListenCoalesceMode })
 
+export type KeyMatcher = {
+  altKey?: boolean
+  ctrlKey?: boolean
+  key: string
+  metaKey?: boolean
+  shiftKey?: boolean
+}
+
+type FluentActionMapper<T> = (value: T) => AnyAction
+
+type FluentDomListenBuilder<TEvent extends Event, TMapped = TEvent> = {
+  mapEvent: <TNext>(
+    mapper: (value: TMapped) => TNext,
+  ) => FluentDomListenBuilder<TEvent, TNext>
+  matchesKey: (
+    matcher: KeyMatcher | string,
+  ) => FluentDomListenBuilder<TEvent, TMapped>
+  noModifiers: () => FluentDomListenBuilder<TEvent, TMapped>
+  matchesKeyCombo: (
+    matcher: KeyMatcher,
+  ) => FluentDomListenBuilder<TEvent, TMapped>
+  once: () => FluentDomListenBuilder<TEvent, TMapped>
+  onlyPrimaryButton: () => FluentDomListenBuilder<TEvent, TMapped>
+  preventDefault: () => FluentDomListenBuilder<TEvent, TMapped>
+  stopPropagation: () => FluentDomListenBuilder<TEvent, TMapped>
+  when: (
+    predicate: (event: TEvent, value: TMapped) => boolean,
+  ) => FluentDomListenBuilder<TEvent, TMapped>
+  withKeyRepeat: () => FluentDomListenBuilder<TEvent, TMapped>
+  withoutKeyRepeat: () => FluentDomListenBuilder<TEvent, TMapped>
+  chainToAction: (
+    onMatch: FluentActionMapper<TMapped>,
+    onNoMatch?: FluentActionMapper<TEvent>,
+  ) => Effect<unknown>[]
+}
+
+type DomEventHelperOverload<
+  EventType extends string,
+  EventMap extends EventMapLike,
+> = {
+  (
+    toAction: (event: EventFromMap<EventMap, EventType>) => AnyAction,
+    options?: DomListenOptions,
+  ): Effect<unknown>[]
+  (
+    options?: DomListenOptions,
+  ): FluentDomListenBuilder<EventFromMap<EventMap, EventType>>
+}
+
 type TargetBuilderListenHelpers<
   EventMap extends EventMapLike,
   EventHelpers extends DomEventHelperMap<EventMap>,
 > = {
-  [EventType in keyof EventHelpers & string as EventHelpers[EventType]]: (
-    toAction: (event: EventFromMap<EventMap, EventType>) => AnyAction,
-    options?: DomListenOptions,
-  ) => Effect<unknown>[]
+  [EventType in keyof EventHelpers &
+    string as EventHelpers[EventType]]: DomEventHelperOverload<
+    EventType,
+    EventMap
+  >
 }
 
 type TargetBuilder<
@@ -115,11 +165,17 @@ type TargetBuilder<
   EventHelpers extends DomEventHelperMap<EventMap> =
     DomEventHelperMap<EventMap>,
 > = Effect<DomAcquireEffectData> & {
-  listen: <EventType extends string>(
-    type: EventType,
-    toAction: (event: EventFromMap<EventMap, EventType>) => AnyAction,
-    options?: DomListenOptions,
-  ) => Effect<unknown>[]
+  listen: {
+    <EventType extends string>(
+      type: EventType,
+      toAction: (event: EventFromMap<EventMap, EventType>) => AnyAction,
+      options?: DomListenOptions,
+    ): Effect<unknown>[]
+    <EventType extends string>(
+      type: EventType,
+      options?: DomListenOptions,
+    ): FluentDomListenBuilder<EventFromMap<EventMap, EventType>>
+  }
   mutate: (fn: (element: TElement) => void) => Effect<unknown>[]
   observeIntersection: {
     (
@@ -251,6 +307,267 @@ const domObserveResize = (
 const domMutate = (data: DomMutateEffectData): Effect<DomMutateEffectData> =>
   effect("domMutate", data)
 
+const parseListenOptions = (eventOptions?: DomListenOptions) => {
+  let coalesce: DomListenCoalesceMode | undefined
+  let listenerOptions: AddEventListenerOptions | boolean | undefined
+
+  if (typeof eventOptions === "boolean") {
+    listenerOptions = eventOptions
+  } else if (eventOptions !== undefined) {
+    const { coalesce: parsedCoalesce, ...restOptions } = eventOptions
+
+    coalesce = parsedCoalesce
+
+    if (Object.keys(restOptions).length > 0) {
+      listenerOptions = restOptions
+    }
+  }
+
+  return {
+    coalesce,
+    listenerOptions,
+  }
+}
+
+const isKeyboardEventLike = (
+  event: Event,
+): event is KeyboardEvent & {
+  altKey: boolean
+  ctrlKey: boolean
+  key: string
+  metaKey: boolean
+  repeat: boolean
+  shiftKey: boolean
+} =>
+  "key" in event &&
+  typeof (event as { key: unknown }).key === "string" &&
+  "altKey" in event &&
+  "ctrlKey" in event &&
+  "metaKey" in event &&
+  "shiftKey" in event
+
+const isMouseEventLike = (
+  event: Event,
+): event is MouseEvent & {
+  button: number
+} =>
+  "button" in event && typeof (event as { button: unknown }).button === "number"
+
+const hasNoModifiers = (event: Event): boolean => {
+  if (!isKeyboardEventLike(event)) {
+    return true
+  }
+
+  return !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey
+}
+
+const matchesKey = (event: Event, matcher: KeyMatcher | string): boolean => {
+  if (!isKeyboardEventLike(event)) {
+    return false
+  }
+
+  if (typeof matcher === "string") {
+    return event.key === matcher
+  }
+
+  if (event.key !== matcher.key) {
+    return false
+  }
+
+  if (matcher.altKey !== undefined && event.altKey !== matcher.altKey) {
+    return false
+  }
+
+  if (matcher.ctrlKey !== undefined && event.ctrlKey !== matcher.ctrlKey) {
+    return false
+  }
+
+  if (matcher.metaKey !== undefined && event.metaKey !== matcher.metaKey) {
+    return false
+  }
+
+  if (matcher.shiftKey !== undefined && event.shiftKey !== matcher.shiftKey) {
+    return false
+  }
+
+  return true
+}
+
+const isDomNode = (value: unknown): value is Node => {
+  if (typeof Node === "undefined") {
+    return !!value && typeof value === "object" && "nodeType" in value
+  }
+
+  return value instanceof Node
+}
+
+const containsTargetNode = (
+  element: Element | null | undefined,
+  target: unknown,
+): boolean => !!element && isDomNode(target) && element.contains(target)
+
+const isOutsideTarget = (options: {
+  event: Event
+  includeTrigger?: Element | null
+  inside: Array<Element | null | undefined>
+}): boolean => {
+  const target = options.event.target
+
+  if (!isDomNode(target)) {
+    return false
+  }
+
+  if (containsTargetNode(options.includeTrigger, target)) {
+    return false
+  }
+
+  return options.inside
+    .filter(Boolean)
+    .every(element => !element?.contains(target))
+}
+
+const createFluentListenBuilder = <
+  TEvent extends Event,
+  TMapped = TEvent,
+>(options: {
+  mapFromEvent?: (event: TEvent) => TMapped
+  onNoMatch?: (event: TEvent) => AnyAction | undefined
+  predicates?: Array<(event: TEvent, value: TMapped) => boolean>
+  runEffects: (
+    toAction: (event: Event) => AnyAction | undefined,
+  ) => Effect<unknown>[]
+  runPreventDefault?: boolean
+  runStopPropagation?: boolean
+  runOnce?: boolean
+}): FluentDomListenBuilder<TEvent, TMapped> => {
+  const mapFromEvent =
+    options.mapFromEvent ?? ((event: TEvent) => event as unknown as TMapped)
+  const predicates = options.predicates ?? []
+
+  const createNext = <TNext>(next: {
+    mapFromEvent?: (event: TEvent) => TNext
+    onNoMatch?: (event: TEvent) => AnyAction | undefined
+    predicates?: Array<(event: TEvent, value: TNext) => boolean>
+    runOnce?: boolean
+    runPreventDefault?: boolean
+    runStopPropagation?: boolean
+  }) =>
+    createFluentListenBuilder<TEvent, TNext>({
+      mapFromEvent:
+        next.mapFromEvent ??
+        ((event: TEvent) => mapFromEvent(event) as unknown as TNext),
+      onNoMatch: next.onNoMatch ?? options.onNoMatch,
+      predicates:
+        next.predicates ??
+        (predicates as Array<(event: TEvent, value: TNext) => boolean>),
+      runEffects: options.runEffects,
+      runOnce: next.runOnce ?? options.runOnce,
+      runPreventDefault: next.runPreventDefault ?? options.runPreventDefault,
+      runStopPropagation: next.runStopPropagation ?? options.runStopPropagation,
+    })
+
+  return {
+    mapEvent: mapper =>
+      createNext({
+        mapFromEvent: (event: TEvent) => mapper(mapFromEvent(event)),
+      }),
+    noModifiers: () =>
+      createNext({
+        predicates: [...predicates, (event: TEvent) => hasNoModifiers(event)],
+      }),
+    matchesKey: matcher =>
+      createNext({
+        predicates: [
+          ...predicates,
+          (event: TEvent) => matchesKey(event, matcher),
+        ],
+      }),
+    matchesKeyCombo: matcher =>
+      createNext({
+        predicates: [
+          ...predicates,
+          (event: TEvent) => matchesKey(event, matcher),
+        ],
+      }),
+    once: () => createNext({ runOnce: true }),
+    onlyPrimaryButton: () =>
+      createNext({
+        predicates: [
+          ...predicates,
+          (event: TEvent) => isMouseEventLike(event) && event.button === 0,
+        ],
+      }),
+    preventDefault: () => createNext({ runPreventDefault: true }),
+    stopPropagation: () => createNext({ runStopPropagation: true }),
+    when: predicate =>
+      createNext({
+        predicates: [...predicates, predicate],
+      }),
+    withKeyRepeat: () =>
+      createNext({
+        predicates: [
+          ...predicates,
+          (event: TEvent) => isKeyboardEventLike(event) && event.repeat,
+        ],
+      }),
+    withoutKeyRepeat: () =>
+      createNext({
+        predicates: [
+          ...predicates,
+          (event: TEvent) => isKeyboardEventLike(event) && !event.repeat,
+        ],
+      }),
+    chainToAction: (onMatch, onNoMatch) => {
+      let hasTriggered = false
+
+      return options.runEffects((event: Event) => {
+        const typedEvent = event as TEvent
+
+        if (options.runPreventDefault && "preventDefault" in typedEvent) {
+          typedEvent.preventDefault()
+        }
+
+        if (options.runStopPropagation && "stopPropagation" in typedEvent) {
+          typedEvent.stopPropagation()
+        }
+
+        if (options.runOnce && hasTriggered) {
+          return undefined
+        }
+
+        const value = mapFromEvent(typedEvent)
+        const passed = predicates.every(predicate =>
+          predicate(typedEvent, value),
+        )
+
+        if (!passed) {
+          if (onNoMatch) {
+            return onNoMatch(typedEvent)
+          }
+
+          if (options.onNoMatch) {
+            return options.onNoMatch(typedEvent)
+          }
+
+          return undefined
+        }
+
+        hasTriggered = options.runOnce ?? false
+
+        return onMatch(value)
+      })
+    },
+  }
+}
+
+export const isBypassedLinkActivation = (event: MouseEvent): boolean =>
+  event.defaultPrevented ||
+  event.button !== 0 ||
+  event.altKey ||
+  event.ctrlKey ||
+  event.metaKey ||
+  event.shiftKey
+
 const createTargetBuilder = <
   EventMap extends EventMapLike,
   TElement = unknown,
@@ -271,36 +588,36 @@ const createTargetBuilder = <
     ],
     listen: (
       type: string,
-      toAction: (event: Event) => AnyAction,
+      toActionOrOptions?: ((event: Event) => AnyAction) | DomListenOptions,
       eventOptions?: DomListenOptions,
     ) => {
-      let coalesce: DomListenCoalesceMode | undefined
-      let listenerOptions: AddEventListenerOptions | boolean | undefined
+      const createEffects = (
+        toAction: (event: Event) => AnyAction | undefined,
+        listenOptions?: DomListenOptions,
+      ) => {
+        const { coalesce, listenerOptions } = parseListenOptions(listenOptions)
 
-      if (typeof eventOptions === "boolean") {
-        listenerOptions = eventOptions
-      } else if (eventOptions !== undefined) {
-        const { coalesce: parsedCoalesce, ...restOptions } = eventOptions
-
-        coalesce = parsedCoalesce
-
-        if (Object.keys(restOptions).length > 0) {
-          listenerOptions = restOptions
-        }
+        return [
+          builder,
+          domListen({
+            ...(coalesce === undefined ? {} : { coalesce }),
+            ...(listenerOptions === undefined
+              ? {}
+              : { options: listenerOptions }),
+            targetResourceId: options.resourceId,
+            toAction,
+            type,
+          }),
+        ]
       }
 
-      return [
-        builder,
-        domListen({
-          ...(coalesce === undefined ? {} : { coalesce }),
-          ...(listenerOptions === undefined
-            ? {}
-            : { options: listenerOptions }),
-          targetResourceId: options.resourceId,
-          toAction,
-          type,
-        }),
-      ]
+      if (typeof toActionOrOptions === "function") {
+        return createEffects(toActionOrOptions, eventOptions)
+      }
+
+      return createFluentListenBuilder({
+        runEffects: toAction => createEffects(toAction, toActionOrOptions),
+      })
     },
     observeIntersection: (
       observerIdOrToAction:
@@ -395,9 +712,12 @@ const createTargetBuilder = <
     const target = builder as unknown as Record<string, unknown>
 
     target[helperName] = (
-      toAction: (event: Event) => AnyAction,
+      toActionOrOptions?: ((event: Event) => AnyAction) | DomListenOptions,
       eventOptions?: DomListenOptions,
-    ) => builder.listen(type, toAction, eventOptions)
+    ) =>
+      typeof toActionOrOptions === "function"
+        ? builder.listen(type, toActionOrOptions, eventOptions)
+        : builder.listen(type, toActionOrOptions)
   }
 
   return builder
@@ -544,6 +864,40 @@ const createFromBuilder = (scopeResourceId: string): DomFromBuilder => ({
 })
 
 export const dom = {
+  outsideFocusIn: (options: {
+    includeTrigger?: Element | null
+    inside: Array<Element | null | undefined>
+  }) =>
+    createSingletonBuilder<
+      DocumentEventMap,
+      Document,
+      typeof DOCUMENT_EVENT_HELPERS
+    >(DOCUMENT_EVENT_HELPERS, "document", "document")
+      .onFocusIn()
+      .when(event =>
+        isOutsideTarget({
+          event,
+          includeTrigger: options.includeTrigger,
+          inside: options.inside,
+        }),
+      ),
+  outsidePointerDown: (options: {
+    includeTrigger?: Element | null
+    inside: Array<Element | null | undefined>
+  }) =>
+    createSingletonBuilder<
+      DocumentEventMap,
+      Document,
+      typeof DOCUMENT_EVENT_HELPERS
+    >(DOCUMENT_EVENT_HELPERS, "document", "document")
+      .onPointerDown()
+      .when(event =>
+        isOutsideTarget({
+          event,
+          includeTrigger: options.includeTrigger,
+          inside: options.inside,
+        }),
+      ),
   activeElement: (resourceId = "activeElement") =>
     createSingletonBuilder<
       HTMLElementEventMap,

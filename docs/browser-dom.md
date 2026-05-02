@@ -332,6 +332,88 @@ Helpers are type-safe per target and map directly to `.listen(...)`:
 
 For the full event-to-helper mapping table across `window`, `document`, element targets, `visualViewport`, `history`, and `location`, see [DOM Listener Convenience Helper Mappings](dom-listener-helper-mappings.md).
 
+### Fluent listener chains
+
+`listen(...)` and keyboard `onEvent` helpers also support fluent chaining when called without a handler.
+
+```typescript
+import { dom } from "@tdreyno/fizz/browser"
+
+const submitRequested = action("SubmitRequested")
+const ignoredKey = action("IgnoredKey")
+
+const Listening = state({
+  Enter: () =>
+    dom
+      .document()
+      .onKeyPress()
+      .matchesKey("Enter")
+      .chainToAction(submitRequested, ignoredKey),
+})
+```
+
+You can also chain from the low-level listener entrypoint:
+
+```typescript
+dom
+  .document()
+  .listen("keydown")
+  .matchesKey({ key: "Escape", ctrlKey: false, metaKey: false })
+  .chainToAction(closeRequested)
+```
+
+Available fluent helpers in this release:
+
+- `matchesKey("Enter" | matcher)`
+- `matchesKeyCombo({ key, ctrlKey?, metaKey?, altKey?, shiftKey? })`
+- `onlyPrimaryButton()`
+- `noModifiers()`
+- `preventDefault()`
+- `stopPropagation()`
+- `withKeyRepeat()` / `withoutKeyRepeat()`
+- `once()`
+- `when(predicate)`
+- `mapEvent(mapper)`
+
+### Outside helpers
+
+For common dismissal flows, use document-scoped helpers:
+
+```typescript
+const dismissRequested = action("DismissRequested")
+const ignorePointer = action("IgnorePointer")
+
+const Listening = state({
+  Enter: () =>
+    dom
+      .outsidePointerDown({ inside: [menuRoot], includeTrigger: menuButton })
+      .chainToAction(dismissRequested, ignorePointer),
+})
+```
+
+```typescript
+dom
+  .outsideFocusIn({ inside: [menuRoot], includeTrigger: menuButton })
+  .chainToAction(dismissFromFocus)
+```
+
+### Link bypass helper
+
+Use `isBypassedLinkActivation(event)` when intercepting link clicks for in-app routing.
+
+```typescript
+import { isBypassedLinkActivation } from "@tdreyno/fizz/browser"
+
+function onDocumentClick(event: MouseEvent) {
+  if (isBypassedLinkActivation(event)) {
+    return
+  }
+
+  event.preventDefault()
+  runtime.run(navigateRequested())
+}
+```
+
 ## Observers
 
 Fizz supports both `IntersectionObserver` and `ResizeObserver` with state-scoped lifecycle management.

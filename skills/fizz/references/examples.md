@@ -241,6 +241,59 @@ const machine = useMachine(FlowMachine, FlowMachine.states.Ready(), {
 })
 ```
 
+## Fluent keyboard chain with onKeyPress
+
+```typescript
+import { action, state } from "@tdreyno/fizz"
+import { dom } from "@tdreyno/fizz/browser"
+
+const submitRequested = action("SubmitRequested")
+const ignoredKey = action("IgnoredKey")
+
+const Listening = state({
+  Enter: () =>
+    dom
+      .document()
+      .onKeyPress()
+      .matchesKey("Enter")
+      .chainToAction(submitRequested, ignoredKey),
+})
+```
+
+## Outside pointer dismissal helper
+
+```typescript
+import { action, state } from "@tdreyno/fizz"
+import { dom } from "@tdreyno/fizz/browser"
+
+const dismissRequested = action("DismissRequested")
+
+const Listening = state({
+  Enter: () =>
+    dom
+      .outsidePointerDown({
+        inside: [menuRoot, panelRoot],
+        includeTrigger: menuButton,
+      })
+      .chainToAction(dismissRequested),
+})
+```
+
+## Link bypass helper for routing interception
+
+```typescript
+import { isBypassedLinkActivation } from "@tdreyno/fizz/browser"
+
+function onLinkClick(event: MouseEvent) {
+  if (isBypassedLinkActivation(event)) {
+    return
+  }
+
+  event.preventDefault()
+  runtime.run(navigateRequested())
+}
+```
+
 ## Confirm flow with dedicated state
 
 ```typescript

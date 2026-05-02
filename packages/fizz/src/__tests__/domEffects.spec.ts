@@ -1,7 +1,47 @@
 import { describe, expect, test } from "@jest/globals"
 
 import { action } from "../action.js"
-import { dom } from "../browser/domEffects.js"
+import { dom, isBypassedLinkActivation } from "../browser/domEffects.js"
+
+const keyboardEventLike = (
+  key: string,
+  options?: {
+    altKey?: boolean
+    ctrlKey?: boolean
+    metaKey?: boolean
+    repeat?: boolean
+    shiftKey?: boolean
+  },
+) =>
+  ({
+    altKey: options?.altKey ?? false,
+    ctrlKey: options?.ctrlKey ?? false,
+    key,
+    metaKey: options?.metaKey ?? false,
+    repeat: options?.repeat ?? false,
+    shiftKey: options?.shiftKey ?? false,
+  }) as unknown as KeyboardEvent
+
+const nodeLike = (parent?: { parentElement: unknown }) =>
+  ({
+    contains(target: unknown) {
+      let current = target as { parentElement?: unknown } | undefined
+
+      while (current) {
+        if (current === this) {
+          return true
+        }
+
+        current = current.parentElement as
+          | { parentElement?: unknown }
+          | undefined
+      }
+
+      return false
+    },
+    nodeType: 1,
+    parentElement: parent,
+  }) as unknown as Element
 
 describe("dom effects", () => {
   test("creates singleton acquires with default and custom ids", () => {
@@ -162,6 +202,190 @@ describe("dom effects", () => {
     const missingHelper: ReturnType<typeof dom.location>["onPopState"] = null
 
     expect(missingHelper).toBeNull()
+  })
+
+  test("no-handler chaining works on listen and onEVENT helpers", () => {
+    const matched = action("Matched")
+    const fallback = action("Fallback")
+
+    const genericListenEffects = dom
+      .document()
+      .listen("click")
+      .chainToAction(matched, fallback)
+
+    expect(genericListenEffects[1]?.data).toEqual({
+      targetResourceId: "document",
+      toAction: expect.any(Function),
+      type: "click",
+    })
+
+    const onEventEffects = dom
+      .window()
+      .onMouseDown()
+      .onlyPrimaryButton()
+      .chainToAction(matched, fallback)
+
+    expect(onEventEffects[1]?.data).toEqual({
+      targetResourceId: "window",
+      toAction: expect.any(Function),
+      type: "mousedown",
+    })
+
+    const historyEffects = dom
+      .history()
+      .onPopState()
+      .chainToAction(matched, fallback)
+
+    expect(historyEffects[1]?.data).toEqual({
+      targetResourceId: "history",
+      toAction: expect.any(Function),
+      type: "popstate",
+    })
+
+    const locationEffects = dom
+      .location()
+      .onHashChange()
+      .chainToAction(matched, fallback)
+
+    expect(locationEffects[1]?.data).toEqual({
+      targetResourceId: "location",
+      toAction: expect.any(Function),
+      type: "hashchange",
+    })
+  })
+
+  test("listen supports fluent keyboard chaining with matchesKey", () => {
+    const matched = action("Matched")
+    const ignored = action("Ignored")
+
+    const effects = dom
+      .document()
+      .listen("keydown")
+      .matchesKey("Enter")
+      .chainToAction(matched, ignored)
+
+    expect(effects[1]?.label).toBe("domListen")
+    expect(effects[1]?.data).toEqual({
+      targetResourceId: "document",
+      toAction: expect.any(Function),
+      type: "keydown",
+    })
+
+    const toAction = effects[1]?.data?.toAction as
+      | ((
+          event: Event,
+        ) =>
+          | ReturnType<typeof matched>
+          | ReturnType<typeof ignored>
+          | undefined)
+      | undefined
+
+    expect(toAction?.(keyboardEventLike("Enter"))?.type).toBe("Matched")
+    expect(toAction?.(keyboardEventLike("Escape"))?.type).toBe("Ignored")
+  })
+
+  test("onKeyPress supports no-handler fluent chain and optional no-match", () => {
+    const matched = action("Matched")
+
+    const effects = dom
+      .document()
+      .onKeyPress()
+      .matchesKey("Enter")
+      .chainToAction(matched)
+
+    expect(effects[1]?.data).toEqual({
+      targetResourceId: "document",
+      toAction: expect.any(Function),
+      type: "keypress",
+    })
+
+    const toAction = effects[1]?.data?.toAction as
+      | ((event: Event) => ReturnType<typeof matched> | undefined)
+      | undefined
+
+    expect(toAction?.(keyboardEventLike("Enter"))?.type).toBe("Matched")
+    expect(toAction?.(keyboardEventLike("Escape"))).toBeUndefined()
+  })
+
+  test("outsidePointerDown and outsideFocusIn helpers chain as document listeners", () => {
+    const outside = action("Outside")
+    const inside = action("Inside")
+
+    const root = nodeLike()
+    const child = nodeLike(root)
+    const trigger = nodeLike()
+    const external = nodeLike()
+
+    const pointerEffects = dom
+      .outsidePointerDown({ includeTrigger: trigger, inside: [root] })
+      .chainToAction(outside, inside)
+
+    expect(pointerEffects[1]?.data).toEqual({
+      targetResourceId: "document",
+      toAction: expect.any(Function),
+      type: "pointerdown",
+    })
+
+    const pointerToAction = pointerEffects[1]?.data?.toAction as
+      | ((
+          event: Event,
+        ) => ReturnType<typeof outside> | ReturnType<typeof inside> | undefined)
+      | undefined
+
+    expect(pointerToAction?.({ target: child } as unknown as Event)?.type).toBe(
+      "Inside",
+    )
+    expect(
+      pointerToAction?.({ target: trigger } as unknown as Event)?.type,
+    ).toBe("Inside")
+    expect(
+      pointerToAction?.({ target: external } as unknown as Event)?.type,
+    ).toBe("Outside")
+
+    const focusEffects = dom
+      .outsideFocusIn({ includeTrigger: trigger, inside: [root] })
+      .chainToAction(outside, inside)
+
+    expect(focusEffects[1]?.data).toEqual({
+      targetResourceId: "document",
+      toAction: expect.any(Function),
+      type: "focusin",
+    })
+  })
+
+  test("isBypassedLinkActivation matches common SPA bypass checks", () => {
+    expect(
+      isBypassedLinkActivation({
+        altKey: false,
+        button: 0,
+        ctrlKey: false,
+        defaultPrevented: false,
+        metaKey: false,
+        shiftKey: false,
+      } as MouseEvent),
+    ).toBe(false)
+
+    expect(
+      isBypassedLinkActivation({
+        altKey: false,
+        button: 1,
+        ctrlKey: false,
+        defaultPrevented: false,
+        metaKey: false,
+        shiftKey: false,
+      } as MouseEvent),
+    ).toBe(true)
+
+    expect(
+      isBypassedLinkActivation({
+        altKey: false,
+        button: 0,
+        ctrlKey: true,
+        defaultPrevented: false,
+        metaKey: false,
+        shiftKey: false,
+      } as MouseEvent),
+    ).toBe(true)
   })
 
   test("mutate and resource preserve target resource id", () => {
