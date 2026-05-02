@@ -1,10 +1,16 @@
+import { registerRuntimeBrowserModuleFactory } from "../runtime/runtimeBrowserModuleRegistry.js"
 import type {
   RuntimeBrowserDriver,
   RuntimeDomDriver,
 } from "./runtimeBrowserDriver.js"
+import { createRuntimeBrowserModule } from "./runtimeBrowserModule.js"
 
 export * from "./domEffects.js"
 export type { RuntimeDomDriver } from "./runtimeBrowserDriver.js"
+
+registerRuntimeBrowserModuleFactory(options =>
+  createRuntimeBrowserModule(options),
+)
 
 const assertBrowserMethod = <T>(
   methodName: string,

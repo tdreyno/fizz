@@ -6,6 +6,8 @@ export default defineConfig({
     cli: "src/cli.ts",
     fluent: "src/fluent.ts",
     index: "src/index.ts",
+    nested: "src/nested.ts",
+    parallel: "src/parallel.ts",
     test: "src/test.ts",
   },
   outDir: "dist",

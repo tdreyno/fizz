@@ -25,3 +25,13 @@ jobs:
       - run: npm run build
       - run: npm run test:ci
       - run: npm run test:npm
+      - name: Generate size report
+        if: matrix.node == '20'
+        run: npm run size:report
+      - name: Upload size report artifacts
+        if: matrix.node == '20'
+        uses: actions/upload-artifact@v4
+        with:
+          name: size-report
+          path: |
+            size-reports/latest.md

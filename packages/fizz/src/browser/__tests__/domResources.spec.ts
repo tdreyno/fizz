@@ -1,3 +1,5 @@
+import "../index"
+
 import { describe, expect, test } from "@jest/globals"
 
 import type { Enter } from "../../action"

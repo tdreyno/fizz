@@ -1,7 +1,7 @@
 import { enter } from "../action"
 import { createInitialContext } from "../context"
+import { NESTED } from "../nested"
 import { Runtime } from "../runtime"
-import { NESTED } from "../state"
 import { Actions, States } from "./nestedMachine"
 import { setName } from "./nestedMachine/actions"
 import { timeout } from "./util"

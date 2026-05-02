@@ -1,3 +1,5 @@
+import "../index"
+
 import { describe, expect, jest, test } from "@jest/globals"
 
 import type { ActionCreatorType, Enter } from "../../action"

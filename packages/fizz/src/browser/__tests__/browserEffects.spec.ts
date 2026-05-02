@@ -1,3 +1,5 @@
+import "../index"
+
 import { jest } from "@jest/globals"
 
 import { timeout } from "../../__tests__/util"

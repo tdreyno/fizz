@@ -26,6 +26,8 @@ coverage
 out/
 build
 dist
+size-reports/generated/
+size-reports/latest.md
 
 
 # Debug

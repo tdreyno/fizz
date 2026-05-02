@@ -40,6 +40,16 @@
       "import": "./dist/browser.js",
       "require": "./dist/browser.cjs"
     },
+    "./nested": {
+      "types": "./dist/nested.d.ts",
+      "import": "./dist/nested.js",
+      "require": "./dist/nested.cjs"
+    },
+    "./parallel": {
+      "types": "./dist/parallel.d.ts",
+      "import": "./dist/parallel.js",
+      "require": "./dist/parallel.cjs"
+    },
     "./test": {
       "types": "./dist/test.d.ts",
       "import": "./dist/test.js",

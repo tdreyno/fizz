@@ -1,5 +1,4 @@
 import type { RuntimeBrowserDriver } from "../browser/runtimeBrowserDriver.js"
-import { createRuntimeBrowserModule } from "../browser/runtimeBrowserModule.js"
 import type { Context } from "../context.js"
 import type { Runtime } from "../runtime.js"
 import type { RuntimeAsyncDriver } from "./asyncDriver.js"
@@ -10,6 +9,8 @@ import {
   registerEffectHandlers,
 } from "./effectDispatcher.js"
 import { createRuntimeAsyncModule } from "./runtimeAsyncModule.js"
+import { createRuntimeBrowserGuardModule } from "./runtimeBrowserGuardModule.js"
+import { getRuntimeBrowserModuleFactory } from "./runtimeBrowserModuleRegistry.js"
 import type { RuntimeCommandHandlers } from "./runtimeCommandModule.js"
 import { createRuntimeCommandModule } from "./runtimeCommandModule.js"
 import type {
@@ -70,13 +71,17 @@ export const createRuntimeModules = <OutputAction>(
     runAction: options.runAction,
     timerDriver: options.timerDriver,
   })
-  const browserModule = createRuntimeBrowserModule({
-    ...(options.browserDriver === undefined
-      ? {}
-      : { browserDriver: options.browserDriver }),
-    getCurrentState: options.currentState,
-    runAction: options.runAction,
-  })
+  const browserModuleFactory = getRuntimeBrowserModuleFactory()
+  const browserModule =
+    browserModuleFactory === undefined
+      ? createRuntimeBrowserGuardModule()
+      : browserModuleFactory({
+          ...(options.browserDriver === undefined
+            ? {}
+            : { browserDriver: options.browserDriver }),
+          getCurrentState: options.currentState,
+          runAction: options.runAction,
+        })
   const commandModule = createRuntimeCommandModule({
     actionCommand: options.actionCommand,
     commandHandlers: options.commandHandlers,
