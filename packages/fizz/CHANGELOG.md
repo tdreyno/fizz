@@ -1,5 +1,21 @@
 # @tdreyno/fizz
 
+## 8.10.0
+
+### Minor Changes
+
+- 4c0fe89: Add `dom.fromElement(resourceId, element)` to `@tdreyno/fizz/browser`.
+
+  This new DOM acquire helper wraps an already-known element reference as a state-scoped DOM resource, so it can use the same fluent APIs as other DOM builders (`mutate`, `listen`, `observeIntersection`, `observeResize`, and `resource`).
+
+  This is useful when handlers already carry an element reference (for example, drag interactions) and still want explicit, chained DOM effects with normal Fizz resource lifecycle behavior.
+
+- b364b6e: Add two runtime behavior upgrades to `@tdreyno/fizz`:
+  - DOM listener coalescing in `@tdreyno/fizz/browser` via `dom.listen(..., { coalesce })` with support for `"none"`, `"animation-frame"`, and `"microtask"`.
+  - Latest-only keyed command scheduling for command effects via `commandEffect(..., { latestOnlyKey })` and `commandChannel(...).command(..., { latestOnlyKey })`, so pending same-key commands in the same channel are replaced by the newest queued command.
+
+  These updates improve high-frequency UI event handling and reduce stale queued imperative command work.
+
 ## 8.9.0
 
 ### Minor Changes
