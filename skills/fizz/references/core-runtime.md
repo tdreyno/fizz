@@ -14,6 +14,7 @@ The main Fizz package exports its public surface from `packages/fizz/src/index.t
 - state helpers from `state.ts`
 - selector helpers from `selectors.ts`
 - parallel composition helpers from `parallelMachine.ts`
+- external store wiring from `connectExternalSnapshot.ts`
 
 When answering API questions, prefer the exported surface over internal implementation details.
 
@@ -30,6 +31,8 @@ A Fizz machine is built from these pieces:
 Fizz works best when handlers are easy to read and each accepted action has a clear outcome.
 
 For output map aliases, command-channel emission APIs, and runtime output channel subscriptions, continue with `output-actions.md`.
+
+For wiring an external store (Redux, Zustand, custom observable) into the runtime action stream with built-in distinct-until-changed and loop guard, use `connectExternalSnapshot` — continue with `store-sync-adapter.md`.
 
 ## State Design
 

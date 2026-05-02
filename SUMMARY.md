@@ -23,6 +23,7 @@
 - [Custom Effects](docs/custom-effects.md)
 - [Output Actions](docs/output-actions.md)
 - [State Resources](docs/resources.md)
+- [Store Sync Adapter](docs/store-sync-adapter.md)
 - [Complex Actions](docs/complex-actions.md)
 - [Dispatch And Read](docs/dispatch-and-read.md)
 - [Fluent API](docs/fluent-api.md)
