@@ -1,5 +1,152 @@
 # @tdreyno/fizz
 
+## 8.11.0
+
+### Minor Changes
+
+- b8d3611: Add a new `@tdreyno/fizz/test/browser` entrypoint for platform-agnostic browser runtime tests.
+
+  New testing APIs include:
+  - `createBrowserTestHarness(...)`
+  - `fireEvent(target, type, init?)`
+  - `fireClick(target, init?)`
+  - `fireInput(target, init?)`
+  - `fireChange(target, init?)`
+  - `fireSubmit(target, init?)`
+  - `flushFrames(harness, count, frameMs?)`
+  - `firePointerDown(target, init?)`
+  - `firePointerMove(target, init?)`
+  - `firePointerUp(target, init?)`
+  - `fireFocusIn(target, init?)`
+  - `fireFocusOut(target, init?)`
+  - `fireKeyDown(target, init?)`
+  - `fireKeyUp(target, init?)`
+  - `firePointerDrag(target, options?)`
+  - `fireTextInput(target, options)`
+  - `fireFormSubmit(target, options?)`
+  - `expectCommandOrder(harness, expectedTypes)`
+
+  The browser harness accepts an explicit `document` and exposes framework-agnostic recorded browser-effect stubs through `harness.browserDriver`, making the helper usable from Jest, Vitest, and `node:test` setups.
+
+- 8150308: ### Breaking: `commandChannel` — channel-level scheduling policy replaces per-call `latestOnlyKey`
+
+  The per-call `latestOnlyKey` option on `commandChannel(...).command(type, payload, options?)` has been removed. Scheduling behaviour is now declared once when the channel is created.
+
+  #### Migration
+
+  **Before**
+
+  ```ts
+  const editor = commandChannel<Commands, "notesEditor">("notesEditor")
+
+  editor.command(
+    "setDocument",
+    { document },
+    { latestOnlyKey: "editor-setDocument" },
+  )
+  ```
+
+  **After**
+
+  ```ts
+  const editor = commandChannel<Commands, "notesEditor">("notesEditor", {
+    scheduling: { mode: "replace-pending", keyPrefix: "editor" },
+  })
+
+  editor.command("setDocument", { document })
+  // coalescing key is derived automatically as "editor-setDocument"
+  ```
+
+  #### Three scheduling modes
+
+  | Mode                                   | Behaviour                                                                                  |
+  | -------------------------------------- | ------------------------------------------------------------------------------------------ |
+  | `"fifo"` (default)                     | Commands run in arrival order; nothing is dropped                                          |
+  | `"replace-pending"`                    | A queued (not yet running) command is replaced by a newer one with the same coalescing key |
+  | `"replace-pending-and-cancel-running"` | Same as above, plus the currently executing handler has its `AbortSignal` aborted          |
+
+  Per-command key overrides are supported via `commands.<type>.key`.
+
+  #### Breaking: handler signature now receives `{ signal: AbortSignal }` as second argument
+
+  All command handlers now receive a second argument containing an `AbortSignal`:
+
+  **Before**
+
+  ```ts
+  const commandHandlers = {
+    drag: {
+      async updatePreview(payload) {
+        /* ... */
+      },
+    },
+  }
+  ```
+
+  **After**
+
+  ```ts
+  const commandHandlers = {
+    drag: {
+      async updatePreview(payload, { signal }) {
+        await waitForFrame(signal)
+        if (signal.aborted) return
+        applyDragPreview(payload)
+      },
+    },
+  }
+  ```
+
+  The signal is only aborted when using `"replace-pending-and-cancel-running"` mode. For `"fifo"` and `"replace-pending"` the signal is never aborted; existing handlers that ignore the second argument continue to work without changes (TypeScript will surface the new parameter in typed handler maps, requiring the signature to be updated).
+
+  #### Payload-less commands
+
+  Commands whose schema declares `payload: void | undefined` may now be called without a payload argument:
+
+  ```ts
+  const uiCommands = commandChannel<Commands, "toolbar">("toolbar")
+  uiCommands.command("focusToggle") // no payload argument required
+  ```
+
+- c57fa10: Add typed DOM listener convenience helpers on resource builders, mapping valid `addEventListener` keys to `onX` methods.
+
+  Examples:
+  - `dom.document().onMouseDown(handler)`
+  - `dom.window().onResize(handler)`
+  - `dom.history().onPopState(handler)`
+  - `dom.location().onHashChange(handler)`
+
+  Each helper is type-safe per target event map and delegates to `.listen(...)` with the matching event name.
+
+- 5d1f1c7: Add fluent DOM listener helper chaining for browser event handling.
+
+  New browser APIs include:
+  - `dom.document().onKeyPress().matchesKey(...).chainToAction(...)` (and the same pattern from `listen(...)`, `onKeyDown()`, and `onKeyUp()`)
+  - `dom.outsidePointerDown(...)` and `dom.outsideFocusIn(...)` for document-scoped outside checks
+  - `isBypassedLinkActivation(event)` for SPA link interception bypass checks
+
+  The existing `listen(type, handler, options?)` and `onEvent(handler, options?)` forms remain supported.
+
+- 87344ba: Add runtime teardown diagnostics APIs for tests and debugging.
+
+  New runtime methods:
+  - `runtime.getDiagnosticsSnapshot()` to inspect active listeners, resources, timers, async operations, and command channel queues
+  - `runtime.assertCleanTeardown(options?)` to throw when disallowed diagnostics groups remain active
+
+  This release also adds diagnostics coverage tests and updates docs/skill references for teardown assertions.
+
+- 8159c53: Add `connectExternalSnapshot()` for standardized external store wiring.
+
+  New API:
+  - `connectExternalSnapshot(options)` — subscribes to an external store, selects a snapshot slice, and dispatches a Fizz action whenever the snapshot changes
+  - `ConnectExternalSnapshotOptions<StoreState, Snapshot>` — typed options interface
+
+  Built-in behaviors:
+  - distinct-until-changed via configurable `equality` (defaults to `Object.is`)
+  - optional `emitInitial` to dispatch on first connect
+  - optional `loopGuard` to suppress re-dispatch when a machine write-back produces the same snapshot key
+  - auto-cleanup when `runtime.disconnect()` is called
+
 ## 8.10.1
 
 ### Patch Changes
