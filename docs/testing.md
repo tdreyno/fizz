@@ -202,6 +202,90 @@ The exported shape is:
 
 This subpath is preferred over adding test helpers to the root package export surface because it keeps production imports and test-only imports clearly separated.
 
+## Browser Runtime Tests
+
+When a machine uses `dom.listen(...)`, DOM acquisition helpers, or frame coalescing, prefer the browser-focused test subpath:
+
+```ts
+import {
+  createBrowserTestHarness,
+  expectCommandOrder,
+  firePointerDrag,
+  fireTextInput,
+  flushFrames,
+} from "@tdreyno/fizz/test/browser"
+import { JSDOM } from "jsdom"
+
+const testDom = new JSDOM(
+  '<body><form><input name="query" /><button type="button">Save</button></form></body>',
+)
+const harness = createBrowserTestHarness({
+  document: testDom.window.document,
+  history: [Editing({ events: [] })],
+  internalActions: { pointerMoved, submitted, valueChanged },
+})
+
+const inputNode = testDom.window.document.querySelector("input")
+const buttonNode = testDom.window.document.querySelector("button")
+
+if (!(inputNode instanceof testDom.window.HTMLInputElement)) {
+  throw new TypeError("Expected input")
+}
+
+if (!(buttonNode instanceof testDom.window.HTMLButtonElement)) {
+  throw new TypeError("Expected button")
+}
+
+await harness.start()
+fireTextInput(inputNode, { value: "Ada" })
+firePointerDrag(harness.document, {
+  moves: [{ clientX: 8 }],
+  start: { clientX: 2, target: buttonNode },
+})
+await flushFrames(harness, 1)
+
+expectCommandOrder(harness, ["Submitted"])
+```
+
+The browser test subpath is intentionally test-runner agnostic:
+
+- it accepts an explicit `document`, so tests can use Jest + jsdom, Vitest + happy-dom/jsdom, or `node:test` with a manually created DOM
+- side-effect methods such as `confirm(...)` and `prompt(...)` are recorded by the harness itself rather than by `jest.fn()` or `vi.fn()`
+- `expectCommandOrder(...)` throws on mismatches instead of depending on a framework matcher API
+
+The exported browser helpers are:
+
+- `createBrowserTestHarness(...)`
+- `fireEvent(target, type, init?)`
+- `fireClick(target, init?)`
+- `fireInput(target, init?)`
+- `fireChange(target, init?)`
+- `fireSubmit(target, init?)`
+- `flushFrames(harness, count, frameMs?)`
+- `firePointerDown(target, init?)`
+- `firePointerMove(target, init?)`
+- `firePointerUp(target, init?)`
+- `fireFocusIn(target, init?)`
+- `fireFocusOut(target, init?)`
+- `fireKeyDown(target, init?)`
+- `fireKeyUp(target, init?)`
+- `firePointerDrag(target, options?)`
+- `fireTextInput(target, options)`
+- `fireFormSubmit(target, options?)`
+- `expectCommandOrder(harness, expectedTypes)`
+
+The intended shape is:
+
+- use `fireEvent(...)` when the event is uncommon and constructor inference is good enough
+- use the typed wrappers when tests care about `key`, `clientX`, `submitter`, or similar event-specific fields
+- use the sequence helpers when the test is modeling user interactions rather than isolated DOM dispatches
+
+The returned harness extends `createTestHarness(...)` with:
+
+- `document`
+- `browserDriver`, whose effect methods expose `calls` and `mockReturnValue(...)`
+- `flushFrames(...)` as a convenience alias for `advanceFrames(...)`
+
 ## Waiting Helpers In The Harness
 
 The harness waiting helpers remove the most common `onContextChange(...)` and `onOutput(...)` boilerplate:

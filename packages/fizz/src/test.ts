@@ -1,5 +1,6 @@
 import type { Action } from "./action.js"
 import { enter } from "./action.js"
+import type { RuntimeBrowserDriver } from "./browser/runtimeBrowserDriver.js"
 import type { Context, History } from "./context.js"
 import { createInitialContext } from "./context.js"
 import type {
@@ -60,6 +61,7 @@ export type TestHarnessOptions<
   AM extends TestActionMap,
   OAM extends TestActionMap,
 > = {
+  browserDriver?: RuntimeBrowserDriver
   history: Array<State>
   internalActions?: AM
   outputActions?: OAM
@@ -190,7 +192,13 @@ export const createTestHarness = <
     context,
     (options.internalActions ?? {}) as AM,
     (options.outputActions ?? {}) as OAM,
-    { asyncDriver, timerDriver },
+    {
+      asyncDriver,
+      ...(options.browserDriver === undefined
+        ? {}
+        : { browserDriver: options.browserDriver }),
+      timerDriver,
+    },
   )
   const recordedStates: Array<TestStateSnapshot<State>> =
     options.recordStates === false ? [] : [createStateSnapshot<State>(context)]

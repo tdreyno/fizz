@@ -12,6 +12,7 @@ export default defineConfig({
     parallel: "src/parallel.ts",
     registry: "src/registry.ts",
     test: "src/test.ts",
+    testBrowser: "src/test.browser.ts",
   },
   outDir: "dist",
   platform: "neutral",

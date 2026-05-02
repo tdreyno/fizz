@@ -98,6 +98,53 @@ The intended direction is a dedicated test helper subpath:
 
 This is current API surface for reusable Fizz testing helpers.
 
+## Browser Testing Entry Point
+
+Use `@tdreyno/fizz/test/browser` when a machine depends on `dom.listen(...)`, DOM acquisition, or animation-frame coalescing.
+
+Exports:
+
+- `createBrowserTestHarness(...)`
+- `fireEvent(target, type, init?)`
+- `fireClick(target, init?)`
+- `fireInput(target, init?)`
+- `fireChange(target, init?)`
+- `fireSubmit(target, init?)`
+- `flushFrames(harness, count, frameMs?)`
+- `firePointerDown(target, init?)`
+- `firePointerMove(target, init?)`
+- `firePointerUp(target, init?)`
+- `fireFocusIn(target, init?)`
+- `fireFocusOut(target, init?)`
+- `fireKeyDown(target, init?)`
+- `fireKeyUp(target, init?)`
+- `firePointerDrag(target, options?)`
+- `fireTextInput(target, options)`
+- `fireFormSubmit(target, options?)`
+- `expectCommandOrder(harness, expectedTypes)`
+
+The browser harness extends the base test harness with:
+
+- `document`
+- `browserDriver`
+- `flushFrames(...)`
+
+`browserDriver` uses framework-agnostic recorded methods for browser side effects such as `confirm(...)`, `prompt(...)`, and `copyToClipboard(...)`.
+
+Each recorded method exposes:
+
+- `calls`
+- `mockReturnValue(value)`
+- `reset()`
+
+This keeps the helper portable across Jest, Vitest, and `node:test` without relying on `jest.fn()` or `vi.fn()`.
+
+Recommended usage:
+
+- use `fireEvent(...)` for uncommon DOM events where constructor inference is sufficient
+- use the typed wrappers when tests need event-specific fields like `key`, `clientX`, or `submitter`
+- use `firePointerDrag(...)`, `fireTextInput(...)`, and `fireFormSubmit(...)` when the test is modeling higher-level user interactions
+
 ## Harness Waiting Helpers
 
 Use the harness waiting helpers when a test should pause until machine activity settles, a state appears, or an output is emitted.
@@ -142,6 +189,8 @@ expect(harness.resources().keys).toEqual([])
 - `packages/fizz/src/runtime.ts`
 - `packages/fizz/src/runtime/asyncDriver.ts`
 - `packages/fizz/src/runtime/timerDriver.ts`
+- `packages/fizz/src/test.browser.ts`
 - `packages/fizz/src/__tests__/async.spec.ts`
 - `packages/fizz/src/__tests__/timers.spec.ts`
+- `packages/fizz/src/__tests__/testBrowserHarness.spec.ts`
 - `docs/testing.md`
