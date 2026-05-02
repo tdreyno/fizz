@@ -1,5 +1,24 @@
 # @tdreyno/fizz
 
+## 8.8.0
+
+### Minor Changes
+
+- 623b4f3: Add command-channel ergonomics for imperative command effects.
+  - Add `commandChannel(...)` helper for channel-bound command creation.
+  - Add `commandChannel(...).command(type, payload)` as a DRY wrapper over `commandEffect(...)`.
+  - Add `commandChannel(...).batch(commands, options?)` as a DRY wrapper over `effectBatch(...)` with bound channel.
+  - Keep behavior unchanged from existing `commandEffect(...)` + `effectBatch(...)` runtime semantics.
+
+### Patch Changes
+
+- bb44320: Improve `fizz machines` and `fizz visualize` machine/state discovery to be export-agnostic and support single-file JavaScript machines.
+  - Discover `createMachine(...)` roots without requiring `export default`.
+  - Support named-exported and unexported top-level machine constants.
+  - Resolve state entries from inline/local/imported state objects without requiring a specific export shape.
+  - Include `.js` and `.jsx` sources in CLI machine discovery.
+  - Preserve existing multi-file state-index visualization behavior while adding single-file inline-state graph support.
+
 ## 8.7.0
 
 ### Minor Changes
