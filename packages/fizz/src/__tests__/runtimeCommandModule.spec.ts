@@ -135,6 +135,84 @@ describe("runtime command module", () => {
     expect(runAction).toHaveBeenCalledWith(rejected("failed"))
   })
 
+  test("maps synchronous command failures through reject handlers", () => {
+    const rejected = action("Rejected").withPayload<string>()
+    const module = createRuntimeCommandModule({
+      actionCommand: action => ({ action, kind: "action" }),
+      commandHandlers: {
+        notes: {
+          save: () => {
+            throw new Error("nope")
+          },
+        },
+      },
+      emitMonitor: () => undefined,
+      emitOutput: () => undefined,
+      missingHandlerPolicy: "noop",
+      runAction: async () => undefined,
+    })
+
+    const commandHandler = module.effectHandlers.get("commandEffect")
+
+    expect(
+      commandHandler!({
+        data: {
+          channel: "notes",
+          commandType: "save",
+          handlers: {
+            reject: () => rejected("failed-sync"),
+            resolve: () => undefined,
+          },
+          payload: { id: "1" },
+        },
+        label: "commandEffect",
+      } as never),
+    ).toEqual([
+      {
+        action: rejected("failed-sync"),
+        kind: "action",
+      },
+    ])
+  })
+
+  test("routes async command success through resolve handlers", async () => {
+    const resolved = action("Resolved").withPayload<string>()
+    const runAction = jest.fn(async () => undefined)
+    const module = createRuntimeCommandModule({
+      actionCommand: action => ({ action, kind: "action" }),
+      commandHandlers: {
+        notes: {
+          save: async () => "ok-async",
+        },
+      },
+      emitMonitor: () => undefined,
+      emitOutput: () => undefined,
+      missingHandlerPolicy: "noop",
+      runAction,
+    })
+
+    const commandHandler = module.effectHandlers.get("commandEffect")
+
+    expect(
+      commandHandler!({
+        data: {
+          channel: "notes",
+          commandType: "save",
+          handlers: {
+            reject: () => undefined,
+            resolve: (value: string) => resolved(value),
+          },
+          payload: { id: "1" },
+        },
+        label: "commandEffect",
+      } as never),
+    ).toEqual([])
+
+    await waitFor(() => runAction.mock.calls.length >= 1)
+
+    expect(runAction).toHaveBeenCalledWith(resolved("ok-async"))
+  })
+
   test("supports warn and error policies for missing command handlers", () => {
     const warnSpy = jest
       .spyOn(console, "warn")
@@ -516,5 +594,302 @@ describe("runtime command module", () => {
 
     // id "1" completes (was running), id "3" runs next, id "2" was replaced
     expect(executions).toEqual(["1", "3"])
+  })
+
+  test("latestOnlyKey: queued command failures route through reject action", async () => {
+    const rejected = action("Rejected").withPayload<string>()
+    const runAction = jest.fn(async () => undefined)
+
+    const module = createRuntimeCommandModule({
+      actionCommand: action => ({ action, kind: "action" }),
+      commandHandlers: {
+        drag: {
+          updatePreview: async () => {
+            throw new Error("queue-fail")
+          },
+        },
+      },
+      emitMonitor: () => undefined,
+      emitOutput: () => undefined,
+      missingHandlerPolicy: "noop",
+      runAction,
+    })
+
+    const commandHandler = module.effectHandlers.get("commandEffect")!
+
+    commandHandler({
+      data: {
+        channel: "drag",
+        commandType: "updatePreview",
+        handlers: {
+          reject: reason =>
+            rejected(reason instanceof Error ? reason.message : "unknown"),
+          resolve: () => undefined,
+        },
+        latestOnlyKey: "drag-preview",
+        payload: { id: "1" },
+      },
+      label: "commandEffect",
+    } as never)
+
+    await waitFor(() => runAction.mock.calls.length >= 1)
+
+    expect(runAction).toHaveBeenCalledWith(rejected("queue-fail"))
+  })
+
+  test("effectBatch: failBatch stops processing after first command failure", async () => {
+    const done = action("BatchDone")
+    const failed = action("BatchFailed")
+    const secondResolved = action("SecondResolved")
+    const runAction = jest.fn(async () => undefined)
+
+    const module = createRuntimeCommandModule({
+      actionCommand: action => ({ action, kind: "action" }),
+      commandHandlers: {
+        notes: {
+          fail: async () => {
+            throw new Error("nope")
+          },
+          second: async () => "ok",
+        },
+      },
+      emitMonitor: () => undefined,
+      emitOutput: () => undefined,
+      missingHandlerPolicy: "noop",
+      runAction,
+    })
+
+    const effectBatchHandler = module.effectHandlers.get("effectBatch")
+
+    expect(
+      effectBatchHandler!({
+        data: {
+          channel: "channel-a",
+          effects: [
+            {
+              data: {
+                channel: "notes",
+                commandType: "fail",
+                handlers: {
+                  reject: () => undefined,
+                  resolve: () => undefined,
+                },
+                payload: { id: "1" },
+              },
+              label: "commandEffect",
+            },
+            {
+              data: {
+                channel: "notes",
+                commandType: "second",
+                handlers: {
+                  reject: () => undefined,
+                  resolve: () => secondResolved(),
+                },
+                payload: { id: "2" },
+              },
+              label: "commandEffect",
+            },
+          ],
+          handlers: {
+            rejectAction: () => failed(),
+            rejectOutput: () => undefined,
+            resolveAction: () => done(),
+            resolveOutput: () => undefined,
+          },
+          latestOnlyKey: "batch-1",
+          onError: "failBatch",
+        },
+        label: "effectBatch",
+      } as never),
+    ).toEqual([])
+
+    await waitFor(() => runAction.mock.calls.length >= 1)
+
+    expect(runAction).toHaveBeenCalledWith(failed())
+    expect(runAction).not.toHaveBeenCalledWith(secondResolved())
+    expect(runAction).not.toHaveBeenCalledWith(done())
+  })
+
+  test("effectBatch: latestOnlyKey replaces pending batch in same channel", async () => {
+    let releaseFirst!: () => void
+    const executions: Array<string> = []
+    const runAction = jest.fn(async () => undefined)
+    const itemResolved = action("ItemResolved").withPayload<string>()
+
+    const module = createRuntimeCommandModule({
+      actionCommand: action => ({ action, kind: "action" }),
+      commandHandlers: {
+        notes: {
+          load: async (payload: unknown) => {
+            const id = (payload as { id: string }).id
+
+            if (id === "1") {
+              await new Promise<void>(resolve => {
+                releaseFirst = resolve
+              })
+            }
+
+            executions.push(id)
+
+            return id
+          },
+        },
+      },
+      emitMonitor: () => undefined,
+      emitOutput: () => undefined,
+      missingHandlerPolicy: "noop",
+      runAction,
+    })
+
+    const effectBatchHandler = module.effectHandlers.get("effectBatch")!
+
+    const createBatch = (id: string) => ({
+      data: {
+        channel: "channel-b",
+        effects: [
+          {
+            data: {
+              channel: "notes",
+              commandType: "load",
+              handlers: {
+                reject: () => undefined,
+                resolve: (value: string) => itemResolved(value),
+              },
+              payload: { id },
+            },
+            label: "commandEffect",
+          },
+        ],
+        handlers: {
+          rejectAction: () => undefined,
+          rejectOutput: () => undefined,
+          resolveAction: () => undefined,
+          resolveOutput: () => undefined,
+        },
+        latestOnlyKey: "batch-preview",
+        onError: "failBatch",
+      },
+      label: "effectBatch",
+    })
+
+    effectBatchHandler(createBatch("1") as never)
+    effectBatchHandler(createBatch("2") as never)
+    effectBatchHandler(createBatch("3") as never)
+
+    releaseFirst()
+
+    await waitFor(() => executions.length === 2)
+
+    expect(executions).toEqual(["1", "3"])
+  })
+
+  test("effectBatch: invalid commandEffect payload uses validation error", async () => {
+    const failed = action("BatchFailed").withPayload<string>()
+    const runAction = jest.fn(async () => undefined)
+
+    const module = createRuntimeCommandModule({
+      actionCommand: action => ({ action, kind: "action" }),
+      commandHandlers: {},
+      emitMonitor: () => undefined,
+      emitOutput: () => undefined,
+      missingHandlerPolicy: "noop",
+      runAction,
+    })
+
+    const effectBatchHandler = module.effectHandlers.get("effectBatch")
+
+    effectBatchHandler!({
+      data: {
+        effects: [
+          {
+            data: {
+              channel: "notes",
+              payload: { id: "1" },
+            },
+            label: "commandEffect",
+          },
+        ],
+        handlers: {
+          rejectAction: reason =>
+            failed(
+              reason instanceof Error ? reason.message : "unexpected-error",
+            ),
+          rejectOutput: () => undefined,
+          resolveAction: () => undefined,
+          resolveOutput: () => undefined,
+        },
+        onError: "continue",
+      },
+      label: "effectBatch",
+    } as never)
+
+    await waitFor(() => runAction.mock.calls.length >= 1)
+
+    expect(runAction).toHaveBeenCalledWith(
+      failed("effectBatch received commandEffect with invalid data"),
+    )
+  })
+
+  test("effectBatch: failBatch stops on first validation error", async () => {
+    const failed = action("BatchFailed").withPayload<string>()
+    const shouldNotRun = action("ShouldNotRun")
+    const runAction = jest.fn(async () => undefined)
+
+    const module = createRuntimeCommandModule({
+      actionCommand: action => ({ action, kind: "action" }),
+      commandHandlers: {
+        notes: {
+          load: () => "ok",
+        },
+      },
+      emitMonitor: () => undefined,
+      emitOutput: () => undefined,
+      missingHandlerPolicy: "noop",
+      runAction,
+    })
+
+    const effectBatchHandler = module.effectHandlers.get("effectBatch")
+
+    effectBatchHandler!({
+      data: {
+        effects: [
+          {
+            data: undefined,
+            label: "noop",
+          },
+          {
+            data: {
+              channel: "notes",
+              commandType: "load",
+              handlers: {
+                reject: () => undefined,
+                resolve: () => shouldNotRun(),
+              },
+              payload: { id: "2" },
+            },
+            label: "commandEffect",
+          },
+        ],
+        handlers: {
+          rejectAction: reason =>
+            failed(
+              reason instanceof Error ? reason.message : "unexpected-error",
+            ),
+          rejectOutput: () => undefined,
+          resolveAction: () => undefined,
+          resolveOutput: () => undefined,
+        },
+        onError: "failBatch",
+      },
+      label: "effectBatch",
+    } as never)
+
+    await waitFor(() => runAction.mock.calls.length >= 1)
+
+    expect(runAction).toHaveBeenCalledWith(
+      failed("effectBatch only supports commandEffect items. Received noop"),
+    )
+    expect(runAction).not.toHaveBeenCalledWith(shouldNotRun())
   })
 })

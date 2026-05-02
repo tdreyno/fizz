@@ -54,6 +54,67 @@ const createMockEvent = (type = "pointermove") =>
 const Move = action("Move").withPayload<{ x: number }>()
 
 describe("runtime browser module — domListen coalescing", () => {
+  test("domListen returns no-op when there is no current state", () => {
+    const timerDriver = createControlledTimerDriver()
+    const runAction = jest.fn(async () => undefined)
+
+    const module = createRuntimeBrowserModule({
+      browserDriver: {
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      } as never,
+      getCurrentState: () => undefined,
+      runAction,
+      timerDriver,
+    })
+
+    const listenHandler = module.effectHandlers.get("domListen")!
+
+    expect(
+      listenHandler({
+        data: {
+          targetResourceId: "missing",
+          toAction: () => Move({ x: 1 }),
+          type: "pointermove",
+        },
+        label: "domListen",
+      } as never),
+    ).toEqual([])
+    expect(runAction).not.toHaveBeenCalled()
+  })
+
+  test("domListen throws when target resource is not an EventTarget", () => {
+    const timerDriver = createControlledTimerDriver()
+    const state = createState("Dragging")
+
+    setStateResource({ key: "el", state: state as never, value: {} })
+
+    const module = createRuntimeBrowserModule({
+      browserDriver: {
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      } as never,
+      getCurrentState: () => state as never,
+      runAction: async () => undefined,
+      timerDriver,
+    })
+
+    const listenHandler = module.effectHandlers.get("domListen")!
+
+    expect(() =>
+      listenHandler({
+        data: {
+          targetResourceId: "el",
+          toAction: () => Move({ x: 1 }),
+          type: "pointermove",
+        },
+        label: "domListen",
+      } as never),
+    ).toThrow(
+      "Resource `el` is not an EventTarget and cannot be used with listen().",
+    )
+  })
+
   test("no coalesce: dispatches every event immediately", async () => {
     const timerDriver = createControlledTimerDriver()
     const state = createState("Dragging")
