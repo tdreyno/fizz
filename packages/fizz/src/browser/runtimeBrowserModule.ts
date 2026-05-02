@@ -40,6 +40,7 @@ import {
 import type {
   DomAcquireEffectData,
   DomListenEffectData,
+  DomMutateEffectData,
   DomObserveIntersectionEffectData,
   DomObserveResizeEffectData,
 } from "./domEffects.js"
@@ -810,6 +811,19 @@ export const createRuntimeBrowserModule = (options: {
       [
         "domObserveResize",
         item => handleObserveResize(item.data as DomObserveResizeEffectData),
+      ],
+      [
+        "domMutate",
+        item => {
+          const data = item.data as DomMutateEffectData
+          const state = options.getCurrentState?.()
+          if (!state) {
+            return []
+          }
+          const element = resolveResource(state, data.targetResourceId)
+          data.fn(element)
+          return []
+        },
       ],
     ]),
   }

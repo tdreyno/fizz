@@ -35,6 +35,7 @@ import {
 } from "../../effect"
 import { Runtime } from "../../runtime"
 import { state } from "../../state"
+import { dom } from "../domEffects"
 
 const settle = async () => {
   await timeout(0)
@@ -421,5 +422,36 @@ describe("Browser effects", () => {
     await expect(runtime.run(enter())).rejects.toThrow(
       "Fizz browser driver is missing `alert` but the corresponding effect was used.",
     )
+  })
+
+  test("should execute dom.mutate callback with the acquired resource", async () => {
+    let capturedElement: unknown = undefined
+
+    const mockDocument = { documentElement: { scrollTop: 0 } }
+
+    const Mutating = state<Enter>(
+      {
+        Enter: () =>
+          dom.document("doc").mutate(el => {
+            capturedElement = el
+          }),
+      },
+      { name: "Mutating" },
+    )
+
+    const runtime = new Runtime(
+      createInitialContext([Mutating()]),
+      {},
+      {},
+      {
+        browserDriver: {
+          document: () => mockDocument,
+        },
+      },
+    )
+
+    await runtime.run(enter())
+
+    expect(capturedElement).toBe(mockDocument)
   })
 })

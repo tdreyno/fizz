@@ -73,57 +73,71 @@ export type DomObserveResizeEffectData = {
   ) => AnyAction
 }
 
-type TargetBuilder<EventMap extends EventMapLike> =
-  Effect<DomAcquireEffectData> & {
-    listen: <EventType extends string>(
-      type: EventType,
-      toAction: (event: EventFromMap<EventMap, EventType>) => AnyAction,
-      options?: AddEventListenerOptions | boolean,
-    ) => Effect<unknown>[]
-    observeIntersection: {
-      (
-        toAction: (
-          entries: IntersectionObserverEntry[],
-          observer: IntersectionObserver,
-        ) => AnyAction,
-        options?: IntersectionObserverInit,
-      ): Effect<unknown>[]
-      (
-        observerId: string,
-        toAction: (
-          entries: IntersectionObserverEntry[],
-          observer: IntersectionObserver,
-        ) => AnyAction,
-        options?: IntersectionObserverInit,
-      ): Effect<unknown>[]
-    }
-    observeResize: {
-      (
-        toAction: (
-          entries: ResizeObserverEntry[],
-          observer: ResizeObserver,
-        ) => AnyAction,
-        options?: ResizeObserverOptions,
-      ): Effect<unknown>[]
-      (
-        observerId: string,
-        toAction: (
-          entries: ResizeObserverEntry[],
-          observer: ResizeObserver,
-        ) => AnyAction,
-        options?: ResizeObserverOptions,
-      ): Effect<unknown>[]
-    }
-    resource: () => Effect<unknown>
+export type DomMutateEffectData = {
+  fn: (element: unknown) => void
+  targetResourceId: string
+}
+
+type TargetBuilder<
+  EventMap extends EventMapLike,
+  TElement = unknown,
+> = Effect<DomAcquireEffectData> & {
+  listen: <EventType extends string>(
+    type: EventType,
+    toAction: (event: EventFromMap<EventMap, EventType>) => AnyAction,
+    options?: AddEventListenerOptions | boolean,
+  ) => Effect<unknown>[]
+  mutate: (fn: (element: TElement) => void) => Effect<unknown>[]
+  observeIntersection: {
+    (
+      toAction: (
+        entries: IntersectionObserverEntry[],
+        observer: IntersectionObserver,
+      ) => AnyAction,
+      options?: IntersectionObserverInit,
+    ): Effect<unknown>[]
+    (
+      observerId: string,
+      toAction: (
+        entries: IntersectionObserverEntry[],
+        observer: IntersectionObserver,
+      ) => AnyAction,
+      options?: IntersectionObserverInit,
+    ): Effect<unknown>[]
   }
+  observeResize: {
+    (
+      toAction: (
+        entries: ResizeObserverEntry[],
+        observer: ResizeObserver,
+      ) => AnyAction,
+      options?: ResizeObserverOptions,
+    ): Effect<unknown>[]
+    (
+      observerId: string,
+      toAction: (
+        entries: ResizeObserverEntry[],
+        observer: ResizeObserver,
+      ) => AnyAction,
+      options?: ResizeObserverOptions,
+    ): Effect<unknown>[]
+  }
+  resource: () => Effect<unknown>
+}
 
 type HistoryEventMap = { popstate: PopStateEvent }
 type LocationEventMap = { hashchange: HashChangeEvent }
 
 type HistoryBuilder = Effect<DomAcquireEffectData> &
-  Pick<TargetBuilder<HistoryEventMap>, "listen" | "resource">
+  Pick<
+    TargetBuilder<HistoryEventMap, History>,
+    "listen" | "mutate" | "resource"
+  >
 type LocationBuilder = Effect<DomAcquireEffectData> &
-  Pick<TargetBuilder<LocationEventMap>, "listen" | "resource">
+  Pick<
+    TargetBuilder<LocationEventMap, Location>,
+    "listen" | "mutate" | "resource"
+  >
 
 type DomFromBuilder = {
   closest: (
@@ -171,11 +185,24 @@ const domObserveResize = (
   data: DomObserveResizeEffectData,
 ): Effect<DomObserveResizeEffectData> => effect("domObserveResize", data)
 
-const createTargetBuilder = <EventMap extends EventMapLike>(options: {
+const domMutate = (data: DomMutateEffectData): Effect<DomMutateEffectData> =>
+  effect("domMutate", data)
+
+const createTargetBuilder = <
+  EventMap extends EventMapLike,
+  TElement = unknown,
+>(options: {
   acquire: DomAcquireEffectData
   resourceId: string
-}): TargetBuilder<EventMap> => {
+}): TargetBuilder<EventMap, TElement> => {
   const builder = Object.assign(domAcquire(options.acquire), {
+    mutate: (fn: (element: TElement) => void) => [
+      builder,
+      domMutate({
+        fn: fn as (element: unknown) => void,
+        targetResourceId: options.resourceId,
+      }),
+    ],
     listen: (
       type: string,
       toAction: (event: Event) => AnyAction,
@@ -276,16 +303,19 @@ const createTargetBuilder = <EventMap extends EventMapLike>(options: {
       ]
     },
     resource: () => builder,
-  }) as unknown as TargetBuilder<EventMap>
+  }) as unknown as TargetBuilder<EventMap, TElement>
 
   return builder
 }
 
-const createSingletonBuilder = <EventMap extends EventMapLike>(
+const createSingletonBuilder = <
+  EventMap extends EventMapLike,
+  TElement = unknown,
+>(
   target: DomSingletonTarget,
   resourceId: string,
-): TargetBuilder<EventMap> =>
-  createTargetBuilder<EventMap>({
+): TargetBuilder<EventMap, TElement> =>
+  createTargetBuilder<EventMap, TElement>({
     acquire: {
       kind: "singleton",
       resourceId,
@@ -295,13 +325,16 @@ const createSingletonBuilder = <EventMap extends EventMapLike>(
   })
 
 const createHistoryBuilder = (resourceId: string): HistoryBuilder => {
-  const builder = createSingletonBuilder<HistoryEventMap>("history", resourceId)
+  const builder = createSingletonBuilder<HistoryEventMap, History>(
+    "history",
+    resourceId,
+  )
 
   return builder
 }
 
 const createLocationBuilder = (resourceId: string): LocationBuilder => {
-  const builder = createSingletonBuilder<LocationEventMap>(
+  const builder = createSingletonBuilder<LocationEventMap, Location>(
     "location",
     resourceId,
   )
@@ -314,8 +347,8 @@ const createQueryBuilder = (options: {
   method: DomQueryMethod
   resourceId: string
   scopeResourceId?: string
-}): TargetBuilder<HTMLElementEventMap> =>
-  createTargetBuilder<HTMLElementEventMap>({
+}): TargetBuilder<HTMLElementEventMap, Element> =>
+  createTargetBuilder<HTMLElementEventMap, Element>({
     acquire: {
       args: options.args,
       kind: "query",
@@ -382,9 +415,15 @@ const createFromBuilder = (scopeResourceId: string): DomFromBuilder => ({
 
 export const dom = {
   activeElement: (resourceId = "activeElement") =>
-    createSingletonBuilder<HTMLElementEventMap>("activeElement", resourceId),
+    createSingletonBuilder<HTMLElementEventMap, Element>(
+      "activeElement",
+      resourceId,
+    ),
   body: (resourceId = "body") =>
-    createSingletonBuilder<HTMLElementEventMap>("body", resourceId),
+    createSingletonBuilder<HTMLElementEventMap, HTMLBodyElement>(
+      "body",
+      resourceId,
+    ),
   closest: (resourceId: string, sourceResourceId: string, selector: string) =>
     createQueryBuilder({
       args: [selector],
@@ -393,9 +432,12 @@ export const dom = {
       scopeResourceId: sourceResourceId,
     }),
   document: (resourceId = "document") =>
-    createSingletonBuilder<DocumentEventMap>("document", resourceId),
+    createSingletonBuilder<DocumentEventMap, Document>("document", resourceId),
   documentElement: (resourceId = "documentElement") =>
-    createSingletonBuilder<HTMLElementEventMap>("documentElement", resourceId),
+    createSingletonBuilder<HTMLElementEventMap, HTMLHtmlElement>(
+      "documentElement",
+      resourceId,
+    ),
   from: (scopeResourceId: string) => createFromBuilder(scopeResourceId),
   history: (resourceId = "history") => createHistoryBuilder(resourceId),
   getElementById: (resourceId: string, id: string) =>
@@ -436,10 +478,13 @@ export const dom = {
       resourceId,
     }),
   visualViewport: (resourceId = "visualViewport") =>
-    createSingletonBuilder<VisualViewportEventMap>(
+    createSingletonBuilder<VisualViewportEventMap, VisualViewport>(
       "visualViewport",
       resourceId,
     ),
   window: (resourceId = "window") =>
-    createSingletonBuilder<WindowEventMap>("window", resourceId),
+    createSingletonBuilder<WindowEventMap, Window & typeof globalThis>(
+      "window",
+      resourceId,
+    ),
 }

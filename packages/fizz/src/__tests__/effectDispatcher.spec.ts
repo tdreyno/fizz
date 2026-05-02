@@ -12,6 +12,7 @@ import {
   restartTimer,
   startAsync,
   startFrame,
+  startFrameLoop,
   startInterval,
   startTimer,
 } from "../effect.js"
@@ -45,7 +46,7 @@ describe("effect dispatcher", () => {
         `restartTimer:${data.timeoutId}:${data.delay}`,
       ],
       handleStartAsync: data => [`startAsync:${data.asyncId ?? "none"}`],
-      handleStartFrame: () => ["startFrame"],
+      handleStartFrame: data => [data.loop ? "startFrameLoop" : "startFrame"],
       handleStartInterval: data => [
         `startInterval:${data.intervalId}:${data.delay}`,
       ],
@@ -170,6 +171,15 @@ describe("effect dispatcher", () => {
         },
       }),
     ).toEqual(["startFrame"])
+
+    expect(
+      dispatchEffect(startFrameLoop(), {
+        registry,
+        runEffect: () => {
+          throw new Error("runEffect should not be called")
+        },
+      }),
+    ).toEqual(["startFrameLoop"])
 
     expect(
       dispatchEffect(cancelFrame(), {

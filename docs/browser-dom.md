@@ -98,6 +98,27 @@ const Sharing = state({
 })
 ```
 
+## Imperative DOM writes: `.mutate(fn)`
+
+Use `.mutate(fn)` on any DOM resource builder to perform an imperative DOM write. The callback receives the acquired element and is called synchronously when the effect is dispatched:
+
+```typescript
+import { dom } from "@tdreyno/fizz/browser"
+
+const Scrolling = state<Enter>({
+  Enter: () =>
+    dom.document().mutate(doc => {
+      doc.documentElement.scrollTop = 0
+    }),
+})
+```
+
+The callback is typed to the element the builder targets — `Document` for `dom.document()`, `HTMLBodyElement` for `dom.body()`, `Element` for query builders, and so on.
+
+Because `.mutate()` chains off the builder, it returns `[acquireEffect, mutateEffect]` — the resource is acquired first, then the callback is called with it. No separate `dom.acquire()` call is needed.
+
+Common uses include: scroll position resets, focus management, toggling CSS classes, and other write-only interactions:
+
 ## DOM queries
 
 The `dom` builder provides type-safe query methods. Results are stored as state resources and can be chained.

@@ -119,7 +119,7 @@ Fizz state handlers receive a utilities object from `state.ts`. Important helper
 - `startAsync(...)` and `cancelAsync(...)`
 - `startTimer(...)`, `cancelTimer(...)`, `restartTimer(...)`
 - `startInterval(...)`, `cancelInterval(...)`, `restartInterval(...)`
-- `startFrame()` and `cancelFrame()`
+- `startFrame()` (one-shot), `startFrameLoop()` (continuous loop), and `cancelFrame()`
 - `resources` for state-scoped resource access
 
 ### State Resources
@@ -158,6 +158,8 @@ Browser effect helpers include:
 - `historyReplaceState(state, url?)`
 - `historySetScrollRestoration(value)`
 - `postMessage(message, targetOrigin, transfer?)`
+
+`dom.mutate(fn)` is available for imperative DOM writes that don't fit the resource model. The callback fires synchronously when the effect is dispatched and is scoped to the current state like all browser effects.
 
 Browser DOM singleton builders include:
 

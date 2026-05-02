@@ -13,6 +13,7 @@ import type {
   CancelTimerEffectData,
   RestartIntervalEffectData,
   RestartTimerEffectData,
+  StartFrameEffectData,
   StartIntervalEffectData,
   StartTimerEffectData,
 } from "../effect.js"
@@ -326,10 +327,13 @@ export const createRuntimeSchedulingModule = (options: {
     ]
   }
 
-  const handleStartFrame = (): RuntimeDebugCommand[] => {
+  const handleStartFrame = (
+    data: StartFrameEffectData,
+  ): RuntimeDebugCommand[] => {
     cancelActiveFrame("restart")
 
     frame = startFrameOperation({
+      loop: data.loop,
       nextToken: () => timerCounter++,
       onFrame: async (timestamp, token) => {
         if (!frame || !canHandleFrameElapsed(frame, token)) {
@@ -397,7 +401,10 @@ export const createRuntimeSchedulingModule = (options: {
         item =>
           handleRestartInterval(item.data as RestartIntervalEffectData<string>),
       ],
-      ["startFrame", () => handleStartFrame()],
+      [
+        "startFrame",
+        item => handleStartFrame(item.data as StartFrameEffectData),
+      ],
       [
         "cancelFrame",
         () => {

@@ -6,6 +6,7 @@ import type {
   RestartIntervalEffectData,
   RestartTimerEffectData,
   StartAsyncEffectData,
+  StartFrameEffectData,
   StartIntervalEffectData,
   StartTimerEffectData,
 } from "../effect.js"
@@ -27,7 +28,7 @@ type EffectHandlers<Command, OutputAction> = {
   handleRestartInterval?: (data: RestartIntervalEffectData<string>) => Command[]
   handleRestartTimer?: (data: RestartTimerEffectData<string>) => Command[]
   handleStartAsync?: (data: StartAsyncEffectData<unknown, string>) => Command[]
-  handleStartFrame?: () => Command[]
+  handleStartFrame?: (data: StartFrameEffectData) => Command[]
   handleStartInterval?: (data: StartIntervalEffectData<string>) => Command[]
   handleStartTimer?: (data: StartTimerEffectData<string>) => Command[]
 }
@@ -130,7 +131,11 @@ export const createEffectHandlerRegistry = <Command, OutputAction>(
   }
 
   if (handlers.handleStartFrame) {
-    registry.set("startFrame", () => handlers.handleStartFrame?.() ?? [])
+    registry.set(
+      "startFrame",
+      item =>
+        handlers.handleStartFrame?.(item.data as StartFrameEffectData) ?? [],
+    )
   }
 
   if (handlers.handleCancelFrame) {

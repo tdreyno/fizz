@@ -975,6 +975,37 @@ describe("timers", () => {
     ])
   })
 
+  test("should dispatch OnFrame exactly once with startFrame", async () => {
+    type FrameData = {
+      frameCount: number
+    }
+
+    const Animating = state<Enter | OnFrame, FrameData>(
+      {
+        Enter: (_, __, { startFrame }) => startFrame(),
+
+        OnFrame: (data, _, { update }) =>
+          update({ frameCount: data.frameCount + 1 }),
+      },
+      { name: "Animating" },
+    )
+
+    const context = createInitialContext([Animating({ frameCount: 0 })])
+    const timerDriver = createControlledTimerDriver()
+    const runtime = new Runtime(context, {}, {}, { timerDriver })
+
+    await runtime.run(enter())
+    await timerDriver.advanceFrames(5, 10)
+
+    const currentState = runtime.currentState()
+
+    if (!currentState.is(Animating)) {
+      throw new Error("Expected Animating state")
+    }
+
+    expect(currentState.data.frameCount).toBe(1)
+  })
+
   test("should dispatch OnFrame repeatedly until cancelled", async () => {
     type FrameData = {
       frameCount: number
@@ -982,7 +1013,7 @@ describe("timers", () => {
     }
 
     const Animating = state<Enter | OnFrame, FrameData>({
-      Enter: (_, __, { startFrame }) => startFrame(),
+      Enter: (_, __, { startFrameLoop }) => startFrameLoop(),
 
       OnFrame: (data, timestamp, { cancelFrame, update }) => {
         const nextData = {
@@ -1068,7 +1099,7 @@ describe("timers", () => {
 
     const Animating = state<Enter | Leave | OnFrame, FrameData>(
       {
-        Enter: (_, __, { startFrame }) => startFrame(),
+        Enter: (_, __, { startFrameLoop }) => startFrameLoop(),
 
         Leave: data => Done(data),
 
@@ -1099,12 +1130,16 @@ describe("timers", () => {
 
   test("should type frame helpers without accepting ids", () => {
     state<Enter, undefined>({
-      Enter: (_, __, { startFrame, cancelFrame }) => {
+      Enter: (_, __, { startFrame, startFrameLoop, cancelFrame }) => {
         startFrame()
+        startFrameLoop()
         cancelFrame()
 
         // @ts-expect-error frame helpers do not accept ids
         startFrame("spinner")
+
+        // @ts-expect-error frame helpers do not accept ids
+        startFrameLoop("spinner")
 
         // @ts-expect-error frame helpers do not accept ids
         cancelFrame("spinner")

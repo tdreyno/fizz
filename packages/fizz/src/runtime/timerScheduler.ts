@@ -24,6 +24,7 @@ export type ActiveTimer = {
 
 export type ActiveFrame = {
   readonly handle: unknown
+  readonly loop: boolean
   readonly machine: FrameMachine
   readonly token: number
 }
@@ -59,6 +60,7 @@ type CancelIntervalOperationOptions = {
 }
 
 type StartFrameOperationOptions = {
+  loop: boolean
   nextToken: () => number
   onFrame: (timestamp: number, token: number) => Promise<void>
   timerDriver: RuntimeTimerDriver
@@ -197,16 +199,21 @@ export const replaceIntervalOperation = ({
 }
 
 export const startFrameOperation = ({
+  loop,
   nextToken,
   onFrame,
   timerDriver,
 }: StartFrameOperationOptions): ActiveFrame => {
   const token = nextToken()
-  const handle = timerDriver.startFrame(timestamp => onFrame(timestamp, token))
+  const handle = timerDriver.startFrame(
+    timestamp => onFrame(timestamp, token),
+    { loop },
+  )
   const machine = activateFrame(createFrameMachine(), token)
 
   return {
     handle,
+    loop,
     machine,
     token,
   }

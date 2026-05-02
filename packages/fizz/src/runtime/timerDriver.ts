@@ -4,7 +4,10 @@ export interface RuntimeTimerDriver {
     delay: number,
     onElapsed: () => Promise<void> | void,
   ) => unknown
-  startFrame: (onFrame: (timestamp: number) => Promise<void> | void) => unknown
+  startFrame: (
+    onFrame: (timestamp: number) => Promise<void> | void,
+    options?: { loop?: boolean },
+  ) => unknown
   cancel: (handle: unknown) => void
 }
 
@@ -27,6 +30,7 @@ type DefaultDriverHandle =
       active: boolean
       handle: number | null
       kind: "frame"
+      loop: boolean
     }
 
 export const createDefaultTimerDriver = (): RuntimeTimerDriver => {
@@ -41,7 +45,7 @@ export const createDefaultTimerDriver = (): RuntimeTimerDriver => {
 
       void onElapsed(timestamp)
 
-      if (frameHandle.active) {
+      if (frameHandle.active && frameHandle.loop) {
         scheduleFrame(frameHandle, onElapsed)
       }
     })
@@ -60,11 +64,13 @@ export const createDefaultTimerDriver = (): RuntimeTimerDriver => {
       }, delay),
       kind: "interval",
     }),
-    startFrame: onElapsed => {
+    startFrame: (onElapsed, options) => {
+      const loop = options?.loop ?? false
       const handle: Extract<DefaultDriverHandle, { kind: "frame" }> = {
         active: true,
         handle: null,
         kind: "frame",
+        loop,
       }
 
       scheduleFrame(handle, onElapsed)
@@ -111,6 +117,7 @@ export const createControlledTimerDriver = (): ControlledTimerDriver => {
     number,
     {
       active: boolean
+      loop: boolean
       onFrame: (timestamp: number) => Promise<void> | void
     }
   >()
@@ -144,11 +151,12 @@ export const createControlledTimerDriver = (): ControlledTimerDriver => {
       return id
     },
 
-    startFrame: onFrame => {
+    startFrame: (onFrame, options) => {
       const id = counter++
 
       frames.set(id, {
         active: true,
+        loop: options?.loop ?? false,
         onFrame,
       })
 
@@ -217,6 +225,10 @@ export const createControlledTimerDriver = (): ControlledTimerDriver => {
           }
 
           await frame.onFrame(now)
+
+          if (!frame.loop && frames.has(id)) {
+            frames.delete(id)
+          }
         }
       }
     },

@@ -676,10 +676,10 @@ describe("runtime monitor", () => {
       "poll"
     >(
       {
-        Enter: (_, __, { startFrame, startInterval, startTimer }) => [
+        Enter: (_, __, { startFrameLoop, startInterval, startTimer }) => [
           startTimer("autosave", 10),
           startInterval("poll", 5),
-          startFrame(),
+          startFrameLoop(),
         ],
 
         TimerCompleted: (data, _, { update }) =>

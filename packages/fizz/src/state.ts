@@ -35,6 +35,7 @@ import {
   restartTimer as restartTimerEffect,
   startAsync as startAsyncEffect,
   startFrame as startFrameEffect,
+  startFrameLoop as startFrameLoopEffect,
   startInterval as startIntervalEffect,
   startTimer as startTimerEffect,
 } from "./effect.js"
@@ -129,6 +130,7 @@ type StateUtils<
   cancelInterval: (intervalId: IntervalId) => Effect
   restartInterval: (intervalId: IntervalId, delay: number) => Effect
   startFrame: () => Effect
+  startFrameLoop: () => Effect
   cancelFrame: () => Effect
   clients: Clients
   resources: Resources
@@ -882,6 +884,7 @@ export const stateWrapper = <
       cancelInterval: (intervalId: IntervalId) => Effect
       restartInterval: (intervalId: IntervalId, delay: number) => Effect
       startFrame: () => Effect
+      startFrameLoop: () => Effect
       cancelFrame: () => Effect
       clients: Clients
       resources: Resources
@@ -933,6 +936,7 @@ export const stateWrapper = <
             restartInterval: (intervalId: IntervalId, delay: number) =>
               restartIntervalEffect(intervalId, delay),
             startFrame: () => startFrameEffect(),
+            startFrameLoop: () => startFrameLoopEffect(),
             cancelFrame: () => cancelFrameEffect(),
             clients: (runtime?.clients ?? {}) as Clients,
             resources: getStateResources(

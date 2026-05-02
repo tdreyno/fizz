@@ -251,7 +251,8 @@ Fizz exposes scheduling helpers through state utils and effect helpers:
 - `startInterval(intervalId, delay)`
 - `cancelInterval(intervalId)`
 - `restartInterval(intervalId, delay)`
-- `startFrame()`
+- `startFrame()` — fires `OnFrame` **once** (one-shot)
+- `startFrameLoop()` — fires `OnFrame` repeatedly until `cancelFrame()` is called
 - `cancelFrame()`
 
 Use explicit ids when later restart or cancellation matters.

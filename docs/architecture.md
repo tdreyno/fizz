@@ -148,7 +148,8 @@ Built-in examples include:
 - `cancelAsync(...)`
 - `startTimer(...)`
 - `startInterval(...)`
-- `startFrame()`
+- `startFrame()` (one-shot)
+- `startFrameLoop()` (continuous)
 - `goBack()`
 - `log(...)`, `warn(...)`, `error(...)`
 

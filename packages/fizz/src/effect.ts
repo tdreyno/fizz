@@ -1361,7 +1361,15 @@ export const restartInterval = <IntervalId extends string = string>(
 ): Effect<RestartIntervalEffectData<IntervalId>> =>
   effect("restartInterval", { intervalId, delay })
 
-export const startFrame = (): Effect<undefined> => effect("startFrame")
+export type StartFrameEffectData = {
+  loop: boolean
+}
+
+export const startFrame = (): Effect<StartFrameEffectData> =>
+  effect("startFrame", { loop: false })
+
+export const startFrameLoop = (): Effect<StartFrameEffectData> =>
+  effect("startFrame", { loop: true })
 
 export const cancelFrame = (): Effect<undefined> => effect("cancelFrame")
 

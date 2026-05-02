@@ -26,7 +26,7 @@
   "type": "module",
   "exports": {
     ".": {
-      "browser": "./dist/browser.js",
+      "browser": "./dist/browserEntrypoint.js",
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
@@ -101,9 +101,11 @@
     "jest-environment-jsdom": "^30.2.0",
     "serialize-javascript": "^7.0.4",
     "ts-jest": "^29.4.6",
-    "ts-morph": "^28.0.0",
     "tsdown": "^0.21.0",
     "typescript": "^5.9.3",
     "zod": "^4.3.6"
+  },
+  "dependencies": {
+    "ts-morph": "^28.0.0"
   }
 }

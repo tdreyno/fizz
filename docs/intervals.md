@@ -352,9 +352,10 @@ The `intervalId` value is narrowed to the declared interval-id member in each br
 
 Intervals are based on elapsed time. Frame loops are based on the browser render cycle. Use `requestAnimationFrame` when the work should stay synchronized with painting, such as sprite movement, canvas drawing, or visual progress indicators.
 
-Fizz exposes frame loops through two zero-argument helpers:
+Fizz exposes frame helpers through zero-argument helpers:
 
-- `startFrame()`
+- `startFrame()` — fires `OnFrame` **once**, then stops
+- `startFrameLoop()` — fires `OnFrame` on every animation frame until `cancelFrame()` is called
 - `cancelFrame()`
 
 Unlike intervals, frame loops do not use timeout ids. A state either has an active frame loop or it does not. Each animation frame dispatches the existing `OnFrame` action with the browser timestamp.
@@ -368,9 +369,9 @@ type Data = {
 }
 
 const Spinning = state<Enter | OnFrame, Data>({
-  Enter: (data, _, { startFrame, update }) => [
+  Enter: (data, _, { startFrameLoop, update }) => [
     update({ ...data, running: true }),
-    startFrame(),
+    startFrameLoop(),
   ],
 
   OnFrame: (data, timestamp, { cancelFrame, update }) => {
@@ -387,7 +388,21 @@ const Spinning = state<Enter | OnFrame, Data>({
 })
 ```
 
-This pattern is intentionally different from the older recursive `onFrame()` example style. Start the loop once, handle each `OnFrame` action, and stop it explicitly when the animation is done.
+Use `startFrame()` instead of `startFrameLoop()` when you only need a single frame — for example, to schedule a one-time read or write at the next paint:
+
+```typescript
+import { Enter, OnFrame, state } from "@tdreyno/fizz"
+import { dom } from "@tdreyno/fizz/browser"
+
+const FlashFocus = state<Enter | OnFrame>({  
+  Enter: (_, __, { startFrame }) => startFrame(),
+
+  OnFrame: (data, _, { update }) => {
+    // runs exactly once at the next animation frame
+    return update({ ...data, rendered: true })
+  },
+})
+```
 
 ## Behavior notes
 
@@ -396,8 +411,8 @@ This pattern is intentionally different from the older recursive `onFrame()` exa
 - `cancelInterval` is a no-op if that interval is not currently running.
 - When a state transition leaves the current state, Fizz clears any active intervals owned by that state without emitting `IntervalCancelled`.
 - Interval actions are available automatically once the state declares an `IntervalId` generic in the fourth `state(...)` slot.
-- Frame loops dispatch `OnFrame` until `cancelFrame()` is called or the state exits.
-- Frame loops do not use ids or emit separate started or cancelled actions.
+- Frame helpers dispatch `OnFrame`. `startFrame()` fires once; `startFrameLoop()` fires until `cancelFrame()` is called or the state exits.
+- Frame helpers do not use ids or emit separate started or cancelled actions.
 
 ## Related Docs
 

@@ -69,7 +69,7 @@ describe("timerDriver", () => {
 
     const onFrame = jest.fn()
     const driver = createDefaultTimerDriver()
-    const frameHandle = driver.startFrame(onFrame)
+    const frameHandle = driver.startFrame(onFrame, { loop: true })
 
     const firstCallback = callbacks.get(1)
 
@@ -146,9 +146,12 @@ describe("timerDriver", () => {
     const frameEvents: number[] = []
     const timerEvents: string[] = []
 
-    const frameHandle = driver.startFrame(timestamp => {
-      frameEvents.push(timestamp)
-    })
+    const frameHandle = driver.startFrame(
+      timestamp => {
+        frameEvents.push(timestamp)
+      },
+      { loop: true },
+    )
 
     driver.start(6, () => {
       timerEvents.push("a")
