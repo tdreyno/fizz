@@ -40,6 +40,11 @@
       "import": "./dist/browser.js",
       "require": "./dist/browser.cjs"
     },
+    "./debug": {
+      "types": "./dist/debug.d.ts",
+      "import": "./dist/debug.js",
+      "require": "./dist/debug.cjs"
+    },
     "./nested": {
       "types": "./dist/nested.d.ts",
       "import": "./dist/nested.js",
@@ -49,6 +54,11 @@
       "types": "./dist/parallel.d.ts",
       "import": "./dist/parallel.js",
       "require": "./dist/parallel.cjs"
+    },
+    "./registry": {
+      "types": "./dist/registry.d.ts",
+      "import": "./dist/registry.js",
+      "require": "./dist/registry.cjs"
     },
     "./test": {
       "types": "./dist/test.d.ts",

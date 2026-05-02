@@ -52,8 +52,6 @@ export { createMachine } from "./createMachine.js"
 export * from "./effect.js"
 export * from "./errors.js"
 export * from "./runtime.js"
-export * from "./runtimeDebug.js"
-export * from "./runtimeRegistry.js"
 export type { StateSelector, StateSelectorOptions } from "./selectors.js"
 export {
   matchesSelectorWhen,

@@ -4,10 +4,12 @@ export default defineConfig({
   entry: {
     browser: "src/browser/index.ts",
     cli: "src/cli.ts",
+    debug: "src/debug.ts",
     fluent: "src/fluent.ts",
     index: "src/index.ts",
     nested: "src/nested.ts",
     parallel: "src/parallel.ts",
+    registry: "src/registry.ts",
     test: "src/test.ts",
   },
   outDir: "dist",
