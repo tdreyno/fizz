@@ -52,6 +52,12 @@ const createMockEventTarget = () => {
 const createMockEvent = (type = "pointermove") =>
   new Event(type) as PointerEvent
 
+const createPointerEventWithX = (x: number) =>
+  ({
+    clientX: x,
+    type: "pointermove",
+  }) as PointerEvent
+
 const Move = action("Move").withPayload<{ x: number }>()
 
 const createDomDriver = (): RuntimeBrowserDriver => ({
@@ -242,6 +248,67 @@ describe("runtime browser module — domListen coalescing", () => {
     await timerDriver.advanceFrames(1)
 
     expect(runAction).toHaveBeenCalledTimes(2)
+  })
+
+  test("coalesce: animation-frame: keeps only latest event while prior action is unresolved", async () => {
+    const timerDriver = createControlledTimerDriver()
+    const state = createState("Dragging")
+    let resolveFirstAction: (() => void) | undefined
+    const runAction = jest.fn(() => {
+      if (resolveFirstAction) {
+        return Promise.resolve()
+      }
+
+      return new Promise<void>(resolve => {
+        resolveFirstAction = resolve
+      })
+    })
+    const { target, fire } = createMockEventTarget()
+
+    setStateResource({ key: "el", state: state as never, value: target })
+
+    const module = createRuntimeBrowserModule({
+      browserDriver: createDomDriver(),
+      getCurrentState: () => state as never,
+      runAction,
+      timerDriver,
+    })
+
+    const listenHandler = module.effectHandlers.get("domListen")!
+
+    listenHandler({
+      data: {
+        coalesce: "animation-frame",
+        targetResourceId: "el",
+        toAction: event => Move({ x: event.clientX }),
+        type: "pointermove",
+      },
+      label: "domListen",
+    } as never)
+
+    fire("pointermove", createPointerEventWithX(1))
+    fire("pointermove", createPointerEventWithX(2))
+    fire("pointermove", createPointerEventWithX(3))
+
+    const firstFrame = timerDriver.advanceFrames(1)
+    await Promise.resolve()
+
+    expect(runAction).toHaveBeenCalledTimes(1)
+    expect(runAction).toHaveBeenLastCalledWith(Move({ x: 3 }))
+
+    fire("pointermove", createPointerEventWithX(4))
+    fire("pointermove", createPointerEventWithX(5))
+    fire("pointermove", createPointerEventWithX(6))
+
+    expect(runAction).toHaveBeenCalledTimes(1)
+
+    resolveFirstAction?.()
+    await firstFrame
+    await Promise.resolve()
+    await timerDriver.advanceFrames(1)
+
+    expect(runAction).toHaveBeenCalledTimes(2)
+    expect(runAction).toHaveBeenLastCalledWith(Move({ x: 6 }))
   })
 
   test("coalesce: animation-frame: teardown cancels pending frame", async () => {

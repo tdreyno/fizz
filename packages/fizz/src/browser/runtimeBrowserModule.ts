@@ -361,51 +361,67 @@ export const createRuntimeBrowserModule = (options: {
 
     let latestEvent: Event | undefined
     let pendingHandle: unknown = null
+    let isDispatching = false
+    let isTornDown = false
 
     const dispatch = (event: Event) => {
       void options.runAction(data.toAction(event))
     }
 
+    let scheduleCoalescedDispatch:
+      | ((onElapsed: () => Promise<void> | void) => unknown)
+      | undefined
+
+    if (coalesce === "animation-frame") {
+      scheduleCoalescedDispatch = onElapsed =>
+        options.timerDriver.startFrame(() => onElapsed())
+    } else if (coalesce === "microtask") {
+      scheduleCoalescedDispatch = onElapsed =>
+        options.timerDriver.start(0, onElapsed)
+    }
+
+    const scheduleLatestDispatch = () => {
+      if (
+        !scheduleCoalescedDispatch ||
+        pendingHandle !== null ||
+        isDispatching ||
+        isTornDown ||
+        latestEvent === undefined
+      ) {
+        return
+      }
+
+      pendingHandle = scheduleCoalescedDispatch(async () => {
+        pendingHandle = null
+
+        if (isDispatching || isTornDown || latestEvent === undefined) {
+          return
+        }
+
+        const event = latestEvent
+        latestEvent = undefined
+        isDispatching = true
+
+        try {
+          await options.runAction(data.toAction(event))
+        } catch {
+          // Ignore action failures so listener teardown still works.
+        } finally {
+          isDispatching = false
+          scheduleLatestDispatch()
+        }
+      })
+    }
+
     const callback: EventListener =
-      coalesce === "animation-frame"
+      scheduleCoalescedDispatch === undefined
         ? event => {
-            latestEvent = event
-
-            if (pendingHandle !== null) {
-              return
-            }
-
-            pendingHandle = options.timerDriver.startFrame(() => {
-              pendingHandle = null
-
-              if (latestEvent !== undefined) {
-                const e = latestEvent
-                latestEvent = undefined
-                dispatch(e)
-              }
-            })
+            dispatch(event)
           }
-        : coalesce === "microtask"
-          ? event => {
-              latestEvent = event
-
-              if (pendingHandle !== null) {
-                return
-              }
-
-              pendingHandle = options.timerDriver.start(0, () => {
-                pendingHandle = null
-
-                if (latestEvent !== undefined) {
-                  const e = latestEvent
-                  latestEvent = undefined
-                  dispatch(e)
-                }
-              })
-            }
-          : event => {
-              dispatch(event)
-            }
+        : event => {
+            latestEvent = event
+            scheduleLatestDispatch()
+          }
 
     addEventListener(target, data.type, callback, data.options)
 
@@ -418,6 +434,7 @@ export const createRuntimeBrowserModule = (options: {
       key,
       state,
       teardown: () => {
+        isTornDown = true
         removeEventListener(target, data.type, callback, data.options)
 
         if (pendingHandle !== null) {

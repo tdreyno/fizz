@@ -54,15 +54,35 @@ export const createRuntimeCommandModule = (options: {
   missingHandlerPolicy: RuntimeMissingCommandHandlerPolicy
   runAction: (action: Action<string, unknown>) => Promise<void>
 }): RuntimeCommandModule => {
-  const channelQueues = new Map<
-    string,
-    Array<{
-      commandType: string
-      latestOnlyKey?: string
-      skip: () => void
-      task: () => Promise<void>
-    }>
-  >()
+  type ChannelQueueEntry = {
+    commandType: string
+    latestOnlyKey?: string
+    skip: () => void
+    task: () => Promise<void>
+  }
+
+  type ChannelQueueState = {
+    entries: ChannelQueueEntry[]
+    pendingLatestOnlyKeys: Map<string, number>
+  }
+
+  const channelQueues = new Map<string, ChannelQueueState>()
+
+  const indexPendingLatestOnlyKeys = (
+    entries: ChannelQueueEntry[],
+  ): Map<string, number> => {
+    const pendingLatestOnlyKeys = new Map<string, number>()
+
+    for (let index = 1; index < entries.length; index += 1) {
+      const latestOnlyKey = entries[index]?.latestOnlyKey
+
+      if (latestOnlyKey !== undefined) {
+        pendingLatestOnlyKeys.set(latestOnlyKey, index)
+      }
+    }
+
+    return pendingLatestOnlyKeys
+  }
 
   const runMappedAction = async (action: Action<string, unknown> | void) => {
     if (!action) {
@@ -81,7 +101,8 @@ export const createRuntimeCommandModule = (options: {
   }
 
   const drainChannelQueue = (activeChannel: string): void => {
-    const activeQueue = channelQueues.get(activeChannel)
+    const activeState = channelQueues.get(activeChannel)
+    const activeQueue = activeState?.entries
 
     if (!activeQueue || activeQueue.length === 0) {
       channelQueues.delete(activeChannel)
@@ -98,7 +119,8 @@ export const createRuntimeCommandModule = (options: {
     }
 
     void currentEntry.task().finally(() => {
-      const nextQueue = channelQueues.get(activeChannel)
+      const nextState = channelQueues.get(activeChannel)
+      const nextQueue = nextState?.entries
 
       if (!nextQueue || nextQueue.length === 0) {
         channelQueues.delete(activeChannel)
@@ -114,6 +136,8 @@ export const createRuntimeCommandModule = (options: {
         return
       }
 
+      nextState.pendingLatestOnlyKeys = indexPendingLatestOnlyKeys(nextQueue)
+
       drainChannelQueue(activeChannel)
     })
   }
@@ -127,33 +151,40 @@ export const createRuntimeCommandModule = (options: {
       task: () => Promise<void>
     },
   ): void => {
-    const queue = channelQueues.get(channel) ?? []
+    const state = channelQueues.get(channel) ?? {
+      entries: [],
+      pendingLatestOnlyKeys: new Map<string, number>(),
+    }
 
-    channelQueues.set(channel, queue)
+    channelQueues.set(channel, state)
+
+    const queue = state.entries
 
     const { latestOnlyKey } = entry
 
-    // Replace a pending entry with the same key (index 0 is running - never touch it).
-    if (latestOnlyKey !== undefined && queue.length > 1) {
-      const pendingIndex = queue.findIndex(
-        (e, i) => i > 0 && e.latestOnlyKey === latestOnlyKey,
-      )
+    if (latestOnlyKey !== undefined) {
+      const pendingIndex = state.pendingLatestOnlyKeys.get(latestOnlyKey)
 
-      if (pendingIndex !== -1) {
+      if (pendingIndex !== undefined) {
         options.emitMonitor({
           channel,
           commandType: entry.commandType,
           latestOnlyKey,
           type: "imperative-command-replaced",
         })
-        queue[pendingIndex]!.skip()
+        queue[pendingIndex].skip()
         queue.splice(pendingIndex, 1, entry)
+        state.pendingLatestOnlyKeys.set(latestOnlyKey, pendingIndex)
 
         return
       }
     }
 
     queue.push(entry)
+
+    if (latestOnlyKey !== undefined && queue.length > 1) {
+      state.pendingLatestOnlyKeys.set(latestOnlyKey, queue.length - 1)
+    }
 
     if (queue.length === 1) {
       drainChannelQueue(channel)
@@ -322,7 +353,29 @@ export const createRuntimeCommandModule = (options: {
         return []
       }
 
-      const task = async () => {
+      const onQueuedCommandResolved = (result: unknown) => {
+        options.emitMonitor({
+          channel: data.channel,
+          commandType: data.commandType,
+          result,
+          type: "imperative-command-completed",
+        })
+
+        return runMappedAction(data.handlers.resolve(result))
+      }
+
+      const onQueuedCommandRejected = (error: unknown) => {
+        options.emitMonitor({
+          channel: data.channel,
+          commandType: data.commandType,
+          error,
+          type: "imperative-command-failed",
+        })
+
+        return runMappedAction(data.handlers.reject(error))
+      }
+
+      const task = () => {
         options.emitMonitor({
           channel: data.channel,
           commandType: data.commandType,
@@ -331,25 +384,17 @@ export const createRuntimeCommandModule = (options: {
         })
 
         try {
-          const result = await handler(data.payload)
+          const result = handler(data.payload)
 
-          options.emitMonitor({
-            channel: data.channel,
-            commandType: data.commandType,
-            result,
-            type: "imperative-command-completed",
-          })
+          if (result instanceof Promise) {
+            return result
+              .then(onQueuedCommandResolved)
+              .catch(onQueuedCommandRejected)
+          }
 
-          await runMappedAction(data.handlers.resolve(result))
+          return onQueuedCommandResolved(result)
         } catch (error) {
-          options.emitMonitor({
-            channel: data.channel,
-            commandType: data.commandType,
-            error,
-            type: "imperative-command-failed",
-          })
-
-          await runMappedAction(data.handlers.reject(error))
+          return onQueuedCommandRejected(error)
         }
       }
 
@@ -489,7 +534,7 @@ export const createRuntimeCommandModule = (options: {
         }
 
         try {
-          await executeCommandEffect(effectItem.data!, {
+          await executeCommandEffect(effectItem.data, {
             failOnError: true,
             failOnMissingHandler: true,
           })

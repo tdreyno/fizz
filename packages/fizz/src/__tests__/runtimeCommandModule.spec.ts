@@ -521,6 +521,46 @@ describe("runtime command module", () => {
     expect(executions).not.toContain("a1a1") // sanity
   })
 
+  test("latestOnlyKey: synchronous queued handlers still resolve through runAction", async () => {
+    const resolved = action("Resolved").withPayload<string>()
+    const runAction = jest.fn(async () => undefined)
+
+    const module = createRuntimeCommandModule({
+      actionCommand: action => ({ action, kind: "action" }),
+      commandHandlers: {
+        drag: {
+          updatePreview: () => "ok-sync",
+        },
+      },
+      emitMonitor: () => undefined,
+      emitOutput: () => undefined,
+      missingHandlerPolicy: "noop",
+      runAction,
+    })
+
+    const commandHandler = module.effectHandlers.get("commandEffect")!
+
+    expect(
+      commandHandler({
+        data: {
+          channel: "drag",
+          commandType: "updatePreview",
+          handlers: {
+            reject: () => undefined,
+            resolve: (value: string) => resolved(value),
+          },
+          latestOnlyKey: "drag-preview",
+          payload: { id: "sync" },
+        },
+        label: "commandEffect",
+      } as never),
+    ).toEqual([])
+
+    await waitFor(() => runAction.mock.calls.length === 1)
+
+    expect(runAction).toHaveBeenCalledWith(resolved("ok-sync"))
+  })
+
   test("latestOnlyKey: running task at index 0 is never replaced", async () => {
     let resolveFirst!: () => void
     const executions: Array<string> = []
