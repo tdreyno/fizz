@@ -51,12 +51,16 @@ export const buildStateTransitionCommands = <
   runtime,
   targetState,
 }: TransitionOptions<Command, AM, OAM>): Command[] => {
-  prepareForTransition(targetState)
-
   const exitState = context.currentState
 
   const isUpdating =
     exitState?.name === targetState.name && targetState.mode === "update"
+
+  if (isUpdating && exitState?.data === targetState.data) {
+    return []
+  }
+
+  prepareForTransition(targetState)
 
   return isUpdating
     ? buildUpdateStateCommands({

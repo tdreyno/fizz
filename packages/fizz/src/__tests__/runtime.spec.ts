@@ -870,6 +870,19 @@ describe("Runtime", () => {
 
       expect((d as () => string)()).toBe("Inside")
     })
+
+    test("should skip update when value is strictly equal", async () => {
+      const callback = () => "Inside"
+      const initialData: Data = ["Test", false, 5, callback]
+      const context = createInitialContext([A(initialData)])
+
+      const runtime = new Runtime(context, { update })
+      const previousState = runtime.currentState()
+
+      await runtime.run(update())
+
+      expect(runtime.currentState()).toBe(previousState)
+    })
   })
 
   describe("goBack", () => {
