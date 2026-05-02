@@ -208,10 +208,15 @@ export const createRuntimeDomModule = (options: {
       return []
     }
 
-    const value =
-      data.kind === "singleton"
-        ? acquireSingleton(data)
-        : acquireQuery(state, data)
+    let value: unknown
+
+    if (data.kind === "singleton") {
+      value = acquireSingleton(data)
+    } else if (data.kind === "query") {
+      value = acquireQuery(state, data)
+    } else {
+      value = data.element
+    }
 
     setStateResource({
       key: data.resourceId,

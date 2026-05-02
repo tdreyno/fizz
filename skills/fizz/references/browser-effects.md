@@ -37,11 +37,24 @@ The callback is typed to the element the builder targets — `Document` for `dom
 
 Use `.mutate` for scrolling, focus management, class toggling, or any write that is not modeled by a resource or listener. The callback cannot be async and should not trigger further state machine transitions internally.
 
+Use `dom.fromElement(resourceId, element)` when a state already has an element reference and still needs fluent DOM effects (`mutate`, `listen`, observers, `resource`) with state-scoped lifecycle:
+
+```typescript
+const Done = state({
+  Enter: data =>
+    dom.fromElement("dragBlock", data.block).mutate(el => {
+      el.classList.remove("dragging")
+    }),
+})
+```
+
 ---
 
 ## DOM resource acquisition
 
 DOM resources are state-scoped handles to real browser nodes. Fizz acquires them at state entry and releases them at state exit.
+
+All `dom.*` builders, including `fromElement`, query methods, and singleton builders, are effects and can be returned directly from handlers. Calling `.resource()` is optional and equivalent.
 
 ```typescript
 import { dom } from "@tdreyno/fizz/browser"
@@ -56,14 +69,15 @@ const Interactive = state<Enter>({
 
 **DOM query methods:**
 
-| Method | Signature |
-|--------|-----------|
-| `dom.getElementById(resourceId, id)` | acquires a single element by id |
-| `dom.querySelector(resourceId, selector)` | acquires first match |
-| `dom.querySelectorAll(resourceId, selector)` | acquires a node list |
-| `dom.getElementsByClassName(resourceId, className)` | acquires matching elements |
-| `dom.getElementsByName(resourceId, name)` | acquires named elements |
-| `dom.getElementsByTagName(resourceId, tag)` | acquires tagged elements |
+| Method                                              | Signature                                            |
+| --------------------------------------------------- | ---------------------------------------------------- |
+| `dom.getElementById(resourceId, id)`                | acquires a single element by id                      |
+| `dom.querySelector(resourceId, selector)`           | acquires first match                                 |
+| `dom.querySelectorAll(resourceId, selector)`        | acquires a node list                                 |
+| `dom.getElementsByClassName(resourceId, className)` | acquires matching elements                           |
+| `dom.getElementsByName(resourceId, name)`           | acquires named elements                              |
+| `dom.getElementsByTagName(resourceId, tag)`         | acquires tagged elements                             |
+| `dom.fromElement(resourceId, element)`              | wraps a known element as a state-scoped DOM resource |
 
 **Singleton builders** — already named, optional `resourceId`:
 
@@ -93,9 +107,11 @@ const Scrolled = action("Scrolled").withPayload<{ y: number }>()
 const Watching = state<Enter | ReturnType<typeof Clicked>>({
   Enter: () => [
     ...dom.body().listen("click", () => Clicked()),
-    ...dom.window().listen("scroll", event =>
-      Scrolled({ y: (event as ScrollEvent).scrollY }),
-    ),
+    ...dom
+      .window()
+      .listen("scroll", event =>
+        Scrolled({ y: (event as ScrollEvent).scrollY }),
+      ),
   ],
 })
 ```
@@ -116,22 +132,25 @@ const Lazy = state<Enter>({
   Enter: () =>
     dom
       .getElementById("hero", "hero-section")
-      .observeIntersection((entries) =>
+      .observeIntersection(entries =>
         entries[0].isIntersecting ? Visible() : Hidden(),
       ),
 })
 ```
 
 Overload with options:
+
 ```typescript
-dom.getElementById("img", "lazy-img")
+dom
+  .getElementById("img", "lazy-img")
   .observeIntersection(
-    entries => entries[0].isIntersecting ? Load() : Unload(),
+    entries => (entries[0].isIntersecting ? Load() : Unload()),
     { threshold: 0.25 },
   )
 ```
 
 Named observer (for multiple observers on the same target):
+
 ```typescript
 dom.getElementById("el", "my-el")
   .observeIntersection("viewport-watcher", entries => ...)
@@ -170,7 +189,10 @@ const CardFocused = action("CardFocused")
 const Card = state<Enter>({
   Enter: () => [
     dom.getElementById("card", "card-container"),
-    ...dom.from("card").closest("cta", ".cta-button").listen("focus", () => CardFocused()),
+    ...dom
+      .from("card")
+      .closest("cta", ".cta-button")
+      .listen("focus", () => CardFocused()),
   ],
 })
 ```
@@ -235,7 +257,13 @@ Read current history and location values via `dom.history()` and `dom.location()
 ## Other one-way browser effects
 
 ```typescript
-import { alert, copyToClipboard, openUrl, postMessage, printPage } from "@tdreyno/fizz"
+import {
+  alert,
+  copyToClipboard,
+  openUrl,
+  postMessage,
+  printPage,
+} from "@tdreyno/fizz"
 
 const Sharing = state<Enter>({
   Enter: () => [

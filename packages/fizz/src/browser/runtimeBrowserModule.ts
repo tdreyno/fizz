@@ -256,9 +256,11 @@ export const createRuntimeBrowserModule = (options: {
 
         const accepted = result === true || result === "accept"
 
-        return options.runAction(
-          accepted ? confirmAccepted() : confirmRejected(),
-        )
+        if (accepted) {
+          return options.runAction(confirmAccepted())
+        }
+
+        return options.runAction(confirmRejected())
       })
       .catch(() => {
         hasPendingConfirm = false
@@ -284,9 +286,11 @@ export const createRuntimeBrowserModule = (options: {
       .then(value => {
         hasPendingPrompt = false
 
-        return value === null
-          ? options.runAction(promptCancelled())
-          : options.runAction(promptSubmitted(value))
+        if (value === null) {
+          return options.runAction(promptCancelled())
+        }
+
+        return options.runAction(promptSubmitted(value))
       })
       .catch(() => {
         hasPendingPrompt = false
@@ -304,10 +308,19 @@ export const createRuntimeBrowserModule = (options: {
       return []
     }
 
-    const value =
-      data.kind === "singleton"
-        ? acquireSingleton(data)
-        : acquireQuery(state, data)
+    let value: unknown
+
+    switch (data.kind) {
+      case "singleton":
+        value = acquireSingleton(data)
+        break
+      case "query":
+        value = acquireQuery(state, data)
+        break
+      default:
+        value = data.element
+        break
+    }
 
     setStateResource({
       key: data.resourceId,

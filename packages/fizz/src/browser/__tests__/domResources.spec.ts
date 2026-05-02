@@ -97,4 +97,57 @@ describe("DOM resources", () => {
     expect(resources["history"]).toBe(mock.emit.history)
     expect(resources["location"]).toBe(mock.emit.location)
   })
+
+  test("should acquire provided elements via dom.fromElement", async () => {
+    const providedElement = new MockElementTarget()
+    let capturedElement: MockElementTarget | undefined
+
+    const Browsing = state<Enter>(
+      {
+        Enter: () =>
+          dom
+            .fromElement("provided", providedElement as unknown as Element)
+            .mutate(element => {
+              capturedElement = element
+            }),
+      },
+      { name: "Browsing" },
+    )
+
+    const runtime = new Runtime(createInitialContext([Browsing()]), {}, {}, {})
+
+    await runtime.run(enter())
+
+    const current = runtime.currentState()
+    const resources = getStateResources(current)
+
+    expect(resources["provided"]).toBe(providedElement)
+    expect(capturedElement).toBe(providedElement)
+  })
+
+  test("should support listen chaining from dom.fromElement", async () => {
+    const providedElement = new MockElementTarget()
+
+    const Browsing = state<Enter>(
+      {
+        Enter: () =>
+          dom
+            .fromElement("provided", providedElement as unknown as Element)
+            .listen("click", () => enter()),
+      },
+      { name: "Browsing" },
+    )
+
+    const runtime = new Runtime(
+      createInitialContext([Browsing()]),
+      {},
+      {},
+      {
+        browserDriver: createMockDomDriver().driver,
+      },
+    )
+
+    await runtime.run(enter())
+    expect(providedElement.listenerCount("click")).toBe(1)
+  })
 })

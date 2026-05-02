@@ -34,6 +34,11 @@ type DomQueryMethod =
 
 export type DomAcquireEffectData =
   | {
+      element: unknown
+      kind: "external"
+      resourceId: string
+    }
+  | {
       kind: "singleton"
       resourceId: string
       target: DomSingletonTarget
@@ -46,7 +51,10 @@ export type DomAcquireEffectData =
       scopeResourceId?: string
     }
 
+export type DomListenCoalesceMode = "animation-frame" | "microtask" | "none"
+
 export type DomListenEffectData = {
+  coalesce?: DomListenCoalesceMode
   options?: AddEventListenerOptions | boolean
   targetResourceId: string
   toAction: (event: Event) => AnyAction
@@ -78,6 +86,10 @@ export type DomMutateEffectData = {
   targetResourceId: string
 }
 
+export type DomListenOptions = (AddEventListenerOptions | boolean) & {
+  coalesce?: DomListenCoalesceMode
+}
+
 type TargetBuilder<
   EventMap extends EventMapLike,
   TElement = unknown,
@@ -85,7 +97,7 @@ type TargetBuilder<
   listen: <EventType extends string>(
     type: EventType,
     toAction: (event: EventFromMap<EventMap, EventType>) => AnyAction,
-    options?: AddEventListenerOptions | boolean,
+    options?: DomListenOptions,
   ) => Effect<unknown>[]
   mutate: (fn: (element: TElement) => void) => Effect<unknown>[]
   observeIntersection: {
@@ -206,16 +218,33 @@ const createTargetBuilder = <
     listen: (
       type: string,
       toAction: (event: Event) => AnyAction,
-      eventOptions?: AddEventListenerOptions | boolean,
-    ) => [
-      builder,
-      domListen({
-        ...(eventOptions === undefined ? {} : { options: eventOptions }),
-        targetResourceId: options.resourceId,
-        toAction,
-        type,
-      }),
-    ],
+      eventOptions?: DomListenOptions,
+    ) => {
+      const { coalesce, ...restOptions } =
+        eventOptions !== undefined && typeof eventOptions === "object"
+          ? eventOptions
+          : ({} as DomListenOptions)
+
+      const hasListenerOptions =
+        eventOptions !== undefined &&
+        (typeof eventOptions !== "object" || Object.keys(restOptions).length > 0)
+
+      return [
+        builder,
+        domListen({
+          ...(coalesce !== undefined ? { coalesce } : {}),
+          ...(hasListenerOptions
+            ? {
+                options:
+                  typeof eventOptions === "object" ? restOptions : eventOptions,
+              }
+            : {}),
+          targetResourceId: options.resourceId,
+          toAction,
+          type,
+        }),
+      ]
+    },
     observeIntersection: (
       observerIdOrToAction:
         | string
@@ -320,6 +349,22 @@ const createSingletonBuilder = <
       kind: "singleton",
       resourceId,
       target,
+    },
+    resourceId,
+  })
+
+const createExternalBuilder = <
+  EventMap extends EventMapLike,
+  TElement = unknown,
+>(
+  resourceId: string,
+  element: TElement,
+): TargetBuilder<EventMap, TElement> =>
+  createTargetBuilder<EventMap, TElement>({
+    acquire: {
+      element,
+      kind: "external",
+      resourceId,
     },
     resourceId,
   })
@@ -439,6 +484,8 @@ export const dom = {
       resourceId,
     ),
   from: (scopeResourceId: string) => createFromBuilder(scopeResourceId),
+  fromElement: <TElement = Element>(resourceId: string, element: TElement) =>
+    createExternalBuilder<HTMLElementEventMap, TElement>(resourceId, element),
   history: (resourceId = "history") => createHistoryBuilder(resourceId),
   getElementById: (resourceId: string, id: string) =>
     createQueryBuilder({

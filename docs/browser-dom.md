@@ -119,9 +119,20 @@ Because `.mutate()` chains off the builder, it returns `[acquireEffect, mutateEf
 
 Common uses include: scroll position resets, focus management, toggling CSS classes, and other write-only interactions:
 
+```typescript
+const Done = state({
+  Enter: data =>
+    dom.fromElement("dragBlock", data.block).mutate(el => {
+      el.classList.remove("dragging")
+    }),
+})
+```
+
 ## DOM queries
 
 The `dom` builder provides type-safe query methods. Results are stored as state resources and can be chained.
+
+All `dom.*` builders, including `dom.fromElement(...)` and selector builders, are already effects. Return them directly from handlers; `.resource()` is optional and equivalent to returning the builder itself.
 
 ### Singleton targets
 
@@ -178,6 +189,8 @@ All query methods support an optional scope argument to query within a specific 
 - `dom.getElementsByName(name)` — Returns all elements with that name
 - `dom.getElementsByTagName(tagName)` — Returns live HTMLCollection as array
 - `dom.closest(element, selector)` — Returns closest ancestor matching selector
+
+Use `dom.fromElement(resourceId, element)` when you already have a DOM element reference and want the full fluent builder (`mutate`, `listen`, observers, `resource`) without doing a query lookup.
 
 ### Scoped queries
 

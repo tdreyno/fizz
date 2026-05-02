@@ -159,6 +159,7 @@ If the task is about React integration, read `references/react-integration.md`.
 - `references/resources.md` for state-scoped resources, lifecycle ownership, and fluent resource-event bridging
 - `references/testing.md` for deterministic machine testing, controlled drivers, and the `@tdreyno/fizz/test` subpath
 - `references/output-actions.md` for output maps, output command channels, and runtime output subscription helpers
+- `references/browser-effects.md` for DOM resource acquisition, mutate/listen chains, observers, and browser operations
 - `references/react-integration.md` for `useMachine(...)`, `createMachineContext(...)`, and React-specific guidance
 - `references/examples.md` for short copyable usage patterns
 - `references/fluent-api.md` for the optional fluent state authoring entry point
