@@ -142,6 +142,241 @@ describe("runtime resource module", () => {
     expect(runAction).toHaveBeenCalledWith(applyEvent("b"))
   })
 
+  test("uses onDidChange bridge discovery and ignores filtered events", async () => {
+    const state = createState("Watching")
+    const runAction = jest.fn(async () => undefined)
+    const applyEvent = action("ApplyEvent").withPayload<string>()
+    const module = createRuntimeResourceModule({
+      emitMonitor: () => undefined,
+      getContext: () => ({ currentState: state }) as never,
+      runAction,
+      timerDriver: createControlledTimerDriver(),
+    })
+
+    const resourceHandler = module.effectHandlers.get("resource")
+
+    expect(resourceHandler).toBeDefined()
+
+    resourceHandler?.({
+      data: {
+        bridge: {
+          filter: (event: string) => event !== "drop",
+          handlers: {
+            reject: () => undefined,
+            resolve: (event: string) => applyEvent(event),
+          },
+        },
+        key: "events",
+        value: {
+          onDidChange: (onEvent: (event: string) => void) => {
+            onEvent("drop")
+            onEvent("keep")
+
+            return () => undefined
+          },
+        },
+      },
+      label: "resource",
+    } as never)
+
+    await flushTasks()
+
+    expect(runAction).toHaveBeenCalledTimes(1)
+    expect(runAction).toHaveBeenCalledWith(applyEvent("keep"))
+  })
+
+  test("does not run mapped actions when bridge resolve returns undefined", async () => {
+    const state = createState("Watching")
+    const runAction = jest.fn(async () => undefined)
+    const module = createRuntimeResourceModule({
+      emitMonitor: () => undefined,
+      getContext: () => ({ currentState: state }) as never,
+      runAction,
+      timerDriver: createControlledTimerDriver(),
+    })
+
+    const resourceHandler = module.effectHandlers.get("resource")
+
+    resourceHandler?.({
+      data: {
+        bridge: {
+          handlers: {
+            reject: () => undefined,
+            resolve: () => undefined,
+          },
+          subscribe: (_value: unknown, onEvent: (event: string) => void) => {
+            onEvent("ignored")
+            return () => undefined
+          },
+        },
+        key: "events",
+        value: {},
+      },
+      label: "resource",
+    } as never)
+
+    await flushTasks()
+
+    expect(runAction).not.toHaveBeenCalled()
+  })
+
+  test("skips bridge subscription when value is not subscribable", async () => {
+    const state = createState("Watching")
+    const runAction = jest.fn(async () => undefined)
+    const module = createRuntimeResourceModule({
+      emitMonitor: () => undefined,
+      getContext: () => ({ currentState: state }) as never,
+      runAction,
+      timerDriver: createControlledTimerDriver(),
+    })
+
+    const resourceHandler = module.effectHandlers.get("resource")
+
+    resourceHandler?.({
+      data: {
+        bridge: {
+          handlers: {
+            reject: () => undefined,
+            resolve: () => undefined,
+          },
+        },
+        key: "events",
+        value: 123,
+      },
+      label: "resource",
+    } as never)
+
+    await flushTasks()
+
+    expect(runAction).not.toHaveBeenCalled()
+    expect(hasStateResource(state as never, "events")).toBeTruthy()
+  })
+
+  test("runs reject mapping when subscribe throws", async () => {
+    const state = createState("Watching")
+    const runAction = jest.fn(async () => undefined)
+    const rejected = action("Rejected").withPayload<string>()
+    const module = createRuntimeResourceModule({
+      emitMonitor: () => undefined,
+      getContext: () => ({ currentState: state }) as never,
+      runAction,
+      timerDriver: createControlledTimerDriver(),
+    })
+
+    const resourceHandler = module.effectHandlers.get("resource")
+
+    resourceHandler?.({
+      data: {
+        bridge: {
+          handlers: {
+            reject: (error: unknown) => rejected(String(error)),
+            resolve: () => undefined,
+          },
+          subscribe: () => {
+            throw new Error("subscribe failed")
+          },
+        },
+        key: "events",
+        value: {},
+      },
+      label: "resource",
+    } as never)
+
+    await flushTasks()
+
+    expect(runAction).toHaveBeenCalledWith(rejected("Error: subscribe failed"))
+  })
+
+  test("does not dispatch bridge events after resource clear", async () => {
+    const state = createState("Watching")
+    const timerDriver = createControlledTimerDriver()
+    const runAction = jest.fn(async () => undefined)
+    const applyEvent = action("ApplyEvent").withPayload<string>()
+    let emitEvent: ((event: string) => void) | undefined
+
+    const module = createRuntimeResourceModule({
+      emitMonitor: () => undefined,
+      getContext: () => ({ currentState: state }) as never,
+      runAction,
+      timerDriver,
+    })
+
+    const resourceHandler = module.effectHandlers.get("resource")
+
+    resourceHandler?.({
+      data: {
+        bridge: {
+          handlers: {
+            reject: () => undefined,
+            resolve: (event: string) => applyEvent(event),
+          },
+          pace: "latest",
+          subscribe: (_value: unknown, onEvent: (event: string) => void) => {
+            emitEvent = onEvent
+            return () => undefined
+          },
+        },
+        key: "events",
+        value: {},
+      },
+      label: "resource",
+    } as never)
+
+    emitEvent?.("before-clear")
+    module.clear()
+
+    await timerDriver.advanceBy(0)
+    await flushTasks()
+
+    emitEvent?.("after-clear")
+    await timerDriver.advanceBy(0)
+    await flushTasks()
+
+    expect(runAction).not.toHaveBeenCalledWith(applyEvent("after-clear"))
+  })
+
+  test("cancels pending debounce bridge dispatches on clear", async () => {
+    const state = createState("Watching")
+    const timerDriver = createControlledTimerDriver()
+    const runAction = jest.fn(async () => undefined)
+    const applyEvent = action("ApplyEvent").withPayload<string>()
+    const module = createRuntimeResourceModule({
+      emitMonitor: () => undefined,
+      getContext: () => ({ currentState: state }) as never,
+      runAction,
+      timerDriver,
+    })
+
+    const resourceHandler = module.effectHandlers.get("resource")
+
+    resourceHandler?.({
+      data: {
+        bridge: {
+          handlers: {
+            reject: () => undefined,
+            resolve: (event: string) => applyEvent(event),
+          },
+          pace: {
+            debounceMs: 25,
+          },
+          subscribe: (_value: unknown, onEvent: (event: string) => void) => {
+            onEvent("a")
+            return () => undefined
+          },
+        },
+        key: "events",
+        value: {},
+      },
+      label: "resource",
+    } as never)
+
+    module.clear()
+    await timerDriver.advanceBy(25)
+    await flushTasks()
+
+    expect(runAction).not.toHaveBeenCalledWith(applyEvent("a"))
+  })
+
   test("handles subscription effects as resources", () => {
     const state = createState("Subscribed")
     const teardown = jest.fn()
@@ -208,6 +443,146 @@ describe("runtime resource module", () => {
 
     expect(hasStateResource(updatedState as never, "session")).toBeFalsy()
     expect(teardown).toHaveBeenCalled()
+  })
+
+  test("clearForTransition returns when current state is undefined", () => {
+    const targetState = createState("Review", "append")
+    const module = createRuntimeResourceModule({
+      emitMonitor: () => undefined,
+      getContext: () => ({ currentState: undefined }) as never,
+      runAction: async () => undefined,
+      timerDriver: createControlledTimerDriver(),
+    })
+
+    module.clearForTransition({
+      currentState: undefined,
+      targetState: targetState as never,
+    })
+
+    expect(true).toBeTruthy()
+  })
+
+  test("clear and clearForGoBack are no-ops when there is no current state", () => {
+    const module = createRuntimeResourceModule({
+      emitMonitor: () => undefined,
+      getContext: () => ({ currentState: undefined }) as never,
+      runAction: async () => undefined,
+      timerDriver: createControlledTimerDriver(),
+    })
+
+    module.clear()
+    module.clearForGoBack()
+
+    expect(true).toBeTruthy()
+  })
+
+  test("clear emits release failure when cleanup teardown throws", () => {
+    const state = createState("Editing")
+    const events: Array<string> = []
+
+    setStateResource({
+      key: "session",
+      state: state as never,
+      teardown: () => {
+        throw new Error("cleanup failed")
+      },
+      value: "abc",
+    })
+
+    const module = createRuntimeResourceModule({
+      emitMonitor: event => events.push(event.type),
+      getContext: () => ({ currentState: state }) as never,
+      runAction: async () => undefined,
+      timerDriver: createControlledTimerDriver(),
+    })
+
+    module.clear()
+
+    expect(events).toContain("resource-released")
+    expect(events).toContain("resource-release-failed")
+  })
+
+  test("releasing existing resource emits only release event when teardown succeeds", () => {
+    const state = createState("Editing")
+    const eventTypes: Array<string> = []
+
+    setStateResource({
+      key: "session",
+      state: state as never,
+      teardown: () => undefined,
+      value: "old",
+    })
+
+    const module = createRuntimeResourceModule({
+      emitMonitor: event => {
+        eventTypes.push(event.type)
+      },
+      getContext: () => ({ currentState: state }) as never,
+      runAction: async () => undefined,
+      timerDriver: createControlledTimerDriver(),
+    })
+
+    const resourceHandler = module.effectHandlers.get("resource")
+
+    resourceHandler?.({
+      data: {
+        key: "session",
+        value: "new",
+      },
+      label: "resource",
+    } as never)
+
+    expect(eventTypes).toContain("resource-released")
+    expect(eventTypes).toContain("resource-registered")
+    expect(eventTypes).not.toContain("resource-release-failed")
+  })
+
+  test("skips release monitor emission when context state name is missing", () => {
+    const state = createState("Editing")
+    const emitMonitor = jest.fn()
+    let getContextCalls = 0
+
+    setStateResource({
+      key: "session",
+      state: state as never,
+      teardown: () => undefined,
+      value: "old",
+    })
+
+    const module = createRuntimeResourceModule({
+      emitMonitor,
+      getContext: () => {
+        if (getContextCalls === 0) {
+          getContextCalls += 1
+          return {
+            currentState: state,
+          } as never
+        }
+
+        return {
+          currentState: undefined,
+        } as never
+      },
+      runAction: async () => undefined,
+      timerDriver: createControlledTimerDriver(),
+    })
+
+    const resourceHandler = module.effectHandlers.get("resource")
+
+    resourceHandler?.({
+      data: {
+        key: "session",
+        value: "new",
+      },
+      label: "resource",
+    } as never)
+
+    expect(emitMonitor).toHaveBeenCalledWith({
+      resourceKey: "session",
+      stateName: "Editing",
+      type: "resource-registered",
+    })
+    expect(emitMonitor).toHaveBeenCalledTimes(1)
   })
 
   test("getDiagnostics returns empty when there is no current state", () => {

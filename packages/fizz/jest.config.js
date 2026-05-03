@@ -16,6 +16,30 @@ export default {
   // The glob patterns Jest uses to detect test files
   testMatch: ["**/__tests__/**/?(*.)+(spec|test|steps).ts?(x)"],
 
+  collectCoverageFrom: [
+    "**/*.ts",
+    "**/*.tsx",
+    "!**/__tests__/**",
+    "!**/*.d.ts",
+    "!cli/**",
+    "!loadingMachine/**",
+    "!test.ts",
+    "!test.browser.ts",
+    "!browser/index.ts",
+    "!fluent.ts",
+    "!nested.ts",
+    "!parallelMachine.ts",
+  ],
+
+  coverageThreshold: {
+    global: {
+      branches: 85,
+      functions: 85,
+      lines: 85,
+      statements: 85,
+    },
+  },
+
   // An array of file extensions your modules use
   moduleFileExtensions: ["js", "json", "jsx", "ts", "tsx"],
   extensionsToTreatAsEsm: [".ts", ".tsx"],

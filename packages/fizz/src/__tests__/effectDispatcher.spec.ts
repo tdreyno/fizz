@@ -23,6 +23,13 @@ import {
 } from "../runtime/effectDispatcher.js"
 
 describe("effect dispatcher", () => {
+  test("creates an empty registry when no handlers are provided", () => {
+    const registry = createEffectHandlerRegistry<never, never>({})
+
+    expect(registry.size).toBe(0)
+    expect([...registry.keys()]).toEqual([])
+  })
+
   test("creates handlers for all supported effect labels", () => {
     const notice = action("Notice").withPayload<string>()
     const loaded = action("Loaded").withPayload<string>()
@@ -213,5 +220,66 @@ describe("effect dispatcher", () => {
     expect(() =>
       registerEffectHandlers(registry, new Map([["goBack", () => ["second"]]])),
     ).toThrow("Effect handler already registered for goBack")
+  })
+
+  test("registers non-duplicate handlers", () => {
+    const registry = new Map<string, () => string[]>([
+      ["goBack", () => ["first"]],
+    ])
+
+    registerEffectHandlers(registry, new Map([["cancelFrame", () => ["ok"]]]))
+
+    expect(registry.get("cancelFrame")?.()).toEqual(["ok"])
+  })
+
+  test("uses empty fallback when optional handlers become unavailable", () => {
+    const handlers = {
+      handleCancelFrame: () => ["cancelFrame"],
+      handleCancelInterval: () => ["cancelInterval"],
+      handleRestartInterval: () => ["restartInterval"],
+      handleStartFrame: () => ["startFrame"],
+    }
+    const registry = createEffectHandlerRegistry<string, never>(handlers)
+
+    handlers.handleCancelInterval = undefined as never
+    handlers.handleRestartInterval = undefined as never
+    handlers.handleStartFrame = undefined as never
+    handlers.handleCancelFrame = undefined as never
+
+    expect(
+      dispatchEffect(cancelInterval("poll"), {
+        registry,
+        runEffect: () => {
+          throw new Error("runEffect should not be called")
+        },
+      }),
+    ).toEqual([])
+
+    expect(
+      dispatchEffect(restartInterval("poll", 20), {
+        registry,
+        runEffect: () => {
+          throw new Error("runEffect should not be called")
+        },
+      }),
+    ).toEqual([])
+
+    expect(
+      dispatchEffect(startFrame(), {
+        registry,
+        runEffect: () => {
+          throw new Error("runEffect should not be called")
+        },
+      }),
+    ).toEqual([])
+
+    expect(
+      dispatchEffect(cancelFrame(), {
+        registry,
+        runEffect: () => {
+          throw new Error("runEffect should not be called")
+        },
+      }),
+    ).toEqual([])
   })
 })

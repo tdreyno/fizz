@@ -1,4 +1,4 @@
-import { describe, expect, test } from "@jest/globals"
+import { describe, expect, jest, test } from "@jest/globals"
 
 import { action } from "../action.js"
 import { dom, isBypassedLinkActivation } from "../browser/domEffects.js"
@@ -284,6 +284,136 @@ describe("dom effects", () => {
     expect(toAction?.(keyboardEventLike("Escape"))?.type).toBe("Ignored")
   })
 
+  test("fluent helpers cover once/repeat/preventDefault/stopPropagation branches", () => {
+    const matched = action("Matched")
+    const ignored = action("Ignored")
+    const preventDefault = jest.fn()
+    const stopPropagation = jest.fn()
+
+    const effects = dom
+      .document()
+      .listen("keydown")
+      .matchesKeyCombo({
+        ctrlKey: true,
+        key: "k",
+      })
+      .withoutKeyRepeat()
+      .preventDefault()
+      .stopPropagation()
+      .once()
+      .chainToAction(matched, ignored)
+
+    const toAction = effects[1]?.data?.toAction as
+      | ((
+          event: Event,
+        ) =>
+          | ReturnType<typeof matched>
+          | ReturnType<typeof ignored>
+          | undefined)
+      | undefined
+
+    expect(
+      toAction?.({
+        ...keyboardEventLike("k", {
+          ctrlKey: true,
+          repeat: false,
+        }),
+        preventDefault,
+        stopPropagation,
+      } as unknown as KeyboardEvent)?.type,
+    ).toBe("Matched")
+    expect(preventDefault).toHaveBeenCalled()
+    expect(stopPropagation).toHaveBeenCalled()
+
+    expect(
+      toAction?.(
+        keyboardEventLike("k", {
+          ctrlKey: true,
+          repeat: false,
+        }),
+      ),
+    ).toBeUndefined()
+
+    const repeatEffects = dom
+      .document()
+      .listen("keydown")
+      .withKeyRepeat()
+      .chainToAction(matched, ignored)
+    const repeatToAction = repeatEffects[1]?.data?.toAction as
+      | ((
+          event: Event,
+        ) =>
+          | ReturnType<typeof matched>
+          | ReturnType<typeof ignored>
+          | undefined)
+      | undefined
+
+    expect(
+      repeatToAction?.(
+        keyboardEventLike("k", {
+          repeat: true,
+        }),
+      )?.type,
+    ).toBe("Matched")
+    expect(
+      repeatToAction?.(
+        keyboardEventLike("k", {
+          repeat: false,
+        }),
+      )?.type,
+    ).toBe("Ignored")
+  })
+
+  test("noModifiers and onlyPrimaryButton handle non-key and non-mouse events", () => {
+    const matched = action("Matched")
+    const ignored = action("Ignored")
+
+    const keyEffects = dom
+      .document()
+      .listen("keydown")
+      .noModifiers()
+      .chainToAction(matched, ignored)
+    const keyToAction = keyEffects[1]?.data?.toAction as
+      | ((
+          event: Event,
+        ) =>
+          | ReturnType<typeof matched>
+          | ReturnType<typeof ignored>
+          | undefined)
+      | undefined
+
+    expect(keyToAction?.(new Event("keydown"))?.type).toBe("Matched")
+    expect(
+      keyToAction?.(
+        keyboardEventLike("Enter", {
+          altKey: true,
+        }),
+      )?.type,
+    ).toBe("Ignored")
+
+    const pointerEffects = dom
+      .document()
+      .listen("pointerdown")
+      .onlyPrimaryButton()
+      .chainToAction(matched, ignored)
+    const pointerToAction = pointerEffects[1]?.data?.toAction as
+      | ((
+          event: Event,
+        ) =>
+          | ReturnType<typeof matched>
+          | ReturnType<typeof ignored>
+          | undefined)
+      | undefined
+
+    expect(pointerToAction?.(new Event("pointerdown"))?.type).toBe("Ignored")
+    expect(
+      pointerToAction?.({ button: 1 } as unknown as MouseEvent)?.type,
+    ).toBe("Ignored")
+    expect(
+      pointerToAction?.({ button: 0 } as unknown as MouseEvent)?.type,
+    ).toBe("Matched")
+  })
+
   test("onKeyPress supports no-handler fluent chain and optional no-match", () => {
     const matched = action("Matched")
 
@@ -351,6 +481,29 @@ describe("dom effects", () => {
       toAction: expect.any(Function),
       type: "focusin",
     })
+
+    const focusToAction = focusEffects[1]?.data?.toAction as
+      | ((
+          event: Event,
+        ) => ReturnType<typeof outside> | ReturnType<typeof inside> | undefined)
+      | undefined
+
+    const focusWithoutInsideEffects = dom
+      .outsideFocusIn({
+        inside: [root],
+      })
+      .chainToAction(outside)
+    const focusWithoutInsideToAction = focusWithoutInsideEffects[1]?.data
+      ?.toAction as
+      | ((event: Event) => ReturnType<typeof outside> | undefined)
+      | undefined
+
+    expect(focusToAction?.({ target: {} } as unknown as Event)?.type).toBe(
+      "Inside",
+    )
+    expect(
+      focusWithoutInsideToAction?.({ target: {} } as unknown as Event),
+    ).toBeUndefined()
   })
 
   test("isBypassedLinkActivation matches common SPA bypass checks", () => {

@@ -50,6 +50,13 @@ describe("context", () => {
     expect(history.current.name).toBe("Loading")
   })
 
+  test("pop returns undefined when history becomes empty", () => {
+    const history = new History([createState("Idle", 0)])
+
+    expect(history.pop()?.name).toBe("Idle")
+    expect(history.pop()).toBeUndefined()
+  })
+
   test("exposes initial context options", () => {
     const logger = jest.fn()
     const context = createInitialContext([createState("Idle", 0)], {
@@ -62,6 +69,14 @@ describe("context", () => {
     expect(context.currentState.name).toBe("Idle")
     expect(context.enableLogging).toBeTruthy()
     expect(context.customLogger).toBe(logger)
+    expect(context.history.length).toBe(1)
+  })
+
+  test("uses default context options when omitted", () => {
+    const context = createInitialContext([createState("Idle", 0)])
+
+    expect(context.enableLogging).toBeFalsy()
+    expect(context.customLogger).toBeUndefined()
     expect(context.history.length).toBe(1)
   })
 })

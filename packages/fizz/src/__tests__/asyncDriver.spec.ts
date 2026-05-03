@@ -28,6 +28,24 @@ const deferred = <T>(): Deferred<T> => {
 }
 
 describe("async drivers", () => {
+  test("invokes resolve callback when default async work succeeds", async () => {
+    const driver = createDefaultAsyncDriver()
+    const onReject = jest.fn()
+    const onResolve = jest.fn()
+
+    driver.start({
+      onReject,
+      onResolve,
+      run: async () => "Ada",
+    })
+
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(onResolve).toHaveBeenCalledWith("Ada")
+    expect(onReject).not.toHaveBeenCalled()
+  })
+
   test("does not invoke default driver callbacks after cancellation", async () => {
     const driver = createDefaultAsyncDriver()
     const operation = deferred<string>()
@@ -41,6 +59,26 @@ describe("async drivers", () => {
 
     driver.cancel(handle)
     operation.resolve("Ada")
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(onResolve).not.toHaveBeenCalled()
+    expect(onReject).not.toHaveBeenCalled()
+  })
+
+  test("does not invoke reject callback after default driver cancellation", async () => {
+    const driver = createDefaultAsyncDriver()
+    const operation = deferred<string>()
+    const onReject = jest.fn()
+    const onResolve = jest.fn()
+    const handle = driver.start({
+      onReject,
+      onResolve,
+      run: () => operation.promise,
+    })
+
+    driver.cancel(handle)
+    operation.reject(new Error("boom"))
     await Promise.resolve()
     await Promise.resolve()
 
@@ -88,6 +126,25 @@ describe("async drivers", () => {
     expect(onReject).not.toHaveBeenCalled()
   })
 
+  test("drops controlled reject callback after cancellation", async () => {
+    const driver = createControlledAsyncDriver()
+    const operation = deferred<string>()
+    const onReject = jest.fn()
+    const onResolve = jest.fn()
+    const handle = driver.start({
+      onReject,
+      onResolve,
+      run: () => operation.promise,
+    })
+
+    driver.cancel(handle)
+    operation.reject(new Error("boom"))
+    await driver.flush()
+
+    expect(onResolve).not.toHaveBeenCalled()
+    expect(onReject).not.toHaveBeenCalled()
+  })
+
   test("runs all pending controlled resolve and reject callbacks", async () => {
     const driver = createControlledAsyncDriver()
     const resolveOperation = deferred<string>()
@@ -114,5 +171,32 @@ describe("async drivers", () => {
 
     expect(onResolve).toHaveBeenCalledWith("Ada")
     expect(onReject).toHaveBeenCalledWith(expect.any(Error))
+  })
+
+  test("runAll is a no-op when no controlled operations are pending", async () => {
+    const driver = createControlledAsyncDriver()
+
+    await expect(driver.runAll()).resolves.toBeUndefined()
+  })
+
+  test("runAll flushes pending controlled tasks", async () => {
+    const driver = createControlledAsyncDriver()
+    const operation = deferred<string>()
+    const onReject = jest.fn()
+    const onResolve = jest.fn()
+
+    driver.start({
+      onReject,
+      onResolve,
+      run: () => operation.promise,
+    })
+
+    operation.resolve("Ada")
+    await Promise.resolve()
+    await Promise.resolve()
+    await driver.runAll()
+
+    expect(onResolve).toHaveBeenCalledWith("Ada")
+    expect(onReject).not.toHaveBeenCalled()
   })
 })
