@@ -1,5 +1,15 @@
 # @tdreyno/fizz
 
+## 8.11.1
+
+### Patch Changes
+
+- 808add6: Add test harness parity for runtime command/client injection.
+
+  `createTestHarness(...)` (and `createBrowserTestHarness(...)` through shared options) now support passing `commandHandlers`, `clients`, `commandMissingHandler`, `monitor`, and `debugLabel` to the underlying runtime.
+
+  This makes it possible to test `commandEffect(...)` flows directly with harness utilities instead of switching to manual runtime setup.
+
 ## 8.11.0
 
 ### Minor Changes
