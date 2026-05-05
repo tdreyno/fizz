@@ -137,7 +137,8 @@ If the task is about machine tests or consumer-facing test helpers, read `refere
 - When a task is not React-based, evaluate colocated selectors from machine definitions in runtime-level code paths instead of rebuilding ad-hoc `currentState.is(...)` checks.
 - Keep machine definition and transition logic outside the React component body when possible.
 - Treat the hook as an adapter that exposes `currentState`, `states`, `context`, `actions`, and `runtime`.
-- Compare states with `currentState.is(machine.states.SomeState)`.
+- Compare states with `currentState.is(machine.states.SomeState)` — this is a type guard that narrows `data` and survives renames.
+- Never compare states with string literals (`currentState.name === 'SomeName'` or `snapshot.currentStateName === 'SomeName'`). String checks have no TypeScript narrowing and break silently when states are renamed. Use `currentState.is(StateRef)` for one-off checks and `selectWhen(...)` for reusable derived reads.
 - Avoid shifting business logic from the machine into component-local React state unless the task explicitly requires it.
 
 If the task is about React integration, read `references/react-integration.md`.

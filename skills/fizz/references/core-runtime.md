@@ -109,6 +109,26 @@ For complex nested matching, discriminated unions, or array/primitive matching, 
 
 For non-React usage, evaluate selector definitions directly with `runStateSelector(selector, currentState, context)`.
 
+### State identity checks
+
+Always use `currentState.is(StateRef)` to check which state the machine is in. This is a type guard: it narrows `currentState.data` to the correct type and survives state renames.
+
+```typescript
+// Correct — type-safe, narrows data
+if (currentState.is(Saving)) {
+  // currentState.data is now typed as Saving's data
+}
+
+// Correct — colocated, reusable, works in both React and plain runtimes
+const isSaving = selectWhen([Saving], () => true);
+
+// Avoid — string comparison, no type narrowing, breaks silently on rename
+if (currentState.name === 'NotesSaving') { ... }
+if (snapshot.currentStateName === 'NotesSaving') { ... }
+```
+
+`currentState.isNamed(string)` exists on the interface but provides no TypeScript narrowing and is not the idiomatic check. Prefer `.is(StateRef)` or `selectWhen(...)` in all cases.
+
 When imperative adapter code needs to dispatch and immediately read from the resulting state, use `runtime.runAndSelect(action, selectorOrProject)`. Prefer the selector form for reusable reads and the projection form only for narrow one-off adapter logic.
 
 `runAndSelect(...)` resolves after the same synchronous transition/effect boundary as `runtime.run(...)`. It does not wait for async effect settlement.
