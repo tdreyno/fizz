@@ -7,6 +7,9 @@ import type {
   ControlledAsyncDriver,
   ControlledTimerDriver,
   Runtime,
+  RuntimeCommandHandlers,
+  RuntimeMissingCommandHandlerPolicy,
+  RuntimeMonitor,
 } from "./runtime.js"
 import {
   createControlledAsyncDriver,
@@ -62,8 +65,13 @@ export type TestHarnessOptions<
   OAM extends TestActionMap,
 > = {
   browserDriver?: RuntimeBrowserDriver
+  clients?: Record<string, unknown>
+  commandHandlers?: RuntimeCommandHandlers
+  commandMissingHandler?: RuntimeMissingCommandHandlerPolicy
+  debugLabel?: string
   history: Array<State>
   internalActions?: AM
+  monitor?: RuntimeMonitor
   outputActions?: OAM
   maxHistory?: number
   enableLogging?: boolean
@@ -197,6 +205,17 @@ export const createTestHarness = <
       ...(options.browserDriver === undefined
         ? {}
         : { browserDriver: options.browserDriver }),
+      ...(options.clients === undefined ? {} : { clients: options.clients }),
+      ...(options.commandHandlers === undefined
+        ? {}
+        : { commandHandlers: options.commandHandlers }),
+      ...(options.commandMissingHandler === undefined
+        ? {}
+        : { commandMissingHandler: options.commandMissingHandler }),
+      ...(options.debugLabel === undefined
+        ? {}
+        : { debugLabel: options.debugLabel }),
+      ...(options.monitor === undefined ? {} : { monitor: options.monitor }),
       timerDriver,
     },
   )

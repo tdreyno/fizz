@@ -200,6 +200,45 @@ The exported shape is:
 - resource helpers such as `resources()`, `waitForResource(key, options?)`, and `waitForResourceRelease(key, options?)`
 - read-only inspection helpers such as recorded outputs and recorded state snapshots
 
+### Command Handlers And Clients In Harness Tests
+
+When a machine uses `commandEffect(...)`, inject command handlers directly in the harness options.
+
+```ts
+import { commandHandlersFromClients } from "@tdreyno/fizz"
+import { createTestHarness } from "@tdreyno/fizz/test"
+
+type Commands = {
+  notesEditor: {
+    setDocument: {
+      payload: { document: string }
+      result: { saved: true }
+    }
+  }
+}
+
+const clients = {
+  notesEditor: {
+    setDocument: ({ document }: { document: string }) => ({
+      saved: document.length > 0,
+    }),
+  },
+}
+
+const harness = createTestHarness({
+  history: [Editing({ status: "idle" })],
+  internalActions: { applyClicked, applySucceeded },
+  clients,
+  commandHandlers: commandHandlersFromClients<Commands>(clients),
+  commandMissingHandler: "error",
+})
+
+await harness.run(applyClicked({ document: "Hello" }))
+expect(harness.currentState().data.status).toBe("applied")
+```
+
+Use `commandMissingHandler: "error"` in tests that should fail fast when a handler is not wired. Use `"noop"` or `"warn"` when intentionally modeling missing integrations.
+
 This subpath is preferred over adding test helpers to the root package export surface because it keeps production imports and test-only imports clearly separated.
 
 ## Browser Runtime Tests

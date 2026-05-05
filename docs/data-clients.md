@@ -146,6 +146,38 @@ Benefits:
 - no output wiring just to reach app services
 - direct assertions on client calls in unit tests
 
+For command-driven flows (`commandEffect(...)`), harness tests can also inject both clients and derived command handlers.
+
+```ts
+import { commandHandlersFromClients } from "@tdreyno/fizz"
+import { createTestHarness } from "@tdreyno/fizz/test"
+
+type Commands = {
+  notesEditor: {
+    setDocument: {
+      payload: { document: string }
+      result: { saved: true }
+    }
+  }
+}
+
+const clients = {
+  notesEditor: {
+    setDocument: jest.fn(() => ({ saved: true as const })),
+  },
+}
+
+const harness = createTestHarness({
+  history: [Editing({ status: "idle" })],
+  internalActions: { applyClicked, applySucceeded },
+  clients,
+  commandHandlers: commandHandlersFromClients<Commands>(clients),
+})
+
+await harness.run(applyClicked({ document: "Hello" }))
+expect(clients.notesEditor.setDocument).toHaveBeenCalled()
+```
+
 ## Choosing Between Helpers
 
 - Use `requestJSONAsync(...)` when Fizz should own transport and JSON parsing.

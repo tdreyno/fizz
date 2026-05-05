@@ -160,6 +160,41 @@ Recommended assertions:
 - dispatched success/failure actions
 - client calls (`toHaveBeenCalledWith(...)`)
 
+For command-driven machines that use `commandEffect(...)`, you can keep harness-driven tests and derive handlers directly from injected clients.
+
+```ts
+import { commandHandlersFromClients } from "@tdreyno/fizz"
+import { createTestHarness } from "@tdreyno/fizz/test"
+
+type Commands = {
+  notesEditor: {
+    setDocument: {
+      payload: { document: string }
+      result: { saved: true }
+    }
+  }
+}
+
+const clients = {
+  notesEditor: {
+    setDocument: jest.fn(() => ({ saved: true as const })),
+  },
+}
+
+const harness = createTestHarness({
+  history: [Editing({ status: "idle" })],
+  internalActions: { applyClicked, applySucceeded },
+  clients,
+  commandHandlers: commandHandlersFromClients<Commands>(clients),
+})
+
+await harness.run(applyClicked({ document: "Hello" }))
+expect(clients.notesEditor.setDocument).toHaveBeenCalledWith(
+  { document: "Hello" },
+  expect.objectContaining({ signal: expect.any(AbortSignal) }),
+)
+```
+
 ## Guidance
 
 - Prefer `customJSONAsync(...)` for app clients that already return parsed values.

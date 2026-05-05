@@ -3,7 +3,7 @@ import { JSDOM } from "jsdom"
 
 import { action, enter } from "../action.js"
 import { dom } from "../browser/index.js"
-import { output } from "../effect.js"
+import { commandEffect, output } from "../effect.js"
 import { state } from "../state.js"
 import {
   createBrowserTestHarness,
@@ -486,5 +486,70 @@ describe("browser test harness", () => {
       "click:save",
       "submit:save",
     ])
+  })
+
+  test("should forward commandHandlers and clients in browser harness options", async () => {
+    type Commands = {
+      notesEditor: {
+        setDocument: {
+          payload: { document: string }
+          result: { saved: true }
+        }
+      }
+    }
+
+    const applyClicked = action("ApplyClicked").withPayload<{
+      document: string
+    }>()
+    const applySucceeded = action("ApplySucceeded")
+    const calls: Array<{ document: string }> = []
+    const clients = {
+      notesEditor: {
+        setDocument: (payload: { document: string }) => {
+          calls.push(payload)
+
+          return { saved: true as const }
+        },
+      },
+    }
+
+    const Editing = state<
+      ReturnType<typeof applyClicked> | ReturnType<typeof applySucceeded>,
+      { status: string }
+    >(
+      {
+        ApplyClicked: (_, payload) =>
+          commandEffect<Commands, "notesEditor", "setDocument">(
+            "notesEditor",
+            "setDocument",
+            { document: payload.document },
+          ).chainToAction(() => applySucceeded()),
+        ApplySucceeded: (data, _, { update }) =>
+          update({
+            ...data,
+            status: "applied",
+          }),
+      },
+      { name: "Editing" },
+    )
+
+    const testDom = new JSDOM("<body></body>")
+    const harness = createBrowserTestHarness({
+      clients,
+      commandHandlers: {
+        notesEditor: {
+          setDocument: clients.notesEditor.setDocument,
+        },
+      },
+      document: testDom.window.document,
+      history: [Editing({ status: "idle" })],
+      internalActions: { applyClicked, applySucceeded },
+    })
+
+    await harness.run(applyClicked({ document: "Hello" }))
+
+    expect(calls).toEqual([{ document: "Hello" }])
+    expect(harness.currentState().data.status).toBe("applied")
+    expect(harness.runtime.clients).toBe(clients)
   })
 })

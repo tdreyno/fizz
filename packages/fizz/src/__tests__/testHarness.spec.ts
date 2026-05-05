@@ -1,8 +1,8 @@
-import { describe, expect, test } from "@jest/globals"
+import { describe, expect, jest, test } from "@jest/globals"
 
 import type { ActionCreatorType, Enter } from "../action"
 import { action } from "../action"
-import { noop, output } from "../effect"
+import { commandEffect, noop, output } from "../effect"
 import { state } from "../state"
 import { createTestHarness, deferred } from "../test"
 
@@ -262,5 +262,121 @@ describe("Test harness", () => {
     await expect(
       harness.waitForState(state => state.is(Done), { maxIterations: 2 }),
     ).rejects.toThrow("State predicate did not match within 2 iterations.")
+  })
+
+  test("should support injecting commandHandlers through harness options", async () => {
+    type Commands = {
+      notesEditor: {
+        setDocument: {
+          payload: { document: string }
+          result: { saved: true }
+        }
+      }
+    }
+
+    const applyClicked = action("ApplyClicked").withPayload<{
+      document: string
+    }>()
+    const applySucceeded = action("ApplySucceeded")
+    type ApplyClicked = ActionCreatorType<typeof applyClicked>
+    type ApplySucceeded = ActionCreatorType<typeof applySucceeded>
+
+    const setDocument = jest.fn(() => ({ saved: true as const }))
+
+    const Editing = state<ApplyClicked | ApplySucceeded, { status: string }>(
+      {
+        ApplyClicked: (_, payload) =>
+          commandEffect<Commands, "notesEditor", "setDocument">(
+            "notesEditor",
+            "setDocument",
+            { document: payload.document },
+          ).chainToAction(() => applySucceeded()),
+        ApplySucceeded: (data, _, { update }) =>
+          update({
+            ...data,
+            status: "applied",
+          }),
+      },
+      { name: "Editing" },
+    )
+
+    const harness = createTestHarness({
+      history: [Editing({ status: "idle" })],
+      internalActions: { applyClicked, applySucceeded },
+      commandHandlers: {
+        notesEditor: {
+          setDocument,
+        },
+      },
+    })
+
+    await harness.run(applyClicked({ document: "Hello" }))
+
+    expect(setDocument).toHaveBeenCalledWith(
+      { document: "Hello" },
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    )
+    expect(harness.currentState().data.status).toBe("applied")
+  })
+
+  test("should pass clients through harness options to runtime", () => {
+    const Editing = state<Enter, Data>(
+      {
+        Enter: noop,
+      },
+      { name: "Editing" },
+    )
+    const clients = {
+      notesEditor: {
+        setDocument: () => ({ saved: true as const }),
+      },
+    }
+
+    const harness = createTestHarness({
+      clients,
+      history: [Editing({ events: [] })],
+    })
+
+    expect(harness.runtime.clients).toBe(clients)
+  })
+
+  test("should forward commandMissingHandler policy from harness options", async () => {
+    type Commands = {
+      notesEditor: {
+        setDocument: {
+          payload: { document: string }
+          result: { saved: true }
+        }
+      }
+    }
+
+    const applyClicked = action("ApplyClicked").withPayload<{
+      document: string
+    }>()
+    type ApplyClicked = ActionCreatorType<typeof applyClicked>
+
+    const Editing = state<ApplyClicked, { status: string }>(
+      {
+        ApplyClicked: (_, payload) =>
+          commandEffect<Commands, "notesEditor", "setDocument">(
+            "notesEditor",
+            "setDocument",
+            { document: payload.document },
+          ).chainToAction(() => undefined),
+      },
+      { name: "Editing" },
+    )
+
+    const harness = createTestHarness({
+      commandMissingHandler: "error",
+      history: [Editing({ status: "idle" })],
+      internalActions: { applyClicked },
+    })
+
+    await expect(
+      harness.run(applyClicked({ document: "Hello" })),
+    ).rejects.toThrow(
+      "Fizz missing command handler for notesEditor.setDocument",
+    )
   })
 })

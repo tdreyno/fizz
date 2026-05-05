@@ -98,6 +98,45 @@ The intended direction is a dedicated test helper subpath:
 
 This is current API surface for reusable Fizz testing helpers.
 
+### Command Handlers And Clients In Harness Tests
+
+When a machine uses `commandEffect(...)`, pass runtime command integration directly through harness options.
+
+```ts
+import { commandHandlersFromClients } from "@tdreyno/fizz"
+import { createTestHarness } from "@tdreyno/fizz/test"
+
+type Commands = {
+  notesEditor: {
+    setDocument: {
+      payload: { document: string }
+      result: { saved: true }
+    }
+  }
+}
+
+const clients = {
+  notesEditor: {
+    setDocument: ({ document }: { document: string }) => ({
+      saved: document.length > 0,
+    }),
+  },
+}
+
+const harness = createTestHarness({
+  history: [Editing({ status: "idle" })],
+  internalActions: { applyClicked, applySucceeded },
+  clients,
+  commandHandlers: commandHandlersFromClients<Commands>(clients),
+  commandMissingHandler: "error",
+})
+
+await harness.run(applyClicked({ document: "Hello" }))
+expect(harness.currentState().data.status).toBe("applied")
+```
+
+The same options are supported by `createBrowserTestHarness(...)` because browser harness options extend base `TestHarnessOptions`.
+
 ## Browser Testing Entry Point
 
 Use `@tdreyno/fizz/test/browser` when a machine depends on `dom.listen(...)`, DOM acquisition, or animation-frame coalescing.
