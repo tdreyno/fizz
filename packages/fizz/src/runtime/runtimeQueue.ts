@@ -1,7 +1,9 @@
 import { externalPromise } from "../util.js"
+import type { RuntimeCommandLineage } from "./runtimeCommandLineage.js"
 
 export type RuntimeQueueItem<Command> = {
   item: Command
+  lineage?: RuntimeCommandLineage
   onComplete: () => void
   onError: (e: unknown) => void
 }

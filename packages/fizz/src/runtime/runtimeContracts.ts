@@ -2,6 +2,7 @@ import type { Action } from "../action.js"
 import type { Context } from "../context.js"
 import type { Effect } from "../effect.js"
 import type { StateTransition } from "../state.js"
+import type { RuntimeCommandLineage } from "./runtimeCommandLineage.js"
 
 export type RuntimeAction = Action<string, unknown>
 
@@ -49,12 +50,14 @@ export type RuntimeDebugEvent =
     }
   | {
       command: RuntimeDebugCommand
+      lineage: RuntimeCommandLineage | undefined
       queueSize: number
       type: "command-started"
     }
   | {
       command: RuntimeDebugCommand
       generatedCommands: RuntimeDebugCommand[]
+      lineage: RuntimeCommandLineage | undefined
       type: "command-completed"
     }
   | {

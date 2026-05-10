@@ -1,15 +1,27 @@
+import type { RuntimeCommandLineage } from "./runtimeCommandLineage.js"
 import type { RuntimeQueueItem } from "./runtimeQueue.js"
 
 type RuntimeQueueProcessorOptions<Command> = {
   executeCommand: (item: Command) => Promise<Command[]>
-  onCommandCompleted: (command: Command, generatedCommands: Command[]) => void
-  onCommandStarted: (command: Command, queueSize: number) => void
+  onCommandCompleted: (
+    command: Command,
+    generatedCommands: Command[],
+    lineage: RuntimeCommandLineage | undefined,
+  ) => void
+  onCommandStarted: (
+    command: Command,
+    queueSize: number,
+    lineage: RuntimeCommandLineage | undefined,
+  ) => void
   onQueueEmpty: () => void
   onRuntimeError: (command: Command, error: unknown) => void
   processNext: () => Promise<void>
   queue: RuntimeQueueItem<Command>[]
   stopOnError: () => void
-  toQueueItems: (commands: Command[]) => {
+  toQueueItems: (
+    commands: Command[],
+    parentLineage: RuntimeCommandLineage | undefined,
+  ) => {
     items: RuntimeQueueItem<Command>[]
     promise: Promise<void[]>
   }
@@ -27,16 +39,16 @@ export const processRuntimeQueueHead = async <Command>(
       return
     }
 
-    const { item, onComplete, onError } = head
+    const { item, lineage, onComplete, onError } = head
 
-    options.onCommandStarted(item, options.queue.length)
+    options.onCommandStarted(item, options.queue.length, lineage)
 
     try {
       const commands = await options.executeCommand(item)
 
-      options.onCommandCompleted(item, commands)
+      options.onCommandCompleted(item, commands, lineage)
 
-      const { items, promise } = options.toQueueItems(commands)
+      const { items, promise } = options.toQueueItems(commands, head.lineage)
 
       options.queue.unshift(...items)
 

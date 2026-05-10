@@ -28,6 +28,11 @@ import {
   effectCommand,
   toRuntimeCommand,
 } from "./runtime/runtimeCommandFactory.js"
+import type { RuntimeCommandLineage } from "./runtime/runtimeCommandLineage.js"
+import {
+  createChildRuntimeCommandLineage,
+  createRootRuntimeCommandLineage,
+} from "./runtime/runtimeCommandLineage.js"
 import type { ContextChangeSubscriber } from "./runtime/runtimeContextManager.js"
 import { RuntimeContextManager } from "./runtime/runtimeContextManager.js"
 import type {
@@ -139,6 +144,7 @@ export class Runtime<
 > {
   readonly #asyncDriver: RuntimeAsyncDriver
   readonly clients: Record<string, unknown>
+  #commandIdCounter = 0
   readonly #contextManager: RuntimeContextManager
   readonly #disconnectSubscribers = new Set<() => void>()
   readonly #effectHandlers: RuntimeEffectHandlerRegistry<RuntimeDebugCommand>
@@ -337,7 +343,12 @@ export class Runtime<
 
   async run(action: RuntimeAction): Promise<void> {
     const promise = new Promise<void>((resolve, reject) => {
+      const lineage = createRootRuntimeCommandLineage(
+        `cmd-${++this.#commandIdCounter}`,
+      )
+
       const queueSize = this.#queueController.enqueue({
+        lineage,
         onComplete: resolve,
         onError: reject,
         item: toRuntimeCommand(action),
@@ -390,17 +401,19 @@ export class Runtime<
   async #processQueueHead(): Promise<void> {
     await processRuntimeQueueHead({
       executeCommand: item => this.#executeCommand(item),
-      onCommandCompleted: (command, generatedCommands) => {
+      onCommandCompleted: (command, generatedCommands, lineage) => {
         this.#emitMonitor({
           command,
           generatedCommands,
+          lineage,
           type: "command-completed",
         })
       },
-      onCommandStarted: (command, queueSize) => {
+      onCommandStarted: (command, queueSize, lineage) => {
         this.#validateCurrentState()
         this.#emitMonitor({
           command,
+          lineage,
           queueSize,
           type: "command-started",
         })
@@ -420,7 +433,8 @@ export class Runtime<
       stopOnError: () => {
         this.#queueController.stopProcessing()
       },
-      toQueueItems: commands => this.#commandsToQueueItems(commands),
+      toQueueItems: (commands, parentLineage) =>
+        this.#commandsToQueueItems(commands, parentLineage),
     })
   }
 
@@ -449,11 +463,34 @@ export class Runtime<
     })
   }
 
-  #commandsToQueueItems(commands: RuntimeDebugCommand[]): {
+  #commandsToQueueItems(
+    commands: RuntimeDebugCommand[],
+    parentLineage: RuntimeCommandLineage | undefined,
+  ): {
     items: RuntimeQueueItem<RuntimeDebugCommand>[]
     promise: Promise<void[]>
   } {
-    return queueItemsFromCommands(commands)
+    if (!parentLineage) {
+      return queueItemsFromCommands(commands)
+    }
+
+    const itemsWithLineage = commands.map(cmd => ({
+      cmd,
+      lineage: createChildRuntimeCommandLineage({
+        id: `cmd-${++this.#commandIdCounter}`,
+        parent: parentLineage,
+      }),
+    }))
+
+    const { items, promise } = queueItemsFromCommands(
+      itemsWithLineage.map(({ cmd }) => cmd),
+    )
+
+    items.forEach((item, i) => {
+      item.lineage = itemsWithLineage[i]!.lineage
+    })
+
+    return { items, promise }
   }
 
   #contextDidChange() {
