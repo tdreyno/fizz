@@ -2,7 +2,10 @@ import type { RuntimeCommandLineage } from "./runtimeCommandLineage.js"
 import type { RuntimeQueueItem } from "./runtimeQueue.js"
 
 type RuntimeQueueProcessorOptions<Command> = {
-  executeCommand: (item: Command) => Promise<Command[]>
+  executeCommand: (
+    item: Command,
+    lineage: RuntimeCommandLineage | undefined,
+  ) => Promise<Command[]>
   onCommandCompleted: (
     command: Command,
     generatedCommands: Command[],
@@ -44,7 +47,7 @@ export const processRuntimeQueueHead = async <Command>(
     options.onCommandStarted(item, options.queue.length, lineage)
 
     try {
-      const commands = await options.executeCommand(item)
+      const commands = await options.executeCommand(item, lineage)
 
       options.onCommandCompleted(item, commands, lineage)
 

@@ -44,18 +44,19 @@ type RuntimeModulesOptions<OutputAction> = {
   timerDriver: RuntimeTimerDriver
 }
 
+export type RuntimeLifecycleModule = RuntimeModuleContract<
+  RuntimeDebugCommand,
+  unknown
+>
+
 export type RuntimeModuleSet = {
+  addModule: (module: RuntimeLifecycleModule) => () => void
   disconnect: () => void
   effectHandlers: RuntimeEffectHandlerRegistry<RuntimeDebugCommand>
   getDiagnostics: () => RuntimeDiagnosticsSnapshot
   prepareForGoBack: () => void
   prepareForTransition: (targetState: RuntimeState) => void
 }
-
-type RuntimeLifecycleModule = RuntimeModuleContract<
-  RuntimeDebugCommand,
-  unknown
->
 
 export const createRuntimeModules = <OutputAction>(
   options: RuntimeModulesOptions<OutputAction>,
@@ -135,6 +136,26 @@ export const createRuntimeModules = <OutputAction>(
   })
 
   return {
+    addModule: (module: RuntimeLifecycleModule) => {
+      const registeredKeys: string[] = []
+
+      module.effectHandlers.forEach((handler, key) => {
+        if (!effectHandlers.has(key)) {
+          effectHandlers.set(key, handler)
+          registeredKeys.push(key)
+        }
+      })
+
+      lifecycleModules.push(module)
+
+      return () => {
+        const idx = lifecycleModules.indexOf(module)
+
+        if (idx !== -1) lifecycleModules.splice(idx, 1)
+
+        registeredKeys.forEach(key => effectHandlers.delete(key))
+      }
+    },
     disconnect: () => {
       lifecycleModules.forEach(module => {
         module.clear()

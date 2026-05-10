@@ -9,6 +9,8 @@ import type { RuntimeAsyncDriver } from "./runtime/asyncDriver.js"
 import { createDefaultAsyncDriver } from "./runtime/asyncDriver.js"
 import type { RuntimeEffectHandlerRegistry } from "./runtime/effectDispatcher.js"
 import { dispatchEffect } from "./runtime/effectDispatcher.js"
+import type { RuntimeCommandMiddleware } from "./runtime/runtimeCommandMiddleware.js"
+import { composeCommandMiddleware } from "./runtime/runtimeCommandMiddleware.js"
 import type { RuntimeCommandHandlers } from "./runtime/runtimeCommandModule.js"
 import type { SelectorWhen, StateSelector } from "./selectors.js"
 import { runStateSelector } from "./selectors.js"
@@ -44,7 +46,10 @@ import type {
   RuntimeMonitor,
   RuntimeState,
 } from "./runtime/runtimeContracts.js"
-import type { RuntimeModuleSet } from "./runtime/runtimeModules.js"
+import type {
+  RuntimeLifecycleModule,
+  RuntimeModuleSet,
+} from "./runtime/runtimeModules.js"
 import { createRuntimeModules } from "./runtime/runtimeModules.js"
 import type {
   OutputChannelHandlers,
@@ -77,6 +82,11 @@ export {
   createRootRuntimeCommandLineage,
 } from "./runtime/runtimeCommandLineage.js"
 export type {
+  RuntimeCommandMiddleware,
+  RuntimeCommandMiddlewareContext,
+  RuntimeCommandMiddlewareNext,
+} from "./runtime/runtimeCommandMiddleware.js"
+export type {
   RuntimeCommandHandlers,
   RuntimeCommandHandlersFromClients,
 } from "./runtime/runtimeCommandModule.js"
@@ -91,6 +101,7 @@ export type {
   RuntimeMissingCommandHandlerPolicy,
   RuntimeMonitor,
 } from "./runtime/runtimeContracts.js"
+export type { RuntimeLifecycleModule } from "./runtime/runtimeModules.js"
 export type {
   ControlledTimerDriver,
   RuntimeTimerDriver,
@@ -145,6 +156,7 @@ export class Runtime<
   readonly #asyncDriver: RuntimeAsyncDriver
   readonly clients: Record<string, unknown>
   #commandIdCounter = 0
+  readonly #middlewares: RuntimeCommandMiddleware[] = []
   readonly #contextManager: RuntimeContextManager
   readonly #disconnectSubscribers = new Set<() => void>()
   readonly #effectHandlers: RuntimeEffectHandlerRegistry<RuntimeDebugCommand>
@@ -249,6 +261,20 @@ export class Runtime<
     this.#monitors.add(fn)
 
     return () => this.#monitors.delete(fn)
+  }
+
+  useMiddleware(fn: RuntimeCommandMiddleware): () => void {
+    this.#middlewares.push(fn)
+
+    return () => {
+      const idx = this.#middlewares.indexOf(fn)
+
+      if (idx !== -1) this.#middlewares.splice(idx, 1)
+    }
+  }
+
+  addModule(module: RuntimeLifecycleModule): () => void {
+    return this.#modules.addModule(module)
   }
 
   respondToOutput<
@@ -400,7 +426,7 @@ export class Runtime<
 
   async #processQueueHead(): Promise<void> {
     await processRuntimeQueueHead({
-      executeCommand: item => this.#executeCommand(item),
+      executeCommand: (item, lineage) => this.#executeCommand(item, lineage),
       onCommandCompleted: (command, generatedCommands, lineage) => {
         this.#emitMonitor({
           command,
@@ -440,7 +466,26 @@ export class Runtime<
 
   async #executeCommand(
     item: RuntimeQueueItem<RuntimeDebugCommand>["item"],
+    lineage: RuntimeCommandLineage | undefined,
   ): Promise<RuntimeDebugCommand[]> {
+    if (this.#middlewares.length === 0) {
+      return this.#routeCommand(item)
+    }
+
+    const core = (): Promise<RuntimeDebugCommand[]> => {
+      const result = this.#routeCommand(item)
+      return Array.isArray(result) ? Promise.resolve(result) : result
+    }
+
+    return composeCommandMiddleware(this.#middlewares, core, {
+      command: item,
+      lineage,
+    })
+  }
+
+  #routeCommand(
+    item: RuntimeQueueItem<RuntimeDebugCommand>["item"],
+  ): RuntimeDebugCommand[] | Promise<RuntimeDebugCommand[]> {
     if (item.kind === "action") {
       return this.#executeAction(item.action)
     }
