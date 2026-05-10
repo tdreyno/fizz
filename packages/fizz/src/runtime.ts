@@ -23,13 +23,6 @@ export {
   listRuntimeChromeDebuggerRegistrations,
 } from "./runtime/debugHook.js"
 import {
-  canQueueStartProcessing,
-  createQueueMachine,
-  markQueueEnteredInitialState,
-  startQueueProcessing,
-  stopQueueProcessing,
-} from "./runtime/queueMachine.js"
-import {
   actionCommand,
   commandsFromStateReturns,
   effectCommand,
@@ -56,6 +49,8 @@ import type {
 import { RuntimeOutputRouter } from "./runtime/runtimeOutputRouter.js"
 import type { RuntimeQueueItem } from "./runtime/runtimeQueue.js"
 import { queueItemsFromCommands } from "./runtime/runtimeQueue.js"
+import type { RuntimeQueueController } from "./runtime/runtimeQueueController.js"
+import { createRuntimeQueueController } from "./runtime/runtimeQueueController.js"
 import { processRuntimeQueueHead } from "./runtime/runtimeQueueRunner.js"
 import type { RuntimeTimerDriver } from "./runtime/timerDriver.js"
 import { createDefaultTimerDriver } from "./runtime/timerDriver.js"
@@ -71,6 +66,11 @@ export type {
   RuntimeAsyncDriver,
 } from "./runtime/asyncDriver.js"
 export { createControlledAsyncDriver } from "./runtime/asyncDriver.js"
+export type { RuntimeCommandLineage } from "./runtime/runtimeCommandLineage.js"
+export {
+  createChildRuntimeCommandLineage,
+  createRootRuntimeCommandLineage,
+} from "./runtime/runtimeCommandLineage.js"
 export type {
   RuntimeCommandHandlers,
   RuntimeCommandHandlersFromClients,
@@ -145,10 +145,9 @@ export class Runtime<
   readonly #modules: RuntimeModuleSet
   readonly #monitors = new Set<RuntimeMonitor>()
   readonly #outputRouter: RuntimeOutputRouter<OAM>
+  readonly #queueController: RuntimeQueueController<RuntimeDebugCommand>
   readonly #validActions: Set<string>
   readonly #timerDriver: RuntimeTimerDriver
-  #queueMachine = createQueueMachine()
-  readonly #queue: RuntimeQueueItem<RuntimeDebugCommand>[] = []
 
   constructor(
     public context: Context,
@@ -166,6 +165,7 @@ export class Runtime<
       context.currentState as RuntimeState | undefined,
     )
     this.#outputRouter = new RuntimeOutputRouter<OAM>()
+    this.#queueController = createRuntimeQueueController<RuntimeDebugCommand>()
     this.#timerDriver = options.timerDriver ?? createDefaultTimerDriver()
 
     if (options.monitor) {
@@ -272,6 +272,7 @@ export class Runtime<
     this.#modules.disconnect()
     this.#contextManager.disconnect()
     this.#outputRouter.disconnect()
+    this.#queueController.disconnect()
 
     this.#disconnectSubscribers.forEach(disconnect => {
       disconnect()
@@ -336,7 +337,7 @@ export class Runtime<
 
   async run(action: RuntimeAction): Promise<void> {
     const promise = new Promise<void>((resolve, reject) => {
-      this.#queue.push({
+      const queueSize = this.#queueController.enqueue({
         onComplete: resolve,
         onError: reject,
         item: toRuntimeCommand(action),
@@ -344,13 +345,13 @@ export class Runtime<
 
       this.#emitMonitor({
         action,
-        queueSize: this.#queue.length,
+        queueSize,
         type: "action-enqueued",
       })
     })
 
-    if (canQueueStartProcessing(this.#queueMachine)) {
-      this.#queueMachine = startQueueProcessing(this.#queueMachine)
+    if (this.#queueController.canStartProcessing()) {
+      this.#queueController.startProcessing()
       void this.#processQueueHead()
     }
 
@@ -405,7 +406,7 @@ export class Runtime<
         })
       },
       onQueueEmpty: () => {
-        this.#queueMachine = stopQueueProcessing(this.#queueMachine)
+        this.#queueController.stopProcessing()
       },
       onRuntimeError: (command, error) => {
         this.#emitMonitor({
@@ -415,9 +416,9 @@ export class Runtime<
         })
       },
       processNext: () => this.#processQueueHead(),
-      queue: this.#queue,
+      queue: this.#queueController.getQueue(),
       stopOnError: () => {
-        this.#queueMachine = stopQueueProcessing(this.#queueMachine)
+        this.#queueController.stopProcessing()
       },
       toQueueItems: commands => this.#commandsToQueueItems(commands),
     })
@@ -485,9 +486,9 @@ export class Runtime<
   ): Promise<RuntimeDebugCommand[]> {
     if (
       action.type === enter.type &&
-      !this.#queueMachine.hasEnteredInitialState
+      !this.#queueController.hasEnteredInitialState()
     ) {
-      this.#queueMachine = markQueueEnteredInitialState(this.#queueMachine)
+      this.#queueController.markEnteredInitialState()
 
       return [actionCommand(beforeEnter(this)), actionCommand(action)]
     }

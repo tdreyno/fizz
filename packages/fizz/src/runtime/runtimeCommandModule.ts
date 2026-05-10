@@ -10,8 +10,8 @@ import type {
   RuntimeDebugCommand,
   RuntimeDebugEvent,
   RuntimeMissingCommandHandlerPolicy,
-  RuntimeState,
 } from "./runtimeContracts.js"
+import type { RuntimeModuleContract } from "./runtimeModuleContract.js"
 
 export type RuntimeCommandHandler<Result = unknown> = (
   payload: unknown,
@@ -38,16 +38,10 @@ export const commandHandlersFromClients = <Schema extends CommandSchema>(
   clients: RuntimeCommandHandlersFromClients<Schema>,
 ): RuntimeCommandHandlersFromClients<Schema> => clients
 
-export type RuntimeCommandModule = {
-  clear: () => void
-  clearForGoBack: () => void
-  clearForTransition: (options: {
-    currentState: RuntimeState | undefined
-    targetState: RuntimeState
-  }) => void
-  effectHandlers: RuntimeEffectHandlerRegistry<RuntimeDebugCommand>
-  getDiagnostics: () => Array<{ channel: string; queued: number }>
-}
+export type RuntimeCommandModule = RuntimeModuleContract<
+  RuntimeDebugCommand,
+  Array<{ channel: string; queued: number }>
+>
 
 export const createRuntimeCommandModule = (options: {
   actionCommand: (action: Action<string, unknown>) => RuntimeDebugCommand

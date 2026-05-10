@@ -12,25 +12,19 @@ import {
   setStateResource,
   transferStateResources,
 } from "../stateResources.js"
-import type { RuntimeEffectHandlerRegistry } from "./effectDispatcher.js"
 import type {
   RuntimeAction,
   RuntimeDebugCommand,
   RuntimeDebugEvent,
   RuntimeState,
 } from "./runtimeContracts.js"
+import type { RuntimeModuleContract } from "./runtimeModuleContract.js"
 import type { RuntimeTimerDriver } from "./timerDriver.js"
 
-export type RuntimeResourceModule = {
-  clear: () => void
-  clearForGoBack: () => void
-  clearForTransition: (options: {
-    currentState: RuntimeState | undefined
-    targetState: RuntimeState
-  }) => void
-  effectHandlers: RuntimeEffectHandlerRegistry<RuntimeDebugCommand>
-  getDiagnostics: () => Array<{ key: string; stateName: string }>
-}
+export type RuntimeResourceModule = RuntimeModuleContract<
+  RuntimeDebugCommand,
+  Array<{ key: string; stateName: string }>
+>
 
 export const createRuntimeResourceModule = (options: {
   emitMonitor: (event: RuntimeDebugEvent) => void

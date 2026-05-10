@@ -17,13 +17,12 @@ import type {
   StartIntervalEffectData,
   StartTimerEffectData,
 } from "../effect.js"
-import type { RuntimeEffectHandlerRegistry } from "./effectDispatcher.js"
 import type {
   RuntimeDebugCancellationReason,
   RuntimeDebugCommand,
   RuntimeDebugEvent,
-  RuntimeState,
 } from "./runtimeContracts.js"
+import type { RuntimeModuleContract } from "./runtimeModuleContract.js"
 import type { RuntimeTimerDriver } from "./timerDriver.js"
 import type { ActiveFrame, ActiveTimer } from "./timerScheduler.js"
 import {
@@ -41,19 +40,13 @@ import {
   startTimerOperation,
 } from "./timerScheduler.js"
 
-export type RuntimeSchedulingModule = {
-  clear: () => void
-  clearForGoBack: () => void
-  clearForTransition: (options: {
-    currentState: RuntimeState | undefined
-    targetState: RuntimeState
-  }) => void
-  effectHandlers: RuntimeEffectHandlerRegistry<RuntimeDebugCommand>
-  getDiagnostics: () => Array<{
+export type RuntimeSchedulingModule = RuntimeModuleContract<
+  RuntimeDebugCommand,
+  Array<{
     id: string
     kind: "timeout" | "interval" | "frame"
   }>
-}
+>
 
 export const createRuntimeSchedulingModule = (options: {
   actionCommand: (command: Action<string, unknown>) => RuntimeDebugCommand

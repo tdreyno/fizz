@@ -14,12 +14,11 @@ import {
   runAsyncOperation,
   startAsyncOperation,
 } from "./asyncScheduler.js"
-import type { RuntimeEffectHandlerRegistry } from "./effectDispatcher.js"
 import type {
   RuntimeDebugCommand,
   RuntimeDebugEvent,
-  RuntimeState,
 } from "./runtimeContracts.js"
+import type { RuntimeModuleContract } from "./runtimeModuleContract.js"
 import type { RuntimeTimerDriver } from "./timerDriver.js"
 import type { ActiveTimer } from "./timerScheduler.js"
 import {
@@ -28,16 +27,10 @@ import {
   startTimerOperation,
 } from "./timerScheduler.js"
 
-export type RuntimeAsyncModule = {
-  clear: () => void
-  clearForGoBack: () => void
-  clearForTransition: (options: {
-    currentState: RuntimeState | undefined
-    targetState: RuntimeState
-  }) => void
-  effectHandlers: RuntimeEffectHandlerRegistry<RuntimeDebugCommand>
-  getDiagnostics: () => Array<{ id: string; status: string }>
-}
+export type RuntimeAsyncModule = RuntimeModuleContract<
+  RuntimeDebugCommand,
+  Array<{ id: string; status: string }>
+>
 
 export const createRuntimeAsyncModule = (options: {
   actionCommand: (command: Action<string, unknown>) => RuntimeDebugCommand
