@@ -271,6 +271,8 @@ The returned `Runtime` is the main execution object. The most commonly used meth
 - `currentHistory()`
 - `onContextChange(handler)`
 - `onOutput(handler)`
+- `useMiddleware(middleware)`
+- `addModule(module)`
 - `respondToOutput(type, handler)`
 - `bindActions(actions)`
 - `disconnect()`
@@ -278,6 +280,71 @@ The returned `Runtime` is the main execution object. The most commonly used meth
 - `assertCleanTeardown(options?)`
 
 Typed output subscription helpers such as `onOutputType(...)` and channel wiring through `connectOutputChannel(...)` are documented in [Output Actions](./output-actions.md).
+
+### `useMiddleware`
+
+Register command middleware that wraps command execution.
+
+Use this when you want to observe, enrich, or short-circuit command execution without changing machine handlers.
+
+```ts
+const stopTracing = runtime.useMiddleware(async (context, next) => {
+  const startedAt = Date.now()
+  const commands = await next()
+
+  logger.info("command", {
+    durationMs: Date.now() - startedAt,
+    kind: context.command.kind,
+    lineage: context.lineage,
+    generatedCount: commands.length,
+  })
+
+  return commands
+})
+
+// Later, unsubscribe middleware
+stopTracing()
+```
+
+Middleware receives:
+
+- `context.command`: the currently executing runtime command
+- `context.lineage`: lineage metadata for correlation (`run` vs `generated`)
+- `next()`: continue to the next middleware (or the runtime core)
+
+### `addModule`
+
+Register a runtime lifecycle module after runtime construction.
+
+Use this when you need plugin-style runtime behavior, such as diagnostics collection or custom effect handlers, without changing `createRuntime(...)` wiring.
+
+```ts
+const removeModule = runtime.addModule({
+  clear: () => {
+    cache.clear()
+  },
+  clearForGoBack: () => {
+    cache.clear()
+  },
+  clearForTransition: () => {
+    cache.clear()
+  },
+  effectHandlers: new Map([
+    [
+      "analytics-track",
+      effect => {
+        analytics.track(effect.data)
+        return []
+      },
+    ],
+  ]),
+})
+
+// Later, unregister module
+removeModule()
+```
+
+If a module registers an `effectHandlers` key that already exists, the existing handler is preserved.
 
 ### `getDiagnosticsSnapshot`
 

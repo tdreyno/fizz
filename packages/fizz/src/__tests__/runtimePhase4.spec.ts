@@ -1,7 +1,7 @@
 import type { Enter } from "../action.js"
 import { action, enter } from "../action.js"
 import { createMachine } from "../createMachine.js"
-import { noop } from "../effect.js"
+import { effect, noop } from "../effect.js"
 import { createRuntime } from "../runtime.js"
 import type { RuntimeCommandMiddlewareContext } from "../runtime/runtimeCommandMiddleware.js"
 import { composeCommandMiddleware } from "../runtime/runtimeCommandMiddleware.js"
@@ -155,6 +155,13 @@ const EntryWithTransition = state<Enter | ReturnType<typeof Go>>(
     Go: () => Next(),
   },
   { name: "EntryWithTransition" },
+)
+
+const EntryWithCustomEffect = state<Enter>(
+  {
+    Enter: () => effect("custom-effect-xyz"),
+  },
+  { name: "EntryWithCustomEffect" },
 )
 
 // ---------------------------------------------------------------------------
@@ -342,5 +349,68 @@ describe("runtime.addModule", () => {
     module2.effectHandlers.set("custom-effect-xyz", () => [])
 
     expect(() => runtime.addModule(module2)).not.toThrow()
+  })
+
+  test("adding a duplicate effect key does not override the original handler", async () => {
+    const calls: string[] = []
+    const machine = createMachine({ states: { EntryWithCustomEffect } })
+    const runtime = createRuntime(machine, EntryWithCustomEffect(), {})
+
+    const module1 = makeMinimalModule()
+    module1.effectHandlers.set("custom-effect-xyz", () => {
+      calls.push("module-1")
+
+      return []
+    })
+
+    const module2 = makeMinimalModule()
+    module2.effectHandlers.set("custom-effect-xyz", () => {
+      calls.push("module-2")
+
+      return []
+    })
+
+    runtime.addModule(module1)
+    const unregisterModule2 = runtime.addModule(module2)
+
+    await runtime.run(enter())
+
+    expect(calls).toEqual(["module-1"])
+
+    unregisterModule2()
+
+    await runtime.run(enter())
+
+    expect(calls).toEqual(["module-1", "module-1"])
+  })
+})
+
+describe("phase 5 compatibility hardening", () => {
+  test("lineage remains attached on command monitor events without middleware", async () => {
+    const events: RuntimeDebugEvent[] = []
+    const machine = createMachine({ states: { EntryWithTransition, Next } })
+    const runtime = createRuntime(machine, EntryWithTransition(), {
+      monitor: e => events.push(e),
+    })
+
+    await runtime.run(enter())
+    await runtime.run(Go())
+
+    const generatedStarts = events
+      .filter(
+        (
+          event,
+        ): event is Extract<RuntimeDebugEvent, { type: "command-started" }> =>
+          event.type === "command-started",
+      )
+      .filter(event => event.lineage?.origin === "generated")
+
+    expect(generatedStarts.length).toBeGreaterThan(0)
+    expect(
+      generatedStarts.every(event => event.lineage?.parentId !== undefined),
+    ).toBe(true)
+    expect(
+      generatedStarts.every(event => event.lineage?.rootId !== undefined),
+    ).toBe(true)
   })
 })

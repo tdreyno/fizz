@@ -250,6 +250,53 @@ The structured monitor currently includes these event families:
 
 That makes it the right tool when a bug lives in runtime timing or lifecycle behavior rather than in one obvious transition.
 
+### Lineage fields on command events
+
+`command-started` and `command-completed` monitor events include a `lineage` object when command lineage is available.
+
+Use it to correlate generated commands back to the original `runtime.run(...)` call:
+
+```ts
+runtime.addMonitor(event => {
+  if (event.type !== "command-started") {
+    return
+  }
+
+  console.log("command", {
+    commandKind: event.command.kind,
+    depth: event.lineage?.depth,
+    id: event.lineage?.id,
+    origin: event.lineage?.origin,
+    parentId: event.lineage?.parentId,
+    rootId: event.lineage?.rootId,
+  })
+})
+```
+
+This is useful when one action generates follow-up state or effect commands and you need to understand the full command chain.
+
+### Middleware-based tracing
+
+When you need command-level tracing separate from monitor subscriptions, use `runtime.useMiddleware(...)`.
+
+```ts
+const removeTracing = runtime.useMiddleware(async (context, next) => {
+  const commands = await next()
+
+  console.log("middleware trace", {
+    commandKind: context.command.kind,
+    generatedCount: commands.length,
+    lineage: context.lineage,
+  })
+
+  return commands
+})
+
+// removeTracing() when done
+```
+
+Middleware works well for request-scoped tracing because it wraps command execution directly and can enrich logs before and after `next()`.
+
 ## Related Docs
 
 - [Chrome Debugger](./chrome-debugger.md)
