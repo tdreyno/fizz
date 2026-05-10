@@ -35,6 +35,8 @@ import {
   effectCommand,
   toRuntimeCommand,
 } from "./runtime/runtimeCommandFactory.js"
+import type { ContextChangeSubscriber } from "./runtime/runtimeContextManager.js"
+import { RuntimeContextManager } from "./runtime/runtimeContextManager.js"
 import type {
   RuntimeAction,
   RuntimeAssertCleanTeardownOptions,
@@ -46,6 +48,12 @@ import type {
 } from "./runtime/runtimeContracts.js"
 import type { RuntimeModuleSet } from "./runtime/runtimeModules.js"
 import { createRuntimeModules } from "./runtime/runtimeModules.js"
+import type {
+  OutputChannelHandlers,
+  OutputSubscriber,
+  RuntimeOutputAction,
+} from "./runtime/runtimeOutputRouter.js"
+import { RuntimeOutputRouter } from "./runtime/runtimeOutputRouter.js"
 import type { RuntimeQueueItem } from "./runtime/runtimeQueue.js"
 import { queueItemsFromCommands } from "./runtime/runtimeQueue.js"
 import { processRuntimeQueueHead } from "./runtime/runtimeQueueRunner.js"
@@ -106,7 +114,6 @@ export type RuntimeContextOptions = {
 
 export type CreateRuntimeOptions = RuntimeContextOptions & RuntimeOptions
 
-type ContextChangeSubscriber = (context: Context) => void
 type RuntimeActionMap = {
   [key: string]: (...args: Array<any>) => RuntimeAction
 }
@@ -126,60 +133,18 @@ type PromiseBoundActions<AM extends RuntimeActionMap> = {
   }
 }
 
-type OutputSubscriber<
-  OAM extends RuntimeActionMap,
-  OA extends RuntimeAction = ReturnType<OAM[keyof OAM]>,
-> = (action: OA) => void | Promise<void>
-
-type RuntimeOutputAction<OAM extends RuntimeActionMap> = ReturnType<
-  OAM[keyof OAM]
->
-
-type OutputTypeChannel<T extends string> =
-  T extends `${infer Channel}.${string}` ? Channel : never
-
-type OutputTypeCommand<
-  T extends string,
-  Channel extends string,
-> = T extends `${Channel}.${infer CommandType}` ? CommandType : never
-
-type OutputPayloadFor<
-  OA extends RuntimeAction,
-  Channel extends string,
-  CommandType extends string,
-> =
-  Extract<OA, { type: `${Channel}.${CommandType}` }> extends {
-    payload: infer Payload
-  }
-    ? Payload
-    : never
-
-type OutputChannelHandlers<OA extends RuntimeAction> = {
-  [Channel in OutputTypeChannel<OA["type"]>]?: {
-    [CommandType in OutputTypeCommand<OA["type"], Channel>]?: (
-      payload: OutputPayloadFor<OA, Channel, CommandType>,
-    ) => void | Promise<void>
-  }
-}
-
-type RuntimeOutputChannelHandlers = Record<
-  string,
-  Record<string, (payload: unknown) => void | Promise<void>>
->
-
 export class Runtime<
   AM extends RuntimeActionMap,
   OAM extends RuntimeActionMap,
 > {
   readonly #asyncDriver: RuntimeAsyncDriver
   readonly clients: Record<string, unknown>
-  readonly #contextChangeSubscribers = new Set<ContextChangeSubscriber>()
+  readonly #contextManager: RuntimeContextManager
   readonly #disconnectSubscribers = new Set<() => void>()
   readonly #effectHandlers: RuntimeEffectHandlerRegistry<RuntimeDebugCommand>
-  #lastContextState: RuntimeState | undefined
   readonly #modules: RuntimeModuleSet
   readonly #monitors = new Set<RuntimeMonitor>()
-  readonly #outputSubscribers = new Set<OutputSubscriber<OAM>>()
+  readonly #outputRouter: RuntimeOutputRouter<OAM>
   readonly #validActions: Set<string>
   readonly #timerDriver: RuntimeTimerDriver
   #queueMachine = createQueueMachine()
@@ -197,7 +162,10 @@ export class Runtime<
     )
     this.#asyncDriver = options.asyncDriver ?? createDefaultAsyncDriver()
     this.clients = options.clients ?? {}
-    this.#lastContextState = context.currentState as RuntimeState | undefined
+    this.#contextManager = new RuntimeContextManager(
+      context.currentState as RuntimeState | undefined,
+    )
+    this.#outputRouter = new RuntimeOutputRouter<OAM>()
     this.#timerDriver = options.timerDriver ?? createDefaultTimerDriver()
 
     if (options.monitor) {
@@ -222,9 +190,7 @@ export class Runtime<
           type: "output-emitted",
         })
 
-        this.#outputSubscribers.forEach(sub => {
-          void sub(output)
-        })
+        void this.#outputRouter.emit(output)
       },
       getContext: () => this.context,
       handleGoBack: () => this.#handleGoBack(),
@@ -245,15 +211,11 @@ export class Runtime<
   }
 
   onContextChange(fn: ContextChangeSubscriber): () => void {
-    this.#contextChangeSubscribers.add(fn)
-
-    return () => this.#contextChangeSubscribers.delete(fn)
+    return this.#contextManager.onContextChange(fn)
   }
 
   onOutput(fn: OutputSubscriber<OAM>): () => void {
-    this.#outputSubscribers.add(fn)
-
-    return () => this.#outputSubscribers.delete(fn)
+    return this.#outputRouter.onOutput(fn)
   }
 
   onOutputType<OA extends ReturnType<OAM[keyof OAM]>, T extends OA["type"]>(
@@ -262,41 +224,13 @@ export class Runtime<
       payload: Extract<OA, { type: T }>["payload"],
     ) => void | Promise<void>,
   ): () => void {
-    return this.onOutput(async output => {
-      if (output.type === type) {
-        await handler((output as Extract<OA, { type: T }>).payload)
-      }
-    })
+    return this.#outputRouter.onOutputType(type, handler)
   }
 
   connectOutputChannel<
     Handlers extends OutputChannelHandlers<RuntimeOutputAction<OAM>>,
   >(handlers: Handlers): () => void {
-    const typedHandlers = handlers as unknown as RuntimeOutputChannelHandlers
-
-    return this.onOutput(async output => {
-      const separatorIndex = output.type.indexOf(".")
-
-      if (separatorIndex < 1 || separatorIndex === output.type.length - 1) {
-        return
-      }
-
-      const channel = output.type.slice(0, separatorIndex)
-      const commandType = output.type.slice(separatorIndex + 1)
-      const channelHandlers = typedHandlers[channel]
-
-      if (channelHandlers === undefined) {
-        return
-      }
-
-      const commandHandler = channelHandlers[commandType]
-
-      if (commandHandler === undefined) {
-        return
-      }
-
-      await commandHandler(output.payload)
-    })
+    return this.#outputRouter.connectOutputChannel(handlers)
   }
 
   onDisconnect(fn: () => void): () => void {
@@ -336,8 +270,8 @@ export class Runtime<
 
   disconnect(): void {
     this.#modules.disconnect()
-    this.#contextChangeSubscribers.clear()
-    this.#outputSubscribers.clear()
+    this.#contextManager.disconnect()
+    this.#outputRouter.disconnect()
 
     this.#disconnectSubscribers.forEach(disconnect => {
       disconnect()
@@ -522,18 +456,14 @@ export class Runtime<
   }
 
   #contextDidChange() {
-    const currentState = this.currentState()
-
     this.#emitMonitor({
       context: this.context,
-      currentState,
-      previousState: this.#lastContextState,
+      currentState: this.currentState(),
+      previousState: this.#contextManager.getPreviousContextState(),
       type: "context-changed",
     })
 
-    this.#lastContextState = currentState
-
-    this.#contextChangeSubscribers.forEach(sub => sub(this.context))
+    this.#contextManager.notifyContextChanged(this.context)
   }
 
   #emitMonitor(event: RuntimeDebugEvent) {
@@ -543,18 +473,7 @@ export class Runtime<
   }
 
   #validateCurrentState() {
-    const runCurrentState = this.currentState()
-
-    if (!runCurrentState) {
-      throw new Error(
-        `Fizz could not find current state to run action on. History: ${JSON.stringify(
-          this.currentHistory()
-            .toArray()
-            .map(({ name }) => name)
-            .join(" -> "),
-        )}`,
-      )
-    }
+    this.#contextManager.validateCurrentState(this.context)
   }
 
   #runEffect(effectItem: Effect<unknown>) {
