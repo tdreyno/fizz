@@ -37,12 +37,12 @@ The callback is typed to the element the builder targets — `Document` for `dom
 
 Use `.mutate` for scrolling, focus management, class toggling, or any write that is not modeled by a resource or listener. The callback cannot be async and should not trigger further state machine transitions internally.
 
-Use `dom.fromElement(resourceId, element)` when a state already has an element reference and still needs fluent DOM effects (`mutate`, `listen`, observers, `resource`) with state-scoped lifecycle:
+Use `dom.fromElement(element, resourceId?)` when a state already has an element reference and still needs fluent DOM effects (`mutate`, `listen`, observers, `resource`) with state-scoped lifecycle:
 
 ```typescript
 const Done = state({
   Enter: data =>
-    dom.fromElement("dragBlock", data.block).mutate(el => {
+    dom.fromElement(data.block, "dragBlock").mutate(el => {
       el.classList.remove("dragging")
     }),
 })
@@ -61,23 +61,23 @@ import { dom } from "@tdreyno/fizz/browser"
 
 const Interactive = state<Enter>({
   Enter: () => [
-    dom.getElementById("btn", "submit-btn"),
-    dom.querySelector("form", ".checkout-form"),
+    dom.getElementById("submit-btn", "btn"),
+    dom.querySelector(".checkout-form", "form"),
   ],
 })
 ```
 
-**DOM query methods:**
+**DOM query methods** — `resourceId` is optional and trailing. When omitted, Fizz auto-generates an id for internal bookkeeping. Pass an explicit id when you need to reference the resource by name (e.g. from `dom.listen("my-id", ...)`).
 
-| Method                                              | Signature                                            |
-| --------------------------------------------------- | ---------------------------------------------------- |
-| `dom.getElementById(resourceId, id)`                | acquires a single element by id                      |
-| `dom.querySelector(resourceId, selector)`           | acquires first match                                 |
-| `dom.querySelectorAll(resourceId, selector)`        | acquires a node list                                 |
-| `dom.getElementsByClassName(resourceId, className)` | acquires matching elements                           |
-| `dom.getElementsByName(resourceId, name)`           | acquires named elements                              |
-| `dom.getElementsByTagName(resourceId, tag)`         | acquires tagged elements                             |
-| `dom.fromElement(resourceId, element)`              | wraps a known element as a state-scoped DOM resource |
+| Method                                               | Signature                                            |
+| ---------------------------------------------------- | ---------------------------------------------------- |
+| `dom.getElementById(id, resourceId?)`                | acquires a single element by id                      |
+| `dom.querySelector(selector, resourceId?)`           | acquires first match                                 |
+| `dom.querySelectorAll(selector, resourceId?)`        | acquires a node list                                 |
+| `dom.getElementsByClassName(className, resourceId?)` | acquires matching elements                           |
+| `dom.getElementsByName(name, resourceId?)`           | acquires named elements                              |
+| `dom.getElementsByTagName(tag, resourceId?)`         | acquires tagged elements                             |
+| `dom.fromElement(element, resourceId?)`              | wraps a known element as a state-scoped DOM resource |
 
 **Singleton builders** — already named, optional `resourceId`:
 
@@ -90,7 +90,7 @@ const Interactive = state<Enter>({
 - `dom.history(resourceId?)`
 - `dom.location(resourceId?)`
 
-Use `dom.from(scopeResourceId).closest(resourceId, selector)` to traverse from an acquired resource.
+Use `dom.from(scopeResourceId).closest(selector, resourceId?)` to traverse from an acquired resource.
 
 ---
 
@@ -237,7 +237,7 @@ const Hidden = action("Hidden")
 const Lazy = state<Enter>({
   Enter: () =>
     dom
-      .getElementById("hero", "hero-section")
+      .getElementById("hero-section", "hero")
       .observeIntersection(entries =>
         entries[0].isIntersecting ? Visible() : Hidden(),
       ),
@@ -248,7 +248,7 @@ Overload with options:
 
 ```typescript
 dom
-  .getElementById("img", "lazy-img")
+  .getElementById("lazy-img", "img")
   .observeIntersection(
     entries => (entries[0].isIntersecting ? Load() : Unload()),
     { threshold: 0.25 },
@@ -258,7 +258,7 @@ dom
 Named observer (for multiple observers on the same target):
 
 ```typescript
-dom.getElementById("el", "my-el")
+dom.getElementById("my-el", "el")
   .observeIntersection("viewport-watcher", entries => ...)
 ```
 
@@ -274,7 +274,7 @@ const Resized = action("Resized").withPayload<{ width: number }>()
 const Responsive = state<Enter | ReturnType<typeof Resized>>({
   Enter: () =>
     dom
-      .getElementById("panel", "side-panel")
+      .getElementById("side-panel", "panel")
       .observeResize(entries =>
         Resized({ width: entries[0].contentRect.width }),
       ),
@@ -294,10 +294,10 @@ const CardFocused = action("CardFocused")
 
 const Card = state<Enter>({
   Enter: () => [
-    dom.getElementById("card", "card-container"),
+    dom.getElementById("card-container", "card"),
     ...dom
       .from("card")
-      .closest("cta", ".cta-button")
+      .closest(".cta-button", "cta")
       .listen("focus", () => CardFocused()),
   ],
 })

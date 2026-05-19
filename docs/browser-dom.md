@@ -122,7 +122,7 @@ Common uses include: scroll position resets, focus management, toggling CSS clas
 ```typescript
 const Done = state({
   Enter: data =>
-    dom.fromElement("dragBlock", data.block).mutate(el => {
+    dom.fromElement(data.block, "dragBlock").mutate(el => {
       el.classList.remove("dragging")
     }),
 })
@@ -182,15 +182,17 @@ const Routing = state({
 
 All query methods support an optional scope argument to query within a specific element or document:
 
-- `dom.getElementById(id)` — Returns a single element
-- `dom.querySelector(selector)` — Returns a single element
-- `dom.querySelectorAll(selector)` — Returns all matching elements
-- `dom.getElementsByClassName(className)` — Returns live HTMLCollection as array
-- `dom.getElementsByName(name)` — Returns all elements with that name
-- `dom.getElementsByTagName(tagName)` — Returns live HTMLCollection as array
-- `dom.closest(element, selector)` — Returns closest ancestor matching selector
+- `dom.getElementById(id, resourceId?)` — Returns a single element
+- `dom.querySelector(selector, resourceId?)` — Returns a single element
+- `dom.querySelectorAll(selector, resourceId?)` — Returns all matching elements
+- `dom.getElementsByClassName(className, resourceId?)` — Returns live HTMLCollection as array
+- `dom.getElementsByName(name, resourceId?)` — Returns all elements with that name
+- `dom.getElementsByTagName(tagName, resourceId?)` — Returns live HTMLCollection as array
+- `dom.closest(scopeResourceId, selector, resourceId?)` — Returns closest ancestor matching selector
 
-Use `dom.fromElement(resourceId, element)` when you already have a DOM element reference and want the full fluent builder (`mutate`, `listen`, observers, `resource`) without doing a query lookup.
+The trailing `resourceId` is optional. When omitted, Fizz generates a stable id for internal bookkeeping. Pass an explicit id when you need to reference the resource by name (for example from `dom.listen("itemId", ...)`).
+
+Use `dom.fromElement(element, resourceId?)` when you already have a DOM element reference and want the full fluent builder (`mutate`, `listen`, observers, `resource`) without doing a query lookup. When `resourceId` is omitted, one is generated automatically.
 
 ### Scoped queries
 

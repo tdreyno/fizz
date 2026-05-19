@@ -72,14 +72,14 @@ describe("dom effects", () => {
   })
 
   test("creates query acquires for root and scoped builders", () => {
-    expect(dom.querySelector("item", ".item").data).toEqual({
+    expect(dom.querySelector(".item", "item").data).toEqual({
       args: [".item"],
       kind: "query",
       method: "querySelector",
       resourceId: "item",
     })
 
-    expect(dom.closest("closestItem", "list", ".item").data).toEqual({
+    expect(dom.closest("list", ".item", "closestItem").data).toEqual({
       args: [".item"],
       kind: "query",
       method: "closest",
@@ -89,7 +89,7 @@ describe("dom effects", () => {
 
     const scoped = dom.from("container")
 
-    expect(scoped.getElementById("btn", "submit").data).toEqual({
+    expect(scoped.getElementById("submit", "btn").data).toEqual({
       args: ["submit"],
       kind: "query",
       method: "getElementById",
@@ -97,7 +97,7 @@ describe("dom effects", () => {
       scopeResourceId: "container",
     })
 
-    expect(scoped.getElementsByTagName("rows", "li").data).toEqual({
+    expect(scoped.getElementsByTagName("li", "rows").data).toEqual({
       args: ["li"],
       kind: "query",
       method: "getElementsByTagName",
@@ -109,7 +109,7 @@ describe("dom effects", () => {
   test("creates external acquire from known element", () => {
     const element = { id: "node-1" }
 
-    expect(dom.fromElement("node", element).data).toEqual({
+    expect(dom.fromElement(element, "node").data).toEqual({
       element,
       kind: "external",
       resourceId: "node",
@@ -631,28 +631,28 @@ describe("dom effects", () => {
       target: "visualViewport",
     })
 
-    expect(dom.getElementsByClassName("items", "card").data).toEqual({
+    expect(dom.getElementsByClassName("card", "items").data).toEqual({
       args: ["card"],
       kind: "query",
       method: "getElementsByClassName",
       resourceId: "items",
     })
 
-    expect(dom.getElementsByName("named", "q").data).toEqual({
+    expect(dom.getElementsByName("q", "named").data).toEqual({
       args: ["q"],
       kind: "query",
       method: "getElementsByName",
       resourceId: "named",
     })
 
-    expect(dom.getElementsByTagName("rows", "li").data).toEqual({
+    expect(dom.getElementsByTagName("li", "rows").data).toEqual({
       args: ["li"],
       kind: "query",
       method: "getElementsByTagName",
       resourceId: "rows",
     })
 
-    expect(dom.querySelectorAll("all-items", ".item").data).toEqual({
+    expect(dom.querySelectorAll(".item", "all-items").data).toEqual({
       args: [".item"],
       kind: "query",
       method: "querySelectorAll",
@@ -661,7 +661,7 @@ describe("dom effects", () => {
 
     const scoped = dom.from("container")
 
-    expect(scoped.getElementsByClassName("cards", "card").data).toEqual({
+    expect(scoped.getElementsByClassName("card", "cards").data).toEqual({
       args: ["card"],
       kind: "query",
       method: "getElementsByClassName",
@@ -669,7 +669,7 @@ describe("dom effects", () => {
       scopeResourceId: "container",
     })
 
-    expect(scoped.getElementsByName("inputs", "email").data).toEqual({
+    expect(scoped.getElementsByName("email", "inputs").data).toEqual({
       args: ["email"],
       kind: "query",
       method: "getElementsByName",
@@ -677,12 +677,38 @@ describe("dom effects", () => {
       scopeResourceId: "container",
     })
 
-    expect(scoped.querySelectorAll("found", ".match").data).toEqual({
+    expect(scoped.querySelectorAll(".match", "found").data).toEqual({
       args: [".match"],
       kind: "query",
       method: "querySelectorAll",
       resourceId: "found",
       scopeResourceId: "container",
     })
+  })
+
+  test("auto-generates resource ids when omitted from dom queries", () => {
+    const element = nodeLike()
+
+    const queryEffect = dom.querySelector(".item").data as {
+      resourceId: string
+    }
+    expect(typeof queryEffect.resourceId).toBe("string")
+    expect(queryEffect.resourceId.length).toBeGreaterThan(0)
+
+    const fromElementEffect = dom.fromElement(element).data as {
+      resourceId: string
+    }
+    expect(typeof fromElementEffect.resourceId).toBe("string")
+    expect(fromElementEffect.resourceId.length).toBeGreaterThan(0)
+
+    const scopedEffect = dom.from("scope").getElementById("submit").data as {
+      resourceId: string
+    }
+    expect(typeof scopedEffect.resourceId).toBe("string")
+    expect(scopedEffect.resourceId.length).toBeGreaterThan(0)
+
+    const first = dom.querySelector(".item").data as { resourceId: string }
+    const second = dom.querySelector(".item").data as { resourceId: string }
+    expect(first.resourceId).not.toBe(second.resourceId)
   })
 })

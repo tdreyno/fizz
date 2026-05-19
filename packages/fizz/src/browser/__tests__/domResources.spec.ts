@@ -33,13 +33,13 @@ describe("DOM resources", () => {
         Enter: () => [
           dom.documentElement(),
           dom.activeElement(),
-          dom.getElementById("root", "root-id"),
-          dom.getElementsByClassName("classNodes", "action"),
-          dom.getElementsByName("namedNodes", "resource-name"),
-          dom.getElementsByTagName("taggedNodes", "button"),
-          dom.from("root").closest("closestNode", ".cta"),
-          dom.from("root").getElementsByClassName("scopedClassNodes", "action"),
-          dom.from("root").getElementsByTagName("scopedTagNodes", "button"),
+          dom.getElementById("root-id", "root"),
+          dom.getElementsByClassName("action", "classNodes"),
+          dom.getElementsByName("resource-name", "namedNodes"),
+          dom.getElementsByTagName("button", "taggedNodes"),
+          dom.from("root").closest(".cta", "closestNode"),
+          dom.from("root").getElementsByClassName("action", "scopedClassNodes"),
+          dom.from("root").getElementsByTagName("button", "scopedTagNodes"),
         ],
       },
       { name: "Browsing" },
@@ -106,7 +106,7 @@ describe("DOM resources", () => {
       {
         Enter: () =>
           dom
-            .fromElement("provided", providedElement as unknown as Element)
+            .fromElement(providedElement as unknown as Element, "provided")
             .mutate(element => {
               capturedElement = element
             }),
@@ -132,7 +132,7 @@ describe("DOM resources", () => {
       {
         Enter: () =>
           dom
-            .fromElement("provided", providedElement as unknown as Element)
+            .fromElement(providedElement as unknown as Element, "provided")
             .listen("click", () => enter()),
       },
       { name: "Browsing" },

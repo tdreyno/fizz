@@ -237,62 +237,74 @@ type LocationBuilder = Effect<DomAcquireEffectData> &
 
 type DomFromBuilder = {
   closest: (
-    resourceId: string,
     selector: string,
+    resourceId?: string,
   ) => TargetBuilder<
     HTMLElementEventMap,
     Element,
     typeof HTML_ELEMENT_EVENT_HELPERS
   >
   getElementById: (
-    resourceId: string,
     id: string,
+    resourceId?: string,
   ) => TargetBuilder<
     HTMLElementEventMap,
     Element,
     typeof HTML_ELEMENT_EVENT_HELPERS
   >
   getElementsByClassName: (
-    resourceId: string,
     className: string,
+    resourceId?: string,
   ) => TargetBuilder<
     HTMLElementEventMap,
     Element,
     typeof HTML_ELEMENT_EVENT_HELPERS
   >
   getElementsByName: (
-    resourceId: string,
     name: string,
+    resourceId?: string,
   ) => TargetBuilder<
     HTMLElementEventMap,
     Element,
     typeof HTML_ELEMENT_EVENT_HELPERS
   >
   getElementsByTagName: (
-    resourceId: string,
     tagName: string,
+    resourceId?: string,
   ) => TargetBuilder<
     HTMLElementEventMap,
     Element,
     typeof HTML_ELEMENT_EVENT_HELPERS
   >
   querySelector: (
-    resourceId: string,
     selector: string,
+    resourceId?: string,
   ) => TargetBuilder<
     HTMLElementEventMap,
     Element,
     typeof HTML_ELEMENT_EVENT_HELPERS
   >
   querySelectorAll: (
-    resourceId: string,
     selector: string,
+    resourceId?: string,
   ) => TargetBuilder<
     HTMLElementEventMap,
     Element,
     typeof HTML_ELEMENT_EVENT_HELPERS
   >
 }
+
+let autoResourceIdCounter = 0
+
+const nextAutoResourceId = (prefix: string): string => {
+  autoResourceIdCounter += 1
+  return `${prefix}:${autoResourceIdCounter}`
+}
+
+const autoQueryResourceId = (method: DomQueryMethod, arg: string): string =>
+  nextAutoResourceId(`query:${method}:${arg || "anon"}`)
+
+const autoExternalResourceId = (): string => nextAutoResourceId("external")
 
 const domAcquire = (data: DomAcquireEffectData): Effect<DomAcquireEffectData> =>
   effect("domAcquire", data)
@@ -764,8 +776,8 @@ const createExternalBuilder = <
     DomEventHelperMap<EventMap>,
 >(
   eventHelpers: EventHelpers,
-  resourceId: string,
   element: TElement,
+  resourceId: string = autoExternalResourceId(),
 ): TargetBuilder<EventMap, TElement, EventHelpers> =>
   createTargetBuilder<EventMap, TElement, EventHelpers>({
     acquire: {
@@ -800,14 +812,18 @@ const createLocationBuilder = (resourceId: string): LocationBuilder => {
 const createQueryBuilder = (options: {
   args: string[]
   method: DomQueryMethod
-  resourceId: string
+  resourceId: string | undefined
   scopeResourceId?: string
 }): TargetBuilder<
   HTMLElementEventMap,
   Element,
   typeof HTML_ELEMENT_EVENT_HELPERS
-> =>
-  createTargetBuilder<
+> => {
+  const resourceId =
+    options.resourceId ??
+    autoQueryResourceId(options.method, options.args[0] ?? "")
+
+  return createTargetBuilder<
     HTMLElementEventMap,
     Element,
     typeof HTML_ELEMENT_EVENT_HELPERS
@@ -816,59 +832,60 @@ const createQueryBuilder = (options: {
       args: options.args,
       kind: "query",
       method: options.method,
-      resourceId: options.resourceId,
+      resourceId,
       ...(options.scopeResourceId === undefined
         ? {}
         : { scopeResourceId: options.scopeResourceId }),
     },
     eventHelpers: HTML_ELEMENT_EVENT_HELPERS,
-    resourceId: options.resourceId,
+    resourceId,
   })
+}
 
 const createFromBuilder = (scopeResourceId: string): DomFromBuilder => ({
-  closest: (resourceId, selector) =>
+  closest: (selector, resourceId) =>
     createQueryBuilder({
       args: [selector],
       method: "closest",
       resourceId,
       scopeResourceId,
     }),
-  getElementById: (resourceId, id) =>
+  getElementById: (id, resourceId) =>
     createQueryBuilder({
       args: [id],
       method: "getElementById",
       resourceId,
       scopeResourceId,
     }),
-  getElementsByClassName: (resourceId, className) =>
+  getElementsByClassName: (className, resourceId) =>
     createQueryBuilder({
       args: [className],
       method: "getElementsByClassName",
       resourceId,
       scopeResourceId,
     }),
-  getElementsByName: (resourceId, name) =>
+  getElementsByName: (name, resourceId) =>
     createQueryBuilder({
       args: [name],
       method: "getElementsByName",
       resourceId,
       scopeResourceId,
     }),
-  getElementsByTagName: (resourceId, tagName) =>
+  getElementsByTagName: (tagName, resourceId) =>
     createQueryBuilder({
       args: [tagName],
       method: "getElementsByTagName",
       resourceId,
       scopeResourceId,
     }),
-  querySelector: (resourceId, selector) =>
+  querySelector: (selector, resourceId) =>
     createQueryBuilder({
       args: [selector],
       method: "querySelector",
       resourceId,
       scopeResourceId,
     }),
-  querySelectorAll: (resourceId, selector) =>
+  querySelectorAll: (selector, resourceId) =>
     createQueryBuilder({
       args: [selector],
       method: "querySelectorAll",
@@ -924,7 +941,7 @@ export const dom = {
       HTMLBodyElement,
       typeof HTML_ELEMENT_EVENT_HELPERS
     >(HTML_ELEMENT_EVENT_HELPERS, "body", resourceId),
-  closest: (resourceId: string, sourceResourceId: string, selector: string) =>
+  closest: (sourceResourceId: string, selector: string, resourceId?: string) =>
     createQueryBuilder({
       args: [selector],
       method: "closest",
@@ -944,45 +961,45 @@ export const dom = {
       typeof HTML_ELEMENT_EVENT_HELPERS
     >(HTML_ELEMENT_EVENT_HELPERS, "documentElement", resourceId),
   from: (scopeResourceId: string) => createFromBuilder(scopeResourceId),
-  fromElement: <TElement = Element>(resourceId: string, element: TElement) =>
+  fromElement: <TElement = Element>(element: TElement, resourceId?: string) =>
     createExternalBuilder<
       HTMLElementEventMap,
       TElement,
       typeof HTML_ELEMENT_EVENT_HELPERS
-    >(HTML_ELEMENT_EVENT_HELPERS, resourceId, element),
+    >(HTML_ELEMENT_EVENT_HELPERS, element, resourceId),
   history: (resourceId = "history") => createHistoryBuilder(resourceId),
-  getElementById: (resourceId: string, id: string) =>
+  getElementById: (id: string, resourceId?: string) =>
     createQueryBuilder({
       args: [id],
       method: "getElementById",
       resourceId,
     }),
-  getElementsByClassName: (resourceId: string, className: string) =>
+  getElementsByClassName: (className: string, resourceId?: string) =>
     createQueryBuilder({
       args: [className],
       method: "getElementsByClassName",
       resourceId,
     }),
-  getElementsByName: (resourceId: string, name: string) =>
+  getElementsByName: (name: string, resourceId?: string) =>
     createQueryBuilder({
       args: [name],
       method: "getElementsByName",
       resourceId,
     }),
-  getElementsByTagName: (resourceId: string, tagName: string) =>
+  getElementsByTagName: (tagName: string, resourceId?: string) =>
     createQueryBuilder({
       args: [tagName],
       method: "getElementsByTagName",
       resourceId,
     }),
   location: (resourceId = "location") => createLocationBuilder(resourceId),
-  querySelector: (resourceId: string, selector: string) =>
+  querySelector: (selector: string, resourceId?: string) =>
     createQueryBuilder({
       args: [selector],
       method: "querySelector",
       resourceId,
     }),
-  querySelectorAll: (resourceId: string, selector: string) =>
+  querySelectorAll: (selector: string, resourceId?: string) =>
     createQueryBuilder({
       args: [selector],
       method: "querySelectorAll",
