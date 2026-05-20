@@ -936,22 +936,17 @@ export const stateWrapper = <
             trigger: (a: A) => {
               void runtime?.run(a)
             },
-            cancelAsync: (asyncId: AsyncId) => cancelAsyncEffect(asyncId),
-            startAsync: (run, asyncId) => startAsyncEffect(run, asyncId),
-            startTimer: (timeoutId: TimeoutId, delay: number) =>
-              startTimerEffect(timeoutId, delay),
-            cancelTimer: (timeoutId: TimeoutId) => cancelTimerEffect(timeoutId),
-            restartTimer: (timeoutId: TimeoutId, delay: number) =>
-              restartTimerEffect(timeoutId, delay),
-            startInterval: (intervalId: IntervalId, delay: number) =>
-              startIntervalEffect(intervalId, delay),
-            cancelInterval: (intervalId: IntervalId) =>
-              cancelIntervalEffect(intervalId),
-            restartInterval: (intervalId: IntervalId, delay: number) =>
-              restartIntervalEffect(intervalId, delay),
-            startFrame: () => startFrameEffect(),
-            startFrameLoop: () => startFrameLoopEffect(),
-            cancelFrame: () => cancelFrameEffect(),
+            cancelAsync: cancelAsyncEffect,
+            startAsync: startAsyncEffect as StartAsyncEffectCreator<AsyncId>,
+            startTimer: startTimerEffect,
+            cancelTimer: cancelTimerEffect,
+            restartTimer: restartTimerEffect,
+            startInterval: startIntervalEffect,
+            cancelInterval: cancelIntervalEffect,
+            restartInterval: restartIntervalEffect,
+            startFrame: startFrameEffect,
+            startFrameLoop: startFrameLoopEffect,
+            cancelFrame: cancelFrameEffect,
             clients: (runtime?.clients ?? {}) as Clients,
             resources: getStateResources(
               transition as unknown as StateTransition<
@@ -960,7 +955,7 @@ export const stateWrapper = <
                 unknown
               >,
             ) as Resources,
-            ...(parentRuntime ? { parentRuntime } : {}),
+            parentRuntime,
           },
           runtime,
         )

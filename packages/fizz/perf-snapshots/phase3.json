@@ -1,0 +1,156 @@
+{
+  "generatedAt": "2026-05-20T19:51:02.533Z",
+  "results": [
+    {
+      "iterations": 12,
+      "name": "buildStateTransitionCommands(enter B)",
+      "maxMs": 0.007,
+      "meanMs": 0.002,
+      "minMs": 0.001,
+      "p50": 0.002,
+      "p95": 0.007,
+      "p99": 0.007
+    },
+    {
+      "iterations": 12,
+      "name": "commandsFromStateReturns(600 returns)",
+      "maxMs": 0.026,
+      "meanMs": 0.016,
+      "minMs": 0.013,
+      "p50": 0.013,
+      "p95": 0.026,
+      "p99": 0.026
+    },
+    {
+      "iterations": 20,
+      "name": "history.push(maxHistory=10)",
+      "maxMs": 0.3,
+      "meanMs": 0.247,
+      "minMs": 0.225,
+      "p50": 0.234,
+      "p95": 0.287,
+      "p99": 0.3
+    },
+    {
+      "iterations": 20,
+      "name": "history.push(maxHistory=100)",
+      "maxMs": 0.207,
+      "meanMs": 0.168,
+      "minMs": 0.146,
+      "p50": 0.161,
+      "p95": 0.201,
+      "p99": 0.207
+    },
+    {
+      "iterations": 20,
+      "name": "history.push(maxHistory=500)",
+      "maxMs": 0.108,
+      "meanMs": 0.086,
+      "minMs": 0.073,
+      "p50": 0.081,
+      "p95": 0.1,
+      "p99": 0.108
+    },
+    {
+      "iterations": 6,
+      "name": "parallel(1 lanes).run x40 ticks",
+      "maxMs": 6.092,
+      "meanMs": 4.602,
+      "minMs": 3.87,
+      "p50": 4.206,
+      "p95": 6.092,
+      "p99": 6.092
+    },
+    {
+      "iterations": 6,
+      "name": "parallel(16 lanes).run x40 ticks",
+      "maxMs": 6.261,
+      "meanMs": 4.544,
+      "minMs": 3.683,
+      "p50": 4.173,
+      "p95": 6.261,
+      "p99": 6.261
+    },
+    {
+      "iterations": 6,
+      "name": "parallel(4 lanes).run x40 ticks",
+      "maxMs": 6.346,
+      "meanMs": 4.781,
+      "minMs": 4.102,
+      "p50": 4.306,
+      "p95": 6.346,
+      "p99": 6.346
+    },
+    {
+      "iterations": 12,
+      "name": "queueItemsFromCommands(500 commands)",
+      "maxMs": 0.099,
+      "meanMs": 0.083,
+      "minMs": 0.078,
+      "p50": 0.082,
+      "p95": 0.099,
+      "p99": 0.099
+    },
+    {
+      "iterations": 6,
+      "name": "runtime.run x100 (no await per call)",
+      "maxMs": 0.515,
+      "meanMs": 0.396,
+      "minMs": 0.361,
+      "p50": 0.365,
+      "p95": 0.515,
+      "p99": 0.515
+    },
+    {
+      "iterations": 6,
+      "name": "runtime.run(60 ticks) monitors=0",
+      "maxMs": 1.42,
+      "meanMs": 0.477,
+      "minMs": 0.264,
+      "p50": 0.29,
+      "p95": 1.42,
+      "p99": 1.42
+    },
+    {
+      "iterations": 6,
+      "name": "runtime.run(60 ticks) monitors=25",
+      "maxMs": 0.398,
+      "meanMs": 0.373,
+      "minMs": 0.331,
+      "p50": 0.378,
+      "p95": 0.398,
+      "p99": 0.398
+    },
+    {
+      "iterations": 6,
+      "name": "runtime.run(80 ticks)",
+      "maxMs": 0.717,
+      "meanMs": 0.502,
+      "minMs": 0.382,
+      "p50": 0.466,
+      "p95": 0.717,
+      "p99": 0.717
+    },
+    {
+      "iterations": 6,
+      "name": "runtimes=10 x 1 tick each (frame budget)",
+      "maxMs": 1.413,
+      "meanMs": 1.236,
+      "minMs": 1.17,
+      "p50": 1.187,
+      "p95": 1.413,
+      "p99": 1.413
+    },
+    {
+      "iterations": 6,
+      "name": "runtimes=50 x 1 tick each (frame budget)",
+      "maxMs": 1.24,
+      "meanMs": 1.041,
+      "minMs": 0.89,
+      "p50": 1.001,
+      "p95": 1.24,
+      "p99": 1.24
+    }
+  ],
+  "suite": "fizz-runtime"
+}

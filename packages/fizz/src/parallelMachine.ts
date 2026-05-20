@@ -127,18 +127,53 @@ const createParallelRuntimes = async (
   )
 }
 
-const runParallelAction = async (
+const runParallelAction = (
   runtimes: ParallelRuntimeMap,
   createAction: (...args: Array<unknown>) => Action<string, unknown>,
   payload: unknown,
-): Promise<void> => {
-  const runCalls = Object.values(runtimes).flatMap(runtime => {
-    const action = createAction(payload)
+): Promise<unknown> | undefined => {
+  // Inline iteration over runtime keys to avoid Object.values/flatMap
+  // allocations on the per-action hot path. Skip Promise.all entirely when
+  // zero or one lane actually handles the action.
+  let calls: Array<Promise<void>> | undefined
+  let singleCall: Promise<void> | undefined
 
-    return runtime.canHandle(action) ? [runtime.run(action)] : []
-  })
+  for (const key in runtimes) {
+    const runtime = runtimes[key]
 
-  await Promise.all(runCalls)
+    if (!runtime) {
+      continue
+    }
+
+    const actionInstance = createAction(payload)
+
+    if (!runtime.canHandle(actionInstance)) {
+      continue
+    }
+
+    const pending = runtime.run(actionInstance)
+
+    if (singleCall === undefined && calls === undefined) {
+      singleCall = pending
+
+      continue
+    }
+
+    if (calls === undefined) {
+      calls = [singleCall!, pending]
+      singleCall = undefined
+
+      continue
+    }
+
+    calls.push(pending)
+  }
+
+  if (calls !== undefined) {
+    return Promise.all(calls)
+  }
+
+  return singleCall
 }
 
 export const createParallelMachine = (
@@ -176,7 +211,11 @@ export const createParallelMachine = (
             return noop()
           }
 
-          await runParallelAction(runtimes, createAction, payload)
+          const pending = runParallelAction(runtimes, createAction, payload)
+
+          if (pending !== undefined) {
+            await pending
+          }
 
           return update({
             ...data,

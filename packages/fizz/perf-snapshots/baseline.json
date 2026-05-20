@@ -1,0 +1,96 @@
+{
+  "generatedAt": "2026-05-20T19:13:50.587Z",
+  "results": [
+    {
+      "iterations": 12,
+      "name": "buildStateTransitionCommands(enter B)",
+      "maxMs": 0.006,
+      "meanMs": 0.002,
+      "minMs": 0.001,
+      "p50": 0.002,
+      "p95": 0.006,
+      "p99": 0.006
+    },
+    {
+      "iterations": 12,
+      "name": "commandsFromStateReturns(600 returns)",
+      "maxMs": 0.031,
+      "meanMs": 0.016,
+      "minMs": 0.012,
+      "p50": 0.013,
+      "p95": 0.031,
+      "p99": 0.031
+    },
+    {
+      "iterations": 20,
+      "name": "history.push(maxHistory=10)",
+      "maxMs": 3.737,
+      "meanMs": 0.656,
+      "minMs": 0.281,
+      "p50": 0.558,
+      "p95": 0.718,
+      "p99": 3.737
+    },
+    {
+      "iterations": 20,
+      "name": "history.push(maxHistory=100)",
+      "maxMs": 3.652,
+      "meanMs": 0.606,
+      "minMs": 0.247,
+      "p50": 0.524,
+      "p95": 0.669,
+      "p99": 3.652
+    },
+    {
+      "iterations": 20,
+      "name": "history.push(maxHistory=500)",
+      "maxMs": 3.324,
+      "meanMs": 0.474,
+      "minMs": 0.18,
+      "p50": 0.323,
+      "p95": 0.524,
+      "p99": 3.324
+    },
+    {
+      "iterations": 12,
+      "name": "queueItemsFromCommands(500 commands)",
+      "maxMs": 0.099,
+      "meanMs": 0.082,
+      "minMs": 0.077,
+      "p50": 0.078,
+      "p95": 0.099,
+      "p99": 0.099
+    },
+    {
+      "iterations": 6,
+      "name": "runtime.run(60 ticks) monitors=0",
+      "maxMs": 0.31,
+      "meanMs": 0.264,
+      "minMs": 0.243,
+      "p50": 0.257,
+      "p95": 0.31,
+      "p99": 0.31
+    },
+    {
+      "iterations": 6,
+      "name": "runtime.run(60 ticks) monitors=25",
+      "maxMs": 0.408,
+      "meanMs": 0.342,
+      "minMs": 0.308,
+      "p50": 0.321,
+      "p95": 0.408,
+      "p99": 0.408
+    },
+    {
+      "iterations": 6,
+      "name": "runtime.run(80 ticks)",
+      "maxMs": 0.638,
+      "meanMs": 0.542,
+      "minMs": 0.466,
+      "p50": 0.514,
+      "p95": 0.638,
+      "p99": 0.638
+    }
+  ],
+  "suite": "fizz-runtime"
+}

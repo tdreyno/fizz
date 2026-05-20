@@ -23,20 +23,25 @@ const getOrCreateStateResourcesMap = (state: RuntimeState) => {
   return created
 }
 
+const EMPTY_RESOURCES: Record<string, unknown> = Object.freeze({}) as Record<
+  string,
+  unknown
+>
+
 const toResourcesRecord = (
   resourcesMap: Map<string, ResourceEntry> | undefined,
 ): Record<string, unknown> => {
   if (!resourcesMap || resourcesMap.size === 0) {
-    return {}
+    return EMPTY_RESOURCES
   }
 
-  return [...resourcesMap.entries()].reduce<Record<string, unknown>>(
-    (sum, [key, entry]) => ({
-      ...sum,
-      [key]: entry.value,
-    }),
-    {},
-  )
+  const result: Record<string, unknown> = {}
+
+  resourcesMap.forEach((entry, key) => {
+    result[key] = entry.value
+  })
+
+  return result
 }
 
 export const getStateResources = (

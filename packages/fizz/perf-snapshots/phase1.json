@@ -1,0 +1,126 @@
+{
+  "generatedAt": "2026-05-20T19:16:55.939Z",
+  "results": [
+    {
+      "iterations": 12,
+      "name": "buildStateTransitionCommands(enter B)",
+      "maxMs": 0.007,
+      "meanMs": 0.002,
+      "minMs": 0.001,
+      "p50": 0.002,
+      "p95": 0.007,
+      "p99": 0.007
+    },
+    {
+      "iterations": 12,
+      "name": "commandsFromStateReturns(600 returns)",
+      "maxMs": 0.029,
+      "meanMs": 0.017,
+      "minMs": 0.012,
+      "p50": 0.015,
+      "p95": 0.029,
+      "p99": 0.029
+    },
+    {
+      "iterations": 20,
+      "name": "history.push(maxHistory=10)",
+      "maxMs": 0.447,
+      "meanMs": 0.303,
+      "minMs": 0.252,
+      "p50": 0.288,
+      "p95": 0.374,
+      "p99": 0.447
+    },
+    {
+      "iterations": 20,
+      "name": "history.push(maxHistory=100)",
+      "maxMs": 0.409,
+      "meanMs": 0.263,
+      "minMs": 0.217,
+      "p50": 0.246,
+      "p95": 0.34,
+      "p99": 0.409
+    },
+    {
+      "iterations": 20,
+      "name": "history.push(maxHistory=500)",
+      "maxMs": 0.336,
+      "meanMs": 0.188,
+      "minMs": 0.154,
+      "p50": 0.171,
+      "p95": 0.275,
+      "p99": 0.336
+    },
+    {
+      "iterations": 12,
+      "name": "queueItemsFromCommands(500 commands)",
+      "maxMs": 0.902,
+      "meanMs": 0.135,
+      "minMs": 0.06,
+      "p50": 0.067,
+      "p95": 0.902,
+      "p99": 0.902
+    },
+    {
+      "iterations": 6,
+      "name": "runtime.run x100 (no await per call)",
+      "maxMs": 0.387,
+      "meanMs": 0.373,
+      "minMs": 0.365,
+      "p50": 0.367,
+      "p95": 0.387,
+      "p99": 0.387
+    },
+    {
+      "iterations": 6,
+      "name": "runtime.run(60 ticks) monitors=0",
+      "maxMs": 0.295,
+      "meanMs": 0.222,
+      "minMs": 0.19,
+      "p50": 0.201,
+      "p95": 0.295,
+      "p99": 0.295
+    },
+    {
+      "iterations": 6,
+      "name": "runtime.run(60 ticks) monitors=25",
+      "maxMs": 0.335,
+      "meanMs": 0.313,
+      "minMs": 0.28,
+      "p50": 0.313,
+      "p95": 0.335,
+      "p99": 0.335
+    },
+    {
+      "iterations": 6,
+      "name": "runtime.run(80 ticks)",
+      "maxMs": 0.502,
+      "meanMs": 0.421,
+      "minMs": 0.35,
+      "p50": 0.399,
+      "p95": 0.502,
+      "p99": 0.502
+    },
+    {
+      "iterations": 6,
+      "name": "runtimes=10 x 1 tick each (frame budget)",
+      "maxMs": 1.919,
+      "meanMs": 1.081,
+      "minMs": 0.873,
+      "p50": 0.905,
+      "p95": 1.919,
+      "p99": 1.919
+    },
+    {
+      "iterations": 6,
+      "name": "runtimes=50 x 1 tick each (frame budget)",
+      "maxMs": 1.799,
+      "meanMs": 0.962,
+      "minMs": 0.721,
+      "p50": 0.785,
+      "p95": 1.799,
+      "p99": 1.799
+    }
+  ],
+  "suite": "fizz-runtime"
+}

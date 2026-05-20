@@ -189,6 +189,9 @@ export class Runtime<
   readonly #timerDriver: RuntimeTimerDriver
   #queueMachine = createQueueMachine()
   readonly #queue: RuntimeQueueItem<RuntimeDebugCommand>[] = []
+  readonly #queueRunnerOptions!: Parameters<
+    typeof processRuntimeQueueHead<RuntimeDebugCommand>
+  >[0]
 
   constructor(
     public context: Context,
@@ -222,10 +225,12 @@ export class Runtime<
       commandHandlers: options.commandHandlers ?? {},
       emitMonitor: event => this.#emitMonitor(event),
       emitOutput: output => {
-        this.#emitMonitor({
-          output,
-          type: "output-emitted",
-        })
+        if (this.#monitors.size > 0) {
+          this.#emitMonitor({
+            output,
+            type: "output-emitted",
+          })
+        }
 
         this.#outputSubscribers.forEach(sub => {
           void sub(output)
@@ -239,6 +244,48 @@ export class Runtime<
       timerDriver: this.#timerDriver,
     })
     this.#effectHandlers = this.#modules.effectHandlers
+
+    this.#queueRunnerOptions = {
+      executeCommand: item => this.#executeCommand(item),
+      onCommandCompleted: (command, generatedCommands) => {
+        if (this.#monitors.size > 0) {
+          this.#emitMonitor({
+            command,
+            generatedCommands,
+            type: "command-completed",
+          })
+        }
+      },
+      onCommandStarted: (command, queueSize) => {
+        this.#validateCurrentState()
+
+        if (this.#monitors.size > 0) {
+          this.#emitMonitor({
+            command,
+            queueSize,
+            type: "command-started",
+          })
+        }
+      },
+      onQueueEmpty: () => {
+        this.#queueMachine = stopQueueProcessing(this.#queueMachine)
+      },
+      onRuntimeError: (command, error) => {
+        if (this.#monitors.size > 0) {
+          this.#emitMonitor({
+            command,
+            error,
+            type: "runtime-error",
+          })
+        }
+      },
+      processNext: () => this.#processQueueHead(),
+      queue: this.#queue,
+      stopOnError: () => {
+        this.#queueMachine = stopQueueProcessing(this.#queueMachine)
+      },
+      toQueueItems: commands => this.#commandsToQueueItems(commands),
+    }
   }
 
   currentState(): RuntimeState {
@@ -458,11 +505,13 @@ export class Runtime<
         item: toRuntimeCommand(action),
       })
 
-      this.#emitMonitor({
-        action,
-        queueSize: this.#queue.length,
-        type: "action-enqueued",
-      })
+      if (this.#monitors.size > 0) {
+        this.#emitMonitor({
+          action,
+          queueSize: this.#queue.length,
+          type: "action-enqueued",
+        })
+      }
     })
 
     if (canQueueStartProcessing(this.#queueMachine)) {
@@ -503,45 +552,12 @@ export class Runtime<
   }
 
   async #processQueueHead(): Promise<void> {
-    await processRuntimeQueueHead({
-      executeCommand: item => this.#executeCommand(item),
-      onCommandCompleted: (command, generatedCommands) => {
-        this.#emitMonitor({
-          command,
-          generatedCommands,
-          type: "command-completed",
-        })
-      },
-      onCommandStarted: (command, queueSize) => {
-        this.#validateCurrentState()
-        this.#emitMonitor({
-          command,
-          queueSize,
-          type: "command-started",
-        })
-      },
-      onQueueEmpty: () => {
-        this.#queueMachine = stopQueueProcessing(this.#queueMachine)
-      },
-      onRuntimeError: (command, error) => {
-        this.#emitMonitor({
-          command,
-          error,
-          type: "runtime-error",
-        })
-      },
-      processNext: () => this.#processQueueHead(),
-      queue: this.#queue,
-      stopOnError: () => {
-        this.#queueMachine = stopQueueProcessing(this.#queueMachine)
-      },
-      toQueueItems: commands => this.#commandsToQueueItems(commands),
-    })
+    await processRuntimeQueueHead(this.#queueRunnerOptions)
   }
 
-  async #executeCommand(
+  #executeCommand(
     item: RuntimeQueueItem<RuntimeDebugCommand>["item"],
-  ): Promise<RuntimeDebugCommand[]> {
+  ): RuntimeDebugCommand[] | Promise<RuntimeDebugCommand[]> {
     if (item.kind === "action") {
       return this.#executeAction(item.action)
     }
@@ -574,12 +590,14 @@ export class Runtime<
   #contextDidChange() {
     const currentState = this.currentState()
 
-    this.#emitMonitor({
-      context: this.context,
-      currentState,
-      previousState: this.#lastContextState,
-      type: "context-changed",
-    })
+    if (this.#monitors.size > 0) {
+      this.#emitMonitor({
+        context: this.context,
+        currentState,
+        previousState: this.#lastContextState,
+        type: "context-changed",
+      })
+    }
 
     this.#lastContextState = currentState
 
@@ -587,6 +605,10 @@ export class Runtime<
   }
 
   #emitMonitor(event: RuntimeDebugEvent) {
+    if (this.#monitors.size === 0) {
+      return
+    }
+
     this.#monitors.forEach(monitor => {
       monitor(event)
     })
@@ -611,9 +633,9 @@ export class Runtime<
     effectItem.executor(this.context)
   }
 
-  async #executeAction<A extends RuntimeAction>(
+  #executeAction<A extends RuntimeAction>(
     action: A,
-  ): Promise<RuntimeDebugCommand[]> {
+  ): RuntimeDebugCommand[] | Promise<RuntimeDebugCommand[]> {
     if (
       action.type === enter.type &&
       !this.#queueMachine.hasEnteredInitialState
@@ -629,7 +651,17 @@ export class Runtime<
       throw new MissingCurrentState("Must provide a current state")
     }
 
-    const result = await targetState.executor(action, this)
+    const result = targetState.executor(action, this)
+
+    if (
+      result !== null &&
+      typeof result === "object" &&
+      typeof (result as { then?: unknown }).then === "function"
+    ) {
+      return (result as Promise<unknown>).then(resolved =>
+        commandsFromStateReturns(arraySingleton(resolved)),
+      )
+    }
 
     return commandsFromStateReturns(arraySingleton(result))
   }
@@ -639,7 +671,6 @@ export class Runtime<
       actionCommand,
       context: this.context,
       effectCommand,
-      notifyContextDidChange: () => this.#contextDidChange(),
       prepareForTransition: nextState =>
         this.#modules.prepareForTransition(nextState),
       runtime: this,

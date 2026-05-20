@@ -258,6 +258,28 @@ When you are using React, `useMachine(...)` from `@tdreyno/fizz-react` hosts the
 
 See [React Integration](./react-integration.md) for the hook parameters, return shape, bound action behavior, and component guidance.
 
+## Dispatch semantics
+
+When you call `runtime.run(action)`, the runtime processes the resulting work as a single drain. Any actions triggered _during_ that drain — including triggers from nested or parallel machines and actions chained from resolved async results — are processed in the same drain before `run()` resolves.
+
+```text
+await runtime.run(action)
+  |
+  +-- handler returns transitions / effects
+  |
+  +-- triggered child actions enqueue into the same drain
+  |
+  +-- resolved async/timer work enqueues into the same drain
+  |
+  v
+[drain finishes -- await resolves with the settled state]
+```
+
+Two consequences worth keeping in mind:
+
+- `await runtime.run(...)` resolves only after all transitively-triggered work in the same drain has settled. If you need to assert on an intermediate state (for example, the `Loading` state before an async request completes), use a controlled driver such as `createControlledAsyncDriver()` so the in-flight work can be paused.
+- `runtime.onContextChange(...)` subscribers are coalesced per drain. They fire once with the final state at the end of the drain, not once per intermediate `update(...)` inside the drain. Monitors (`runtime.addMonitor`) still receive per-command events when you need finer granularity for debugging.
+
 ## Related Docs
 
 - [Getting Started](./getting-started.md)

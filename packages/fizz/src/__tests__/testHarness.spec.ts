@@ -132,7 +132,7 @@ describe("Test harness", () => {
     expect(harness.lastOutput()).toEqual(notice("entered"))
     expect(
       harness.states().map(({ currentState }) => currentState.name),
-    ).toEqual(["Editing", "Editing", "Editing", "Done"])
+    ).toEqual(["Editing", "Editing", "Done"])
     expect(harness.lastState()?.currentState.data.events).toEqual([
       "enter",
       "save",

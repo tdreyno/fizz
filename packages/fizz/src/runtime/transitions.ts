@@ -22,7 +22,6 @@ type TransitionOptions<
   OAM extends RuntimeActionMap,
 > = CommandFactory<Command> & {
   context: Context
-  notifyContextDidChange: () => void
   prepareForTransition: (targetState: RuntimeState) => void
   runtime: Runtime<AM, OAM>
   targetState: RuntimeState
@@ -46,7 +45,6 @@ export const buildStateTransitionCommands = <
   actionCommand,
   context,
   effectCommand,
-  notifyContextDidChange,
   prepareForTransition,
   runtime,
   targetState,
@@ -66,7 +64,6 @@ export const buildStateTransitionCommands = <
     ? buildUpdateStateCommands({
         context,
         effectCommand,
-        notifyContextDidChange,
         targetState,
       })
     : buildEnterStateCommands({
@@ -105,12 +102,10 @@ export const buildGoBackCommands = <
 const buildUpdateStateCommands = <Command>({
   context,
   effectCommand,
-  notifyContextDidChange,
   targetState,
 }: {
   context: Context
   effectCommand: (effect: Effect<unknown>) => Command
-  notifyContextDidChange: () => void
   targetState: RuntimeState
 }): Command[] => {
   return [
@@ -118,7 +113,6 @@ const buildUpdateStateCommands = <Command>({
       effect("nextState", targetState, () => {
         context.history.pop()
         context.history.push(targetState as typeof context.currentState)
-        notifyContextDidChange()
       }),
     ),
     effectCommand(log(`Update: ${targetState.name}`, targetState.data)),

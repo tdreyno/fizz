@@ -214,6 +214,7 @@ describe("browser weather machine", () => {
   })
 
   test("returns to Loading when refresh is triggered from Loaded", async () => {
+    const asyncDriver = createControlledAsyncDriver()
     const runtime = new Runtime(
       createInitialContext([
         BrowserWeatherMachine.states.Loaded({
@@ -238,9 +239,13 @@ describe("browser weather machine", () => {
       ]),
       BrowserWeatherMachine.actions ?? {},
       {},
-      {},
+      { asyncDriver },
     )
 
+    // Use a controlled async driver so the Loading Enter's async work stays
+    // pending and we can observe the intermediate Loading state. With sync
+    // drain semantics, awaiting `runtime.run` would otherwise settle the
+    // full async chain before resolving.
     await runtime.run(refresh())
 
     expect(runtime.currentState().is(Loading)).toBe(true)

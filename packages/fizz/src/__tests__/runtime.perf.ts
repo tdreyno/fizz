@@ -5,6 +5,7 @@ import { action, enter } from "../action"
 import { History } from "../context"
 import { createMachine } from "../createMachine"
 import { effect } from "../effect"
+import { createParallelMachine } from "../parallelMachine"
 import { createRuntime } from "../runtime"
 import {
   actionCommand,
@@ -198,7 +199,6 @@ describe("runtime performance baselines", () => {
             effect: effectValue,
             kind: "effect" as const,
           }),
-          notifyContextDidChange: () => undefined,
           prepareForTransition: () => undefined,
           runtime,
           targetState: B(undefined),
@@ -252,5 +252,127 @@ describe("runtime performance baselines", () => {
     expect(Number.isFinite(baseline.meanMs)).toBe(true)
     expect(Number.isFinite(withMonitors.meanMs)).toBe(true)
     expect(withMonitors.maxMs).toBeGreaterThan(0)
+  })
+
+  test("burst dispatch (100 fire-and-forget)", async () => {
+    const result = await benchmark(
+      "runtime.run x100 (no await per call)",
+      async () => {
+        const { runtime, tick } = createCounterRuntime()
+
+        const pending = new Array<Promise<void>>(100)
+
+        for (let index = 0; index < 100; index += 1) {
+          pending[index] = runtime.run(tick())
+        }
+
+        await Promise.all(pending)
+        runtime.disconnect()
+      },
+      {
+        iterations: runtimeIterations,
+        warmupIterations: runtimeWarmupIterations,
+      },
+    )
+
+    expect(Number.isFinite(result.meanMs)).toBe(true)
+    expect(result.maxMs).toBeGreaterThan(0)
+  })
+
+  test("concurrent runtimes per frame", async () => {
+    const sizes = [10, 50] as const
+
+    const results = await Promise.all(
+      sizes.map(size =>
+        benchmark(
+          `runtimes=${size} x 1 tick each (frame budget)`,
+          async () => {
+            const runtimes = Array.from({ length: size }, () =>
+              createCounterRuntime(),
+            )
+
+            await Promise.all(
+              runtimes.map(({ runtime, tick }) => runtime.run(tick())),
+            )
+
+            runtimes.forEach(({ runtime }) => runtime.disconnect())
+          },
+          {
+            iterations: runtimeIterations,
+            warmupIterations: runtimeWarmupIterations,
+          },
+        ),
+      ),
+    )
+
+    expect(results.every(result => Number.isFinite(result.meanMs))).toBe(true)
+    // Frame budget assertion: 50 runtimes dispatching one action should fit
+    // comfortably inside a 16ms frame on the perf host.
+    const fifty = results.find(result => result.name.includes("runtimes=50"))
+
+    expect(fifty?.p95).toBeLessThan(16)
+  })
+
+  test("parallel machine dispatch (k lanes x 40 ticks)", async () => {
+    const sizes = [1, 4, 16] as const
+
+    const results = await Promise.all(
+      sizes.map(async size => {
+        const tick = action("Tick")
+        type Tick = ActionCreatorType<typeof tick>
+
+        const branches = Object.fromEntries(
+          Array.from({ length: size }, (_, index) => {
+            const Counting = state<Tick, { count: number }>(
+              {
+                Tick: (data, _payload, { update }) =>
+                  update({ count: data.count + 1 }),
+              },
+              { name: `Counting${index}` },
+            )
+
+            const machine = createMachine({
+              actions: { tick },
+              states: { Counting },
+            })
+
+            return [
+              `lane${index}`,
+              Object.assign(machine, {
+                initialState: Counting({ count: 0 }),
+              }),
+            ] as const
+          }),
+        )
+
+        const parallel = createParallelMachine(branches, {
+          name: `Parallel${size}`,
+        })
+
+        return benchmark(
+          `parallel(${size} lanes).run x40 ticks`,
+          async () => {
+            const runtime = createRuntime(
+              parallel.machine,
+              parallel.initialState,
+            )
+
+            await runtime.run(enter())
+
+            for (let index = 0; index < 40; index += 1) {
+              await runtime.run(parallel.actions.tick!())
+            }
+
+            runtime.disconnect()
+          },
+          {
+            iterations: runtimeIterations,
+            warmupIterations: runtimeWarmupIterations,
+          },
+        )
+      }),
+    )
+
+    expect(results.every(result => Number.isFinite(result.meanMs))).toBe(true)
   })
 })

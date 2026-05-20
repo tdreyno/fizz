@@ -4,7 +4,6 @@ import { NESTED } from "../nested"
 import { Runtime } from "../runtime"
 import { Actions, States } from "./nestedMachine"
 import { setName } from "./nestedMachine/actions"
-import { timeout } from "./util"
 
 const CORRECT_TEST_NAME = "Fizz"
 const INCORRECT_TEST_NAME = "Test"
@@ -49,14 +48,10 @@ describe("Nested Machines", () => {
 
     await runtime.run(setName(CORRECT_TEST_NAME))
 
-    expect(
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-      (runtime.currentState().data as any)[NESTED].currentState().name,
-    ).toBe("FormValid")
-
-    // Wait for event to travel from sub to parent
-    await timeout(100)
-
+    // Under the sync drain contract, `await run()` resolves only after every
+    // action transitively triggered (including parent transitions bubbled up
+    // from the nested machine via `trigger`) has been processed. The parent
+    // has already moved to `Complete` by the time `run()` resolves.
     expect(runtime.currentState().name).toBe("Complete")
   })
 })

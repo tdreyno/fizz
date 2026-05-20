@@ -66,6 +66,7 @@ describe("Bound actions", () => {
     ])
 
     expect(runtime.currentState().data).toBe(36)
-    expect(onChange).toHaveBeenCalledTimes(10)
+    // Coalesced context-change semantics: one notification per `run()` call.
+    expect(onChange).toHaveBeenCalledTimes(5)
   })
 })

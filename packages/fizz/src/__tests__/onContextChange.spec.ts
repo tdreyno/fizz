@@ -45,21 +45,20 @@ describe("onContextChange", () => {
 
     const runtime = new Runtime(context, { trigger })
 
-    let i = 0
     const onChange = jest.fn((context: Context) => {
       const { data } = context.currentState
 
-      if (i++ == 0) {
-        expect(data).toBe(2)
-      } else {
-        expect(data).toBe(3)
-      }
+      // Updates within a single `run()` drain are coalesced to a single
+      // subscriber notification firing with the final state.
+      expect(data).toBe(3)
     })
 
-    expect.assertions(3)
+    expect.assertions(2)
 
     runtime.onContextChange(onChange)
 
     await runtime.run(enter())
+
+    expect(onChange).toHaveBeenCalledTimes(1)
   })
 })

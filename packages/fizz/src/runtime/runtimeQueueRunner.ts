@@ -1,7 +1,9 @@
 import type { RuntimeQueueItem } from "./runtimeQueue.js"
 
+type MaybePromise<T> = T | Promise<T>
+
 type RuntimeQueueProcessorOptions<Command> = {
-  executeCommand: (item: Command) => Promise<Command[]>
+  executeCommand: (item: Command) => MaybePromise<Command[]>
   onCommandCompleted: (command: Command, generatedCommands: Command[]) => void
   onCommandStarted: (command: Command, queueSize: number) => void
   onQueueEmpty: () => void
@@ -14,6 +16,11 @@ type RuntimeQueueProcessorOptions<Command> = {
     promise: Promise<void[]>
   }
 }
+
+const isThenable = <T>(value: MaybePromise<T>): value is Promise<T> =>
+  value !== null &&
+  typeof value === "object" &&
+  typeof (value as { then?: unknown }).then === "function"
 
 export const processRuntimeQueueHead = async <Command>(
   options: RuntimeQueueProcessorOptions<Command>,
@@ -32,15 +39,18 @@ export const processRuntimeQueueHead = async <Command>(
     options.onCommandStarted(item, options.queue.length)
 
     try {
-      const commands = await options.executeCommand(item)
+      const result = options.executeCommand(item)
+      const commands = isThenable(result) ? await result : result
 
       options.onCommandCompleted(item, commands)
 
       const { items, promise } = options.toQueueItems(commands)
 
-      options.queue.unshift(...items)
+      if (items.length > 0) {
+        options.queue.unshift(...items)
+      }
 
-      void promise.then(() => onComplete()).catch(e => onError(e))
+      void promise.then(onComplete, onError)
     } catch (e) {
       options.onRuntimeError(item, e)
       onError(e)
