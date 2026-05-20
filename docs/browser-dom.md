@@ -98,13 +98,66 @@ const Sharing = state({
 })
 ```
 
-## Imperative DOM writes: `.mutate(fn)`
+## Imperative DOM writes
 
-Use `.mutate(fn)` on any DOM resource builder to perform an imperative DOM write. The callback receives the acquired element and is called synchronously when the effect is dispatched:
+Every DOM resource builder exposes four imperative-write helpers. Prefer the typed helpers — `classList`, `classListSet`, `callMethod`, `applyMethod` — when the intent fits; reach for `.mutate(fn)` only for one-off tweaks that none of them cover.
+
+All four chain off the builder and return `[acquireEffect, mutateEffect]`, so the resource is acquired first and the write runs against it. No separate `dom.acquire()` is needed.
+
+### `.classList(operations)`
+
+Grouped class-list mutation. Pass any combination of `add`, `remove`, `toggle`, and `replace` in a single call. Operations apply in the order **`remove` → `replace` → `toggle` → `add`**, which makes the common "drop old state, then add new state" pattern a single statement:
 
 ```typescript
-import { dom } from "@tdreyno/fizz/browser"
+import { dom, state } from "@tdreyno/fizz/browser"
 
+const Opening = state({
+  Enter: data =>
+    dom.fromElement(data.modal, "modal").classList({
+      remove: ["hidden", "modal-closing"],
+      add: ["modal-opening"],
+    }),
+})
+```
+
+On multi-element resources (`querySelectorAll`, `getElementsByClassName`, etc.) the operations apply to every matched element.
+
+### `.classListSet(classes)`
+
+Replaces the element's entire class list with the provided tokens:
+
+```typescript
+dom.fromElement(data.row, "row").classListSet(["row", "selected"])
+```
+
+### `.callMethod(name, ...args)` and `.applyMethod(name, args)`
+
+Invoke a method on the acquired element. `callMethod` mirrors `Function.prototype.call` (variadic args); `applyMethod` mirrors `Function.prototype.apply` (a single args array — handy when args already live in state or in a tuple):
+
+```typescript
+// Web component popover — no args
+dom
+  .querySelectorAll<EmojiPickerField>("emoji-picker-field", "emojiPickers")
+  .callMethod("closePopover")
+
+// Smooth scroll — args literal
+dom
+  .querySelector<HTMLDivElement>(".checkout", "checkout")
+  .callMethod("scrollTo", { top: 0, behavior: "smooth" })
+
+// Args from state
+dom.fromElement(data.input, "input").applyMethod("focus", data.focusArgs)
+```
+
+When the builder's element type is known (via `dom.fromElement(el)` or a parameterized query like `dom.querySelector<HTMLInputElement>(...)`), `name` and `args` are type-checked against the element. For untyped queries the call is still safe at runtime: elements that do not implement the method are skipped without throwing.
+
+On multi-element resources both helpers invoke the method on every element.
+
+### `.mutate(fn)` — escape hatch
+
+For DOM writes that none of the helpers above cover, use `.mutate(fn)`. The callback receives the acquired element and runs synchronously when the effect is dispatched:
+
+```typescript
 const Scrolling = state<Enter>({
   Enter: () =>
     dom.document().mutate(doc => {
@@ -114,19 +167,6 @@ const Scrolling = state<Enter>({
 ```
 
 The callback is typed to the element the builder targets — `Document` for `dom.document()`, `HTMLBodyElement` for `dom.body()`, `Element` for query builders, and so on.
-
-Because `.mutate()` chains off the builder, it returns `[acquireEffect, mutateEffect]` — the resource is acquired first, then the callback is called with it. No separate `dom.acquire()` call is needed.
-
-Common uses include: scroll position resets, focus management, toggling CSS classes, and other write-only interactions:
-
-```typescript
-const Done = state({
-  Enter: data =>
-    dom.fromElement(data.block, "dragBlock").mutate(el => {
-      el.classList.remove("dragging")
-    }),
-})
-```
 
 ## DOM queries
 
@@ -191,6 +231,16 @@ All query methods support an optional scope argument to query within a specific 
 - `dom.closest(scopeResourceId, selector, resourceId?)` — Returns closest ancestor matching selector
 
 The trailing `resourceId` is optional. When omitted, Fizz generates a stable id for internal bookkeeping. Pass an explicit id when you need to reference the resource by name (for example from `dom.listen("itemId", ...)`).
+
+All query methods accept an optional element-type generic that flows into the builder, which makes `.callMethod` / `.applyMethod` type-check against the element interface and gives `.mutate` a narrower callback parameter:
+
+```typescript
+dom.querySelector<HTMLInputElement>(".title", "title")
+dom.querySelectorAll<EmojiPickerField>("emoji-picker-field", "pickers")
+dom.getElementById<HTMLDialogElement>("modal", "modal")
+```
+
+The generic only narrows the TypeScript type — runtime behavior is unchanged.
 
 Use `dom.fromElement(element, resourceId?)` when you already have a DOM element reference and want the full fluent builder (`mutate`, `listen`, observers, `resource`) without doing a query lookup. When `resourceId` is omitted, one is generated automatically.
 

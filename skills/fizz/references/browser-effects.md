@@ -18,9 +18,67 @@ This lifecycle guarantee is the main reason to use `dom.*` helpers instead of im
 
 ---
 
-## Imperative DOM write: `.mutate(fn)`
+## Imperative DOM writes
 
-Use `.mutate(fn)` chained off any DOM resource builder to perform a direct DOM write as an effect. The callback receives the acquired element and is called synchronously when the effect is dispatched.
+Every DOM resource builder exposes four imperative-write helpers. Prefer the typed helpers — `classList`, `classListSet`, `callMethod`, `applyMethod` — when the intent fits, and reserve `.mutate(fn)` for one-off writes that none of them cover. All four return `[acquireEffect, mutateEffect]`, so the resource is acquired automatically.
+
+### `.classList(operations)`
+
+Grouped class-list mutation in a single call. Operations apply in the order **`remove` → `replace` → `toggle` → `add`** so the "drop old state, then add new state" pattern fits in one statement.
+
+```typescript
+import { dom, state } from "@tdreyno/fizz/browser"
+
+const Opening = state({
+  Enter: data =>
+    dom.fromElement(data.modal, "modal").classList({
+      remove: ["hidden", "modal-closing"],
+      add: ["modal-opening"],
+    }),
+})
+```
+
+`replace` takes `Array<[oldToken, newToken]>`; `toggle` takes a list of tokens. On multi-element resources every operation applies to every matched element.
+
+### `.classListSet(classes)`
+
+Replaces the element's entire class list:
+
+```typescript
+dom.fromElement(data.row, "row").classListSet(["row", "selected"])
+```
+
+### `.callMethod(name, ...args)` and `.applyMethod(name, args)`
+
+Invoke a method on the acquired element. `callMethod` is variadic (modeled on `Function.prototype.call`); `applyMethod` takes a single args array (modeled on `Function.prototype.apply`).
+
+```typescript
+// Web component popover
+dom
+  .querySelectorAll<EmojiPickerField>("emoji-picker-field", "pickers")
+  .callMethod("closePopover")
+
+// Smooth scroll with literal args
+dom
+  .querySelector<HTMLDivElement>(".checkout", "checkout")
+  .callMethod("scrollTo", { top: 0, behavior: "smooth" })
+
+// Args already in state data
+dom.fromElement(data.input, "input").applyMethod("focus", data.focusArgs)
+```
+
+When the builder's element type is known (via `dom.fromElement(el)` or a parameterized query like `dom.querySelector<HTMLInputElement>(...)`), `name` and `args` are type-checked against the element. For untyped queries the call is still safe at runtime — elements that do not implement the method are skipped without throwing. On multi-element resources both helpers invoke the method on every element.
+
+Parameterize query helpers with the element type when you need typed `callMethod`/`applyMethod` or a narrower `mutate` callback:
+
+```typescript
+dom.querySelector<HTMLInputElement>(".title", "title")
+dom.getElementById<HTMLDialogElement>("modal", "modal")
+```
+
+### `.mutate(fn)` — escape hatch
+
+For writes that none of the typed helpers cover, use `.mutate(fn)`. The callback receives the acquired element and runs synchronously when the effect is dispatched.
 
 ```typescript
 import { dom } from "@tdreyno/fizz/browser"
@@ -33,20 +91,9 @@ const Scrolling = state<Enter>({
 })
 ```
 
-The callback is typed to the element the builder targets — `Document` for `dom.document()`, `HTMLBodyElement` for `dom.body()`, `Element` for query builders, and so on. `.mutate()` returns `[acquireEffect, mutateEffect]` so the resource is acquired automatically.
+The callback is typed to the element the builder targets — `Document` for `dom.document()`, `HTMLBodyElement` for `dom.body()`, `Element` for query builders, and so on. The callback cannot be async and should not trigger further state-machine transitions internally.
 
-Use `.mutate` for scrolling, focus management, class toggling, or any write that is not modeled by a resource or listener. The callback cannot be async and should not trigger further state machine transitions internally.
-
-Use `dom.fromElement(element, resourceId?)` when a state already has an element reference and still needs fluent DOM effects (`mutate`, `listen`, observers, `resource`) with state-scoped lifecycle:
-
-```typescript
-const Done = state({
-  Enter: data =>
-    dom.fromElement(data.block, "dragBlock").mutate(el => {
-      el.classList.remove("dragging")
-    }),
-})
-```
+Use `dom.fromElement(element, resourceId?)` when a state already has an element reference and still needs fluent DOM effects (`classList`, `callMethod`, `mutate`, `listen`, observers, `resource`) with state-scoped lifecycle.
 
 ---
 

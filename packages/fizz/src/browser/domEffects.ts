@@ -94,7 +94,15 @@ export type DomObserveResizeEffectData = {
 
 export type DomMutateEffectData = {
   fn: (element: unknown) => void
+  label?: string
   targetResourceId: string
+}
+
+export type ClassListOperations = {
+  add?: readonly string[]
+  remove?: readonly string[]
+  replace?: ReadonlyArray<readonly [string, string]>
+  toggle?: readonly string[]
 }
 
 export type DomListenOptions =
@@ -164,12 +172,42 @@ type TargetBuilderListenHelpers<
   >
 }
 
+type MethodsOf<T> = T extends object
+  ? {
+      [K in keyof T]: T[K] extends (...args: never[]) => unknown ? K : never
+    }[keyof T]
+  : never
+
+type MethodNameOrString<T> = [MethodsOf<T>] extends [never]
+  ? string
+  : MethodsOf<T>
+
+type MethodArgsOf<T, K> = K extends keyof T
+  ? T[K] extends (...args: infer A) => unknown
+    ? A
+    : readonly unknown[]
+  : readonly unknown[]
+
+type CallMethodHelper<TElement> = <TName extends MethodNameOrString<TElement>>(
+  name: TName,
+  ...args: MethodArgsOf<TElement, TName>
+) => Effect<unknown>[]
+
+type ApplyMethodHelper<TElement> = <TName extends MethodNameOrString<TElement>>(
+  name: TName,
+  args: MethodArgsOf<TElement, TName>,
+) => Effect<unknown>[]
+
 type TargetBuilder<
   EventMap extends EventMapLike,
   TElement = unknown,
   EventHelpers extends DomEventHelperMap<EventMap> =
     DomEventHelperMap<EventMap>,
 > = Effect<DomAcquireEffectData> & {
+  applyMethod: ApplyMethodHelper<TElement>
+  callMethod: CallMethodHelper<TElement>
+  classList: (ops: ClassListOperations) => Effect<unknown>[]
+  classListSet: (classes: readonly string[]) => Effect<unknown>[]
   listen: {
     <EventType extends string>(
       type: EventType,
@@ -236,60 +274,60 @@ type LocationBuilder = Effect<DomAcquireEffectData> &
   TargetBuilderListenHelpers<LocationEventMap, typeof LOCATION_EVENT_HELPERS>
 
 type DomFromBuilder = {
-  closest: (
+  closest: <TElement extends Element = Element>(
     selector: string,
     resourceId?: string,
   ) => TargetBuilder<
     HTMLElementEventMap,
-    Element,
+    TElement,
     typeof HTML_ELEMENT_EVENT_HELPERS
   >
-  getElementById: (
+  getElementById: <TElement extends Element = Element>(
     id: string,
     resourceId?: string,
   ) => TargetBuilder<
     HTMLElementEventMap,
-    Element,
+    TElement,
     typeof HTML_ELEMENT_EVENT_HELPERS
   >
-  getElementsByClassName: (
+  getElementsByClassName: <TElement extends Element = Element>(
     className: string,
     resourceId?: string,
   ) => TargetBuilder<
     HTMLElementEventMap,
-    Element,
+    TElement,
     typeof HTML_ELEMENT_EVENT_HELPERS
   >
-  getElementsByName: (
+  getElementsByName: <TElement extends Element = Element>(
     name: string,
     resourceId?: string,
   ) => TargetBuilder<
     HTMLElementEventMap,
-    Element,
+    TElement,
     typeof HTML_ELEMENT_EVENT_HELPERS
   >
-  getElementsByTagName: (
+  getElementsByTagName: <TElement extends Element = Element>(
     tagName: string,
     resourceId?: string,
   ) => TargetBuilder<
     HTMLElementEventMap,
-    Element,
+    TElement,
     typeof HTML_ELEMENT_EVENT_HELPERS
   >
-  querySelector: (
+  querySelector: <TElement extends Element = Element>(
     selector: string,
     resourceId?: string,
   ) => TargetBuilder<
     HTMLElementEventMap,
-    Element,
+    TElement,
     typeof HTML_ELEMENT_EVENT_HELPERS
   >
-  querySelectorAll: (
+  querySelectorAll: <TElement extends Element = Element>(
     selector: string,
     resourceId?: string,
   ) => TargetBuilder<
     HTMLElementEventMap,
-    Element,
+    TElement,
     typeof HTML_ELEMENT_EVENT_HELPERS
   >
 }
@@ -323,6 +361,142 @@ const domObserveResize = (
 
 const domMutate = (data: DomMutateEffectData): Effect<DomMutateEffectData> =>
   effect("domMutate", data)
+
+const isElementListLike = (
+  value: unknown,
+): value is ArrayLike<unknown> & Iterable<unknown> => {
+  if (value == null || typeof value !== "object") {
+    return false
+  }
+
+  if (typeof NodeList !== "undefined" && value instanceof NodeList) {
+    return true
+  }
+
+  if (
+    typeof HTMLCollection !== "undefined" &&
+    value instanceof HTMLCollection
+  ) {
+    return true
+  }
+
+  return false
+}
+
+const forEachTarget = (
+  target: unknown,
+  apply: (node: unknown) => void,
+): void => {
+  if (target == null) {
+    return
+  }
+
+  if (isElementListLike(target)) {
+    for (const node of Array.from(target)) {
+      apply(node)
+    }
+    return
+  }
+
+  apply(target)
+}
+
+const hasClassList = (
+  node: unknown,
+): node is { classList: DOMTokenList; className: string } =>
+  !!node &&
+  typeof node === "object" &&
+  "classList" in node &&
+  !!(node as { classList?: unknown }).classList
+
+const applyClassListOps = (target: unknown, ops: ClassListOperations): void => {
+  forEachTarget(target, node => {
+    if (!hasClassList(node)) {
+      return
+    }
+
+    const list = node.classList
+
+    if (ops.remove && ops.remove.length > 0) {
+      list.remove(...ops.remove)
+    }
+
+    if (ops.replace) {
+      for (const [oldToken, newToken] of ops.replace) {
+        list.replace(oldToken, newToken)
+      }
+    }
+
+    if (ops.toggle) {
+      for (const token of ops.toggle) {
+        list.toggle(token)
+      }
+    }
+
+    if (ops.add && ops.add.length > 0) {
+      list.add(...ops.add)
+    }
+  })
+}
+
+const applyClassListSet = (
+  target: unknown,
+  classes: readonly string[],
+): void => {
+  const joined = classes.join(" ")
+
+  forEachTarget(target, node => {
+    if (!hasClassList(node)) {
+      return
+    }
+
+    node.className = joined
+  })
+}
+
+const invokeMethod = (
+  target: unknown,
+  name: string,
+  args: readonly unknown[],
+): void => {
+  forEachTarget(target, node => {
+    if (node == null || typeof node !== "object") {
+      return
+    }
+
+    const method = (node as Record<string, unknown>)[name]
+
+    if (typeof method !== "function") {
+      return
+    }
+
+    ;(method as (...callArgs: unknown[]) => unknown).apply(node, [...args])
+  })
+}
+
+const formatClassListLabel = (ops: ClassListOperations): string => {
+  const parts: string[] = []
+
+  if (ops.remove && ops.remove.length > 0) {
+    parts.push(`remove:${ops.remove.join(",")}`)
+  }
+
+  if (ops.replace && ops.replace.length > 0) {
+    parts.push(
+      `replace:${ops.replace.map(([from, to]) => `${from}->${to}`).join(",")}`,
+    )
+  }
+
+  if (ops.toggle && ops.toggle.length > 0) {
+    parts.push(`toggle:${ops.toggle.join(",")}`)
+  }
+
+  if (ops.add && ops.add.length > 0) {
+    parts.push(`add:${ops.add.join(",")}`)
+  }
+
+  return `classList(${parts.join(" ")})`
+}
 
 const parseListenOptions = (eventOptions?: DomListenOptions) => {
   let coalesce: DomListenCoalesceMode | undefined
@@ -603,6 +777,38 @@ const createTargetBuilder = <
   resourceId: string
 }): TargetBuilder<EventMap, TElement, EventHelpers> => {
   const builder = Object.assign(domAcquire(options.acquire), {
+    applyMethod: (name: string, args: readonly unknown[] = []) => [
+      builder,
+      domMutate({
+        fn: element => invokeMethod(element, name, args),
+        label: `applyMethod(${name})`,
+        targetResourceId: options.resourceId,
+      }),
+    ],
+    callMethod: (name: string, ...args: readonly unknown[]) => [
+      builder,
+      domMutate({
+        fn: element => invokeMethod(element, name, args),
+        label: `callMethod(${name})`,
+        targetResourceId: options.resourceId,
+      }),
+    ],
+    classList: (ops: ClassListOperations) => [
+      builder,
+      domMutate({
+        fn: element => applyClassListOps(element, ops),
+        label: formatClassListLabel(ops),
+        targetResourceId: options.resourceId,
+      }),
+    ],
+    classListSet: (classes: readonly string[]) => [
+      builder,
+      domMutate({
+        fn: element => applyClassListSet(element, classes),
+        label: `classListSet(${classes.join(" ")})`,
+        targetResourceId: options.resourceId,
+      }),
+    ],
     mutate: (fn: (element: TElement) => void) => [
       builder,
       domMutate({
@@ -842,57 +1048,68 @@ const createQueryBuilder = (options: {
   })
 }
 
-const createFromBuilder = (scopeResourceId: string): DomFromBuilder => ({
-  closest: (selector, resourceId) =>
+const createFromBuilder = (scopeResourceId: string): DomFromBuilder => {
+  const queryBuilder = (
+    method: DomQueryMethod,
+    args: string[],
+    resourceId: string | undefined,
+  ) =>
     createQueryBuilder({
-      args: [selector],
-      method: "closest",
+      args,
+      method,
       resourceId,
       scopeResourceId,
-    }),
-  getElementById: (id, resourceId) =>
-    createQueryBuilder({
-      args: [id],
-      method: "getElementById",
-      resourceId,
-      scopeResourceId,
-    }),
-  getElementsByClassName: (className, resourceId) =>
-    createQueryBuilder({
-      args: [className],
-      method: "getElementsByClassName",
-      resourceId,
-      scopeResourceId,
-    }),
-  getElementsByName: (name, resourceId) =>
-    createQueryBuilder({
-      args: [name],
-      method: "getElementsByName",
-      resourceId,
-      scopeResourceId,
-    }),
-  getElementsByTagName: (tagName, resourceId) =>
-    createQueryBuilder({
-      args: [tagName],
-      method: "getElementsByTagName",
-      resourceId,
-      scopeResourceId,
-    }),
-  querySelector: (selector, resourceId) =>
-    createQueryBuilder({
-      args: [selector],
-      method: "querySelector",
-      resourceId,
-      scopeResourceId,
-    }),
-  querySelectorAll: (selector, resourceId) =>
-    createQueryBuilder({
-      args: [selector],
-      method: "querySelectorAll",
-      resourceId,
-      scopeResourceId,
-    }),
-})
+    }) as unknown as TargetBuilder<
+      HTMLElementEventMap,
+      Element,
+      typeof HTML_ELEMENT_EVENT_HELPERS
+    >
+
+  return {
+    closest: ((selector, resourceId) =>
+      queryBuilder(
+        "closest",
+        [selector],
+        resourceId,
+      )) as DomFromBuilder["closest"],
+    getElementById: ((id, resourceId) =>
+      queryBuilder(
+        "getElementById",
+        [id],
+        resourceId,
+      )) as DomFromBuilder["getElementById"],
+    getElementsByClassName: ((className, resourceId) =>
+      queryBuilder(
+        "getElementsByClassName",
+        [className],
+        resourceId,
+      )) as DomFromBuilder["getElementsByClassName"],
+    getElementsByName: ((name, resourceId) =>
+      queryBuilder(
+        "getElementsByName",
+        [name],
+        resourceId,
+      )) as DomFromBuilder["getElementsByName"],
+    getElementsByTagName: ((tagName, resourceId) =>
+      queryBuilder(
+        "getElementsByTagName",
+        [tagName],
+        resourceId,
+      )) as DomFromBuilder["getElementsByTagName"],
+    querySelector: ((selector, resourceId) =>
+      queryBuilder(
+        "querySelector",
+        [selector],
+        resourceId,
+      )) as DomFromBuilder["querySelector"],
+    querySelectorAll: ((selector, resourceId) =>
+      queryBuilder(
+        "querySelectorAll",
+        [selector],
+        resourceId,
+      )) as DomFromBuilder["querySelectorAll"],
+  }
+}
 
 export const dom = {
   outsideFocusIn: (options: {
@@ -941,13 +1158,21 @@ export const dom = {
       HTMLBodyElement,
       typeof HTML_ELEMENT_EVENT_HELPERS
     >(HTML_ELEMENT_EVENT_HELPERS, "body", resourceId),
-  closest: (sourceResourceId: string, selector: string, resourceId?: string) =>
+  closest: <TElement extends Element = Element>(
+    sourceResourceId: string,
+    selector: string,
+    resourceId?: string,
+  ) =>
     createQueryBuilder({
       args: [selector],
       method: "closest",
       resourceId,
       scopeResourceId: sourceResourceId,
-    }),
+    }) as unknown as TargetBuilder<
+      HTMLElementEventMap,
+      TElement,
+      typeof HTML_ELEMENT_EVENT_HELPERS
+    >,
   document: (resourceId = "document") =>
     createSingletonBuilder<
       DocumentEventMap,
@@ -968,43 +1193,85 @@ export const dom = {
       typeof HTML_ELEMENT_EVENT_HELPERS
     >(HTML_ELEMENT_EVENT_HELPERS, element, resourceId),
   history: (resourceId = "history") => createHistoryBuilder(resourceId),
-  getElementById: (id: string, resourceId?: string) =>
+  getElementById: <TElement extends Element = Element>(
+    id: string,
+    resourceId?: string,
+  ) =>
     createQueryBuilder({
       args: [id],
       method: "getElementById",
       resourceId,
-    }),
-  getElementsByClassName: (className: string, resourceId?: string) =>
+    }) as unknown as TargetBuilder<
+      HTMLElementEventMap,
+      TElement,
+      typeof HTML_ELEMENT_EVENT_HELPERS
+    >,
+  getElementsByClassName: <TElement extends Element = Element>(
+    className: string,
+    resourceId?: string,
+  ) =>
     createQueryBuilder({
       args: [className],
       method: "getElementsByClassName",
       resourceId,
-    }),
-  getElementsByName: (name: string, resourceId?: string) =>
+    }) as unknown as TargetBuilder<
+      HTMLElementEventMap,
+      TElement,
+      typeof HTML_ELEMENT_EVENT_HELPERS
+    >,
+  getElementsByName: <TElement extends Element = Element>(
+    name: string,
+    resourceId?: string,
+  ) =>
     createQueryBuilder({
       args: [name],
       method: "getElementsByName",
       resourceId,
-    }),
-  getElementsByTagName: (tagName: string, resourceId?: string) =>
+    }) as unknown as TargetBuilder<
+      HTMLElementEventMap,
+      TElement,
+      typeof HTML_ELEMENT_EVENT_HELPERS
+    >,
+  getElementsByTagName: <TElement extends Element = Element>(
+    tagName: string,
+    resourceId?: string,
+  ) =>
     createQueryBuilder({
       args: [tagName],
       method: "getElementsByTagName",
       resourceId,
-    }),
+    }) as unknown as TargetBuilder<
+      HTMLElementEventMap,
+      TElement,
+      typeof HTML_ELEMENT_EVENT_HELPERS
+    >,
   location: (resourceId = "location") => createLocationBuilder(resourceId),
-  querySelector: (selector: string, resourceId?: string) =>
+  querySelector: <TElement extends Element = Element>(
+    selector: string,
+    resourceId?: string,
+  ) =>
     createQueryBuilder({
       args: [selector],
       method: "querySelector",
       resourceId,
-    }),
-  querySelectorAll: (selector: string, resourceId?: string) =>
+    }) as unknown as TargetBuilder<
+      HTMLElementEventMap,
+      TElement,
+      typeof HTML_ELEMENT_EVENT_HELPERS
+    >,
+  querySelectorAll: <TElement extends Element = Element>(
+    selector: string,
+    resourceId?: string,
+  ) =>
     createQueryBuilder({
       args: [selector],
       method: "querySelectorAll",
       resourceId,
-    }),
+    }) as unknown as TargetBuilder<
+      HTMLElementEventMap,
+      TElement,
+      typeof HTML_ELEMENT_EVENT_HELPERS
+    >,
   visualViewport: (resourceId = "visualViewport") =>
     createSingletonBuilder<
       VisualViewportEventMap,

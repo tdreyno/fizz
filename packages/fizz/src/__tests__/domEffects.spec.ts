@@ -556,6 +556,133 @@ describe("dom effects", () => {
     expect(builder.resource()).toBe(builder)
   })
 
+  test("classList emits domMutate that applies remove/replace/toggle/add in order", () => {
+    const builder = dom.body("body")
+    const effects = builder.classList({
+      add: ["open"],
+      remove: ["closed"],
+      replace: [["state-a", "state-b"]],
+      toggle: ["pinned"],
+    })
+
+    expect(effects).toHaveLength(2)
+    expect(effects[0]?.label).toBe("domAcquire")
+    expect(effects[1]?.label).toBe("domMutate")
+    const data = effects[1]?.data as {
+      fn: (target: unknown) => void
+      label: string
+      targetResourceId: string
+    }
+    expect(data.targetResourceId).toBe("body")
+    expect(data.label).toBe(
+      "classList(remove:closed replace:state-a->state-b toggle:pinned add:open)",
+    )
+
+    const calls: string[] = []
+    const fakeClassList = {
+      add: (...tokens: string[]) => calls.push(`add:${tokens.join(",")}`),
+      remove: (...tokens: string[]) => calls.push(`remove:${tokens.join(",")}`),
+      replace: (from: string, to: string) =>
+        calls.push(`replace:${from}->${to}`),
+      toggle: (token: string) => calls.push(`toggle:${token}`),
+    }
+    data.fn({ classList: fakeClassList })
+
+    expect(calls).toEqual([
+      "remove:closed",
+      "replace:state-a->state-b",
+      "toggle:pinned",
+      "add:open",
+    ])
+  })
+
+  test("classList applies operations across NodeList-like targets", () => {
+    const builder = dom.querySelectorAll(".item", "items")
+    const effects = builder.classList({ add: ["active"] })
+    const fn = (effects[1]?.data as { fn: (t: unknown) => void }).fn
+
+    // Plain object with classList is treated as a single element.
+    const addCalls: string[][] = []
+    const singleNode = {
+      classList: {
+        add: (...tokens: string[]) => addCalls.push(tokens),
+        remove: () => undefined,
+        replace: () => undefined,
+        toggle: () => undefined,
+      },
+    }
+    fn(singleNode)
+    expect(addCalls).toEqual([["active"]])
+  })
+
+  test("classListSet sets className via assignment", () => {
+    const builder = dom.body("body")
+    const effects = builder.classListSet(["one", "two"])
+
+    expect(effects[1]?.label).toBe("domMutate")
+    const data = effects[1]?.data as {
+      fn: (target: unknown) => void
+      label: string
+      targetResourceId: string
+    }
+    expect(data.label).toBe("classListSet(one two)")
+
+    const node = { classList: {}, className: "" }
+    data.fn(node)
+    expect(node.className).toBe("one two")
+  })
+
+  test("callMethod invokes the element method with provided args", () => {
+    const builder = dom.body("body")
+    const effects = builder.callMethod("scrollTo", 10, 20)
+
+    expect(effects[1]?.label).toBe("domMutate")
+    const data = effects[1]?.data as {
+      fn: (target: unknown) => void
+      label: string
+      targetResourceId: string
+    }
+    expect(data.label).toBe("callMethod(scrollTo)")
+
+    const calls: unknown[][] = []
+    const node = {
+      scrollTo: function (...args: unknown[]) {
+        calls.push(args)
+      },
+    }
+    data.fn(node)
+    expect(calls).toEqual([[10, 20]])
+  })
+
+  test("applyMethod invokes the element method with args array", () => {
+    const builder = dom.body("body")
+    const effects = builder.applyMethod("scrollTo", [30, 40])
+
+    const data = effects[1]?.data as {
+      fn: (target: unknown) => void
+      label: string
+    }
+    expect(data.label).toBe("applyMethod(scrollTo)")
+
+    const calls: unknown[][] = []
+    const node = {
+      scrollTo: function (...args: unknown[]) {
+        calls.push(args)
+      },
+    }
+    data.fn(node)
+    expect(calls).toEqual([[30, 40]])
+  })
+
+  test("callMethod silently ignores missing methods on the target", () => {
+    const builder = dom.body("body")
+    const effects = builder.callMethod("missingMethod")
+    const fn = (effects[1]?.data as { fn: (t: unknown) => void }).fn
+
+    expect(() => fn({})).not.toThrow()
+    expect(() => fn(null)).not.toThrow()
+  })
+
   test("observeIntersection supports overloads with and without observer id", () => {
     const visible = action("Visible")
     const builder = dom.body("body")
