@@ -1,5 +1,117 @@
 # @tdreyno/fizz
 
+## 8.12.0
+
+### Minor Changes
+
+- 161cc20: Add `classList`, `classListSet`, `callMethod`, and `applyMethod` DOM effect
+  helpers, plus an optional element-type generic on the query builders.
+
+  Every DOM resource builder returned by `dom.<query>(...)`,
+  `dom.fromElement(element, resourceId?)`, and `dom.from(scope).<query>(...)`
+  now exposes four typed imperative-write helpers in addition to `.mutate(fn)`:
+  - `.classList({ add?, remove?, toggle?, replace? })` — grouped class-list
+    mutation in one call. Each token field accepts a single string or an array
+    of strings, and `replace` accepts a single `[from, to]` tuple or an array
+    of tuples. Operations apply in the order
+    `remove` → `replace` → `toggle` → `add`. Multi-element resources apply
+    every operation to every matched element.
+  - `.classListSet(classes)` — replaces the element's entire class list.
+  - `.callMethod(name, ...args)` — invokes a method on the acquired element,
+    modeled on `Function.prototype.call` (variadic args).
+  - `.applyMethod(name, args)` — same as `.callMethod` but takes a single args
+    array, modeled on `Function.prototype.apply`.
+
+  `.callMethod` and `.applyMethod` skip elements that do not implement the
+  named method at runtime, so they are safe on heterogeneous lists.
+
+  All four helpers desugar to the existing `domMutate` effect, so there are no
+  new effect kinds in the runtime.
+
+  The query helpers (`closest`, `getElementById`, `getElementsByClassName`,
+  `getElementsByName`, `getElementsByTagName`, `querySelector`,
+  `querySelectorAll`) now accept an optional `<TElement extends Element>`
+  generic that flows into the returned builder. The default stays `Element`,
+  so existing callers compile unchanged.
+
+  ```ts
+  // Before
+  ...dom.fromElement(data.modal, "modal").mutate(node => {
+    node.classList.remove("hidden", "modal-closing")
+    node.classList.add("modal-opening")
+  })
+
+  // After
+  ...dom.fromElement(data.modal, "modal").classList({
+    remove: ["hidden", "modal-closing"],
+    add: ["modal-opening"],
+  })
+
+  // Typed web-component method call
+  ...dom
+    .querySelectorAll<EmojiPickerField>("emoji-picker-field", "pickers")
+    .callMethod("closePopover")
+  ```
+
+  `.mutate(fn)` is preserved as the escape hatch for writes that none of the
+  typed helpers cover.
+
+- 56922df: DOM effect builders now take `resourceId` as the trailing optional argument.
+
+  `dom.getElementById`, `dom.querySelector`, `dom.querySelectorAll`,
+  `dom.getElementsByClassName`, `dom.getElementsByName`,
+  `dom.getElementsByTagName`, `dom.closest`, `dom.fromElement`, and their
+  `dom.from(scope).*` scoped equivalents now accept the primary query argument
+  first and a trailing optional `resourceId`. When `resourceId` is omitted, Fizz
+  generates a stable id automatically for internal bookkeeping. Pass an explicit
+  id when you need to reference the resource by name (for example from
+  `dom.listen("my-id", ...)`).
+
+  Migration:
+
+  | Before                                   | After                                    |
+  | ---------------------------------------- | ---------------------------------------- |
+  | `dom.getElementById("btn", "submit")`    | `dom.getElementById("submit", "btn")`    |
+  | `dom.querySelector("form", ".checkout")` | `dom.querySelector(".checkout", "form")` |
+  | `dom.fromElement("node", element)`       | `dom.fromElement(element, "node")`       |
+  | `dom.from("scope").closest("x", ".sel")` | `dom.from("scope").closest(".sel", "x")` |
+
+  For one-off queries that do not need a stable name, omit the id entirely:
+  `dom.querySelector(".item")`.
+
+- d0bae6d: Flatten one level of nested arrays returned from state handlers.
+
+  Handler return arrays are now flattened a single level before being converted
+  to runtime commands. This means helpers that produce groups of effects — for
+  example DOM builders like `dom.body().listen(...)`, the convenience
+  `dom.<target>().on<Event>(...)` listener helpers, scoped queries returned from
+  `dom.from(...)`, and branch returns inside `whichTimeout(...)` /
+  `whichInterval(...)` — can be composed inline without the `...` spread
+  operator:
+
+  ```ts
+  const Watching = state({
+    Enter: () => [
+      dom.body().listen("click", () => Clicked()),
+      dom.window().onResize(() => WindowResized()),
+    ],
+  })
+  ```
+
+  A new exported type `NestedStateReturn` (a single `StateReturn` or a
+  `ReadonlyArray<StateReturn>`) describes the items allowed inside the returned
+  array. Existing handlers that return a flat array, a single effect/action, or
+  a transition continue to work unchanged.
+
+### Patch Changes
+
+- 4ede125: `whichTimeout(...)` and `whichInterval(...)` branch maps are no longer required
+  to be exhaustive. A timeout or interval id with no matching branch resolves to
+  `undefined` and is treated as a no-op, matching how `state(...)` handles actions
+  without a registered handler.
+
+  Unknown ids outside the declared union are still rejected at the type level.
+
 ## 8.11.1
 
 ### Patch Changes
