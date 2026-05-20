@@ -106,7 +106,7 @@ All four chain off the builder and return `[acquireEffect, mutateEffect]`, so th
 
 ### `.classList(operations)`
 
-Grouped class-list mutation. Pass any combination of `add`, `remove`, `toggle`, and `replace` in a single call. Operations apply in the order **`remove` → `replace` → `toggle` → `add`**, which makes the common "drop old state, then add new state" pattern a single statement:
+Grouped class-list mutation. Pass any combination of `add`, `remove`, `toggle`, and `replace` in a single call. Each token field accepts a single string or an array of strings, and `replace` accepts a single `[from, to]` tuple or an array of tuples. Operations apply in the order **`remove` → `replace` → `toggle` → `add`**, which makes the common "drop old state, then add new state" pattern a single statement:
 
 ```typescript
 import { dom, state } from "@tdreyno/fizz/browser"
@@ -117,6 +117,16 @@ const Opening = state({
       remove: ["hidden", "modal-closing"],
       add: ["modal-opening"],
     }),
+})
+```
+
+For the common single-class case, drop the brackets:
+
+```typescript
+dom.fromElement(data.row, "row").classList({ add: "selected" })
+
+dom.fromElement(data.tab, "tab").classList({
+  replace: ["tab-inactive", "tab-active"],
 })
 ```
 

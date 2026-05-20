@@ -615,6 +615,40 @@ describe("dom effects", () => {
     expect(addCalls).toEqual([["active"]])
   })
 
+  test("classList accepts string and single tuple shorthands", () => {
+    const builder = dom.body("body")
+    const effects = builder.classList({
+      remove: "closed",
+      replace: ["state-a", "state-b"],
+      toggle: "pinned",
+      add: "open",
+    })
+
+    const data = effects[1]?.data as {
+      fn: (target: unknown) => void
+      label: string
+    }
+    expect(data.label).toBe(
+      "classList(remove:closed replace:state-a->state-b toggle:pinned add:open)",
+    )
+
+    const calls: string[] = []
+    const fakeClassList = {
+      add: (...tokens: string[]) => calls.push(`add:${tokens.join(",")}`),
+      remove: (...tokens: string[]) => calls.push(`remove:${tokens.join(",")}`),
+      replace: (oldToken: string, newToken: string) =>
+        calls.push(`replace:${oldToken}->${newToken}`),
+      toggle: (token: string) => calls.push(`toggle:${token}`),
+    }
+    data.fn({ classList: fakeClassList })
+    expect(calls).toEqual([
+      "remove:closed",
+      "replace:state-a->state-b",
+      "toggle:pinned",
+      "add:open",
+    ])
+  })
+
   test("classListSet sets className via assignment", () => {
     const builder = dom.body("body")
     const effects = builder.classListSet(["one", "two"])

@@ -38,7 +38,14 @@ const Opening = state({
 })
 ```
 
-`replace` takes `Array<[oldToken, newToken]>`; `toggle` takes a list of tokens. On multi-element resources every operation applies to every matched element.
+`replace` takes `[oldToken, newToken]` or `Array<[oldToken, newToken]>`; `add`, `remove`, and `toggle` each take a single token string or an array of tokens. On multi-element resources every operation applies to every matched element.
+
+```typescript
+dom.fromElement(data.row, "row").classList({ add: "selected" })
+dom.fromElement(data.tab, "tab").classList({
+  replace: ["tab-inactive", "tab-active"],
+})
+```
 
 ### `.classListSet(classes)`
 

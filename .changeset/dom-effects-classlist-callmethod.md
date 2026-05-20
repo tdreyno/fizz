@@ -10,7 +10,9 @@ Every DOM resource builder returned by `dom.<query>(...)`,
 now exposes four typed imperative-write helpers in addition to `.mutate(fn)`:
 
 - `.classList({ add?, remove?, toggle?, replace? })` — grouped class-list
-  mutation in one call. Operations apply in the order
+  mutation in one call. Each token field accepts a single string or an array
+  of strings, and `replace` accepts a single `[from, to]` tuple or an array
+  of tuples. Operations apply in the order
   `remove` → `replace` → `toggle` → `add`. Multi-element resources apply
   every operation to every matched element.
 - `.classListSet(classes)` — replaces the element's entire class list.

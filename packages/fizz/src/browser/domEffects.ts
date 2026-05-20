@@ -98,11 +98,13 @@ export type DomMutateEffectData = {
   targetResourceId: string
 }
 
+export type ClassListReplaceEntry = readonly [string, string]
+
 export type ClassListOperations = {
-  add?: readonly string[]
-  remove?: readonly string[]
-  replace?: ReadonlyArray<readonly [string, string]>
-  toggle?: readonly string[]
+  add?: string | readonly string[]
+  remove?: string | readonly string[]
+  replace?: ClassListReplaceEntry | ReadonlyArray<ClassListReplaceEntry>
+  toggle?: string | readonly string[]
 }
 
 export type DomListenOptions =
@@ -409,7 +411,37 @@ const hasClassList = (
   "classList" in node &&
   !!(node as { classList?: unknown }).classList
 
+const toTokens = (
+  value: string | readonly string[] | undefined,
+): readonly string[] => {
+  if (value === undefined) {
+    return []
+  }
+
+  return typeof value === "string" ? [value] : value
+}
+
+const toReplaceEntries = (
+  value:
+    | ClassListReplaceEntry
+    | ReadonlyArray<ClassListReplaceEntry>
+    | undefined,
+): ReadonlyArray<ClassListReplaceEntry> => {
+  if (value === undefined) {
+    return []
+  }
+
+  return Array.isArray(value[0])
+    ? (value as readonly ClassListReplaceEntry[])
+    : [value as ClassListReplaceEntry]
+}
+
 const applyClassListOps = (target: unknown, ops: ClassListOperations): void => {
+  const remove = toTokens(ops.remove)
+  const replace = toReplaceEntries(ops.replace)
+  const toggle = toTokens(ops.toggle)
+  const add = toTokens(ops.add)
+
   forEachTarget(target, node => {
     if (!hasClassList(node)) {
       return
@@ -417,24 +449,20 @@ const applyClassListOps = (target: unknown, ops: ClassListOperations): void => {
 
     const list = node.classList
 
-    if (ops.remove && ops.remove.length > 0) {
-      list.remove(...ops.remove)
+    if (remove.length > 0) {
+      list.remove(...remove)
     }
 
-    if (ops.replace) {
-      for (const [oldToken, newToken] of ops.replace) {
-        list.replace(oldToken, newToken)
-      }
+    for (const [oldToken, newToken] of replace) {
+      list.replace(oldToken, newToken)
     }
 
-    if (ops.toggle) {
-      for (const token of ops.toggle) {
-        list.toggle(token)
-      }
+    for (const token of toggle) {
+      list.toggle(token)
     }
 
-    if (ops.add && ops.add.length > 0) {
-      list.add(...ops.add)
+    if (add.length > 0) {
+      list.add(...add)
     }
   })
 }
@@ -476,23 +504,27 @@ const invokeMethod = (
 
 const formatClassListLabel = (ops: ClassListOperations): string => {
   const parts: string[] = []
+  const remove = toTokens(ops.remove)
+  const replace = toReplaceEntries(ops.replace)
+  const toggle = toTokens(ops.toggle)
+  const add = toTokens(ops.add)
 
-  if (ops.remove && ops.remove.length > 0) {
-    parts.push(`remove:${ops.remove.join(",")}`)
+  if (remove.length > 0) {
+    parts.push(`remove:${remove.join(",")}`)
   }
 
-  if (ops.replace && ops.replace.length > 0) {
+  if (replace.length > 0) {
     parts.push(
-      `replace:${ops.replace.map(([from, to]) => `${from}->${to}`).join(",")}`,
+      `replace:${replace.map(([from, to]) => `${from}->${to}`).join(",")}`,
     )
   }
 
-  if (ops.toggle && ops.toggle.length > 0) {
-    parts.push(`toggle:${ops.toggle.join(",")}`)
+  if (toggle.length > 0) {
+    parts.push(`toggle:${toggle.join(",")}`)
   }
 
-  if (ops.add && ops.add.length > 0) {
-    parts.push(`add:${ops.add.join(",")}`)
+  if (add.length > 0) {
+    parts.push(`add:${add.join(",")}`)
   }
 
   return `classList(${parts.join(" ")})`
