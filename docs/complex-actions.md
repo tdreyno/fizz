@@ -117,7 +117,7 @@ const Editing = state<Enter, Data, TimeoutId>({
 })
 ```
 
-`whichTimeout(...)` and `whichInterval(...)` are useful when scheduled actions branch by id and you want exhaustiveness plus branch-level type narrowing.
+`whichTimeout(...)` and `whichInterval(...)` are useful when scheduled actions branch by id and you want branch-level type narrowing. Branches are optional: a timer or interval id with no matching branch resolves to `undefined` (a no-op).
 
 ## Compose wrappers around individual branches
 

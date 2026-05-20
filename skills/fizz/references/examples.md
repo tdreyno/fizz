@@ -240,13 +240,13 @@ const label = switch_(runtime.currentState())
 
 const onTimer = whichTimeout<"autosave" | "banner">({
   autosave: (data, _payload, { update }) => update({ ...data, saved: true }),
-  banner: () => undefined,
+  // "banner" branch omitted; missing ids resolve to undefined (no-op).
 })
 
 const onInterval = whichInterval<"presence" | "sync">({
   presence: (data, _payload, { update }) =>
     update({ ...data, ticks: data.ticks + 1 }),
-  sync: () => undefined,
+  // "sync" branch omitted; missing ids resolve to undefined (no-op).
 })
 ```
 

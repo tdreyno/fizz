@@ -84,8 +84,8 @@ This is the preferred public helper for integrations that need branch inspection
 Fizz also exports helpers that keep state logic explicit and testable:
 
 - `switch_(...)` to branch on the current state transition
-- `whichTimeout(...)` to exhaustively handle timeout ids
-- `whichInterval(...)` to exhaustively handle interval ids
+- `whichTimeout(...)` to dispatch by timeout id (missing branches resolve to a no-op)
+- `whichInterval(...)` to dispatch by interval id (missing branches resolve to a no-op)
 - `waitState(...)` to model request-on-enter and response-driven transitions
 - `isStateTransition(...)` as a type guard when handling mixed values
 

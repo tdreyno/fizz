@@ -110,7 +110,7 @@ const Polling = state<Enter, Data, never, IntervalId>(
 )
 ```
 
-This is the core interval pattern: `Enter` starts the schedule, `IntervalTriggered` handles each repetition, and cancellation is explicit. `whichInterval(...)` is exhaustive over the declared interval id union, so every interval id must be handled.
+This is the core interval pattern: `Enter` starts the schedule, `IntervalTriggered` handles each repetition, and cancellation is explicit. `whichInterval(...)` is type-checked against the declared interval id union: each branch narrows `payload.intervalId` to its specific id, but branches may be omitted. An interval id with no matching branch resolves to `undefined`, just like an action with no handler in a `state(...)` map.
 
 ```text
 Basic interval flow
@@ -182,9 +182,11 @@ const Connected = state<Enter, Data, never, IntervalId>({
 
 `whichInterval(...)` guarantees three things:
 
-- The handler map is exhaustive for the declared `IntervalId` union.
+- Every key is checked against the declared `IntervalId` union, so unknown ids are rejected.
 - Each branch narrows `payload.intervalId` to its specific interval id.
 - The returned function plugs directly into interval handlers such as `IntervalTriggered`.
+
+Branches are optional. An interval id without a branch resolves to `undefined` and is treated as a no-op, matching how `state(...)` handles actions without a registered handler.
 
 Use `whichInterval<IntervalId>({...})` directly, even when the surrounding state also declares a separate timer-id union.
 

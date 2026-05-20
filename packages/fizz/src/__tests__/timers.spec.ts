@@ -413,7 +413,40 @@ describe("timers", () => {
     ])
   })
 
-  test("should type whichTimeout exhaustively to the timeout id union", () => {
+  test("should treat missing whichTimeout branches as a no-op", async () => {
+    const Editing = state<Enter, Data, TimeoutId, IntervalId>(
+      {
+        Enter: (data, _, { startTimer, update }) => [
+          update(appendEvent(data, "enter")),
+          startTimer("flashSaved", 10),
+          startTimer("autosave", 20),
+        ],
+
+        TimerCompleted: whichTimeout<TimeoutId>({
+          autosave: (data: Data, payload, { update }) =>
+            update(appendEvent(data, `completed:${payload.timeoutId}`)),
+        }),
+      },
+      { name: "Editing" },
+    )
+
+    const context = createInitialContext([Editing({ events: [] })])
+    const timerDriver = createControlledTimerDriver()
+    const runtime = new Runtime(context, {}, {}, { timerDriver })
+
+    await runtime.run(enter())
+    await timerDriver.advanceBy(20)
+
+    const currentState = runtime.currentState()
+
+    if (!currentState.is(Editing)) {
+      throw new Error("Expected Editing state")
+    }
+
+    expect(currentState.data.events).toEqual(["enter", "completed:autosave"])
+  })
+
+  test("should type whichTimeout branches against the timeout id union", () => {
     state<Enter, Data, TimeoutId, IntervalId>({
       Enter: noop,
 
@@ -432,7 +465,7 @@ describe("timers", () => {
       }),
     })
 
-    // @ts-expect-error missing timeout id should fail exhaustiveness
+    // Missing branches are allowed: missing timeout ids resolve to undefined / no-op
     whichTimeout<TimeoutId>({
       autosave: () => noop(),
     })
@@ -729,7 +762,43 @@ describe("timers", () => {
     ])
   })
 
-  test("should type whichInterval exhaustively to the interval id union", () => {
+  test("should treat missing whichInterval branches as a no-op", async () => {
+    const Editing = state<Enter, Data, TimeoutId, IntervalId>(
+      {
+        Enter: (data, _, { startInterval, update }) => [
+          update(appendEvent(data, "enter")),
+          startInterval("sync", 10),
+          startInterval("heartbeat", 15),
+        ],
+
+        IntervalTriggered: whichInterval<IntervalId>({
+          sync: (data: Data, payload, { cancelInterval, update }) => [
+            update(appendEvent(data, `triggered:${payload.intervalId}`)),
+            cancelInterval("sync"),
+            cancelInterval("heartbeat"),
+          ],
+        }),
+      },
+      { name: "Editing" },
+    )
+
+    const context = createInitialContext([Editing({ events: [] })])
+    const timerDriver = createControlledTimerDriver()
+    const runtime = new Runtime(context, {}, {}, { timerDriver })
+
+    await runtime.run(enter())
+    await timerDriver.advanceBy(15)
+
+    const currentState = runtime.currentState()
+
+    if (!currentState.is(Editing)) {
+      throw new Error("Expected Editing state")
+    }
+
+    expect(currentState.data.events).toEqual(["enter", "triggered:sync"])
+  })
+
+  test("should type whichInterval branches against the interval id union", () => {
     state<Enter, Data, TimeoutId, IntervalId>({
       Enter: noop,
 
@@ -748,7 +817,7 @@ describe("timers", () => {
       }),
     })
 
-    // @ts-expect-error missing interval id should fail exhaustiveness
+    // Missing branches are allowed: missing interval ids resolve to undefined / no-op
     whichInterval<IntervalId>({
       heartbeat: () => noop(),
     })

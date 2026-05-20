@@ -353,7 +353,7 @@ type TimeoutScheduledBranchMap<
   IntervalId extends string,
   AsyncId extends string,
 > = {
-  [K in Id]: TimeoutScheduledBranchValue<
+  [K in Id]?: TimeoutScheduledBranchValue<
     Id,
     Name,
     Actions,
@@ -406,7 +406,7 @@ type IntervalScheduledBranchMap<
   IntervalId extends string,
   AsyncId extends string,
 > = {
-  [K in Id]: IntervalScheduledBranchValue<
+  [K in Id]?: IntervalScheduledBranchValue<
     Id,
     Name,
     Actions,
@@ -1169,6 +1169,10 @@ const createTimeoutMatcher = <
   ) => {
     const handler = handlers[payload.timeoutId]
 
+    if (!handler) {
+      return undefined
+    }
+
     return runHandlerValue(handler, data, payload, utils, runtime)
   }) as TimeoutScheduledMatcher<
     Id,
@@ -1223,6 +1227,10 @@ const createIntervalMatcher = <
     runtime?: InternalRuntime,
   ) => {
     const handler = handlers[payload.intervalId]
+
+    if (!handler) {
+      return undefined
+    }
 
     return runHandlerValue(handler, data, payload, utils, runtime)
   }) as IntervalScheduledMatcher<

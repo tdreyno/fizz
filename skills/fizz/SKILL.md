@@ -80,7 +80,7 @@ If async work may outlive the current state instance, give it an explicit `async
 - Use `state(...)` for flat state definitions and `stateWithNested(...)` when the machine genuinely needs nested state composition.
 - Use `createParallelMachine(...)` when several child workflows should stay active together and shared actions should fan out across branches.
 - Use `@tdreyno/fizz/fluent` when a task explicitly prefers creator-first chained responder registration.
-- Use `switch_(...)`, `whichTimeout(...)`, and `whichInterval(...)` to keep state branching explicit and exhaustive.
+- Use `switch_(...)`, `whichTimeout(...)`, and `whichInterval(...)` to keep state branching explicit. Branch maps in `whichTimeout(...)` and `whichInterval(...)` are not required to be exhaustive; missing ids resolve to `undefined` (a no-op), matching how `state(...)` handles actions without a registered handler.
 - Use `selectWhen(...)` to colocate derived read-only checks directly on `createMachine(...)` definitions and keep selector state filters explicit.
 - For complex selector matching (nested objects, discriminated unions, arrays, primitives), prefer `ts-pattern` and pass `isMatching(...)` directly to `selectWhen(...)`.
 - Use `waitState(...)` for request-on-enter and response-driven transition flows.

@@ -111,7 +111,7 @@ const Editing = state<Enter, Data, TimeoutId>(
 )
 ```
 
-The important part is that `TimerCompleted` is handled inside the same state definition. You do not wire a separate callback system into the runtime. `whichTimeout(...)` is exhaustive over the declared timer id union, so every timer id must be handled.
+The important part is that `TimerCompleted` is handled inside the same state definition. You do not wire a separate callback system into the runtime. `whichTimeout(...)` is type-checked against the declared timer id union: each branch narrows `payload.timeoutId` to its specific id, but branches may be omitted. A timer id with no matching branch resolves to `undefined`, just like an action with no handler in a `state(...)` map.
 
 ```text
 Basic timer flow
@@ -174,9 +174,11 @@ const Editing = state<Enter, Data, TimeoutId>({
 
 `whichTimeout(...)` guarantees three things:
 
-- The handler map is exhaustive for the declared `TimeoutId` union.
+- Every key is checked against the declared `TimeoutId` union, so unknown ids are rejected.
 - Each branch narrows `payload.timeoutId` to its specific timer id.
 - The returned function plugs directly into timer handlers such as `TimerCompleted`.
+
+Branches are optional. A timer id without a branch resolves to `undefined` and is treated as a no-op, matching how `state(...)` handles actions without a registered handler.
 
 Use `whichTimeout<TimeoutId>({...})` directly, even when the surrounding state also declares a separate interval-id union.
 

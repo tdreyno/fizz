@@ -921,7 +921,7 @@ const label = switch_(runtime.currentState())
 
 ### `whichTimeout`
 
-Build an exhaustive timeout-id matcher.
+Build a typed timeout-id matcher. Each branch narrows `payload.timeoutId` to its specific id. Branches are optional: a timer id without a branch resolves to `undefined` (a no-op), matching how `state(...)` handles actions without a registered handler.
 
 ```ts
 type TimeoutId = "autosave" | "banner"
@@ -929,7 +929,6 @@ type TimeoutId = "autosave" | "banner"
 const Editing = state<Enter, { saved: boolean }, TimeoutId>({
   TimerCompleted: whichTimeout<TimeoutId>({
     autosave: (data, _payload, { update }) => update({ ...data, saved: true }),
-    banner: () => undefined,
   }),
 })
 ```
@@ -938,7 +937,7 @@ Timer behavior is covered in [Timers](./timers.md).
 
 ### `whichInterval`
 
-Build an exhaustive interval-id matcher.
+Build a typed interval-id matcher. Each branch narrows `payload.intervalId` to its specific id. Branches are optional: an interval id without a branch resolves to `undefined` (a no-op).
 
 ```ts
 type IntervalId = "presence" | "sync"
