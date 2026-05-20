@@ -82,3 +82,16 @@ export {
   whichInterval,
   whichTimeout,
 } from "./state.js"
+export {
+  RuntimeDisconnectedError,
+  WaitUntilAbortError,
+  WaitUntilTimeoutError,
+} from "./waitUntil/errors.js"
+export type {
+  MatchChannel,
+  Matcher,
+  MatcherEvent,
+  MatchStateOptions,
+} from "./waitUntil/matcher.js"
+export { matchAny, matchOutput, matchState } from "./waitUntil/matcher.js"
+export type { WaitUntilOptions } from "./waitUntil/waitUntil.js"

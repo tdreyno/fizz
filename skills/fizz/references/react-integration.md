@@ -96,6 +96,23 @@ useMachineSubscription(
 )
 ```
 
+### Use `useWaitUntilState`, `useWaitUntilOutput`, and `useRunUntil` for awaitable conditions
+
+When a component needs to wait for a state or output before continuing (gate navigation, show a loading badge, close a dialog on an outcome), prefer the `useWaitUntil*` hooks over manual `onContextChange`/`onOutput` plumbing.
+
+- `useWaitUntilState(runtime, stateOrMatcher, options?)` → `{ status, value, error }`
+- `useWaitUntilOutput(runtime, matcherArg, options?)` → `{ status, value, error }`
+- `useRunUntil(runtime)` → stable callback `(action, matcher, options?) => Promise<T>`
+
+All three abort pending waits on unmount. `useRunUntil`'s callback also aborts the previous wait when called again. Options use the same `WaitUntilOptions` shape (`signal`, `timeout`, `includeCurrent`).
+
+```typescript
+const machine = useMachine(MyMachine, MyMachine.states.Editing({}))
+const runUntil = useRunUntil(machine.runtime)
+
+await runUntil(save(), matchState(MyMachine.states.Saved))
+```
+
 ### Use `machine.selectors` for derived render values
 
 When render logic depends on reusable derived checks, define selectors on the machine root with `selectWhen(...)` and consume them through `machine.selectors` from `useMachine(...)` or `useMachineContext(...)`.

@@ -267,6 +267,10 @@ The returned `Runtime` is the main execution object. The most commonly used meth
 
 - `run(action)`
 - `runAndSelect(action, selectorOrProject)`
+- `runUntil(action, matcher, options?)`
+- `waitUntil(matcher, options?)`
+- `waitUntilState(stateOrMatcher, options?)`
+- `waitUntilOutput(matcher, options?)`
 - `currentState()`
 - `currentHistory()`
 - `onContextChange(handler)`
@@ -380,6 +384,42 @@ const renderInputs = await runtime.runAndSelect(
 `runAndSelect(...)` does not wait for async effect settlement. It resolves after the same synchronous transition and effect work as `run(...)`, then reads from the final current state.
 
 See [Dispatch And Read](./dispatch-and-read.md) for guidance on when to use selectors vs inline projections.
+
+### `waitUntil`, `waitUntilState`, `waitUntilOutput`, `runUntil`
+
+Await a state, output, or compound condition with a single Promise.
+
+```ts
+import { matchOutput, matchState } from "@tdreyno/fizz"
+
+// Sugar for state and output matchers.
+const ready = await runtime.waitUntilState(States.Ready)
+const saved = await runtime.waitUntilOutput(savedAction)
+
+// `runUntil` subscribes before dispatching so synchronous transitions
+// are not missed.
+const result = await runtime.runUntil(
+  save(),
+  matchOutput({
+    Saved: () => true,
+    Failed: () => false,
+  }),
+)
+```
+
+All four accept the same options object:
+
+- `signal` — `AbortSignal`; rejects with `WaitUntilAbortError`.
+- `timeout` — milliseconds; rejects with `WaitUntilTimeoutError`.
+- `includeCurrent` — defaults to `true` for state matchers; resolves via
+  microtask if the current state already matches.
+
+Pending waits reject with `RuntimeDisconnectedError` if the runtime
+disconnects.
+
+See [Awaiting Conditions](./awaiting-conditions.md) for the matcher
+helpers (`matchState`, `matchOutput`, `matchAny`) and cancellation
+patterns.
 
 ### `createRuntimeRegistry`
 

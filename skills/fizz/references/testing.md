@@ -14,6 +14,7 @@ Prefer these building blocks:
 - `createControlledTimerDriver()`
 - `runtime.onContextChange(...)`
 - `runtime.onOutput(...)`
+- `runtime.runUntil(action, matcher)` / `runtime.waitUntilState(...)` / `runtime.waitUntilOutput(...)` for tests that want a single Promise for a round-trip across multiple transitions
 
 ## What To Assert
 

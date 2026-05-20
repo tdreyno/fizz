@@ -11,6 +11,7 @@
 ## Scheduling
 
 - [Async](docs/async.md)
+- [Awaiting Conditions](docs/awaiting-conditions.md)
 - [Data Clients](docs/data-clients.md)
 - [Timers](docs/timers.md)
 - [Intervals](docs/intervals.md)

@@ -182,5 +182,24 @@ export type RuntimeDebugEvent =
       latestOnlyKey: string
       type: "imperative-command-replaced"
     }
+  | {
+      channels: ReadonlyArray<"state" | "output">
+      hasAbortSignal: boolean
+      hasTimeout: boolean
+      type: "wait-until-registered"
+      waitUntilId: string
+    }
+  | {
+      channel: "state" | "output"
+      durationMs: number
+      type: "wait-until-resolved"
+      waitUntilId: string
+    }
+  | {
+      durationMs: number
+      reason: "abort" | "timeout" | "disconnect" | "other"
+      type: "wait-until-rejected"
+      waitUntilId: string
+    }
 
 export type RuntimeMonitor = (event: RuntimeDebugEvent) => void

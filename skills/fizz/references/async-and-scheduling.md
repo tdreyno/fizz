@@ -10,6 +10,8 @@ Fizz already exposes the lifecycle primitives needed for async and scheduled wor
 
 When a helper needs to map success or failure back into actions, prefer fluent chaining such as `.chainToAction(...)` over inline `resolve`/`reject` config keys.
 
+For controller code that needs to "dispatch and await an outcome" (e.g., wait for a state to be reached or an output to be emitted), prefer `runtime.runUntil(action, matcher, options?)` over manually wiring `onOutput`, captured resolvers, and `AbortController`. Use the standalone `runtime.waitUntil(...)` family when the wait is independent from a dispatch. Matchers come from `matchState`, `matchOutput`, and `matchAny`. Options support `signal`, `timeout`, and `includeCurrent`. See `docs/awaiting-conditions.md` for the public surface.
+
 ## `startAsync(...)`
 
 Use `startAsync(...)` when you need to start async work from a state handler and map the settled result back into actions.

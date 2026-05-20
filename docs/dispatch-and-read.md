@@ -183,6 +183,7 @@ When async work matters, drive the controlled async or timer drivers directly an
 ## Related Docs
 
 - [API](./api.md)
+- [Awaiting Conditions](./awaiting-conditions.md)
 - [Testing](./testing.md)
 - [React Integration](./react-integration.md)
 - [Async](./async.md)

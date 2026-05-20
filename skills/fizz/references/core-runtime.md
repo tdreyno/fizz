@@ -134,6 +134,8 @@ When imperative adapter code needs to dispatch and immediately read from the res
 
 `runAndSelect(...)` resolves after the same synchronous transition/effect boundary as `runtime.run(...)`. It does not wait for async effect settlement.
 
+When code needs to dispatch and await an outcome (a specific state, an output, or a predicate over either), use `runtime.runUntil(action, matcher, options?)` or the standalone `runtime.waitUntil(...)` family. They handle subscription, race-against-cancellation, and cleanup. Matchers come from `matchState`, `matchOutput`, and `matchAny`. Options support `signal`, `timeout`, and `includeCurrent`. Errors are `WaitUntilAbortError`, `WaitUntilTimeoutError`, and `RuntimeDisconnectedError`. See `docs/awaiting-conditions.md` for the full surface.
+
 ## State Utils
 
 Fizz state handlers receive a utilities object from `state.ts`. Important helpers include:

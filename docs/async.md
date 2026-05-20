@@ -706,6 +706,7 @@ Cancellation and stale completion behavior
 ## Related Docs
 
 - [Architecture](./architecture.md)
+- [Awaiting Conditions](./awaiting-conditions.md)
 - [Custom Effects](./custom-effects.md)
 - [Complex Actions](./complex-actions.md)
 - [Testing](./testing.md)

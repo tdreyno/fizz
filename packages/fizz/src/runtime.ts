@@ -12,6 +12,7 @@ import { dispatchEffect } from "./runtime/effectDispatcher.js"
 import type { RuntimeCommandHandlers } from "./runtime/runtimeCommandModule.js"
 import type { SelectorWhen, StateSelector } from "./selectors.js"
 import { runStateSelector } from "./selectors.js"
+import type { BoundStateFn } from "./state.js"
 export type {
   RuntimeChromeDebuggerRegistry,
   RuntimeChromeDebuggerRegistryEntry,
@@ -56,6 +57,10 @@ import {
   buildStateTransitionCommands,
 } from "./runtime/transitions.js"
 import { arraySingleton } from "./util.js"
+import type { Matcher } from "./waitUntil/matcher.js"
+import { coerceOutputMatcher, coerceStateMatcher } from "./waitUntil/matcher.js"
+import type { WaitUntilOptions } from "./waitUntil/waitUntil.js"
+import { waitUntil } from "./waitUntil/waitUntil.js"
 
 export type { RuntimeBrowserDriver } from "./browser/runtimeBrowserDriver.js"
 export type {
@@ -331,6 +336,51 @@ export class Runtime<
           await this.run(maybeAction)
         }
       }
+    })
+  }
+
+  waitUntil<T>(matcher: Matcher<T>, options?: WaitUntilOptions): Promise<T> {
+    return waitUntil<T>(
+      {
+        currentState: () =>
+          this.context.currentState as RuntimeState | undefined,
+        emitMonitor: event => this.#emitMonitor(event),
+        onContextChange: fn => this.onContextChange(fn),
+        onDisconnect: fn => this.onDisconnect(fn),
+        onOutput: fn => this.onOutput(fn),
+      },
+      matcher,
+      options,
+    )
+  }
+
+  waitUntilState<S extends BoundStateFn<any, any, any>>(
+    matcher: S | Matcher<ReturnType<S>>,
+    options?: WaitUntilOptions,
+  ): Promise<ReturnType<S>> {
+    return this.waitUntil(coerceStateMatcher(matcher), options)
+  }
+
+  waitUntilOutput<T>(
+    matcher:
+      | { is(action: RuntimeAction): boolean }
+      | Record<string, (action: any) => T | undefined>
+      | ((output: RuntimeAction) => T | undefined)
+      | Matcher<T>,
+    options?: WaitUntilOptions,
+  ): Promise<T> {
+    return this.waitUntil(coerceOutputMatcher(matcher as never), options)
+  }
+
+  runUntil<T>(
+    action: RuntimeAction,
+    matcher: Matcher<T>,
+    options?: WaitUntilOptions,
+  ): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      // subscribe synchronously before dispatching the action
+      this.waitUntil(matcher, options).then(resolve, reject)
+      this.run(action).catch(reject)
     })
   }
 

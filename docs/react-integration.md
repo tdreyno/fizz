@@ -545,10 +545,44 @@ If you need browser console debugging today, use `runtime.onContextChange(...)` 
 
 For a larger reference, see the React example app in [packages/react-example/src/app/page.tsx](../packages/react-example/src/app/page.tsx) and the machine hooks under [packages/react-example/src/machines/timeout.ts](../packages/react-example/src/machines/timeout.ts).
 
+## Awaiting conditions in components
+
+The runtime ships hooks for waiting on a state or output condition from
+inside a component. They're useful when an interaction needs to wait for
+the machine to settle before navigating, showing a dialog, or measuring
+an outcome.
+
+```tsx
+import { matchState, useMachine } from "@tdreyno/fizz-react"
+import { useRunUntil, useWaitUntilState } from "@tdreyno/fizz-react"
+
+function SaveButton() {
+  const machine = useMachine(MyMachine, MyMachine.states.Editing({}))
+  const runUntil = useRunUntil(machine.runtime)
+
+  return (
+    <button
+      onClick={async () => {
+        await runUntil(save(), matchState(MyMachine.states.Saved))
+      }}
+    >
+      Save
+    </button>
+  )
+}
+```
+
+`useWaitUntilState` returns `{ status, value, error }` and aborts on
+unmount. `useRunUntil` returns a stable callback that also aborts the
+previous wait when called again. See
+[Awaiting Conditions](./awaiting-conditions.md) for the full surface,
+matchers, and cancellation semantics.
+
 ## Related Docs
 
 - [Getting Started](./getting-started.md)
 - [Architecture](./architecture.md)
+- [Awaiting Conditions](./awaiting-conditions.md)
 - [Debugging](./debugging.md)
 - [Complex Actions](./complex-actions.md)
 - [Async](./async.md)

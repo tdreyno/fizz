@@ -387,6 +387,7 @@ Agents should use the testing guidance when a task involves:
 
 - [Getting Started](./getting-started.md)
 - [Architecture](./architecture.md)
+- [Awaiting Conditions](./awaiting-conditions.md)
 - [React Integration](./react-integration.md)
 - [Complex Actions](./complex-actions.md)
 - [Async](./async.md)
