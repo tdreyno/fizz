@@ -64,6 +64,7 @@ export type {
   BoundStateFn,
   GetStateData,
   HandlerReturn,
+  NestedStateReturn,
   State,
   StateReturn,
   StateTransition,

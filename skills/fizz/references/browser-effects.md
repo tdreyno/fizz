@@ -174,8 +174,8 @@ const Scrolled = action("Scrolled").withPayload<{ y: number }>()
 
 const Watching = state<Enter | ReturnType<typeof Clicked>>({
   Enter: () => [
-    ...dom.body().listen("click", () => Clicked()),
-    ...dom
+    dom.body().listen("click", () => Clicked()),
+    dom
       .window()
       .listen("scroll", event =>
         Scrolled({ y: (event as ScrollEvent).scrollY }),
@@ -184,12 +184,14 @@ const Watching = state<Enter | ReturnType<typeof Clicked>>({
 })
 ```
 
-`listen(...)` returns an array of effects: `[acquireEffect, listenEffect]`. Spread with `...` when combining with other effects.
+`listen(...)` returns an array of effects: `[acquireEffect, listenEffect]`.
+Handler return arrays are flattened one level, so you can return the result
+directly inside the handler array without `...` spreading.
 
 For high-frequency events, use coalescing to avoid flooding actions:
 
 ```typescript
-...dom
+dom
   .window()
   .listen(
     "pointermove",
@@ -205,8 +207,8 @@ All DOM builders expose typed convenience methods for valid event keys on that t
 Example:
 
 ```typescript
-...dom.document().onMouseDown(event => Started((event as MouseEvent).button))
-...dom.window().onResize(() => WindowResized())
+dom.document().onMouseDown(event => Started((event as MouseEvent).button))
+dom.window().onResize(() => WindowResized())
 ```
 
 Each helper delegates to `.listen(...)` with the matching string event name:
@@ -224,7 +226,7 @@ Call `listen(...)` or `onKeyDown`/`onKeyUp`/`onKeyPress` without a handler to bu
 ```typescript
 const SaveRequested = action("SaveRequested")
 
-...dom
+dom
   .document()
   .onKeyDown()
   .matchesKeyCombo({ key: "s", ctrlKey: true })
@@ -236,7 +238,7 @@ const SaveRequested = action("SaveRequested")
 const SubmitRequested = action("SubmitRequested")
 const IgnoredKey = action("IgnoredKey")
 
-...dom
+dom
   .document()
   .onKeyPress()
   .matchesKey("Enter")
@@ -263,13 +265,13 @@ Use document-scoped outside checks for dismissal flows.
 ```typescript
 const DismissRequested = action("DismissRequested")
 
-...dom
+dom
   .outsidePointerDown({ inside: [menuRoot], includeTrigger: menuButton })
   .chainToAction(DismissRequested)
 ```
 
 ```typescript
-...dom
+dom
   .outsideFocusIn({ inside: [menuRoot], includeTrigger: menuButton })
   .chainToAction(DismissRequested)
 ```
@@ -349,7 +351,7 @@ const CardFocused = action("CardFocused")
 const Card = state<Enter>({
   Enter: () => [
     dom.getElementById("card-container", "card"),
-    ...dom
+    dom
       .from("card")
       .closest(".cta-button", "cta")
       .listen("focus", () => CardFocused()),

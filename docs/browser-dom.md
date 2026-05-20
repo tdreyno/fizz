@@ -395,13 +395,17 @@ Example:
 ```typescript
 const Tracking = state({
   Enter: () => [
-    ...dom.document().onMouseDown(event => {
+    dom.document().onMouseDown(event => {
       return didPress((event as MouseEvent).button)
     }),
-    ...dom.window().onResize(() => viewportChanged()),
+    dom.window().onResize(() => viewportChanged()),
   ],
 })
 ```
+
+> Note: Handler return arrays are flattened one level, so DOM helpers (and any
+> other helper that produces an array of effects) can be returned inline
+> without the `...` spread operator.
 
 Helpers are type-safe per target and map directly to `.listen(...)`:
 

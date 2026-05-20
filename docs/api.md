@@ -844,7 +844,7 @@ const Start = state<Enter | ReturnType<typeof finish>>(
 const Done = state<Enter, { done: boolean }>({}, { name: "Done" })
 ```
 
-`state(...)` is the main authoring API. Each handler receives `(data, payload, utils)` and can return a transition, an action, an effect, an array of returns, or a promise of those values.
+`state(...)` is the main authoring API. Each handler receives `(data, payload, utils)` and can return a transition, an action, an effect, an array of returns, or a promise of those values. The returned array is flattened one level, so helpers that produce groups of effects (for example `dom.listen(...)`, the various `dom.…onEvent(...)` helpers, and the branch returns inside `whichTimeout(...)` / `whichInterval(...)`) can be composed inline without the `...` spread operator.
 
 `update(nextData)` remains the standard way to apply same-state data updates. If you prefer draft-style nested edits, you can optionally compute `nextData` with Immer `produce(...)` and pass that result to `update(...)`.
 

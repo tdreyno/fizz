@@ -56,7 +56,7 @@ export const toRuntimeCommand = (
 }
 
 export const commandsFromStateReturns = (
-  stateReturns: StateReturn[],
+  stateReturns: ReadonlyArray<StateReturn | ReadonlyArray<StateReturn>>,
 ): RuntimeDebugCommand[] => {
-  return stateReturns.map(item => toRuntimeCommand(item))
+  return stateReturns.flat(1).map(toRuntimeCommand)
 }

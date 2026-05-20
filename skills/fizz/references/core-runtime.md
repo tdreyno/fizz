@@ -43,7 +43,8 @@ Use `state(...)` for a normal state definition. A handler can return:
 - a next state transition
 - an action
 - an effect
-- a list of state returns
+- a list of state returns (flattened one level, so helpers that produce arrays
+  of effects can be composed inline without `...` spreading)
 
 In practice, keep each handler focused on one concern:
 

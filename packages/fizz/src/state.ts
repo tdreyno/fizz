@@ -65,6 +65,16 @@ export type StateReturn =
   | Action<string, unknown>
   | StateTransition<any, any, any>
 
+/**
+ * Items that may appear inside a handler's returned array. Handler return
+ * arrays are flattened one level, so an entry can either be a single
+ * {@link StateReturn} or a sub-array of {@link StateReturn}s. This lets
+ * helpers that produce groups of effects (for example DOM builders like
+ * `dom.listen(...)` or scheduled-payload matchers returned from
+ * `whichTimeout` / `whichInterval`) be composed inline without spreading.
+ */
+export type NestedStateReturn = StateReturn | ReadonlyArray<StateReturn>
+
 type TimerActions<TimeoutId extends string> =
   | TimerStarted<TimeoutId>
   | TimerCompleted<TimeoutId>
@@ -454,7 +464,7 @@ type IntervalScheduledHandler<
   AsyncId
 >
 
-type SyncHandlerReturn = void | StateReturn | Array<StateReturn>
+type SyncHandlerReturn = void | StateReturn | ReadonlyArray<NestedStateReturn>
 export type HandlerReturn = SyncHandlerReturn | Promise<SyncHandlerReturn>
 
 let wrappedHandlerCounter = 1
@@ -602,7 +612,11 @@ const toStateReturns = (result: SyncHandlerReturn): StateReturn[] => {
     return []
   }
 
-  return Array.isArray(result) ? result : [result]
+  if (!Array.isArray(result)) {
+    return [result]
+  }
+
+  return result.flat(1) as StateReturn[]
 }
 
 const prependStateReturns = (
