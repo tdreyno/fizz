@@ -401,8 +401,8 @@ const saved = await runtime.waitUntilOutput(savedAction)
 const result = await runtime.runUntil(
   save(),
   matchOutput({
-    Saved: () => true,
-    Failed: () => false,
+    Saved: true,
+    Failed: false,
   }),
 )
 ```

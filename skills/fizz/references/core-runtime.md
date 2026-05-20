@@ -136,6 +136,8 @@ When imperative adapter code needs to dispatch and immediately read from the res
 
 When code needs to dispatch and await an outcome (a specific state, an output, or a predicate over either), use `runtime.runUntil(action, matcher, options?)` or the standalone `runtime.waitUntil(...)` family. They handle subscription, race-against-cancellation, and cleanup. Matchers come from `matchState`, `matchOutput`, and `matchAny`. Options support `signal`, `timeout`, and `includeCurrent`. Errors are `WaitUntilAbortError`, `WaitUntilTimeoutError`, and `RuntimeDisconnectedError`. See `docs/awaiting-conditions.md` for the full surface.
 
+`matchOutput(...)` accepts an action creator, a predicate function, or a handler map keyed by action `type`. Handler-map entries can be either `(action) => value | undefined` or a direct value; direct values resolve the wait when the `type` matches, enabling predicate-style mappings like `matchOutput({ Saved: true, Failed: false })`.
+
 ## State Utils
 
 Fizz state handlers receive a utilities object from `state.ts`. Important helpers include:

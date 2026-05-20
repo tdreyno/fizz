@@ -51,16 +51,17 @@ type ActionMatcher<T extends string, P> = {
   is(action: Action<string, unknown>): action is Action<T, P>
 }
 
-type OutputHandlerMap<T> = Record<
-  string,
-  (action: Action<string, unknown>) => T | undefined
->
+type OutputHandlerEntry<T> =
+  | T
+  | ((action: Action<string, unknown>) => T | undefined)
+
+type OutputHandlerMap<T> = Record<string, OutputHandlerEntry<T>>
 
 export function matchOutput<T extends string, P>(
   actionCtor: ActionMatcher<T, P>,
 ): Matcher<Action<T, P>>
 export function matchOutput<T>(
-  handlers: Record<string, (action: any) => T | undefined>,
+  handlers: Record<string, T | ((action: any) => T | undefined)>,
 ): Matcher<T>
 export function matchOutput<T>(
   predicate: (output: Action<string, unknown>) => T | undefined,
@@ -96,9 +97,15 @@ export function matchOutput(
     channels: ["output"],
     evalState: () => undefined,
     evalOutput: output => {
-      const handler = map[output.type]
+      if (!Object.prototype.hasOwnProperty.call(map, output.type)) {
+        return undefined
+      }
 
-      return handler ? handler(output) : undefined
+      const entry = map[output.type]
+
+      return typeof entry === "function"
+        ? (entry as (action: Action<string, unknown>) => unknown)(output)
+        : entry
     },
   }
 }

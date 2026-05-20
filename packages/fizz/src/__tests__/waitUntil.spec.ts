@@ -151,6 +151,29 @@ describe("waitUntil", () => {
       expect(result).toBe(false)
     })
 
+    test("resolves on primitive shorthand values in handler map", async () => {
+      const closed = action("Closed")
+      const blocked = action("Blocked")
+      const blockedAction = blocked()
+
+      const A = state<Enter>(
+        { Enter: () => output(blockedAction) },
+        { name: "A" },
+      )
+      const context = createInitialContext([A()])
+      const runtime = new Runtime(context, {}, { blocked, closed })
+
+      const result = await runtime.runUntil(
+        enter(),
+        matchOutput({
+          Closed: true,
+          Blocked: false,
+        }),
+      )
+
+      expect(result).toBe(false)
+    })
+
     test("resolves with 0/null/false from mapper, ignores undefined", async () => {
       const evt = action("Evt").withPayload<number>()
 

@@ -38,16 +38,27 @@ const ready = await runtime.waitUntilState(States.Ready)
 // Wait for the next output of type "Saved".
 const saved = await runtime.waitUntilOutput(savedAction)
 
-// Map outputs to outcomes.
+// Map outputs to outcomes (primitive shorthand).
 const outcome = await runtime.waitUntilOutput({
-  Closed: () => true,
-  Blocked: () => false,
+  Closed: true,
+  Blocked: false,
+})
+
+// Or pass a function per type for derived values.
+const derived = await runtime.waitUntilOutput({
+  Saved: action => action.payload,
 })
 ```
 
 `waitUntilState` accepts either a state constructor or a `matchState`
 result. `waitUntilOutput` accepts an action creator, a handler map keyed
 by action `type`, a predicate function, or a `matchOutput` result.
+
+Handler-map entries can be either a function `(action) => value | undefined`
+or a direct value. Direct values are returned as the wait result whenever
+the action `type` matches — handy for predicate-style mappings like
+`{ Saved: true, Failed: false }`. Function entries that return
+`undefined` are treated as "no match" and let the wait keep listening.
 
 ### Filtering with `where`
 
