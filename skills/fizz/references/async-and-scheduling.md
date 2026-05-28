@@ -285,8 +285,8 @@ const Save = action("Save")
 const Editing = state<
   ReturnType<typeof InputChanged> | ReturnType<typeof Save>
 >({
-  InputChanged: debounce((data, payload, { update }) => {
-    return update({ ...data, draft: payload })
+  InputChanged: debounce((data, payload) => {
+    return { ...data, draft: payload }
   }, 250),
   Save: throttle((_data, _payload, { trigger }) => {
     return trigger(Save())

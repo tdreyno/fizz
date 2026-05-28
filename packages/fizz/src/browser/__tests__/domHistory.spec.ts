@@ -36,7 +36,7 @@ describe("DOM history", () => {
 
     const Listening = state<Enter | DidPopState | Finish, { count: number }>(
       {
-        DidPopState: (data, _, { update }) => update({ count: data.count + 1 }),
+        DidPopState: data => ({ count: data.count + 1 }),
         Enter: () => dom.history().listen("popstate", didPopState),
         Finish: data => Done(data),
       },

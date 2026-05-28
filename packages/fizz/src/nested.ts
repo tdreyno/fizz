@@ -37,7 +37,7 @@ type NestedForwarder<
   data: Data,
   payload: ActionPayload<A>,
   utils: NestedUpdateUtils<Actions, Data>,
-) => HandlerReturn
+) => HandlerReturn<Data>
 
 type NestedForwarders<
   Actions extends Action<string, unknown>,
@@ -61,7 +61,7 @@ export const stateWithNested = <
       utils: {
         update: (data: Data) => StateTransition<string, Actions, Data>
       },
-    ) => HandlerReturn
+    ) => HandlerReturn<Data>
   },
   initialNestedState: StateTransition<string, Action<string, unknown>, unknown>,
   nestedActions: NAM,

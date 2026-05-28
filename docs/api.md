@@ -886,7 +886,15 @@ const Done = state<Enter, { done: boolean }>({}, { name: "Done" })
 
 `state(...)` is the main authoring API. Each handler receives `(data, payload, utils)` and can return a transition, an action, an effect, an array of returns, or a promise of those values. The returned array is flattened one level, so helpers that produce groups of effects (for example `dom.listen(...)`, the various `dom.…onEvent(...)` helpers, and the branch returns inside `whichTimeout(...)` / `whichInterval(...)`) can be composed inline without the `...` spread operator.
 
-`update(nextData)` remains the standard way to apply same-state data updates. If you prefer draft-style nested edits, you can optionally compute `nextData` with Immer `produce(...)` and pass that result to `update(...)`.
+For object data states, a single plain-object return is shorthand for `update(nextData)`. `update(nextData)` remains the explicit and always-supported form.
+
+Shorthand guardrails:
+
+- shorthand applies only to a single plain-object return
+- array data states still require explicit `update(...)`
+- plain objects inside returned arrays are not treated as updates
+
+If you prefer draft-style nested edits, you can optionally compute `nextData` with Immer `produce(...)` and pass that result to `update(...)`.
 
 ```ts
 import { produce } from "immer"

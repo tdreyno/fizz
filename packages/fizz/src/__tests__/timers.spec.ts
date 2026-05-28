@@ -84,10 +84,10 @@ describe("timers", () => {
           restartTimer("autosave", 50),
         ],
 
-        TimerStarted: (data, { timeoutId }, { update }) => {
+        TimerStarted: (data, { timeoutId }) => {
           const narrowed: TimeoutId = timeoutId
 
-          return update(appendEvent(data, `started:${narrowed}`))
+          return appendEvent(data, `started:${narrowed}`)
         },
 
         TimerCompleted: (data, { timeoutId }, { update }) => {

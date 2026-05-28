@@ -945,6 +945,22 @@ describe("Runtime", () => {
         UnknownStateReturnType,
       )
     })
+
+    test("should not treat plain objects in returned arrays as implicit updates", async () => {
+      const A = state<Enter, { count: number }>({
+        Enter: () =>
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+          [{ count: 1 }] as any,
+      })
+
+      const context = createInitialContext([A({ count: 0 })])
+
+      const runtime = new Runtime(context)
+
+      await expect(runtime.run(enter())).rejects.toBeInstanceOf(
+        UnknownStateReturnType,
+      )
+    })
   })
 
   describe("Serialization", () => {

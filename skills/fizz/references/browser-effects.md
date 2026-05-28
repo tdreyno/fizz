@@ -238,6 +238,9 @@ const Watching = state<Enter | ReturnType<typeof Clicked>>({
 Handler return arrays are flattened one level, so you can return the result
 directly inside the handler array without `...` spreading.
 
+For object data states, event-mapper handlers can return a single plain object
+as shorthand for same-state `update(nextData)`.
+
 For high-frequency events, use coalescing to avoid flooding actions:
 
 ```typescript

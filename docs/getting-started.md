@@ -112,10 +112,17 @@ The important part is not the example itself. It is the shape:
 Fizz handlers usually return one of these things:
 
 - `update(nextData)` to stay in the same state with new data
+- a plain-object single return to mean the same as `update(nextData)`
 - `SomeOtherState(nextData)` to transition to another state
 - `output(someAction(...))` to emit an integration-facing action
 - an effect such as `startAsync(...)`, `startTimer(...)`, or a custom `effect(...)`
 - an array containing several of those returns when one transition needs multiple outcomes
+
+Shorthand boundaries:
+
+- only single plain-object returns are treated as same-state updates
+- array data states still require explicit `update(...)`
+- plain objects inside returned arrays are not reinterpreted
 
 That gives you a single place to read the machine logic instead of scattering callbacks across components, timers, and requests.
 

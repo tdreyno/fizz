@@ -94,12 +94,10 @@ describe("Async scheduled operations", () => {
             ignoreAsync,
           ),
 
-        ProfileLoaded: (data, profile, { update }) => {
-          return update({
-            ...appendEvent(data, `loaded:${profile.id}`),
-            profileName: profile.name,
-          })
-        },
+        ProfileLoaded: (data, profile) => ({
+          ...appendEvent(data, `loaded:${profile.id}`),
+          profileName: profile.name,
+        }),
       },
       { name: "Loading" },
     )

@@ -130,7 +130,7 @@ type FluentHandler<
     Resources,
     Clients
   >,
-) => HandlerReturn
+) => HandlerReturn<Data>
 
 export type FluentStateDescription = {
   name: string

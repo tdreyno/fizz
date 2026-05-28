@@ -200,12 +200,12 @@ const SaveDraft = action("SaveDraft")
 const Editing = state<
   ReturnType<typeof QueryChanged> | ReturnType<typeof SaveDraft>
 >({
-  QueryChanged: debounce((data, payload, { update }) => {
-    return update({ ...data, query: payload })
+  QueryChanged: debounce((data, payload) => {
+    return { ...data, query: payload }
   }, 200),
   SaveDraft: throttle(
-    (data, _payload, { update }) => {
-      return update({ ...data, saves: data.saves + 1 })
+    (data, _payload) => {
+      return { ...data, saves: data.saves + 1 }
     },
     { delay: 1000, leading: true, trailing: true },
   ),

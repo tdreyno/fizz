@@ -21,7 +21,7 @@ import type {
   TimerPayload,
   TimerStarted,
 } from "./action.js"
-import { action } from "./action.js"
+import { action, isAction } from "./action.js"
 import type { StartAsyncEffectCreator } from "./effect.js"
 import {
   cancelAsync as cancelAsyncEffect,
@@ -29,6 +29,7 @@ import {
   cancelInterval as cancelIntervalEffect,
   cancelTimer as cancelTimerEffect,
   Effect,
+  isEffect,
   noop,
   output,
   restartInterval as restartIntervalEffect,
@@ -74,6 +75,12 @@ export type StateReturn =
  * `whichTimeout` / `whichInterval`) be composed inline without spreading.
  */
 export type NestedStateReturn = StateReturn | ReadonlyArray<StateReturn>
+
+type ImplicitUpdateReturn<Data> = Data extends readonly unknown[]
+  ? never
+  : Data extends object
+    ? Data
+    : never
 
 type TimerActions<TimeoutId extends string> =
   | TimerStarted<TimeoutId>
@@ -170,7 +177,7 @@ type Handler<
     Resources,
     Clients
   >,
-) => HandlerReturn
+) => HandlerReturn<Data>
 
 type WrappedHandlerMode = "debounce" | "throttle"
 
@@ -193,9 +200,16 @@ type NormalizedWrappedHandlerOptions = {
 type InternalRuntime = Runtime<any, any>
 
 type LooseHandler = (
-  data: any,
-  payload: any,
-  utils: any,
+  data: unknown,
+  payload: unknown,
+  utils: StateUtils<
+    string,
+    Action<string, unknown>,
+    unknown,
+    string,
+    string,
+    string
+  >,
   runtime?: InternalRuntime,
 ) => HandlerReturn
 
@@ -320,7 +334,7 @@ type ScheduledBranch<
   data: Data,
   payload: Payload,
   utils: StateUtils<Name, Actions, Data, TimeoutId, IntervalId, AsyncId>,
-) => HandlerReturn
+) => HandlerReturn<Data>
 
 type TimeoutScheduledBranchValue<
   Id extends string,
@@ -464,8 +478,14 @@ type IntervalScheduledHandler<
   AsyncId
 >
 
-type SyncHandlerReturn = void | StateReturn | ReadonlyArray<NestedStateReturn>
-export type HandlerReturn = SyncHandlerReturn | Promise<SyncHandlerReturn>
+type SyncHandlerReturn<Data = unknown> =
+  | void
+  | StateReturn
+  | ReadonlyArray<NestedStateReturn>
+  | ImplicitUpdateReturn<Data>
+export type HandlerReturn<Data = unknown> =
+  | SyncHandlerReturn<Data>
+  | Promise<SyncHandlerReturn<Data>>
 
 let wrappedHandlerCounter = 1
 
@@ -607,25 +627,55 @@ const hasWrappedTimerPayload = (
 ): payload is { timeoutId: string } =>
   typeof payload === "object" && payload !== null && "timeoutId" in payload
 
-const toStateReturns = (result: SyncHandlerReturn): StateReturn[] => {
+const isPlainObject = (value: unknown): value is Record<string, unknown> => {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false
+  }
+
+  const proto = Object.getPrototypeOf(value) as object | null
+
+  return proto === Object.prototype || proto === null
+}
+
+const isImplicitUpdateData = (
+  value: unknown,
+): value is Record<string, unknown> =>
+  isPlainObject(value) &&
+  !isAction(value) &&
+  !isEffect(value) &&
+  !isStateTransition(value)
+
+const toStateReturns = <Data>(
+  result: SyncHandlerReturn<Data>,
+  update: (
+    data: Data,
+  ) => StateTransition<string, Action<string, unknown>, Data>,
+): StateReturn[] => {
   if (!result) {
     return []
   }
 
   if (!Array.isArray(result)) {
+    if (isImplicitUpdateData(result)) {
+      return [update(result)]
+    }
+
     return [result]
   }
 
   return result.flat(1) as StateReturn[]
 }
 
-const prependStateReturns = (
-  result: HandlerReturn,
+const prependStateReturns = <Data>(
+  result: HandlerReturn<Data>,
+  update: (
+    data: Data,
+  ) => StateTransition<string, Action<string, unknown>, Data>,
   ...prefix: StateReturn[]
 ): HandlerReturn =>
   result instanceof Promise
-    ? result.then(resolved => [...prefix, ...toStateReturns(resolved)])
-    : [...prefix, ...toStateReturns(result)]
+    ? result.then(resolved => [...prefix, ...toStateReturns(resolved, update)])
+    : [...prefix, ...toStateReturns(result, update)]
 
 const getWrappedHandlerTimeoutId = (handler: AnyWrappedHandler) =>
   `__fizz_wrapped_handler__${handler[wrappedHandlerSymbol].id}`
@@ -701,6 +751,7 @@ const runWrappedHandler = <T extends LooseHandler>(
 
       return prependStateReturns(
         handler.handler(data, payload, utils),
+        utils.update,
         startTimerEffect(timerId, handler.options.delay),
       )
     }
@@ -757,6 +808,7 @@ const runWrappedHandlerTimerAction = <T extends LooseHandler>(
 
   return prependStateReturns(
     handler.handler(data, pendingPayload, utils),
+    utils.update,
     startTimerEffect(
       getWrappedHandlerTimeoutId(handler),
       handler.options.delay,
@@ -771,17 +823,33 @@ const runHandlerValue = <T extends LooseHandler>(
   utils: Parameters<T>[2],
   runtime?: InternalRuntime,
 ): HandlerReturn => {
+  const toNormalizedResult = <Data>(
+    result: HandlerReturn<Data>,
+    update: (
+      data: Data,
+    ) => StateTransition<string, Action<string, unknown>, Data>,
+  ): HandlerReturn =>
+    result instanceof Promise
+      ? result.then(resolved => toStateReturns(resolved, update))
+      : toStateReturns(result, update)
+
   if (isWrappedHandler(handler as AnyHandlerValue)) {
-    return runWrappedHandler(
-      handler as WrappedHandler<T>,
-      data,
-      payload,
-      utils,
-      runtime,
+    return toNormalizedResult(
+      runWrappedHandler(
+        handler as WrappedHandler<T>,
+        data,
+        payload,
+        utils,
+        runtime,
+      ),
+      utils.update,
     )
   }
 
-  return (handler as T)(data, payload, utils, runtime)
+  return toNormalizedResult(
+    (handler as T)(data, payload, utils, runtime),
+    utils.update,
+  )
 }
 
 /**
@@ -851,7 +919,7 @@ export type State<
     Resources,
     Clients
   >,
-) => HandlerReturn
+) => HandlerReturn<Data>
 
 export interface BoundStateFn<
   Name extends string,
@@ -928,7 +996,7 @@ export const stateWrapper = <
       resources: Resources
     },
     runtime?: InternalRuntime,
-  ) => HandlerReturn,
+  ) => HandlerReturn<Data>,
 ): BoundStateFn<Name, A, Data> => {
   const fn = (data: Data) => {
     const transition: StateTransition<Name, A, Data> = {
@@ -967,7 +1035,7 @@ export const stateWrapper = <
               void runtime?.run(a)
             },
             cancelAsync: cancelAsyncEffect,
-            startAsync: startAsyncEffect as StartAsyncEffectCreator<AsyncId>,
+            startAsync: startAsyncEffect,
             startTimer: startTimerEffect,
             cancelTimer: cancelTimerEffect,
             restartTimer: restartTimerEffect,
@@ -1311,7 +1379,7 @@ export const whichTimeout = <TimeoutId extends string>(
   data: Data,
   payload: TimeoutScheduledPayload<TimeoutId>,
   utils: StateUtils<string, Actions, Data, TimeoutId, IntervalId, AsyncId>,
-) => HandlerReturn) => createTimeoutMatcher(handlers as never) as never
+) => HandlerReturn<Data>) => createTimeoutMatcher(handlers as never) as never
 
 export const whichInterval = <IntervalId extends string>(
   handlers: IntervalScheduledBranchMap<
@@ -1332,7 +1400,7 @@ export const whichInterval = <IntervalId extends string>(
   data: Data,
   payload: IntervalScheduledPayload<IntervalId>,
   utils: StateUtils<string, Actions, Data, TimeoutId, IntervalId, AsyncId>,
-) => HandlerReturn) => createIntervalMatcher(handlers as never) as never
+) => HandlerReturn<Data>) => createIntervalMatcher(handlers as never) as never
 
 const timedOut = action("TimedOut")
 type TimedOut = ActionCreatorType<typeof timedOut>
@@ -1353,11 +1421,11 @@ export const waitState = <
 >(
   requestAction: ReqAC,
   responseActionCreator: RespAC,
-  transition: (data: Data, payload: RespA["payload"]) => HandlerReturn,
+  transition: (data: Data, payload: RespA["payload"]) => HandlerReturn<Data>,
   options?: {
     name?: string
     timeout?: WaitStateTimeout
-    onTimeout?: (data: Data) => HandlerReturn
+    onTimeout?: (data: Data) => HandlerReturn<Data>
   },
 ) => {
   const name = options?.name

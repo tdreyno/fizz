@@ -32,18 +32,17 @@ const ProfileMachine = machine("ProfileMachine")
 ```ts
 const Editing = state<{ name: string }>("Editing")
   .onEnter((data, _, { update }) => update(data))
-  .on(setName, (data, payload, { update }) =>
-    update({
-      ...data,
-      name: payload.name,
-    }),
-  )
+  .on(setName, (data, payload) => ({
+    ...data,
+    name: payload.name,
+  }))
 ```
 
 Guidance:
 
 - Prefer action creator references with `.on(...)`.
 - Keep handlers deterministic and return transitions/actions/effects.
+- For object data states, use single plain-object returns for happy-path same-state updates.
 - Use `onEnter(...)` and `onExit(...)` for lifecycle responders.
 
 ## Typed Resources With `withResources(...)`

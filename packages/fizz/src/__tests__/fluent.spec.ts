@@ -25,12 +25,10 @@ describe("Fluent state API", () => {
 
     const Editing = state<{ name: string; saves: number }>("Editing")
       .onEnter((data, _, { update }) => update(data))
-      .on(setName, (data, payload, { update }) =>
-        update({
-          ...data,
-          name: payload.name,
-        }),
-      )
+      .on(setName, (data, payload) => ({
+        ...data,
+        name: payload.name,
+      }))
 
     const machine = createMachine({
       actions: { setName },

@@ -99,10 +99,17 @@ Handlers return work instead of performing every side effect inline.
 Common return values are:
 
 - `update(nextData)` to stay in the same state
+- a single plain object to mean `update(nextData)` for object data states
 - `OtherState(nextData)` to transition to a different state
 - `output(action)` to emit an action to the integration layer
 - an effect such as `startAsync(...)`, `startTimer(...)`, or a custom `effect(...)`
 - an array when one transition needs multiple results
+
+Boundaries:
+
+- shorthand applies only to single plain-object returns
+- array data states still use explicit `update(...)`
+- returned arrays keep existing semantics and do not reinterpret plain objects
 
 This keeps the machine deterministic at decision time: given the same state data and the same action, you can see the intended next work in one place.
 

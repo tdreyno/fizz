@@ -6,6 +6,62 @@ import { Runtime } from "../runtime.js"
 import { state } from "../state.js"
 
 describe("nested handler return arrays", () => {
+  test("should treat a single plain-object return as a same-state update", async () => {
+    const increment = action("Increment")
+    type Increment = ReturnType<typeof increment>
+
+    const Counting = state<Enter | Increment, { count: number }>(
+      {
+        Enter: () => undefined,
+        Increment: data => ({ count: data.count + 1 }),
+      },
+      { name: "Counting" },
+    )
+
+    const context = createInitialContext([Counting({ count: 0 })])
+    const runtime = new Runtime(context, { increment })
+
+    await runtime.run(increment())
+
+    const current = runtime.currentState()
+
+    expect(current.is(Counting)).toBeTruthy()
+
+    if (!current.is(Counting)) {
+      throw new Error("Expected Counting state")
+    }
+
+    expect(current.data.count).toBe(1)
+  })
+
+  test("should treat async plain-object returns as same-state updates", async () => {
+    const Counting = state<Enter, { count: number }>(
+      {
+        Enter: async data => {
+          await Promise.resolve()
+
+          return { count: data.count + 1 }
+        },
+      },
+      { name: "Counting" },
+    )
+
+    const context = createInitialContext([Counting({ count: 0 })])
+    const runtime = new Runtime(context, {}, { enter })
+
+    await runtime.run(enter())
+
+    const current = runtime.currentState()
+
+    expect(current.is(Counting)).toBeTruthy()
+
+    if (!current.is(Counting)) {
+      throw new Error("Expected Counting state")
+    }
+
+    expect(current.data.count).toBe(1)
+  })
+
   test("should flatten one level of nested arrays returned from a handler", async () => {
     const notice = action("Notice").withPayload<string>()
     const fired: string[] = []

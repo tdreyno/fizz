@@ -43,8 +43,15 @@ Use `state(...)` for a normal state definition. A handler can return:
 - a next state transition
 - an action
 - an effect
+- a single plain object (treated as same-state `update(nextData)` for object data states)
 - a list of state returns (flattened one level, so helpers that produce arrays
   of effects can be composed inline without `...` spreading)
+
+Shorthand boundaries:
+
+- applies only to a single plain-object return
+- array data states still require explicit `update(...)`
+- plain objects inside returned arrays are not reinterpreted
 
 In practice, keep each handler focused on one concern:
 
@@ -145,6 +152,7 @@ When code needs to dispatch and await an outcome (a specific state, an output, o
 Fizz state handlers receive a utilities object from `state.ts`. Important helpers include:
 
 - `update(data)` to stay in the same state with new state data
+- returning a single plain object is equivalent to `update(data)` for object data states
 - `trigger(action)` when the runtime must receive a follow-up action
 - `startAsync(...)` and `cancelAsync(...)`
 - `startTimer(...)`, `cancelTimer(...)`, `restartTimer(...)`
