@@ -92,6 +92,10 @@ export const stateWithNested = <
       nestedActions,
     )
 
+    ;(runtime as { [PARENT_RUNTIME]?: ActionPayload<BeforeEnter> })[
+      PARENT_RUNTIME
+    ] = parentRuntime
+
     await runtime.run(enter())
 
     return update({

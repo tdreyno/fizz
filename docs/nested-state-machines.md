@@ -210,6 +210,19 @@ child:  [FormInvalid] -- SetName(correct name) --> [FormValid]
 
 Nested machines stay predictable when the communication rules are explicit.
 
+### Shared resources across substates
+
+Nested child handlers can read resources created by the parent `stateWithNested(...)` state through `utils.resources`.
+
+This is useful for long-lived resources such as DOM listeners, subscriptions, or handles that should stay mounted while the parent state is active, even as nested substates change.
+
+Resource lookup precedence is:
+
+- child state resources first
+- parent `stateWithNested` resources second
+
+That means a child resource key intentionally overrides a parent key with the same name.
+
 ### Parent to child
 
 Only the action creators listed in the `nestedActions` object are forwarded to the child runtime.

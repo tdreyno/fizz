@@ -871,6 +871,30 @@ export type GetStateData<
 
 export const PARENT_RUNTIME = Symbol("Parent runtime")
 
+const getMergedResources = (options: {
+  parentRuntime?: InternalRuntime
+  transition: StateTransition<string, Action<string, unknown>, unknown>
+}) => {
+  const stateResources = getStateResources(options.transition)
+
+  if (!options.parentRuntime) {
+    return stateResources
+  }
+
+  const parentState = options.parentRuntime.currentState() as
+    | StateTransition<string, Action<string, unknown>, unknown>
+    | undefined
+
+  if (!parentState) {
+    return stateResources
+  }
+
+  return {
+    ...getStateResources(parentState),
+    ...stateResources,
+  }
+}
+
 export const stateWrapper = <
   Name extends string,
   A extends Action<string, unknown>,
@@ -920,12 +944,18 @@ export const stateWrapper = <
       },
 
       executor: (action: A, runtime?: InternalRuntime) => {
-        const parentRuntime: InternalRuntime | undefined =
+        const parentRuntimeFromData: InternalRuntime | undefined =
           typeof data === "object" && data !== null && PARENT_RUNTIME in data
             ? ((data as { [PARENT_RUNTIME]?: ActionPayload<BeforeEnter> })[
                 PARENT_RUNTIME
               ] as InternalRuntime | undefined)
             : undefined
+
+        const parentRuntime: InternalRuntime | undefined =
+          parentRuntimeFromData ??
+          ((runtime as { [PARENT_RUNTIME]?: ActionPayload<BeforeEnter> })?.[
+            PARENT_RUNTIME
+          ] as InternalRuntime | undefined)
 
         // Run state executor
         return executor(
@@ -948,13 +978,14 @@ export const stateWrapper = <
             startFrameLoop: startFrameLoopEffect,
             cancelFrame: cancelFrameEffect,
             clients: (runtime?.clients ?? {}) as Clients,
-            resources: getStateResources(
-              transition as unknown as StateTransition<
+            resources: getMergedResources({
+              parentRuntime,
+              transition: transition as unknown as StateTransition<
                 string,
                 Action<string, unknown>,
                 unknown
               >,
-            ) as Resources,
+            }) as Resources,
             parentRuntime,
           },
           runtime,

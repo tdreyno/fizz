@@ -18,6 +18,8 @@ Resource values are available from handler `utils.resources`.
 - resources survive same-state `update(...)` transitions
 - resources are released automatically on state exit
 - resource release does not emit context change events
+- nested child handlers created via `stateWithNested(...)` can read parent state resources through `utils.resources` fallback
+- when parent and child resource keys overlap in nested handlers, child resources take precedence
 
 Runtime monitors emit resource lifecycle events:
 

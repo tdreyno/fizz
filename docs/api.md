@@ -921,6 +921,8 @@ const Parent = stateWithNested(
 
 Use this when nested composition makes the machine easier to reason about, not just to avoid a few repeated handlers.
 
+Nested child handlers receive `utils.resources` with automatic fallback to resources owned by the parent `stateWithNested(...)` state. Child resources take precedence when keys overlap.
+
 See [Nested State Machines](./nested-state-machines.md) for a practical walkthrough of parent and child communication.
 If the problem is several active child workflows instead of one parent-owned child workflow, use [Parallel State Machines](./parallel-state-machines.md) instead.
 

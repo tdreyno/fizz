@@ -59,6 +59,8 @@ Use `stateWithNested(...)` only when the machine genuinely benefits from nested 
 
 Nested state composition should make the machine easier to reason about, not harder.
 
+Nested child handlers can read parent `stateWithNested(...)` resources via `utils.resources` fallback. If a child and parent define the same resource key, the child value wins for that handler execution.
+
 ### `createParallelMachine(...)`
 
 Use `createParallelMachine(...)` when several child workflows should stay active together and the parent should broadcast shared actions to every branch that can handle them.
