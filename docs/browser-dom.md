@@ -377,7 +377,7 @@ const Processing = state({
 
 ## Event listeners
 
-Bind event listeners to elements with automatic cleanup via `dom.listen(...)`. Listeners are state-scoped resources and detach when the state exits.
+Bind event listeners to elements with automatic cleanup via `dom.listen(...)`. Listeners are state-scoped resources and detach when the state exits. Under the hood, Fizz keeps the acquire effect and the ordered listener list together in a single `domChain` wrapper, so chained listener helpers can accumulate on the same resource.
 
 ```typescript
 dom.listen(targetResourceId, eventType, callback, options?)

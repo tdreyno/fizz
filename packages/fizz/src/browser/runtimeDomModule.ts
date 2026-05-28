@@ -11,6 +11,7 @@ import {
 } from "../stateResources.js"
 import type {
   DomAcquireEffectData,
+  DomChainEffectData,
   DomListenEffectData,
   DomObserveIntersectionEffectData,
   DomObserveResizeEffectData,
@@ -236,6 +237,18 @@ export const createRuntimeDomModule = (options: {
     return []
   }
 
+  const handleChain = (data: DomChainEffectData): RuntimeDebugCommand[] => {
+    const commands = [
+      ...handleAcquire(data.acquire.data as DomAcquireEffectData),
+    ]
+
+    for (const listener of data.listeners) {
+      commands.push(...handleListen(listener.data as DomListenEffectData))
+    }
+
+    return commands
+  }
+
   const handleListen = (data: DomListenEffectData): RuntimeDebugCommand[] => {
     const state = options.getCurrentState()
 
@@ -383,6 +396,7 @@ export const createRuntimeDomModule = (options: {
     },
     effectHandlers: new Map([
       ["domAcquire", item => handleAcquire(item.data as DomAcquireEffectData)],
+      ["domChain", item => handleChain(item.data as DomChainEffectData)],
       ["domListen", item => handleListen(item.data as DomListenEffectData)],
       [
         "domObserveIntersection",

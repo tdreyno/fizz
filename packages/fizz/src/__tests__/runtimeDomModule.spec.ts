@@ -1,5 +1,7 @@
 import { describe, expect, jest, test } from "@jest/globals"
 
+import { action } from "../action"
+import { dom } from "../browser/domEffects"
 import { createRuntimeDomModule } from "../browser/runtimeDomModule"
 import {
   disposeStateResources,
@@ -395,6 +397,43 @@ describe("runtimeDomModule", () => {
     expect(removeEventListener).toHaveBeenCalledTimes(1)
   })
 
+  test("domChain acquires once and registers all listeners", () => {
+    const state = createState("Ready")
+    const addEventListener = jest.fn()
+    const removeEventListener = jest.fn()
+    const target = {
+      addEventListener,
+      removeEventListener,
+    } as unknown as EventTarget
+
+    const module = createRuntimeDomModule({
+      browserDriver: {
+        addEventListener: (node, type, listener, options) =>
+          node.addEventListener(type, listener, options),
+        removeEventListener: (node, type, listener, options) =>
+          node.removeEventListener(type, listener, options),
+      },
+      getCurrentState: () => state as never,
+      runAction: async () => undefined,
+    })
+
+    const chain = dom
+      .fromElement(target, "target")
+      .onClick(() => action("Clicked")())
+      .onBlur(() => action("Blurred")())
+
+    module.effectHandlers.get("domChain")!({
+      data: chain.data,
+      label: "domChain",
+    } as never)
+
+    expect(addEventListener).toHaveBeenCalledTimes(2)
+
+    disposeStateResources(state as never)
+
+    expect(removeEventListener).toHaveBeenCalledTimes(2)
+  })
+
   test("domListen validates target and requires listener driver methods", () => {
     const state = createState("Ready")
 
@@ -639,7 +678,7 @@ describe("runtimeDomModule", () => {
     setStateResource({
       key: "target",
       state: state as never,
-      value: { nodeType: 1 } as unknown as Element,
+      value: { nodeType: 1 },
     })
 
     const missingDrivers = createRuntimeDomModule({

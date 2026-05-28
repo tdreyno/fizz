@@ -43,28 +43,30 @@ const nodeLike = (parent?: { parentElement: unknown }) =>
     parentElement: parent,
   }) as unknown as Element
 
+type ListenerAction = ReturnType<typeof action> | undefined
+
 describe("dom effects", () => {
   test("creates singleton acquires with default and custom ids", () => {
-    expect(dom.body().label).toBe("domAcquire")
-    expect(dom.body().data).toEqual({
+    expect(dom.body().label).toBe("domChain")
+    expect(dom.body().data.acquire.data).toEqual({
       kind: "singleton",
       resourceId: "body",
       target: "body",
     })
 
-    expect(dom.window("win").data).toEqual({
+    expect(dom.window("win").data.acquire.data).toEqual({
       kind: "singleton",
       resourceId: "win",
       target: "window",
     })
 
-    expect(dom.history().data).toEqual({
+    expect(dom.history().data.acquire.data).toEqual({
       kind: "singleton",
       resourceId: "history",
       target: "history",
     })
 
-    expect(dom.location("loc").data).toEqual({
+    expect(dom.location("loc").data.acquire.data).toEqual({
       kind: "singleton",
       resourceId: "loc",
       target: "location",
@@ -72,14 +74,16 @@ describe("dom effects", () => {
   })
 
   test("creates query acquires for root and scoped builders", () => {
-    expect(dom.querySelector(".item", "item").data).toEqual({
+    expect(dom.querySelector(".item", "item").data.acquire.data).toEqual({
       args: [".item"],
       kind: "query",
       method: "querySelector",
       resourceId: "item",
     })
 
-    expect(dom.closest("list", ".item", "closestItem").data).toEqual({
+    expect(
+      dom.closest("list", ".item", "closestItem").data.acquire.data,
+    ).toEqual({
       args: [".item"],
       kind: "query",
       method: "closest",
@@ -89,7 +93,7 @@ describe("dom effects", () => {
 
     const scoped = dom.from("container")
 
-    expect(scoped.getElementById("submit", "btn").data).toEqual({
+    expect(scoped.getElementById("submit", "btn").data.acquire.data).toEqual({
       args: ["submit"],
       kind: "query",
       method: "getElementById",
@@ -97,19 +101,21 @@ describe("dom effects", () => {
       scopeResourceId: "container",
     })
 
-    expect(scoped.getElementsByTagName("li", "rows").data).toEqual({
-      args: ["li"],
-      kind: "query",
-      method: "getElementsByTagName",
-      resourceId: "rows",
-      scopeResourceId: "container",
-    })
+    expect(scoped.getElementsByTagName("li", "rows").data.acquire.data).toEqual(
+      {
+        args: ["li"],
+        kind: "query",
+        method: "getElementsByTagName",
+        resourceId: "rows",
+        scopeResourceId: "container",
+      },
+    )
   })
 
   test("creates external acquire from known element", () => {
     const element = { id: "node-1" }
 
-    expect(dom.fromElement(element, "node").data).toEqual({
+    expect(dom.fromElement(element, "node").data.acquire.data).toEqual({
       element,
       kind: "external",
       resourceId: "node",
@@ -119,7 +125,7 @@ describe("dom effects", () => {
   test("ownerDocument creates a scoped query builder from an element resource", () => {
     const element = { id: "node-1" } as unknown as Element
     const acquire = dom.fromElement(element, "node").ownerDocument()
-    const data = acquire.data as {
+    const data = acquire.data.acquire.data as {
       args: string[]
       kind: string
       method: string
@@ -141,9 +147,10 @@ describe("dom effects", () => {
 
     const withBoolean = builder.listen("scroll", () => moved(), true)
 
-    expect(withBoolean).toHaveLength(2)
-    expect(withBoolean[1]?.label).toBe("domListen")
-    expect(withBoolean[1]?.data).toEqual({
+    expect(withBoolean.label).toBe("domChain")
+    expect(withBoolean.data.listeners).toHaveLength(1)
+    expect(withBoolean.data.listeners[0]?.label).toBe("domListen")
+    expect(withBoolean.data.listeners[0]?.data).toEqual({
       options: true,
       targetResourceId: "window",
       toAction: expect.any(Function),
@@ -155,7 +162,7 @@ describe("dom effects", () => {
       passive: true,
     })
 
-    expect(withCoalesce[1]?.data).toEqual({
+    expect(withCoalesce.data.listeners[1]?.data).toEqual({
       coalesce: "animation-frame",
       options: { passive: true },
       targetResourceId: "window",
@@ -167,7 +174,7 @@ describe("dom effects", () => {
       coalesce: "microtask",
     })
 
-    expect(coalesceOnly[1]?.data).toEqual({
+    expect(coalesceOnly.data.listeners[2]?.data).toEqual({
       coalesce: "microtask",
       targetResourceId: "window",
       toAction: expect.any(Function),
@@ -176,7 +183,7 @@ describe("dom effects", () => {
 
     const withoutOptions = builder.listen("mouseup", () => moved())
 
-    expect(withoutOptions[1]?.data).toEqual({
+    expect(withoutOptions.data.listeners[3]?.data).toEqual({
       targetResourceId: "window",
       toAction: expect.any(Function),
       type: "mouseup",
@@ -190,7 +197,7 @@ describe("dom effects", () => {
       .window("window")
       .onMouseDown(event => moved(event.type), { passive: true })
 
-    expect(windowEffects[1]?.data).toEqual({
+    expect(windowEffects.data.listeners[0]?.data).toEqual({
       options: { passive: true },
       targetResourceId: "window",
       toAction: expect.any(Function),
@@ -199,7 +206,7 @@ describe("dom effects", () => {
 
     const historyEffects = dom.history().onPopState(event => moved(event.type))
 
-    expect(historyEffects[1]?.data).toEqual({
+    expect(historyEffects.data.listeners[0]?.data).toEqual({
       targetResourceId: "history",
       toAction: expect.any(Function),
       type: "popstate",
@@ -209,7 +216,7 @@ describe("dom effects", () => {
       .location()
       .onHashChange(event => moved(event.type))
 
-    expect(locationEffects[1]?.data).toEqual({
+    expect(locationEffects.data.listeners[0]?.data).toEqual({
       targetResourceId: "location",
       toAction: expect.any(Function),
       type: "hashchange",
@@ -232,7 +239,7 @@ describe("dom effects", () => {
       .listen("click")
       .chainToAction(matched, fallback)
 
-    expect(genericListenEffects[1]?.data).toEqual({
+    expect(genericListenEffects.data.listeners[0]?.data).toEqual({
       targetResourceId: "document",
       toAction: expect.any(Function),
       type: "click",
@@ -244,7 +251,7 @@ describe("dom effects", () => {
       .onlyPrimaryButton()
       .chainToAction(matched, fallback)
 
-    expect(onEventEffects[1]?.data).toEqual({
+    expect(onEventEffects.data.listeners[0]?.data).toEqual({
       targetResourceId: "window",
       toAction: expect.any(Function),
       type: "mousedown",
@@ -255,7 +262,7 @@ describe("dom effects", () => {
       .onPopState()
       .chainToAction(matched, fallback)
 
-    expect(historyEffects[1]?.data).toEqual({
+    expect(historyEffects.data.listeners[0]?.data).toEqual({
       targetResourceId: "history",
       toAction: expect.any(Function),
       type: "popstate",
@@ -266,7 +273,7 @@ describe("dom effects", () => {
       .onHashChange()
       .chainToAction(matched, fallback)
 
-    expect(locationEffects[1]?.data).toEqual({
+    expect(locationEffects.data.listeners[0]?.data).toEqual({
       targetResourceId: "location",
       toAction: expect.any(Function),
       type: "hashchange",
@@ -283,20 +290,15 @@ describe("dom effects", () => {
       .matchesKey("Enter")
       .chainToAction(matched, ignored)
 
-    expect(effects[1]?.label).toBe("domListen")
-    expect(effects[1]?.data).toEqual({
+    expect(effects.data.listeners[0]?.label).toBe("domListen")
+    expect(effects.data.listeners[0]?.data).toEqual({
       targetResourceId: "document",
       toAction: expect.any(Function),
       type: "keydown",
     })
 
-    const toAction = effects[1]?.data?.toAction as
-      | ((
-          event: Event,
-        ) =>
-          | ReturnType<typeof matched>
-          | ReturnType<typeof ignored>
-          | undefined)
+    const toAction = effects.data.listeners[0]?.data?.toAction as
+      | ((event: Event) => ListenerAction)
       | undefined
 
     expect(toAction?.(keyboardEventLike("Enter"))?.type).toBe("Matched")
@@ -322,13 +324,8 @@ describe("dom effects", () => {
       .once()
       .chainToAction(matched, ignored)
 
-    const toAction = effects[1]?.data?.toAction as
-      | ((
-          event: Event,
-        ) =>
-          | ReturnType<typeof matched>
-          | ReturnType<typeof ignored>
-          | undefined)
+    const toAction = effects.data.listeners[0]?.data?.toAction as
+      | ((event: Event) => ListenerAction)
       | undefined
 
     expect(
@@ -339,7 +336,7 @@ describe("dom effects", () => {
         }),
         preventDefault,
         stopPropagation,
-      } as unknown as KeyboardEvent)?.type,
+      })?.type,
     ).toBe("Matched")
     expect(preventDefault).toHaveBeenCalled()
     expect(stopPropagation).toHaveBeenCalled()
@@ -358,13 +355,8 @@ describe("dom effects", () => {
       .listen("keydown")
       .withKeyRepeat()
       .chainToAction(matched, ignored)
-    const repeatToAction = repeatEffects[1]?.data?.toAction as
-      | ((
-          event: Event,
-        ) =>
-          | ReturnType<typeof matched>
-          | ReturnType<typeof ignored>
-          | undefined)
+    const repeatToAction = repeatEffects.data.listeners[0]?.data?.toAction as
+      | ((event: Event) => ListenerAction)
       | undefined
 
     expect(
@@ -392,13 +384,8 @@ describe("dom effects", () => {
       .listen("keydown")
       .noModifiers()
       .chainToAction(matched, ignored)
-    const keyToAction = keyEffects[1]?.data?.toAction as
-      | ((
-          event: Event,
-        ) =>
-          | ReturnType<typeof matched>
-          | ReturnType<typeof ignored>
-          | undefined)
+    const keyToAction = keyEffects.data.listeners[0]?.data?.toAction as
+      | ((event: Event) => ListenerAction)
       | undefined
 
     expect(keyToAction?.(new Event("keydown"))?.type).toBe("Matched")
@@ -415,22 +402,13 @@ describe("dom effects", () => {
       .listen("pointerdown")
       .onlyPrimaryButton()
       .chainToAction(matched, ignored)
-    const pointerToAction = pointerEffects[1]?.data?.toAction as
-      | ((
-          event: Event,
-        ) =>
-          | ReturnType<typeof matched>
-          | ReturnType<typeof ignored>
-          | undefined)
+    const pointerToAction = pointerEffects.data.listeners[0]?.data?.toAction as
+      | ((event: Event) => ListenerAction)
       | undefined
 
     expect(pointerToAction?.(new Event("pointerdown"))?.type).toBe("Ignored")
-    expect(
-      pointerToAction?.({ button: 1 } as unknown as MouseEvent)?.type,
-    ).toBe("Ignored")
-    expect(
-      pointerToAction?.({ button: 0 } as unknown as MouseEvent)?.type,
-    ).toBe("Matched")
+    expect(pointerToAction?.({ button: 1 })?.type).toBe("Ignored")
+    expect(pointerToAction?.({ button: 0 })?.type).toBe("Matched")
   })
 
   test("onKeyPress supports no-handler fluent chain and optional no-match", () => {
@@ -442,14 +420,14 @@ describe("dom effects", () => {
       .matchesKey("Enter")
       .chainToAction(matched)
 
-    expect(effects[1]?.data).toEqual({
+    expect(effects.data.listeners[0]?.data).toEqual({
       targetResourceId: "document",
       toAction: expect.any(Function),
       type: "keypress",
     })
 
-    const toAction = effects[1]?.data?.toAction as
-      | ((event: Event) => ReturnType<typeof matched> | undefined)
+    const toAction = effects.data.listeners[0]?.data?.toAction as
+      | ((event: Event) => ListenerAction)
       | undefined
 
     expect(toAction?.(keyboardEventLike("Enter"))?.type).toBe("Matched")
@@ -469,13 +447,13 @@ describe("dom effects", () => {
       .outsidePointerDown({ includeTrigger: trigger, inside: [root] })
       .chainToAction(outside, inside)
 
-    expect(pointerEffects[1]?.data).toEqual({
+    expect(pointerEffects.data.listeners[0]?.data).toEqual({
       targetResourceId: "document",
       toAction: expect.any(Function),
       type: "pointerdown",
     })
 
-    const pointerToAction = pointerEffects[1]?.data?.toAction as
+    const pointerToAction = pointerEffects.data.listeners[0]?.data?.toAction as
       | ((
           event: Event,
         ) => ReturnType<typeof outside> | ReturnType<typeof inside> | undefined)
@@ -495,13 +473,13 @@ describe("dom effects", () => {
       .outsideFocusIn({ includeTrigger: trigger, inside: [root] })
       .chainToAction(outside, inside)
 
-    expect(focusEffects[1]?.data).toEqual({
+    expect(focusEffects.data.listeners[0]?.data).toEqual({
       targetResourceId: "document",
       toAction: expect.any(Function),
       type: "focusin",
     })
 
-    const focusToAction = focusEffects[1]?.data?.toAction as
+    const focusToAction = focusEffects.data.listeners[0]?.data?.toAction as
       | ((
           event: Event,
         ) => ReturnType<typeof outside> | ReturnType<typeof inside> | undefined)
@@ -512,8 +490,8 @@ describe("dom effects", () => {
         inside: [root],
       })
       .chainToAction(outside)
-    const focusWithoutInsideToAction = focusWithoutInsideEffects[1]?.data
-      ?.toAction as
+    const focusWithoutInsideToAction = focusWithoutInsideEffects.data
+      .listeners[0]?.data?.toAction as
       | ((event: Event) => ReturnType<typeof outside> | undefined)
       | undefined
 
@@ -534,7 +512,7 @@ describe("dom effects", () => {
         defaultPrevented: false,
         metaKey: false,
         shiftKey: false,
-      } as MouseEvent),
+      }),
     ).toBe(false)
 
     expect(
@@ -545,7 +523,7 @@ describe("dom effects", () => {
         defaultPrevented: false,
         metaKey: false,
         shiftKey: false,
-      } as MouseEvent),
+      }),
     ).toBe(true)
 
     expect(
@@ -556,7 +534,7 @@ describe("dom effects", () => {
         defaultPrevented: false,
         metaKey: false,
         shiftKey: false,
-      } as MouseEvent),
+      }),
     ).toBe(true)
   })
 
@@ -565,7 +543,7 @@ describe("dom effects", () => {
     const effects = builder.mutate(() => undefined)
 
     expect(effects).toHaveLength(2)
-    expect(effects[0]?.label).toBe("domAcquire")
+    expect(effects[0]?.label).toBe("domChain")
     expect(effects[1]?.label).toBe("domMutate")
     expect(effects[1]?.data).toEqual({
       fn: expect.any(Function),
@@ -585,7 +563,7 @@ describe("dom effects", () => {
     })
 
     expect(effects).toHaveLength(2)
-    expect(effects[0]?.label).toBe("domAcquire")
+    expect(effects[0]?.label).toBe("domChain")
     expect(effects[1]?.label).toBe("domMutate")
     const data = effects[1]?.data as {
       fn: (target: unknown) => void
@@ -824,7 +802,7 @@ describe("dom effects", () => {
       .ownerDocument()
       .replaceChildren(child)
 
-    const acquire = effects[0]?.data as {
+    const acquire = effects[0]?.data.acquire.data as {
       kind: string
       method: string
       resourceId: string
@@ -1093,6 +1071,7 @@ describe("dom effects", () => {
       threshold: 0.5,
     })
 
+    expect(withOptions[0]?.label).toBe("domChain")
     expect(withOptions[1]?.label).toBe("domObserveIntersection")
     expect(withOptions[1]?.data).toEqual({
       options: { threshold: 0.5 },
@@ -1122,6 +1101,7 @@ describe("dom effects", () => {
       box: "border-box",
     })
 
+    expect(withOptions[0]?.label).toBe("domChain")
     expect(withOptions[1]?.label).toBe("domObserveResize")
     expect(withOptions[1]?.data).toEqual({
       options: { box: "border-box" },
@@ -1142,67 +1122,71 @@ describe("dom effects", () => {
   })
 
   test("covers remaining top-level dom helpers", () => {
-    expect(dom.activeElement().data).toEqual({
+    expect(dom.activeElement().data.acquire.data).toEqual({
       kind: "singleton",
       resourceId: "activeElement",
       target: "activeElement",
     })
 
-    expect(dom.documentElement().data).toEqual({
+    expect(dom.documentElement().data.acquire.data).toEqual({
       kind: "singleton",
       resourceId: "documentElement",
       target: "documentElement",
     })
 
-    expect(dom.visualViewport().data).toEqual({
+    expect(dom.visualViewport().data.acquire.data).toEqual({
       kind: "singleton",
       resourceId: "visualViewport",
       target: "visualViewport",
     })
 
-    expect(dom.getElementsByClassName("card", "items").data).toEqual({
+    expect(
+      dom.getElementsByClassName("card", "items").data.acquire.data,
+    ).toEqual({
       args: ["card"],
       kind: "query",
       method: "getElementsByClassName",
       resourceId: "items",
     })
 
-    expect(dom.getElementsByName("q", "named").data).toEqual({
+    expect(dom.getElementsByName("q", "named").data.acquire.data).toEqual({
       args: ["q"],
       kind: "query",
       method: "getElementsByName",
       resourceId: "named",
     })
 
-    expect(dom.getElementsByTagName("li", "rows").data).toEqual({
+    expect(dom.getElementsByTagName("li", "rows").data.acquire.data).toEqual({
       args: ["li"],
       kind: "query",
       method: "getElementsByTagName",
       resourceId: "rows",
     })
 
-    expect(dom.querySelectorAll(".item", "all-items").data).toEqual({
+    expect(
+      dom.querySelectorAll(".item", "all-items").data.acquire.data,
+    ).toEqual({
       args: [".item"],
       kind: "query",
       method: "querySelectorAll",
       resourceId: "all-items",
     })
 
-    expect(dom.input("#email", "email-input").data).toEqual({
+    expect(dom.input("#email", "email-input").data.acquire.data).toEqual({
       args: ["#email"],
       kind: "query",
       method: "querySelector",
       resourceId: "email-input",
     })
 
-    expect(dom.textarea("#notes", "notes-input").data).toEqual({
+    expect(dom.textarea("#notes", "notes-input").data.acquire.data).toEqual({
       args: ["#notes"],
       kind: "query",
       method: "querySelector",
       resourceId: "notes-input",
     })
 
-    expect(dom.select("#country", "country-input").data).toEqual({
+    expect(dom.select("#country", "country-input").data.acquire.data).toEqual({
       args: ["#country"],
       kind: "query",
       method: "querySelector",
@@ -1211,7 +1195,9 @@ describe("dom effects", () => {
 
     const scoped = dom.from("container")
 
-    expect(scoped.getElementsByClassName("card", "cards").data).toEqual({
+    expect(
+      scoped.getElementsByClassName("card", "cards").data.acquire.data,
+    ).toEqual({
       args: ["card"],
       kind: "query",
       method: "getElementsByClassName",
@@ -1219,7 +1205,9 @@ describe("dom effects", () => {
       scopeResourceId: "container",
     })
 
-    expect(scoped.getElementsByName("email", "inputs").data).toEqual({
+    expect(
+      scoped.getElementsByName("email", "inputs").data.acquire.data,
+    ).toEqual({
       args: ["email"],
       kind: "query",
       method: "getElementsByName",
@@ -1227,7 +1215,9 @@ describe("dom effects", () => {
       scopeResourceId: "container",
     })
 
-    expect(scoped.querySelectorAll(".match", "found").data).toEqual({
+    expect(
+      scoped.querySelectorAll(".match", "found").data.acquire.data,
+    ).toEqual({
       args: [".match"],
       kind: "query",
       method: "querySelectorAll",
@@ -1235,7 +1225,7 @@ describe("dom effects", () => {
       scopeResourceId: "container",
     })
 
-    expect(scoped.input("#email", "scoped-input").data).toEqual({
+    expect(scoped.input("#email", "scoped-input").data.acquire.data).toEqual({
       args: ["#email"],
       kind: "query",
       method: "querySelector",
@@ -1243,7 +1233,9 @@ describe("dom effects", () => {
       scopeResourceId: "container",
     })
 
-    expect(scoped.textarea("#notes", "scoped-textarea").data).toEqual({
+    expect(
+      scoped.textarea("#notes", "scoped-textarea").data.acquire.data,
+    ).toEqual({
       args: ["#notes"],
       kind: "query",
       method: "querySelector",
@@ -1251,7 +1243,9 @@ describe("dom effects", () => {
       scopeResourceId: "container",
     })
 
-    expect(scoped.select("#country", "scoped-select").data).toEqual({
+    expect(
+      scoped.select("#country", "scoped-select").data.acquire.data,
+    ).toEqual({
       args: ["#country"],
       kind: "query",
       method: "querySelector",
@@ -1263,26 +1257,31 @@ describe("dom effects", () => {
   test("auto-generates resource ids when omitted from dom queries", () => {
     const element = nodeLike()
 
-    const queryEffect = dom.querySelector(".item").data as {
+    const queryEffect = dom.querySelector(".item").data.acquire.data as {
       resourceId: string
     }
     expect(typeof queryEffect.resourceId).toBe("string")
     expect(queryEffect.resourceId.length).toBeGreaterThan(0)
 
-    const fromElementEffect = dom.fromElement(element).data as {
+    const fromElementEffect = dom.fromElement(element).data.acquire.data as {
       resourceId: string
     }
     expect(typeof fromElementEffect.resourceId).toBe("string")
     expect(fromElementEffect.resourceId.length).toBeGreaterThan(0)
 
-    const scopedEffect = dom.from("scope").getElementById("submit").data as {
+    const scopedEffect = dom.from("scope").getElementById("submit").data.acquire
+      .data as {
       resourceId: string
     }
     expect(typeof scopedEffect.resourceId).toBe("string")
     expect(scopedEffect.resourceId.length).toBeGreaterThan(0)
 
-    const first = dom.querySelector(".item").data as { resourceId: string }
-    const second = dom.querySelector(".item").data as { resourceId: string }
+    const first = dom.querySelector(".item").data.acquire.data as {
+      resourceId: string
+    }
+    const second = dom.querySelector(".item").data.acquire.data as {
+      resourceId: string
+    }
     expect(first.resourceId).not.toBe(second.resourceId)
   })
 })

@@ -7,6 +7,7 @@ const BROWSER_EFFECT_LABELS = [
   "confirm",
   "copyToClipboard",
   "domAcquire",
+  "domChain",
   "domListen",
   "domObserveIntersection",
   "domObserveResize",

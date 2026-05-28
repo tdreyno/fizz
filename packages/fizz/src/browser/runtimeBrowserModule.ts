@@ -40,6 +40,7 @@ import {
 } from "../stateResources.js"
 import type {
   DomAcquireEffectData,
+  DomChainEffectData,
   DomListenEffectData,
   DomMutateEffectData,
   DomObserveIntersectionEffectData,
@@ -441,6 +442,18 @@ export const createRuntimeBrowserModule = (options: {
     })
 
     return []
+  }
+
+  const handleChain = (data: DomChainEffectData): RuntimeDebugCommand[] => {
+    const commands = [
+      ...handleAcquire(data.acquire.data as DomAcquireEffectData),
+    ]
+
+    for (const listener of data.listeners) {
+      commands.push(...handleListen(listener.data as DomListenEffectData))
+    }
+
+    return commands
   }
 
   const handleListen = (data: DomListenEffectData): RuntimeDebugCommand[] => {
@@ -1156,6 +1169,7 @@ export const createRuntimeBrowserModule = (options: {
         },
       ],
       ["domAcquire", item => handleAcquire(item.data as DomAcquireEffectData)],
+      ["domChain", item => handleChain(item.data as DomChainEffectData)],
       ["domListen", item => handleListen(item.data as DomListenEffectData)],
       [
         "domObserveIntersection",

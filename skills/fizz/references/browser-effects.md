@@ -234,9 +234,7 @@ const Watching = state<Enter | ReturnType<typeof Clicked>>({
 })
 ```
 
-`listen(...)` returns an array of effects: `[acquireEffect, listenEffect]`.
-Handler return arrays are flattened one level, so you can return the result
-directly inside the handler array without `...` spreading.
+`listen(...)` with a handler returns a `domChain` effect that contains the acquire effect plus the accumulated listener list. Handler return arrays are still flattened one level, so you can return the result directly inside the handler array without `...` spreading.
 
 For object data states, event-mapper handlers can return a single plain object
 as shorthand for same-state `update(nextData)`.
