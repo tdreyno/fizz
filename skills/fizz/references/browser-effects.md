@@ -20,7 +20,7 @@ This lifecycle guarantee is the main reason to use `dom.*` helpers instead of im
 
 ## Imperative DOM writes
 
-Every DOM resource builder exposes four imperative-write helpers. Prefer the typed helpers — `classList`, `classListSet`, `callMethod`, `applyMethod` — when the intent fits, and reserve `.mutate(fn)` for one-off writes that none of them cover. All four return `[acquireEffect, mutateEffect]`, so the resource is acquired automatically.
+Every DOM resource builder exposes typed imperative-write helpers. Prefer `classList`, `classListSet`, `callMethod`, `applyMethod`, `setValue`, `setChecked`, `setSelectionRange`, `setProperty`, `setAttribute`, `setText`, and `dispatchEvent` when the intent fits, and reserve `.mutate(fn)` for one-off writes that none of them cover. These helpers return `[acquireEffect, mutateEffect]`, so the resource is acquired automatically.
 
 ### `.classList(operations)`
 
@@ -76,6 +76,45 @@ dom.fromElement(data.input, "input").applyMethod("focus", data.focusArgs)
 
 When the builder's element type is known (via `dom.fromElement(el)` or a parameterized query like `dom.querySelector<HTMLInputElement>(...)`), `name` and `args` are type-checked against the element. For untyped queries the call is still safe at runtime — elements that do not implement the method are skipped without throwing. On multi-element resources both helpers invoke the method on every element.
 
+### Input and form-field helpers
+
+Use these helpers instead of raw mutate blocks for common form writes:
+
+- `setValue(value)`
+- `setChecked(checked)`
+- `setSelectionRange(start, end, direction?)`
+- `setProperty(name, value)`
+- `setAttribute(name, value)`
+- `setText(text)`
+- `dispatchEvent(type, init?)`
+
+`dispatchEvent` defaults to `bubbles: true` and `cancelable: true`; if `init.detail` is provided, Fizz dispatches a `CustomEvent`.
+
+```typescript
+dom.input("#search", "searchInput").setValue(data.query)
+dom.input("#search", "searchInput").dispatchEvent("input")
+dom.input("#search", "searchInput").setSelectionRange(0, data.query.length)
+```
+
+Autocomplete flow example:
+
+```typescript
+const SuggestionAccepted = action("SuggestionAccepted").withPayload<{
+  cursorEnd: number
+  nextValue: string
+}>()
+
+state({
+  SuggestionAccepted: (_data, payload) => [
+    dom.input("#search", "searchInput").setValue(payload.nextValue),
+    dom
+      .input("#search", "searchInput")
+      .setSelectionRange(payload.cursorEnd, payload.cursorEnd),
+    dom.input("#search", "searchInput").dispatchEvent("input"),
+  ],
+})
+```
+
 Parameterize query helpers with the element type when you need typed `callMethod`/`applyMethod` or a narrower `mutate` callback:
 
 ```typescript
@@ -128,6 +167,9 @@ const Interactive = state<Enter>({
 | `dom.getElementById(id, resourceId?)`                | acquires a single element by id                      |
 | `dom.querySelector(selector, resourceId?)`           | acquires first match                                 |
 | `dom.querySelectorAll(selector, resourceId?)`        | acquires a node list                                 |
+| `dom.input(selector, resourceId?)`                   | acquires first match as `HTMLInputElement`           |
+| `dom.textarea(selector, resourceId?)`                | acquires first match as `HTMLTextAreaElement`        |
+| `dom.select(selector, resourceId?)`                  | acquires first match as `HTMLSelectElement`          |
 | `dom.getElementsByClassName(className, resourceId?)` | acquires matching elements                           |
 | `dom.getElementsByName(name, resourceId?)`           | acquires named elements                              |
 | `dom.getElementsByTagName(tag, resourceId?)`         | acquires tagged elements                             |

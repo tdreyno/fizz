@@ -708,8 +708,180 @@ describe("dom effects", () => {
     expect(calls).toEqual([[30, 40]])
   })
 
+  test("setValue writes value on value-like targets", () => {
+    const effects = dom.input("#email", "email-input").setValue("a@b.com")
+
+    const data = effects[1]?.data as {
+      fn: (target: unknown) => void
+      label: string
+      targetResourceId: string
+    }
+
+    expect(data.label).toBe("setValue")
+    expect(data.targetResourceId).toBe("email-input")
+
+    const input = { value: "" }
+    data.fn(input)
+    expect(input.value).toBe("a@b.com")
+  })
+
+  test("setChecked writes checked on checked-like targets", () => {
+    const effects = dom.input("#accept", "accept-input").setChecked(true)
+
+    const data = effects[1]?.data as {
+      fn: (target: unknown) => void
+      label: string
+    }
+
+    expect(data.label).toBe("setChecked(true)")
+
+    const input = { checked: false }
+    data.fn(input)
+    expect(input.checked).toBe(true)
+  })
+
+  test("setText writes textContent", () => {
+    const effects = dom.querySelector(".status", "status").setText("Saved")
+
+    const data = effects[1]?.data as {
+      fn: (target: unknown) => void
+      label: string
+    }
+
+    expect(data.label).toBe("setText")
+
+    const node = { textContent: "" }
+    data.fn(node)
+    expect(node.textContent).toBe("Saved")
+  })
+
+  test("setProperty writes arbitrary properties", () => {
+    const effects = dom
+      .input("#search", "search-input")
+      .setProperty("autocomplete", "off")
+
+    const data = effects[1]?.data as {
+      fn: (target: unknown) => void
+      label: string
+    }
+
+    expect(data.label).toBe("setProperty(autocomplete)")
+
+    const node = { autocomplete: "on" }
+    data.fn(node)
+    expect(node.autocomplete).toBe("off")
+  })
+
+  test("setAttribute calls setAttribute when available", () => {
+    const effects = dom
+      .input("#search", "search-input")
+      .setAttribute("autocomplete", "off")
+
+    const data = effects[1]?.data as {
+      fn: (target: unknown) => void
+      label: string
+    }
+
+    expect(data.label).toBe("setAttribute(autocomplete)")
+
+    const calls: Array<{ name: string; value: string }> = []
+    const node = {
+      setAttribute(name: string, value: string) {
+        calls.push({ name, value })
+      },
+    }
+
+    data.fn(node)
+    expect(calls).toEqual([
+      {
+        name: "autocomplete",
+        value: "off",
+      },
+    ])
+  })
+
+  test("setSelectionRange supports optional direction", () => {
+    const withoutDirection = dom
+      .input("#search", "search-input")
+      .setSelectionRange(1, 3)
+    const withDirection = dom
+      .input("#search", "search-input")
+      .setSelectionRange(2, 4, "forward")
+
+    const firstData = withoutDirection[1]?.data as {
+      fn: (target: unknown) => void
+      label: string
+    }
+    const secondData = withDirection[1]?.data as {
+      fn: (target: unknown) => void
+      label: string
+    }
+
+    expect(firstData.label).toBe("setSelectionRange(1,3)")
+    expect(secondData.label).toBe("setSelectionRange(2,4,forward)")
+
+    const calls: unknown[][] = []
+    const node = {
+      setSelectionRange(...args: unknown[]) {
+        calls.push(args)
+      },
+    }
+
+    firstData.fn(node)
+    secondData.fn(node)
+
+    expect(calls).toEqual([
+      [1, 3],
+      [2, 4, "forward"],
+    ])
+  })
+
+  test("dispatchEvent emits Event and CustomEvent with defaults", () => {
+    const baseEffects = dom
+      .input("#search", "search-input")
+      .dispatchEvent("input")
+    const customEffects = dom
+      .input("#search", "search-input")
+      .dispatchEvent("fizz:select", {
+        detail: {
+          value: "match",
+        },
+      })
+
+    const baseData = baseEffects[1]?.data as {
+      fn: (target: unknown) => void
+      label: string
+    }
+    const customData = customEffects[1]?.data as {
+      fn: (target: unknown) => void
+      label: string
+    }
+
+    expect(baseData.label).toBe("dispatchEvent(input)")
+    expect(customData.label).toBe("dispatchEvent(fizz:select)")
+
+    const events: Event[] = []
+    const node = {
+      dispatchEvent(event: Event) {
+        events.push(event)
+        return true
+      },
+    }
+
+    baseData.fn(node)
+    customData.fn(node)
+
+    expect(events[0]?.type).toBe("input")
+    expect(events[0]?.bubbles).toBe(true)
+    expect(events[0]?.cancelable).toBe(true)
+    expect(events[1]).toBeInstanceOf(CustomEvent)
+    expect((events[1] as CustomEvent<{ value: string }>).detail).toEqual({
+      value: "match",
+    })
+  })
+
   test("callMethod silently ignores missing methods on the target", () => {
-    const builder = dom.body("body")
+    const builder = dom.fromElement<Record<string, unknown>>({}, "body")
     const effects = builder.callMethod("missingMethod")
     const fn = (effects[1]?.data as { fn: (t: unknown) => void }).fn
 
@@ -820,6 +992,27 @@ describe("dom effects", () => {
       resourceId: "all-items",
     })
 
+    expect(dom.input("#email", "email-input").data).toEqual({
+      args: ["#email"],
+      kind: "query",
+      method: "querySelector",
+      resourceId: "email-input",
+    })
+
+    expect(dom.textarea("#notes", "notes-input").data).toEqual({
+      args: ["#notes"],
+      kind: "query",
+      method: "querySelector",
+      resourceId: "notes-input",
+    })
+
+    expect(dom.select("#country", "country-input").data).toEqual({
+      args: ["#country"],
+      kind: "query",
+      method: "querySelector",
+      resourceId: "country-input",
+    })
+
     const scoped = dom.from("container")
 
     expect(scoped.getElementsByClassName("card", "cards").data).toEqual({
@@ -843,6 +1036,30 @@ describe("dom effects", () => {
       kind: "query",
       method: "querySelectorAll",
       resourceId: "found",
+      scopeResourceId: "container",
+    })
+
+    expect(scoped.input("#email", "scoped-input").data).toEqual({
+      args: ["#email"],
+      kind: "query",
+      method: "querySelector",
+      resourceId: "scoped-input",
+      scopeResourceId: "container",
+    })
+
+    expect(scoped.textarea("#notes", "scoped-textarea").data).toEqual({
+      args: ["#notes"],
+      kind: "query",
+      method: "querySelector",
+      resourceId: "scoped-textarea",
+      scopeResourceId: "container",
+    })
+
+    expect(scoped.select("#country", "scoped-select").data).toEqual({
+      args: ["#country"],
+      kind: "query",
+      method: "querySelector",
+      resourceId: "scoped-select",
       scopeResourceId: "container",
     })
   })

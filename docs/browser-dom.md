@@ -100,7 +100,7 @@ const Sharing = state({
 
 ## Imperative DOM writes
 
-Every DOM resource builder exposes four imperative-write helpers. Prefer the typed helpers — `classList`, `classListSet`, `callMethod`, `applyMethod` — when the intent fits; reach for `.mutate(fn)` only for one-off tweaks that none of them cover.
+Every DOM resource builder exposes typed imperative-write helpers. Prefer `classList`, `classListSet`, `callMethod`, `applyMethod`, `setValue`, `setChecked`, `setSelectionRange`, `setProperty`, `setAttribute`, `setText`, and `dispatchEvent` when the intent fits; reach for `.mutate(fn)` only for one-off tweaks that none of them cover.
 
 All four chain off the builder and return `[acquireEffect, mutateEffect]`, so the resource is acquired first and the write runs against it. No separate `dom.acquire()` is needed.
 
@@ -162,6 +162,49 @@ dom.fromElement(data.input, "input").applyMethod("focus", data.focusArgs)
 When the builder's element type is known (via `dom.fromElement(el)` or a parameterized query like `dom.querySelector<HTMLInputElement>(...)`), `name` and `args` are type-checked against the element. For untyped queries the call is still safe at runtime: elements that do not implement the method are skipped without throwing.
 
 On multi-element resources both helpers invoke the method on every element.
+
+### Input and form field helpers
+
+Use typed write helpers for form machines and autocomplete flows to avoid ad-hoc mutate blocks:
+
+```typescript
+dom.input("#search", "searchInput").setValue(data.query)
+
+dom
+  .input("#search", "searchInput")
+  .setSelectionRange(data.cursorStart, data.cursorEnd, "forward")
+
+dom.input("#search", "searchInput").dispatchEvent("input")
+
+dom.input("#acceptTerms", "acceptTerms").setChecked(data.accepted)
+
+dom.input("#search", "searchInput").setAttribute("autocomplete", "off")
+```
+
+`dispatchEvent(type, init?)` defaults to `{ bubbles: true, cancelable: true }` and supports `CustomEvent` payloads when `init.detail` is provided.
+
+Autocomplete example:
+
+```typescript
+import { action, state } from "@tdreyno/fizz"
+import { dom } from "@tdreyno/fizz/browser"
+
+const suggestionAccepted = action("SuggestionAccepted").withPayload<{
+  cursorEnd: number
+  nextValue: string
+}>()
+
+const Autocomplete = state({
+  Enter: () => [dom.input("#search", "searchInput")],
+  SuggestionAccepted: (_data, payload) => [
+    dom.input("#search", "searchInput").setValue(payload.nextValue),
+    dom
+      .input("#search", "searchInput")
+      .setSelectionRange(payload.cursorEnd, payload.cursorEnd),
+    dom.input("#search", "searchInput").dispatchEvent("input"),
+  ],
+})
+```
 
 ### `.mutate(fn)` — escape hatch
 
@@ -235,6 +278,9 @@ All query methods support an optional scope argument to query within a specific 
 - `dom.getElementById(id, resourceId?)` — Returns a single element
 - `dom.querySelector(selector, resourceId?)` — Returns a single element
 - `dom.querySelectorAll(selector, resourceId?)` — Returns all matching elements
+- `dom.input(selector, resourceId?)` — Returns a single `HTMLInputElement`
+- `dom.textarea(selector, resourceId?)` — Returns a single `HTMLTextAreaElement`
+- `dom.select(selector, resourceId?)` — Returns a single `HTMLSelectElement`
 - `dom.getElementsByClassName(className, resourceId?)` — Returns live HTMLCollection as array
 - `dom.getElementsByName(name, resourceId?)` — Returns all elements with that name
 - `dom.getElementsByTagName(tagName, resourceId?)` — Returns live HTMLCollection as array
@@ -252,6 +298,16 @@ dom.getElementById<HTMLDialogElement>("modal", "modal")
 
 The generic only narrows the TypeScript type — runtime behavior is unchanged.
 
+### Choosing input, textarea, or select
+
+Use the typed convenience query that matches your form control so helper calls stay explicit and discoverable:
+
+- `dom.input(...)`: Single-line text inputs, hidden fields, checkboxes/radios, and autocomplete text fields. Pair with `setValue`, `setChecked`, `setSelectionRange`, and `dispatchEvent("input")` for suggestion-accept flows.
+- `dom.textarea(...)`: Multi-line text editing where caret/selection updates and value writes are applied to long-form content.
+- `dom.select(...)`: Option-based controls where you typically update selected value and then emit `change`.
+
+When a control type is not known ahead of time, use `dom.querySelector<TElement>(...)` with an explicit generic. Keep `.mutate(...)` as the fallback only when no typed helper covers the write.
+
 Use `dom.fromElement(element, resourceId?)` when you already have a DOM element reference and want the full fluent builder (`mutate`, `listen`, observers, `resource`) without doing a query lookup. When `resourceId` is omitted, one is generated automatically.
 
 ### Scoped queries
@@ -265,6 +321,9 @@ const Content = state({
   Enter: () => [
     dom.id("app", "appContainer"),
     dom.from("appContainer").querySelectorAll(".item", "items"),
+    dom.from("appContainer").input("#search", "searchInput"),
+    dom.from("appContainer").textarea("#notes", "notesInput"),
+    dom.from("appContainer").select("#country", "countryInput"),
   ],
 })
 ```

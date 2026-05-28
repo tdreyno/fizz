@@ -200,6 +200,19 @@ type ApplyMethodHelper<TElement> = <TName extends MethodNameOrString<TElement>>(
   args: MethodArgsOf<TElement, TName>,
 ) => Effect<unknown>[]
 
+type PropertyNameOrString<T> = T extends object
+  ? [keyof T & string] extends [never]
+    ? string
+    : keyof T & string
+  : string
+
+type SetPropertyHelper<TElement> = <
+  TName extends PropertyNameOrString<TElement>,
+>(
+  name: TName,
+  value: TName extends keyof TElement ? TElement[TName] : unknown,
+) => Effect<unknown>[]
+
 type TargetBuilder<
   EventMap extends EventMapLike,
   TElement = unknown,
@@ -210,6 +223,10 @@ type TargetBuilder<
   callMethod: CallMethodHelper<TElement>
   classList: (ops: ClassListOperations) => Effect<unknown>[]
   classListSet: (classes: readonly string[]) => Effect<unknown>[]
+  dispatchEvent: (
+    type: string,
+    init?: EventInit | CustomEventInit<unknown>,
+  ) => Effect<unknown>[]
   listen: {
     <EventType extends string>(
       type: EventType,
@@ -222,6 +239,16 @@ type TargetBuilder<
     ): FluentDomListenBuilder<EventFromMap<EventMap, EventType>>
   }
   mutate: (fn: (element: TElement) => void) => Effect<unknown>[]
+  setAttribute: (name: string, value: string) => Effect<unknown>[]
+  setChecked: (checked: boolean) => Effect<unknown>[]
+  setProperty: SetPropertyHelper<TElement>
+  setSelectionRange: (
+    start: number,
+    end: number,
+    direction?: SelectionDirection,
+  ) => Effect<unknown>[]
+  setText: (text: string) => Effect<unknown>[]
+  setValue: (value: string) => Effect<unknown>[]
   observeIntersection: {
     (
       toAction: (
@@ -330,6 +357,30 @@ type DomFromBuilder = {
   ) => TargetBuilder<
     HTMLElementEventMap,
     TElement,
+    typeof HTML_ELEMENT_EVENT_HELPERS
+  >
+  input: (
+    selector: string,
+    resourceId?: string,
+  ) => TargetBuilder<
+    HTMLElementEventMap,
+    HTMLInputElement,
+    typeof HTML_ELEMENT_EVENT_HELPERS
+  >
+  select: (
+    selector: string,
+    resourceId?: string,
+  ) => TargetBuilder<
+    HTMLElementEventMap,
+    HTMLSelectElement,
+    typeof HTML_ELEMENT_EVENT_HELPERS
+  >
+  textarea: (
+    selector: string,
+    resourceId?: string,
+  ) => TargetBuilder<
+    HTMLElementEventMap,
+    HTMLTextAreaElement,
     typeof HTML_ELEMENT_EVENT_HELPERS
   >
 }
@@ -502,6 +553,144 @@ const invokeMethod = (
   })
 }
 
+const setValueOnTarget = (target: unknown, value: string): void => {
+  forEachTarget(target, node => {
+    if (node != null && typeof node === "object" && "value" in node) {
+      Reflect.set(node, "value", value)
+    }
+  })
+}
+
+const setCheckedOnTarget = (target: unknown, checked: boolean): void => {
+  forEachTarget(target, node => {
+    if (node != null && typeof node === "object" && "checked" in node) {
+      Reflect.set(node, "checked", checked)
+    }
+  })
+}
+
+const setTextOnTarget = (target: unknown, text: string): void => {
+  forEachTarget(target, node => {
+    if (node != null && typeof node === "object" && "textContent" in node) {
+      Reflect.set(node, "textContent", text)
+    }
+  })
+}
+
+const setPropertyOnTarget = (
+  target: unknown,
+  name: string,
+  value: unknown,
+): void => {
+  forEachTarget(target, node => {
+    if (node == null || typeof node !== "object") {
+      return
+    }
+
+    ;(node as Record<string, unknown>)[name] = value
+  })
+}
+
+const setAttributeOnTarget = (
+  target: unknown,
+  name: string,
+  value: string,
+): void => {
+  forEachTarget(target, node => {
+    if (node == null || typeof node !== "object" || !("setAttribute" in node)) {
+      return
+    }
+
+    const setAttribute = node.setAttribute
+
+    if (typeof setAttribute !== "function") {
+      return
+    }
+
+    ;(setAttribute as (name: string, value: string) => void).call(
+      node,
+      name,
+      value,
+    )
+  })
+}
+
+const setSelectionRangeOnTarget = (
+  target: unknown,
+  start: number,
+  end: number,
+  direction?: SelectionDirection,
+): void => {
+  forEachTarget(target, node => {
+    if (
+      node == null ||
+      typeof node !== "object" ||
+      !("setSelectionRange" in node)
+    ) {
+      return
+    }
+
+    const setSelectionRange = node.setSelectionRange
+
+    if (typeof setSelectionRange !== "function") {
+      return
+    }
+
+    if (direction === undefined) {
+      ;(setSelectionRange as (start: number, end: number) => void).call(
+        node,
+        start,
+        end,
+      )
+      return
+    }
+
+    ;(
+      setSelectionRange as (
+        start: number,
+        end: number,
+        direction: SelectionDirection,
+      ) => void
+    ).call(node, start, end, direction)
+  })
+}
+
+const dispatchEventOnTarget = (
+  target: unknown,
+  type: string,
+  init?: EventInit | CustomEventInit<unknown>,
+): void => {
+  const eventInit = {
+    bubbles: true,
+    cancelable: true,
+    ...init,
+  }
+
+  const hasDetail = init != null && typeof init === "object" && "detail" in init
+
+  forEachTarget(target, node => {
+    if (
+      node == null ||
+      typeof node !== "object" ||
+      !("dispatchEvent" in node)
+    ) {
+      return
+    }
+
+    const dispatch = node.dispatchEvent
+
+    if (typeof dispatch !== "function") {
+      return
+    }
+
+    const event = hasDetail
+      ? new CustomEvent(type, eventInit)
+      : new Event(type, eventInit)
+
+    ;(dispatch as (event: Event) => boolean).call(node, event)
+  })
+}
+
 const formatClassListLabel = (ops: ClassListOperations): string => {
   const parts: string[] = []
   const remove = toTokens(ops.remove)
@@ -515,7 +704,7 @@ const formatClassListLabel = (ops: ClassListOperations): string => {
 
   if (replace.length > 0) {
     parts.push(
-      `replace:${replace.map(([from, to]) => `${from}->${to}`).join(",")}`,
+      `replace:${replace.map(([from, to]) => [from, to].join("->")).join(",")}`,
     )
   }
 
@@ -841,10 +1030,77 @@ const createTargetBuilder = <
         targetResourceId: options.resourceId,
       }),
     ],
+    dispatchEvent: (
+      type: string,
+      init?: EventInit | CustomEventInit<unknown>,
+    ) => [
+      builder,
+      domMutate({
+        fn: element => dispatchEventOnTarget(element, type, init),
+        label: `dispatchEvent(${type})`,
+        targetResourceId: options.resourceId,
+      }),
+    ],
     mutate: (fn: (element: TElement) => void) => [
       builder,
       domMutate({
         fn: fn as (element: unknown) => void,
+        targetResourceId: options.resourceId,
+      }),
+    ],
+    setAttribute: (name: string, value: string) => [
+      builder,
+      domMutate({
+        fn: element => setAttributeOnTarget(element, name, value),
+        label: `setAttribute(${name})`,
+        targetResourceId: options.resourceId,
+      }),
+    ],
+    setChecked: (checked: boolean) => [
+      builder,
+      domMutate({
+        fn: element => setCheckedOnTarget(element, checked),
+        label: `setChecked(${checked ? "true" : "false"})`,
+        targetResourceId: options.resourceId,
+      }),
+    ],
+    setProperty: (name: string, value: unknown) => [
+      builder,
+      domMutate({
+        fn: element => setPropertyOnTarget(element, name, value),
+        label: `setProperty(${name})`,
+        targetResourceId: options.resourceId,
+      }),
+    ],
+    setSelectionRange: (
+      start: number,
+      end: number,
+      direction?: SelectionDirection,
+    ) => [
+      builder,
+      domMutate({
+        fn: element =>
+          setSelectionRangeOnTarget(element, start, end, direction),
+        label:
+          direction === undefined
+            ? `setSelectionRange(${start},${end})`
+            : `setSelectionRange(${start},${end},${direction})`,
+        targetResourceId: options.resourceId,
+      }),
+    ],
+    setText: (text: string) => [
+      builder,
+      domMutate({
+        fn: element => setTextOnTarget(element, text),
+        label: "setText",
+        targetResourceId: options.resourceId,
+      }),
+    ],
+    setValue: (value: string) => [
+      builder,
+      domMutate({
+        fn: element => setValueOnTarget(element, value),
+        label: "setValue",
         targetResourceId: options.resourceId,
       }),
     ],
@@ -1091,11 +1347,7 @@ const createFromBuilder = (scopeResourceId: string): DomFromBuilder => {
       method,
       resourceId,
       scopeResourceId,
-    }) as unknown as TargetBuilder<
-      HTMLElementEventMap,
-      Element,
-      typeof HTML_ELEMENT_EVENT_HELPERS
-    >
+    })
 
   return {
     closest: ((selector, resourceId) =>
@@ -1140,6 +1392,24 @@ const createFromBuilder = (scopeResourceId: string): DomFromBuilder => {
         [selector],
         resourceId,
       )) as DomFromBuilder["querySelectorAll"],
+    input: ((selector: string, resourceId?: string) =>
+      queryBuilder(
+        "querySelector",
+        [selector],
+        resourceId,
+      )) as unknown as DomFromBuilder["input"],
+    select: ((selector: string, resourceId?: string) =>
+      queryBuilder(
+        "querySelector",
+        [selector],
+        resourceId,
+      )) as unknown as DomFromBuilder["select"],
+    textarea: ((selector: string, resourceId?: string) =>
+      queryBuilder(
+        "querySelector",
+        [selector],
+        resourceId,
+      )) as unknown as DomFromBuilder["textarea"],
   }
 }
 
@@ -1278,6 +1548,36 @@ export const dom = {
       typeof HTML_ELEMENT_EVENT_HELPERS
     >,
   location: (resourceId = "location") => createLocationBuilder(resourceId),
+  input: (selector: string, resourceId?: string) =>
+    createQueryBuilder({
+      args: [selector],
+      method: "querySelector",
+      resourceId,
+    }) as unknown as TargetBuilder<
+      HTMLElementEventMap,
+      HTMLInputElement,
+      typeof HTML_ELEMENT_EVENT_HELPERS
+    >,
+  select: (selector: string, resourceId?: string) =>
+    createQueryBuilder({
+      args: [selector],
+      method: "querySelector",
+      resourceId,
+    }) as unknown as TargetBuilder<
+      HTMLElementEventMap,
+      HTMLSelectElement,
+      typeof HTML_ELEMENT_EVENT_HELPERS
+    >,
+  textarea: (selector: string, resourceId?: string) =>
+    createQueryBuilder({
+      args: [selector],
+      method: "querySelector",
+      resourceId,
+    }) as unknown as TargetBuilder<
+      HTMLElementEventMap,
+      HTMLTextAreaElement,
+      typeof HTML_ELEMENT_EVENT_HELPERS
+    >,
   querySelector: <TElement extends Element = Element>(
     selector: string,
     resourceId?: string,
