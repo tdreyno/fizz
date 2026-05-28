@@ -38,6 +38,7 @@ type DomQueryMethod =
   | "getElementsByClassName"
   | "getElementsByName"
   | "getElementsByTagName"
+  | "ownerDocument"
   | "querySelector"
   | "querySelectorAll"
 
@@ -219,14 +220,19 @@ type TargetBuilder<
   EventHelpers extends DomEventHelperMap<EventMap> =
     DomEventHelperMap<EventMap>,
 > = Effect<DomAcquireEffectData> & {
+  appendChildren: (...children: Node[]) => Effect<unknown>[]
   applyMethod: ApplyMethodHelper<TElement>
   callMethod: CallMethodHelper<TElement>
+  clearChildren: () => Effect<unknown>[]
   classList: (ops: ClassListOperations) => Effect<unknown>[]
   classListSet: (classes: readonly string[]) => Effect<unknown>[]
-  dispatchEvent: (
-    type: string,
-    init?: EventInit | CustomEventInit<unknown>,
-  ) => Effect<unknown>[]
+  dispatchEvent: {
+    (
+      type: string,
+      init?: EventInit | CustomEventInit<unknown>,
+    ): Effect<unknown>[]
+    (event: Event): Effect<unknown>[]
+  }
   listen: {
     <EventType extends string>(
       type: EventType,
@@ -239,8 +245,16 @@ type TargetBuilder<
     ): FluentDomListenBuilder<EventFromMap<EventMap, EventType>>
   }
   mutate: (fn: (element: TElement) => void) => Effect<unknown>[]
+  ownerDocument: () => TargetBuilder<
+    DocumentEventMap,
+    Document,
+    typeof DOCUMENT_EVENT_HELPERS
+  >
+  prependChildren: (...children: Node[]) => Effect<unknown>[]
+  replaceChildren: (...children: Node[]) => Effect<unknown>[]
   setAttribute: (name: string, value: string) => Effect<unknown>[]
   setChecked: (checked: boolean) => Effect<unknown>[]
+  setInnerHTML: (html: string) => Effect<unknown>[]
   setProperty: SetPropertyHelper<TElement>
   setSelectionRange: (
     start: number,
@@ -577,6 +591,78 @@ const setTextOnTarget = (target: unknown, text: string): void => {
   })
 }
 
+const setInnerHTMLOnTarget = (target: unknown, html: string): void => {
+  forEachTarget(target, node => {
+    if (node != null && typeof node === "object" && "innerHTML" in node) {
+      Reflect.set(node, "innerHTML", html)
+    }
+  })
+}
+
+const replaceChildrenOnTarget = (
+  target: unknown,
+  children: readonly Node[],
+): void => {
+  forEachTarget(target, node => {
+    if (
+      node == null ||
+      typeof node !== "object" ||
+      !("replaceChildren" in node)
+    ) {
+      return
+    }
+
+    const replaceChildren = node.replaceChildren
+
+    if (typeof replaceChildren !== "function") {
+      return
+    }
+
+    ;(replaceChildren as (...nextChildren: Node[]) => void).call(
+      node,
+      ...children,
+    )
+  })
+}
+
+const appendChildrenOnTarget = (
+  target: unknown,
+  children: readonly Node[],
+): void => {
+  forEachTarget(target, node => {
+    if (node == null || typeof node !== "object" || !("append" in node)) {
+      return
+    }
+
+    const append = node.append
+
+    if (typeof append !== "function") {
+      return
+    }
+
+    ;(append as (...nextChildren: Node[]) => void).call(node, ...children)
+  })
+}
+
+const prependChildrenOnTarget = (
+  target: unknown,
+  children: readonly Node[],
+): void => {
+  forEachTarget(target, node => {
+    if (node == null || typeof node !== "object" || !("prepend" in node)) {
+      return
+    }
+
+    const prepend = node.prepend
+
+    if (typeof prepend !== "function") {
+      return
+    }
+
+    ;(prepend as (...nextChildren: Node[]) => void).call(node, ...children)
+  })
+}
+
 const setPropertyOnTarget = (
   target: unknown,
   name: string,
@@ -657,9 +743,30 @@ const setSelectionRangeOnTarget = (
 
 const dispatchEventOnTarget = (
   target: unknown,
-  type: string,
+  typeOrEvent: string | Event,
   init?: EventInit | CustomEventInit<unknown>,
 ): void => {
+  if (typeof typeOrEvent !== "string") {
+    forEachTarget(target, node => {
+      if (
+        node == null ||
+        typeof node !== "object" ||
+        !("dispatchEvent" in node)
+      ) {
+        return
+      }
+
+      const dispatch = node.dispatchEvent
+
+      if (typeof dispatch !== "function") {
+        return
+      }
+
+      ;(dispatch as (event: Event) => boolean).call(node, typeOrEvent)
+    })
+    return
+  }
+
   const eventInit = {
     bubbles: true,
     cancelable: true,
@@ -684,8 +791,8 @@ const dispatchEventOnTarget = (
     }
 
     const event = hasDetail
-      ? new CustomEvent(type, eventInit)
-      : new Event(type, eventInit)
+      ? new CustomEvent(typeOrEvent, eventInit)
+      : new Event(typeOrEvent, eventInit)
 
     ;(dispatch as (event: Event) => boolean).call(node, event)
   })
@@ -998,6 +1105,14 @@ const createTargetBuilder = <
   resourceId: string
 }): TargetBuilder<EventMap, TElement, EventHelpers> => {
   const builder = Object.assign(domAcquire(options.acquire), {
+    appendChildren: (...children: Node[]) => [
+      builder,
+      domMutate({
+        fn: element => appendChildrenOnTarget(element, children),
+        label: "appendChildren",
+        targetResourceId: options.resourceId,
+      }),
+    ],
     applyMethod: (name: string, args: readonly unknown[] = []) => [
       builder,
       domMutate({
@@ -1011,6 +1126,14 @@ const createTargetBuilder = <
       domMutate({
         fn: element => invokeMethod(element, name, args),
         label: `callMethod(${name})`,
+        targetResourceId: options.resourceId,
+      }),
+    ],
+    clearChildren: () => [
+      builder,
+      domMutate({
+        fn: element => replaceChildrenOnTarget(element, []),
+        label: "clearChildren",
         targetResourceId: options.resourceId,
       }),
     ],
@@ -1031,13 +1154,16 @@ const createTargetBuilder = <
       }),
     ],
     dispatchEvent: (
-      type: string,
+      typeOrEvent: string | Event,
       init?: EventInit | CustomEventInit<unknown>,
     ) => [
       builder,
       domMutate({
-        fn: element => dispatchEventOnTarget(element, type, init),
-        label: `dispatchEvent(${type})`,
+        fn: element => dispatchEventOnTarget(element, typeOrEvent, init),
+        label:
+          typeof typeOrEvent === "string"
+            ? `dispatchEvent(${typeOrEvent})`
+            : `dispatchEvent(${typeOrEvent.type})`,
         targetResourceId: options.resourceId,
       }),
     ],
@@ -1045,6 +1171,44 @@ const createTargetBuilder = <
       builder,
       domMutate({
         fn: fn as (element: unknown) => void,
+        targetResourceId: options.resourceId,
+      }),
+    ],
+    ownerDocument: () => {
+      const resourceId = autoQueryResourceId(
+        "ownerDocument",
+        options.resourceId,
+      )
+
+      return createTargetBuilder<
+        DocumentEventMap,
+        Document,
+        typeof DOCUMENT_EVENT_HELPERS
+      >({
+        acquire: {
+          args: [],
+          kind: "query",
+          method: "ownerDocument",
+          resourceId,
+          scopeResourceId: options.resourceId,
+        },
+        eventHelpers: DOCUMENT_EVENT_HELPERS,
+        resourceId,
+      })
+    },
+    prependChildren: (...children: Node[]) => [
+      builder,
+      domMutate({
+        fn: element => prependChildrenOnTarget(element, children),
+        label: "prependChildren",
+        targetResourceId: options.resourceId,
+      }),
+    ],
+    replaceChildren: (...children: Node[]) => [
+      builder,
+      domMutate({
+        fn: element => replaceChildrenOnTarget(element, children),
+        label: "replaceChildren",
         targetResourceId: options.resourceId,
       }),
     ],
@@ -1061,6 +1225,14 @@ const createTargetBuilder = <
       domMutate({
         fn: element => setCheckedOnTarget(element, checked),
         label: `setChecked(${checked ? "true" : "false"})`,
+        targetResourceId: options.resourceId,
+      }),
+    ],
+    setInnerHTML: (html: string) => [
+      builder,
+      domMutate({
+        fn: element => setInnerHTMLOnTarget(element, html),
+        label: "setInnerHTML",
         targetResourceId: options.resourceId,
       }),
     ],

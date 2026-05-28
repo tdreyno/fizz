@@ -22,6 +22,7 @@ describe("browserDriver", () => {
       2,
     )
     expect(browserDriver.getElementsByName("n1", document)).toHaveLength(1)
+    expect(browserDriver.ownerDocument(container)).toBe(document)
 
     document.body.removeChild(container)
   })

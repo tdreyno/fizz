@@ -85,8 +85,16 @@ Use these helpers instead of raw mutate blocks for common form writes:
 - `setSelectionRange(start, end, direction?)`
 - `setProperty(name, value)`
 - `setAttribute(name, value)`
+- `setInnerHTML(html)`
 - `setText(text)`
+- `clearChildren()`
+- `appendChildren(...children)`
+- `prependChildren(...children)`
+- `replaceChildren(...children)`
+- `ownerDocument()`
 - `dispatchEvent(type, init?)`
+
+`dispatchEvent` also accepts a prebuilt event instance: `dispatchEvent(new Event("input"))`.
 
 `dispatchEvent` defaults to `bubbles: true` and `cancelable: true`; if `init.detail` is provided, Fizz dispatches a `CustomEvent`.
 

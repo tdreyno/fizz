@@ -417,6 +417,16 @@ describe("runtime browser module — domListen coalescing", () => {
   test("domAcquire supports singleton/query branches and no-state path", () => {
     const timerDriver = createControlledTimerDriver()
     const state = createState("Querying")
+    const ownerDoc = { id: "owner-doc" }
+    const ownerScope = {
+      ownerDocument: ownerDoc,
+      querySelector: () => null,
+    }
+    setStateResource({
+      key: "owner-scope",
+      state: state as never,
+      value: ownerScope,
+    })
     const driver = {
       activeElement: jest.fn(() => ({ id: "active" })),
       body: jest.fn(() => ({ id: "body" })),
@@ -428,6 +438,7 @@ describe("runtime browser module — domListen coalescing", () => {
       getElementsByTagName: jest.fn(() => ["tag"]),
       history: jest.fn(() => ({ id: "history" })),
       location: jest.fn(() => ({ id: "location" })),
+      ownerDocument: jest.fn(() => ownerDoc),
       querySelector: jest.fn(() => ({ id: "query" })),
       querySelectorAll: jest.fn(() => ["all"]),
       visualViewport: jest.fn(() => ({ id: "viewport" })),
@@ -472,6 +483,16 @@ describe("runtime browser module — domListen coalescing", () => {
         kind: "singleton",
         resourceId: "viewport",
         target: "visualViewport",
+      },
+      label: "domAcquire",
+    } as never)
+    acquire({
+      data: {
+        args: [],
+        kind: "query",
+        method: "ownerDocument",
+        resourceId: "owner-document",
+        scopeResourceId: "owner-scope",
       },
       label: "domAcquire",
     } as never)
@@ -536,6 +557,7 @@ describe("runtime browser module — domListen coalescing", () => {
     expect(driver.getElementsByClassName).toHaveBeenCalledWith("", undefined)
     expect(driver.getElementsByName).toHaveBeenCalledWith("", undefined)
     expect(driver.getElementsByTagName).toHaveBeenCalledWith("", undefined)
+    expect(driver.ownerDocument).toHaveBeenCalledWith(ownerScope)
     expect(driver.querySelector).toHaveBeenCalledWith("", undefined)
     expect(driver.querySelectorAll).toHaveBeenCalledWith("", undefined)
   })

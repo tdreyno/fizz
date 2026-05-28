@@ -179,9 +179,30 @@ dom.input("#search", "searchInput").dispatchEvent("input")
 dom.input("#acceptTerms", "acceptTerms").setChecked(data.accepted)
 
 dom.input("#search", "searchInput").setAttribute("autocomplete", "off")
+
+dom.fromElement(datalist, "datalist").setInnerHTML(html)
+
+dom.fromElement(container, "container").clearChildren()
+
+dom.fromElement(container, "container").appendChildren(row)
+
+dom.fromElement(container, "container").prependChildren(header)
+
+dom.fromElement(container, "container").replaceChildren(row)
+
+dom
+  .fromElement(datalist, "datalist")
+  .ownerDocument()
+  .replaceChildren(listHeader)
 ```
 
 `dispatchEvent(type, init?)` defaults to `{ bubbles: true, cancelable: true }` and supports `CustomEvent` payloads when `init.detail` is provided.
+
+You can also pass a prebuilt event instance when you already have one:
+
+```typescript
+dom.fromElement(input, "searchInput").dispatchEvent(new Event("input"))
+```
 
 Autocomplete example:
 

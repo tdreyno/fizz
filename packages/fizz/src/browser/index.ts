@@ -176,6 +176,17 @@ const baseDomDriver: RuntimeDomDriver = {
       },
     }
   },
+  ownerDocument: scope => {
+    if (scope == null || typeof scope !== "object") {
+      return null
+    }
+
+    if ("ownerDocument" in scope) {
+      return (scope as { ownerDocument: Document | null }).ownerDocument
+    }
+
+    return null
+  },
   querySelector: (selector, scope) =>
     toQueryScope(scope)?.querySelector(selector) ?? null,
   querySelectorAll: (selector, scope) => [

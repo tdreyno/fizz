@@ -171,7 +171,9 @@ describe("runtimeDomModule", () => {
   test("domAcquire query supports all methods and validates closest scope", () => {
     const state = createState("Ready")
     const scopeElement = { nodeType: 1 } as unknown as Element
+    const ownerDoc = { id: "doc" }
     const queryScope = {
+      ownerDocument: ownerDoc,
       querySelector: jest.fn(),
     }
     const driver = {
@@ -180,6 +182,7 @@ describe("runtimeDomModule", () => {
       getElementsByClassName: jest.fn(() => ["class"]),
       getElementsByName: jest.fn(() => ["name"]),
       getElementsByTagName: jest.fn(() => ["tag"]),
+      ownerDocument: jest.fn(() => ownerDoc),
       querySelector: jest.fn(() => ({ id: "query" })),
       querySelectorAll: jest.fn(() => ["all"]),
     }
@@ -236,6 +239,16 @@ describe("runtimeDomModule", () => {
         kind: "query",
         method: "getElementsByTagName",
         resourceId: "tag",
+      },
+      label: "domAcquire",
+    } as never)
+    acquire({
+      data: {
+        args: [],
+        kind: "query",
+        method: "ownerDocument",
+        resourceId: "owner-document",
+        scopeResourceId: "scope",
       },
       label: "domAcquire",
     } as never)
@@ -303,6 +316,7 @@ describe("runtimeDomModule", () => {
     )
     expect(driver.getElementsByName).toHaveBeenCalledWith("name", undefined)
     expect(driver.getElementsByTagName).toHaveBeenCalledWith("div", undefined)
+    expect(driver.ownerDocument).toHaveBeenCalledWith(queryScope)
     expect(driver.querySelector).toHaveBeenCalledWith(".item", queryScope)
     expect(driver.querySelectorAll).toHaveBeenCalledWith(".item", queryScope)
     expect(driver.closest).toHaveBeenCalledWith(scopeElement, ".closest")

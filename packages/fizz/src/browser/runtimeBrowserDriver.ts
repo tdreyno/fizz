@@ -6,6 +6,7 @@ export type RuntimeDomAcquireQueryMethod =
   | "getElementsByClassName"
   | "getElementsByName"
   | "getElementsByTagName"
+  | "ownerDocument"
   | "querySelector"
   | "querySelectorAll"
 
@@ -106,6 +107,7 @@ export type RuntimeDomDriver = {
     tagName: string,
     scope?: Document | Element,
   ) => Element[]
+  ownerDocument?: (scope?: unknown) => Document | null
   querySelector?: (
     selector: string,
     scope?: Document | Element,

@@ -313,6 +313,15 @@ export const createRuntimeBrowserModule = (options: {
       )
     }
 
+    if (data.method === "ownerDocument") {
+      const ownerDocument = assertDriverMethod(
+        "ownerDocument",
+        driver?.ownerDocument,
+      )
+
+      return ownerDocument(scope)
+    }
+
     if (data.method === "querySelector") {
       const querySelector = assertDriverMethod(
         "querySelector",

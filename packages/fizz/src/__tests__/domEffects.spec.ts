@@ -116,6 +116,25 @@ describe("dom effects", () => {
     })
   })
 
+  test("ownerDocument creates a scoped query builder from an element resource", () => {
+    const element = { id: "node-1" } as unknown as Element
+    const acquire = dom.fromElement(element, "node").ownerDocument()
+    const data = acquire.data as {
+      args: string[]
+      kind: string
+      method: string
+      resourceId: string
+      scopeResourceId: string
+    }
+
+    expect(data.kind).toBe("query")
+    expect(data.method).toBe("ownerDocument")
+    expect(data.args).toEqual([])
+    expect(data.scopeResourceId).toBe("node")
+    expect(typeof data.resourceId).toBe("string")
+    expect(data.resourceId.length).toBeGreaterThan(0)
+  })
+
   test("listen handles boolean options and coalesce object options", () => {
     const moved = action("Moved")
     const builder = dom.window("window")
@@ -755,6 +774,154 @@ describe("dom effects", () => {
     expect(node.textContent).toBe("Saved")
   })
 
+  test("setInnerHTML writes innerHTML", () => {
+    const effects = dom
+      .querySelector(".status", "status")
+      .setInnerHTML("<strong>Saved</strong>")
+
+    const data = effects[1]?.data as {
+      fn: (target: unknown) => void
+      label: string
+    }
+
+    expect(data.label).toBe("setInnerHTML")
+
+    const node = { innerHTML: "" }
+    data.fn(node)
+    expect(node.innerHTML).toBe("<strong>Saved</strong>")
+  })
+
+  test("replaceChildren calls replaceChildren when available", () => {
+    const textNode = { nodeType: 3 } as unknown as Node
+    const spanNode = { nodeType: 1 } as unknown as Node
+    const effects = dom
+      .querySelector(".status", "status")
+      .replaceChildren(textNode, spanNode)
+
+    const data = effects[1]?.data as {
+      fn: (target: unknown) => void
+      label: string
+    }
+
+    expect(data.label).toBe("replaceChildren")
+
+    const calls: unknown[][] = []
+    const node = {
+      replaceChildren(...args: unknown[]) {
+        calls.push(args)
+      },
+    }
+
+    data.fn(node)
+    expect(calls).toEqual([[textNode, spanNode]])
+  })
+
+  test("ownerDocument can chain mutate helpers", () => {
+    const element = { id: "node-1" } as unknown as Element
+    const child = { nodeType: 1 } as unknown as Node
+    const effects = dom
+      .fromElement(element, "node")
+      .ownerDocument()
+      .replaceChildren(child)
+
+    const acquire = effects[0]?.data as {
+      kind: string
+      method: string
+      resourceId: string
+      scopeResourceId: string
+    }
+    const mutate = effects[1]?.data as {
+      fn: (target: unknown) => void
+      label: string
+      targetResourceId: string
+    }
+
+    expect(acquire.kind).toBe("query")
+    expect(acquire.method).toBe("ownerDocument")
+    expect(acquire.scopeResourceId).toBe("node")
+    expect(mutate.label).toBe("replaceChildren")
+    expect(mutate.targetResourceId).toBe(acquire.resourceId)
+
+    const calls: unknown[][] = []
+    mutate.fn({
+      replaceChildren(...args: unknown[]) {
+        calls.push(args)
+      },
+    })
+    expect(calls).toEqual([[child]])
+  })
+
+  test("appendChildren calls append when available", () => {
+    const firstNode = { nodeType: 3 } as unknown as Node
+    const secondNode = { nodeType: 1 } as unknown as Node
+    const effects = dom
+      .querySelector(".status", "status")
+      .appendChildren(firstNode, secondNode)
+
+    const data = effects[1]?.data as {
+      fn: (target: unknown) => void
+      label: string
+    }
+
+    expect(data.label).toBe("appendChildren")
+
+    const calls: unknown[][] = []
+    const node = {
+      append(...args: unknown[]) {
+        calls.push(args)
+      },
+    }
+
+    data.fn(node)
+    expect(calls).toEqual([[firstNode, secondNode]])
+  })
+
+  test("prependChildren calls prepend when available", () => {
+    const firstNode = { nodeType: 3 } as unknown as Node
+    const secondNode = { nodeType: 1 } as unknown as Node
+    const effects = dom
+      .querySelector(".status", "status")
+      .prependChildren(firstNode, secondNode)
+
+    const data = effects[1]?.data as {
+      fn: (target: unknown) => void
+      label: string
+    }
+
+    expect(data.label).toBe("prependChildren")
+
+    const calls: unknown[][] = []
+    const node = {
+      prepend(...args: unknown[]) {
+        calls.push(args)
+      },
+    }
+
+    data.fn(node)
+    expect(calls).toEqual([[firstNode, secondNode]])
+  })
+
+  test("clearChildren clears via replaceChildren with no args", () => {
+    const effects = dom.querySelector(".status", "status").clearChildren()
+
+    const data = effects[1]?.data as {
+      fn: (target: unknown) => void
+      label: string
+    }
+
+    expect(data.label).toBe("clearChildren")
+
+    const calls: unknown[][] = []
+    const node = {
+      replaceChildren(...args: unknown[]) {
+        calls.push(args)
+      },
+    }
+
+    data.fn(node)
+    expect(calls).toEqual([[]])
+  })
+
   test("setProperty writes arbitrary properties", () => {
     const effects = dom
       .input("#search", "search-input")
@@ -878,6 +1045,35 @@ describe("dom effects", () => {
     expect((events[1] as CustomEvent<{ value: string }>).detail).toEqual({
       value: "match",
     })
+  })
+
+  test("dispatchEvent accepts a prebuilt Event instance", () => {
+    const readyEvent = new Event("ready", {
+      bubbles: false,
+      cancelable: false,
+    })
+    const effects = dom
+      .querySelector(".status", "status")
+      .dispatchEvent(readyEvent)
+
+    const data = effects[1]?.data as {
+      fn: (target: unknown) => void
+      label: string
+    }
+
+    expect(data.label).toBe("dispatchEvent(ready)")
+
+    const events: Event[] = []
+    const node = {
+      dispatchEvent(event: Event) {
+        events.push(event)
+        return true
+      },
+    }
+
+    data.fn(node)
+
+    expect(events).toEqual([readyEvent])
   })
 
   test("callMethod silently ignores missing methods on the target", () => {
