@@ -1,5 +1,19 @@
 # @tdreyno/fizz
 
+## 8.16.0
+
+### Minor Changes
+
+- 65abdb3: Allow nested child handlers in `stateWithNested(...)` to read parent state resources via `utils.resources` fallback.
+
+  When child and parent resource keys overlap, child resources take precedence for that handler execution.
+
+- b652080: Add typed DOM write helpers for form and input workflows, including `setValue`, `setChecked`, `setText`, `setProperty`, `setAttribute`, `setSelectionRange`, and `dispatchEvent` with sensible UI defaults.
+
+  Also add input-specific query convenience builders via `dom.input(...)` and `dom.from(...).input(...)`, plus docs and browser-effects reference updates for declarative form/autocomplete patterns.
+
+  Add matching convenience builders for `textarea` and `select` via `dom.textarea(...)`, `dom.select(...)`, and scoped variants `dom.from(...).textarea(...)` / `dom.from(...).select(...)`.
+
 ## 8.15.0
 
 ### Minor Changes
