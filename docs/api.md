@@ -175,12 +175,31 @@ This is the main helper for integrations that need keyed access to child branch 
 
 Create a typed action creator, or create an action value directly.
 
+Action creators can have an optional debug label (useful for logging and debugging), or be unnamed with a generated stable ID. Both support `withPayload<T>()` for type-safe payload definition.
+
 ```ts
+// Named action with optional debug label
 const save = action("Save").withPayload<{ id: string }>()
 
+// Unnamed action with generated stable ID
+const rename = action().withPayload<{ newName: string }>()
+
+// Create action values directly
 save({ id: "1" })
-action("Loaded", { id: "1" })
+rename({ newName: "Updated" })
 ```
+
+Action creators are usable directly as handler keys in state definitions:
+
+```ts
+const Editing = state({
+  [save]: (data, payload, { update }) => update({ ...data, saved: payload.id }),
+  [rename]: (data, payload, { update }) =>
+    update({ ...data, name: payload.newName }),
+})
+```
+
+This approach eliminates duplication of action names and keeps the dispatch API (the creator) and handler map aligned.
 
 ### `enter`
 

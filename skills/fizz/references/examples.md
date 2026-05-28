@@ -2,20 +2,33 @@
 
 Short copyable examples for common Fizz and fizz-react tasks.
 
-## Simple state transition
+## Simple state transition (creator-key handlers)
 
 ```typescript
-import { Enter, action, state } from "@tdreyno/fizz"
+import { action, enter, state } from "@tdreyno/fizz"
 
+const rename = action().withPayload<{ name: string }>()
 const finish = action("Finish")
 
-const Start = state<Enter | ReturnType<typeof finish>>({
-  Enter: () => undefined,
-  Finish: () => Done(),
+type Data = {
+  name: string
+}
+
+const Start = state<
+  ReturnType<typeof rename> | ReturnType<typeof finish>,
+  Data
+>({
+  [enter]: data => data,
+  [rename]: (data, payload, { update }) =>
+    update({
+      ...data,
+      name: payload.name,
+    }),
+  [finish]: data => Done(data),
 })
 
-const Done = state<Enter>({
-  Enter: () => undefined,
+const Done = state({
+  [enter]: (data: Data) => data,
 })
 ```
 
@@ -194,16 +207,17 @@ const Loading = state({
 ```typescript
 import { action, debounce, state, throttle } from "@tdreyno/fizz"
 
-const QueryChanged = action("QueryChanged").withPayload<string>()
-const SaveDraft = action("SaveDraft")
+const queryChanged = action().withPayload<string>()
+const saveDraft = action("SaveDraft")
 
 const Editing = state<
-  ReturnType<typeof QueryChanged> | ReturnType<typeof SaveDraft>
+  ReturnType<typeof queryChanged> | ReturnType<typeof saveDraft>,
+  { query: string; saves: number }
 >({
-  QueryChanged: debounce((data, payload) => {
+  [queryChanged]: debounce((data, payload) => {
     return { ...data, query: payload }
   }, 200),
-  SaveDraft: throttle(
+  [saveDraft]: throttle(
     (data, _payload) => {
       return { ...data, saves: data.saves + 1 }
     },

@@ -40,14 +40,27 @@ Runtime transition cycle
 A Fizz state is a mapping from action names to handlers.
 
 ```typescript
-import { Enter, action, state } from "@tdreyno/fizz"
+import { action, enter, state } from "@tdreyno/fizz"
 
-const save = action("Save").withPayload<{ content: string }>()
+const save = action().withPayload<{ content: string }>()
 
 type Data = {
   content: string
 }
 
+const Editing = state<ReturnType<typeof save>, Data>({
+  [enter]: data => data,
+  [save]: (data, payload, { update }) =>
+    update({
+      ...data,
+      content: payload.content,
+    }),
+})
+```
+
+Handlers are keyed by the action creator itself (using computed properties like `[save]`), which removes duplication and ties the dispatch API directly to the handler map. Alternatively, you can still use string keys for backward compatibility:
+
+```typescript
 const Editing = state<Enter | ReturnType<typeof save>, Data>({
   Enter: () => undefined,
   Save: (data, payload, { update }) =>
@@ -65,11 +78,24 @@ The state definition is where the workflow lives. When you need a different mode
 Actions are explicit events. They are values, not method names hidden inside callbacks.
 
 ```typescript
+// Named action with label (optional, useful for debugging)
 const save = action("Save").withPayload<{ content: string }>()
 const cancel = action("Cancel")
+
+// Unnamed action (generated stable ID, still fully typed with withPayload)
+const rename = action().withPayload<{ newName: string }>()
 ```
 
-This makes the machine easier to read and easier to test because every transition starts from a named action.
+Naming is optional and primarily useful for readability and debugging. Whether named or unnamed, action creators can be used directly as handler keys in state definitions:
+
+```typescript
+state({
+  [save]: (data, payload, { update }) => ...,
+  [rename]: (data, payload, { update }) => ...,
+})
+```
+
+This makes the machine easier to read and easier to test because every transition starts from a named action creator.
 
 Fizz also generates lifecycle actions for scheduled work:
 
@@ -179,7 +205,7 @@ state handler
 This is the architectural shape to keep in mind when reading any Fizz machine:
 
 ```typescript
-import { Enter, action, output, state } from "@tdreyno/fizz"
+import { action, enter, output, state } from "@tdreyno/fizz"
 
 const submit = action("Submit")
 const submitted = action("Submitted")
@@ -188,10 +214,10 @@ type Data = {
   status: "editing" | "saving"
 }
 
-const Editing = state<Enter | ReturnType<typeof submit>, Data>({
-  Enter: (data, _, { update }) => update(data),
+const Editing = state<ReturnType<typeof submit>, Data>({
+  [enter]: data => data,
 
-  Submit: (data, _, { update }) => [
+  [submit]: (data, _, { update }) => [
     update({
       ...data,
       status: "saving",
@@ -203,7 +229,7 @@ const Editing = state<Enter | ReturnType<typeof submit>, Data>({
 
 When `Submit` arrives:
 
-1. the runtime selects `Editing.Submit`
+1. the runtime selects the handler keyed by `submit`
 2. the handler returns updated state data plus an output
 3. the runtime applies the state update
 4. the runtime emits the output to subscribers

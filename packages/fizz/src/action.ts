@@ -28,9 +28,17 @@ export interface GetActionCreatorType<T extends string> {
 
 type Optional<T> = [T]
 
+type ActionCreatorKey<T extends string> = {
+  [Symbol.toPrimitive]: () => T
+  toString: () => T
+  valueOf: () => T
+}
+
 type NamedActionCreator<T extends string, P> = ActionCreator<T, P> &
   MatchAction<T, P> &
-  GetActionCreatorType<T>
+  GetActionCreatorType<T> &
+  ActionCreatorKey<T> &
+  string
 
 export type ActionBuilder<T extends string> = NamedActionCreator<
   T,
@@ -52,6 +60,33 @@ export type ActionCreatorType<
 const createActionValue = <T extends string, P>(type: T, payload: P) =>
   new Action(type, payload)
 
+let generatedActionCounter = 0
+
+const createGeneratedActionType = () => {
+  generatedActionCounter += 1
+
+  return `Action:${generatedActionCounter}`
+}
+
+const attachActionCreatorKey = <T extends string>(
+  fn: (...args: never[]) => Action<T, unknown>,
+  type: T,
+) => {
+  const toType = () => type
+
+  Object.defineProperty(fn, Symbol.toPrimitive, {
+    value: toType,
+  })
+
+  Object.defineProperty(fn, "toString", {
+    value: toType,
+  })
+
+  Object.defineProperty(fn, "valueOf", {
+    value: toType,
+  })
+}
+
 const createNamedAction = <T extends string, P = undefined>(
   type: T,
 ): NamedActionCreator<T, P> => {
@@ -61,6 +96,7 @@ const createNamedAction = <T extends string, P = undefined>(
     action.type === type
 
   fn.type = type
+  attachActionCreatorKey(fn as never, type)
 
   return fn as unknown as NamedActionCreator<T, P>
 }
@@ -73,17 +109,22 @@ const createActionBuilder = <T extends string>(type: T): ActionBuilder<T> => {
   return fn
 }
 
+export function action(): ActionBuilder<string>
 export function action<T extends string>(type: T): ActionBuilder<T>
 export function action<T extends string, P>(type: T, payload: P): Action<T, P>
 export function action<T extends string, P>(
-  type: T,
+  type?: T,
   payload?: P,
-): ActionBuilder<T> | Action<T, P> {
-  if (arguments.length === 1) {
-    return createActionBuilder(type)
+): ActionBuilder<T> | Action<T, P> | ActionBuilder<string> {
+  if (arguments.length === 0) {
+    return createActionBuilder(createGeneratedActionType())
   }
 
-  return createActionValue(type, payload as P)
+  if (arguments.length === 1) {
+    return createActionBuilder(type!)
+  }
+
+  return createActionValue(type!, payload!)
 }
 
 /**
@@ -142,7 +183,7 @@ const createTimerAction = <T extends string>(
 
   fn.type = type
 
-  return fn as GenericTimerActionCreator<T>
+  return fn
 }
 
 export type TimerStarted<TimeoutId extends string = string> = Action<
@@ -186,7 +227,7 @@ const createIntervalAction = <T extends string>(
 
   fn.type = type
 
-  return fn as GenericIntervalActionCreator<T>
+  return fn
 }
 
 export type IntervalStarted<IntervalId extends string = string> = Action<
@@ -234,7 +275,7 @@ const createAsyncAction = <T extends string>(
 
   fn.type = type
 
-  return fn as GenericAsyncActionCreator<T>
+  return fn
 }
 
 export type AsyncCancelled<AsyncId extends string = string> = Action<

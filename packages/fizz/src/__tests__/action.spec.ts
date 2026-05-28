@@ -2,6 +2,9 @@ import { describe, expect, test } from "@jest/globals"
 
 import type { ActionCreatorType } from "../action"
 import * as actionModule from "../action"
+import { createMachine } from "../createMachine"
+import { createRuntime } from "../runtime"
+import { state } from "../state"
 
 const { action, enter, intervalStarted } = actionModule
 
@@ -64,5 +67,50 @@ describe("action", () => {
       },
       type: "IntervalStarted",
     })
+  })
+
+  test("should keep withPayload for unnamed actions", () => {
+    const save = action().withPayload<{ content: string }>()
+    type Save = ActionCreatorType<typeof save>
+
+    const event: Save = save({ content: "draft" })
+
+    expect(event).toEqual({
+      payload: { content: "draft" },
+      type: save.type,
+    })
+    expect(save.type).toContain("Action:")
+  })
+
+  test("should allow action creators as state handler keys", async () => {
+    const save = action().withPayload<{ content: string }>()
+    type Save = ActionCreatorType<typeof save>
+
+    const Editing = state<Save, { content: string }>({
+      [save]: (_data, payload, { update }) =>
+        update({
+          content: payload.content,
+        }),
+    })
+
+    const runtime = createRuntime(
+      createMachine({
+        actions: { save },
+        states: { Editing },
+      }),
+      Editing({ content: "before" }),
+    )
+
+    await runtime.run(save({ content: "after" }))
+
+    const current = runtime.currentState()
+
+    expect(current.name).toBe(Editing.name)
+
+    if (!current.is(Editing)) {
+      throw new Error("Expected Editing state")
+    }
+
+    expect(current.data.content).toBe("after")
   })
 })
