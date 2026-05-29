@@ -748,6 +748,80 @@ describe("dom effects", () => {
     expect(input.value).toBe("a@b.com")
   })
 
+  test("setValue effect return supports mutate chaining", () => {
+    const chained = dom
+      .input("#email", "email-input")
+      .setValue("a@b.com")
+      .mutate(element => {
+        ;(element as { touched?: boolean }).touched = true
+      })
+
+    expect(chained[0]?.label).toBe("domChain")
+    expect(chained[1]?.label).toBe("domMutate")
+    expect(chained[2]?.label).toBe("domMutate")
+
+    const setValueData = chained[1]?.data as {
+      fn: (target: unknown) => void
+      label: string
+    }
+    const mutateData = chained[2]?.data as {
+      fn: (target: unknown) => void
+      label?: string
+    }
+
+    const input = { touched: false, value: "" }
+
+    setValueData.fn(input)
+    mutateData.fn(input)
+
+    expect(setValueData.label).toBe("setValue")
+    expect(input.value).toBe("a@b.com")
+    expect(input.touched).toBe(true)
+  })
+
+  test("classList effect return supports dispatchEvent chaining", () => {
+    const chained = dom
+      .querySelector(".status", "status")
+      .classList({ add: "active" })
+      .dispatchEvent("input")
+
+    expect(chained[0]?.label).toBe("domChain")
+    expect(chained[1]?.label).toBe("domMutate")
+    expect(chained[2]?.label).toBe("domMutate")
+
+    const classListData = chained[1]?.data as {
+      fn: (target: unknown) => void
+      label: string
+    }
+    const dispatchData = chained[2]?.data as {
+      fn: (target: unknown) => void
+      label: string
+    }
+
+    const classListOps: string[] = []
+    const emitted: string[] = []
+    const target = {
+      classList: {
+        add(name: string) {
+          classListOps.push(`add:${name}`)
+        },
+      },
+      dispatchEvent(event: Event) {
+        emitted.push(event.type)
+
+        return true
+      },
+    }
+
+    classListData.fn(target)
+    dispatchData.fn(target)
+
+    expect(classListData.label).toBe("classList(add:active)")
+    expect(dispatchData.label).toBe("dispatchEvent(input)")
+    expect(classListOps).toEqual(["add:active"])
+    expect(emitted).toEqual(["input"])
+  })
+
   test("setChecked writes checked on checked-like targets", () => {
     const effects = dom.input("#accept", "accept-input").setChecked(true)
 

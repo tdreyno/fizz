@@ -102,7 +102,30 @@ const Sharing = state({
 
 Every DOM resource builder exposes typed imperative-write helpers. Prefer `classList`, `classListSet`, `callMethod`, `applyMethod`, `setValue`, `setChecked`, `setSelectionRange`, `setProperty`, `setAttribute`, `setText`, and `dispatchEvent` when the intent fits; reach for `.mutate(fn)` only for one-off tweaks that none of them cover.
 
-All four chain off the builder and return `[acquireEffect, mutateEffect]`, so the resource is acquired first and the write runs against it. No separate `dom.acquire()` is needed.
+Each mutator call still returns an array-compatible value whose first entries are `[acquireEffect, mutateEffect]`, but that return value is now chainable. This means you can keep existing array usage and also compose multiple writes as one fluent return.
+
+Before:
+
+```typescript
+Enter: ({ data }) => [
+  dom.fromElement(data.hiddenInput, "hidden").setValue(data.serialized),
+  dom.fromElement(data.hiddenInput, "hidden").mutate(element => {
+    element.dispatchEvent(new Event("input", { bubbles: true }))
+  }),
+]
+```
+
+After:
+
+```typescript
+Enter: ({ data }) =>
+  dom
+    .fromElement(data.hiddenInput, "hidden")
+    .setValue(data.serialized)
+    .mutate(element => {
+      element.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+```
 
 ### `.classList(operations)`
 
@@ -225,13 +248,12 @@ const suggestionAccepted = action("SuggestionAccepted").withPayload<{
 
 const Autocomplete = state({
   Enter: () => [dom.input("#search", "searchInput")],
-  SuggestionAccepted: (_data, payload) => [
-    dom.input("#search", "searchInput").setValue(payload.nextValue),
+  SuggestionAccepted: (_data, payload) =>
     dom
       .input("#search", "searchInput")
-      .setSelectionRange(payload.cursorEnd, payload.cursorEnd),
-    dom.input("#search", "searchInput").dispatchEvent("input"),
-  ],
+      .setValue(payload.nextValue)
+      .setSelectionRange(payload.cursorEnd, payload.cursorEnd)
+      .dispatchEvent("input"),
 })
 ```
 

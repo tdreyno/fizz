@@ -150,4 +150,38 @@ describe("DOM resources", () => {
     await runtime.run(enter())
     expect(providedElement.listenerCount("click")).toBe(1)
   })
+
+  test("should support mutator chaining from dom.fromElement effect returns", async () => {
+    const providedElement = Object.assign(new MockElementTarget(), {
+      value: "",
+    })
+    let dispatchCount = 0
+
+    providedElement.addEventListener("input", () => {
+      dispatchCount += 1
+    })
+
+    const Browsing = state<Enter>(
+      {
+        Enter: () =>
+          dom
+            .fromElement(providedElement as unknown as Element, "provided")
+            .setValue("serialized-location")
+            .mutate(element => {
+              const EventCtor =
+                element.ownerDocument?.defaultView?.Event ?? globalThis.Event
+
+              element.dispatchEvent(new EventCtor("input", { bubbles: true }))
+            }),
+      },
+      { name: "Browsing" },
+    )
+
+    const runtime = new Runtime(createInitialContext([Browsing()]), {}, {}, {})
+
+    await runtime.run(enter())
+
+    expect(providedElement.value).toBe("serialized-location")
+    expect(dispatchCount).toBe(1)
+  })
 })

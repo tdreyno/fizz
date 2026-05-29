@@ -206,15 +206,19 @@ type MethodArgsOf<T, K> = K extends keyof T
     : readonly unknown[]
   : readonly unknown[]
 
-type CallMethodHelper<TElement> = <TName extends MethodNameOrString<TElement>>(
+type CallMethodHelper<TElement, TResult = Effect<unknown>[]> = <
+  TName extends MethodNameOrString<TElement>,
+>(
   name: TName,
   ...args: MethodArgsOf<TElement, TName>
-) => Effect<unknown>[]
+) => TResult
 
-type ApplyMethodHelper<TElement> = <TName extends MethodNameOrString<TElement>>(
+type ApplyMethodHelper<TElement, TResult = Effect<unknown>[]> = <
+  TName extends MethodNameOrString<TElement>,
+>(
   name: TName,
   args: MethodArgsOf<TElement, TName>,
-) => Effect<unknown>[]
+) => TResult
 
 type PropertyNameOrString<T> = T extends object
   ? [keyof T & string] extends [never]
@@ -222,66 +226,25 @@ type PropertyNameOrString<T> = T extends object
     : keyof T & string
   : string
 
-type SetPropertyHelper<TElement> = <
+type SetPropertyHelper<TElement, TResult = Effect<unknown>[]> = <
   TName extends PropertyNameOrString<TElement>,
 >(
   name: TName,
   value: TName extends keyof TElement ? TElement[TName] : unknown,
-) => Effect<unknown>[]
+) => TResult
 
-type TargetBuilderBase<
-  EventMap extends EventMapLike,
-  TElement = unknown,
-  EventHelpers extends DomEventHelperMap<EventMap> =
-    DomEventHelperMap<EventMap>,
-> = Effect<DomChainEffectData> & {
-  appendChildren: (...children: Node[]) => Effect<unknown>[]
-  applyMethod: ApplyMethodHelper<TElement>
-  callMethod: CallMethodHelper<TElement>
-  clearChildren: () => Effect<unknown>[]
-  classList: (ops: ClassListOperations) => Effect<unknown>[]
-  classListSet: (classes: readonly string[]) => Effect<unknown>[]
+type TargetBuilderMutationMethods<TElement, TChain> = {
+  appendChildren: (...children: Node[]) => TChain
+  applyMethod: ApplyMethodHelper<TElement, TChain>
+  callMethod: CallMethodHelper<TElement, TChain>
+  clearChildren: () => TChain
+  classList: (ops: ClassListOperations) => TChain
+  classListSet: (classes: readonly string[]) => TChain
   dispatchEvent: {
-    (
-      type: string,
-      init?: EventInit | CustomEventInit<unknown>,
-    ): Effect<unknown>[]
-    (event: Event): Effect<unknown>[]
+    (type: string, init?: EventInit | CustomEventInit<unknown>): TChain
+    (event: Event): TChain
   }
-  listen: {
-    <EventType extends string>(
-      type: EventType,
-      toAction: (event: EventFromMap<EventMap, EventType>) => AnyAction,
-      options?: DomListenOptions,
-    ): TargetBuilder<EventMap, TElement, EventHelpers>
-    <EventType extends string>(
-      type: EventType,
-      options?: DomListenOptions,
-    ): FluentDomListenBuilder<
-      EventFromMap<EventMap, EventType>,
-      EventFromMap<EventMap, EventType>,
-      TargetBuilder<EventMap, TElement, EventHelpers>
-    >
-  }
-  mutate: (fn: (element: TElement) => void) => Effect<unknown>[]
-  ownerDocument: () => TargetBuilder<
-    DocumentEventMap,
-    Document,
-    typeof DOCUMENT_EVENT_HELPERS
-  >
-  prependChildren: (...children: Node[]) => Effect<unknown>[]
-  replaceChildren: (...children: Node[]) => Effect<unknown>[]
-  setAttribute: (name: string, value: string) => Effect<unknown>[]
-  setChecked: (checked: boolean) => Effect<unknown>[]
-  setInnerHTML: (html: string) => Effect<unknown>[]
-  setProperty: SetPropertyHelper<TElement>
-  setSelectionRange: (
-    start: number,
-    end: number,
-    direction?: TextSelectionDirection,
-  ) => Effect<unknown>[]
-  setText: (text: string) => Effect<unknown>[]
-  setValue: (value: string) => Effect<unknown>[]
+  mutate: (fn: (element: TElement) => void) => TChain
   observeIntersection: {
     (
       toAction: (
@@ -289,7 +252,7 @@ type TargetBuilderBase<
         observer: IntersectionObserver,
       ) => AnyAction,
       options?: IntersectionObserverInit,
-    ): Effect<unknown>[]
+    ): TChain
     (
       observerId: string,
       toAction: (
@@ -297,7 +260,7 @@ type TargetBuilderBase<
         observer: IntersectionObserver,
       ) => AnyAction,
       options?: IntersectionObserverInit,
-    ): Effect<unknown>[]
+    ): TChain
   }
   observeResize: {
     (
@@ -306,7 +269,7 @@ type TargetBuilderBase<
         observer: ResizeObserver,
       ) => AnyAction,
       options?: ResizeObserverOptions,
-    ): Effect<unknown>[]
+    ): TChain
     (
       observerId: string,
       toAction: (
@@ -314,10 +277,79 @@ type TargetBuilderBase<
         observer: ResizeObserver,
       ) => AnyAction,
       options?: ResizeObserverOptions,
-    ): Effect<unknown>[]
+    ): TChain
   }
+  prependChildren: (...children: Node[]) => TChain
+  replaceChildren: (...children: Node[]) => TChain
+  setAttribute: (name: string, value: string) => TChain
+  setChecked: (checked: boolean) => TChain
+  setInnerHTML: (html: string) => TChain
+  setProperty: SetPropertyHelper<TElement, TChain>
+  setSelectionRange: (
+    start: number,
+    end: number,
+    direction?: TextSelectionDirection,
+  ) => TChain
+  setText: (text: string) => TChain
+  setValue: (value: string) => TChain
   resource: () => Effect<unknown>
 }
+
+interface ChainableTargetEffectReturn<EventMap extends EventMapLike, TElement>
+  extends
+    Array<Effect<unknown>>,
+    TargetBuilderMutationMethods<
+      TElement,
+      ChainableTargetEffectReturn<EventMap, TElement>
+    > {
+  listen: {
+    <EventType extends string>(
+      type: EventType,
+      toAction: (event: EventFromMap<EventMap, EventType>) => AnyAction,
+      options?: DomListenOptions,
+    ): ChainableTargetEffectReturn<EventMap, TElement>
+    <EventType extends string>(
+      type: EventType,
+      options?: DomListenOptions,
+    ): FluentDomListenBuilder<
+      EventFromMap<EventMap, EventType>,
+      EventFromMap<EventMap, EventType>,
+      ChainableTargetEffectReturn<EventMap, TElement>
+    >
+  }
+}
+
+type TargetBuilderBase<
+  EventMap extends EventMapLike,
+  TElement = unknown,
+  EventHelpers extends DomEventHelperMap<EventMap> =
+    DomEventHelperMap<EventMap>,
+> = Effect<DomChainEffectData> &
+  TargetBuilderMutationMethods<
+    TElement,
+    ChainableTargetEffectReturn<EventMap, TElement>
+  > & {
+    listen: {
+      <EventType extends string>(
+        type: EventType,
+        toAction: (event: EventFromMap<EventMap, EventType>) => AnyAction,
+        options?: DomListenOptions,
+      ): TargetBuilder<EventMap, TElement, EventHelpers>
+      <EventType extends string>(
+        type: EventType,
+        options?: DomListenOptions,
+      ): FluentDomListenBuilder<
+        EventFromMap<EventMap, EventType>,
+        EventFromMap<EventMap, EventType>,
+        TargetBuilder<EventMap, TElement, EventHelpers>
+      >
+    }
+    ownerDocument: () => TargetBuilder<
+      DocumentEventMap,
+      Document,
+      typeof DOCUMENT_EVENT_HELPERS
+    >
+  }
 
 type TargetBuilder<
   EventMap extends EventMapLike,
@@ -1181,132 +1213,207 @@ const createTargetBuilder = <
   eventHelpers: EventHelpers
   resourceId: string
 }): TargetBuilder<EventMap, TElement, EventHelpers> => {
-  const builder = Object.assign(
-    effect("domChain", {
-      acquire: domAcquire(options.acquire),
-      listeners: [] as Array<Effect<DomListenEffectData>>,
-    }),
-    {
-      appendChildren: (...children: Node[]) => [
-        builder,
-        domMutate({
-          fn: element => appendChildrenOnTarget(element, children),
-          label: "appendChildren",
-          targetResourceId: options.resourceId,
-        }),
-      ],
-      applyMethod: (name: string, args: readonly unknown[] = []) => [
-        builder,
-        domMutate({
-          fn: element => invokeMethod(element, name, args),
-          label: `applyMethod(${name})`,
-          targetResourceId: options.resourceId,
-        }),
-      ],
-      callMethod: (name: string, ...args: readonly unknown[]) => [
-        builder,
-        domMutate({
-          fn: element => invokeMethod(element, name, args),
-          label: `callMethod(${name})`,
-          targetResourceId: options.resourceId,
-        }),
-      ],
-      clearChildren: () => [
-        builder,
-        domMutate({
-          fn: element => replaceChildrenOnTarget(element, []),
-          label: "clearChildren",
-          targetResourceId: options.resourceId,
-        }),
-      ],
-      classList: (ops: ClassListOperations) => [
-        builder,
-        domMutate({
-          fn: element => applyClassListOps(element, ops),
-          label: formatClassListLabel(ops),
-          targetResourceId: options.resourceId,
-        }),
-      ],
-      classListSet: (classes: readonly string[]) => [
-        builder,
-        domMutate({
-          fn: element => applyClassListSet(element, classes),
-          label: `classListSet(${classes.join(" ")})`,
-          targetResourceId: options.resourceId,
-        }),
-      ],
+  let builder = {} as TargetBuilder<EventMap, TElement, EventHelpers>
+
+  const appendListenerToBuilder = (
+    type: string,
+    toAction: (event: Event) => AnyAction | undefined,
+    listenOptions?: DomListenOptions,
+  ): TargetBuilder<EventMap, TElement, EventHelpers> => {
+    const data = builder.data!
+    const { coalesce, listenerOptions, order } =
+      parseListenOptions(listenOptions)
+
+    data.listeners = [
+      ...data.listeners,
+      domListen({
+        ...(coalesce === undefined ? {} : { coalesce }),
+        ...(order === undefined ? {} : { order }),
+        ...(listenerOptions === undefined ? {} : { options: listenerOptions }),
+        targetResourceId: options.resourceId,
+        toAction,
+        type,
+      }),
+    ]
+
+    return builder
+  }
+
+  const createMutateEffect = (fn: (element: unknown) => void, label?: string) =>
+    domMutate({
+      ...(label === undefined ? {} : { label }),
+      fn,
+      targetResourceId: options.resourceId,
+    })
+
+  const createObserveIntersectionEffect = (
+    observerIdOrToAction:
+      | string
+      | ((
+          entries: IntersectionObserverEntry[],
+          observer: IntersectionObserver,
+        ) => AnyAction),
+    toActionOrOptions?:
+      | ((
+          entries: IntersectionObserverEntry[],
+          observer: IntersectionObserver,
+        ) => AnyAction)
+      | IntersectionObserverInit,
+    maybeOptions?: IntersectionObserverInit,
+  ) => {
+    const toAction =
+      typeof observerIdOrToAction === "function"
+        ? observerIdOrToAction
+        : (toActionOrOptions as (
+            entries: IntersectionObserverEntry[],
+            observer: IntersectionObserver,
+          ) => AnyAction)
+    const observerId =
+      typeof observerIdOrToAction === "string"
+        ? observerIdOrToAction
+        : undefined
+    const observerOptions =
+      typeof observerIdOrToAction === "function"
+        ? (toActionOrOptions as IntersectionObserverInit | undefined)
+        : maybeOptions
+
+    return domObserveIntersection({
+      ...(observerId === undefined ? {} : { observerId }),
+      ...(observerOptions === undefined ? {} : { options: observerOptions }),
+      targetResourceId: options.resourceId,
+      toAction,
+    })
+  }
+
+  const createObserveResizeEffect = (
+    observerIdOrToAction:
+      | string
+      | ((
+          entries: ResizeObserverEntry[],
+          observer: ResizeObserver,
+        ) => AnyAction),
+    toActionOrOptions?:
+      | ((
+          entries: ResizeObserverEntry[],
+          observer: ResizeObserver,
+        ) => AnyAction)
+      | ResizeObserverOptions,
+    maybeOptions?: ResizeObserverOptions,
+  ) => {
+    const toAction =
+      typeof observerIdOrToAction === "function"
+        ? observerIdOrToAction
+        : (toActionOrOptions as (
+            entries: ResizeObserverEntry[],
+            observer: ResizeObserver,
+          ) => AnyAction)
+    const observerId =
+      typeof observerIdOrToAction === "string"
+        ? observerIdOrToAction
+        : undefined
+    const observerOptions =
+      typeof observerIdOrToAction === "function"
+        ? (toActionOrOptions as ResizeObserverOptions | undefined)
+        : maybeOptions
+
+    return domObserveResize({
+      ...(observerId === undefined ? {} : { observerId }),
+      ...(observerOptions === undefined ? {} : { options: observerOptions }),
+      targetResourceId: options.resourceId,
+      toAction,
+    })
+  }
+
+  const createChainableTargetEffects = (
+    effects: Effect<unknown>[],
+  ): ChainableTargetEffectReturn<EventMap, TElement> => {
+    const chain = effects as ChainableTargetEffectReturn<EventMap, TElement>
+
+    const appendEffect = (effectItem: Effect<unknown>) =>
+      createChainableTargetEffects([...effects, effectItem])
+
+    const listenOnChain = (
+      type: string,
+      toActionOrOptions?: ((event: Event) => AnyAction) | DomListenOptions,
+      eventOptions?: DomListenOptions,
+    ) => {
+      if (typeof toActionOrOptions === "function") {
+        appendListenerToBuilder(type, toActionOrOptions, eventOptions)
+
+        return chain
+      }
+
+      return createFluentListenBuilder({
+        appendListener: listener => {
+          const data = builder.data!
+
+          data.listeners = [...data.listeners, listener]
+          return chain
+        },
+        listenOptions: toActionOrOptions,
+        targetResourceId: options.resourceId,
+        type,
+      })
+    }
+
+    Object.assign(chain, {
+      appendChildren: (...children: Node[]) =>
+        appendEffect(
+          createMutateEffect(
+            element => appendChildrenOnTarget(element, children),
+            "appendChildren",
+          ),
+        ),
+      applyMethod: (name: string, args: readonly unknown[] = []) =>
+        appendEffect(
+          createMutateEffect(
+            element => invokeMethod(element, name, args),
+            `applyMethod(${name})`,
+          ),
+        ),
+      callMethod: (name: string, ...args: readonly unknown[]) =>
+        appendEffect(
+          createMutateEffect(
+            element => invokeMethod(element, name, args),
+            `callMethod(${name})`,
+          ),
+        ),
+      clearChildren: () =>
+        appendEffect(
+          createMutateEffect(
+            element => replaceChildrenOnTarget(element, []),
+            "clearChildren",
+          ),
+        ),
+      classList: (ops: ClassListOperations) =>
+        appendEffect(
+          createMutateEffect(
+            element => applyClassListOps(element, ops),
+            formatClassListLabel(ops),
+          ),
+        ),
+      classListSet: (classes: readonly string[]) =>
+        appendEffect(
+          createMutateEffect(
+            element => applyClassListSet(element, classes),
+            `classListSet(${classes.join(" ")})`,
+          ),
+        ),
       dispatchEvent: (
         typeOrEvent: string | Event,
         init?: EventInit | CustomEventInit<unknown>,
-      ) => [
-        builder,
-        domMutate({
-          fn: element => dispatchEventOnTarget(element, typeOrEvent, init),
-          label:
+      ) =>
+        appendEffect(
+          createMutateEffect(
+            element => dispatchEventOnTarget(element, typeOrEvent, init),
             typeof typeOrEvent === "string"
               ? `dispatchEvent(${typeOrEvent})`
               : `dispatchEvent(${typeOrEvent.type})`,
-          targetResourceId: options.resourceId,
-        }),
-      ],
-      ownerDocument: () =>
-        createOwnerDocumentBuilder({
-          resourceId: autoQueryResourceId("ownerDocument", ""),
-          scopeResourceId: options.resourceId,
-        }),
-      listen: (
-        type: string,
-        toActionOrOptions?: ((event: Event) => AnyAction) | DomListenOptions,
-        eventOptions?: DomListenOptions,
-      ) => {
-        const appendListener = (
-          toAction: (event: Event) => AnyAction | undefined,
-          listenOptions?: DomListenOptions,
-        ) => {
-          const data = builder.data!
-          const { coalesce, listenerOptions, order } =
-            parseListenOptions(listenOptions)
-
-          data.listeners = [
-            ...data.listeners,
-            domListen({
-              ...(coalesce === undefined ? {} : { coalesce }),
-              ...(order === undefined ? {} : { order }),
-              ...(listenerOptions === undefined
-                ? {}
-                : { options: listenerOptions }),
-              targetResourceId: options.resourceId,
-              toAction,
-              type,
-            }),
-          ]
-
-          return builder
-        }
-
-        if (typeof toActionOrOptions === "function") {
-          return appendListener(toActionOrOptions, eventOptions)
-        }
-
-        return createFluentListenBuilder({
-          appendListener: listener => {
-            const data = builder.data!
-
-            data.listeners = [...data.listeners, listener]
-            return builder
-          },
-          listenOptions: toActionOrOptions,
-          targetResourceId: options.resourceId,
-          type,
-        })
-      },
-      mutate: (fn: (element: TElement) => void) => [
-        builder,
-        domMutate({
-          fn: fn as (element: unknown) => void,
-          targetResourceId: options.resourceId,
-        }),
-      ],
+          ),
+        ),
+      listen: listenOnChain,
+      mutate: (fn: (element: TElement) => void) =>
+        appendEffect(createMutateEffect(fn as (element: unknown) => void)),
       observeIntersection: (
         observerIdOrToAction:
           | string
@@ -1321,35 +1428,14 @@ const createTargetBuilder = <
             ) => AnyAction)
           | IntersectionObserverInit,
         maybeOptions?: IntersectionObserverInit,
-      ) => {
-        const toAction =
-          typeof observerIdOrToAction === "function"
-            ? observerIdOrToAction
-            : (toActionOrOptions as (
-                entries: IntersectionObserverEntry[],
-                observer: IntersectionObserver,
-              ) => AnyAction)
-        const observerId =
-          typeof observerIdOrToAction === "string"
-            ? observerIdOrToAction
-            : undefined
-        const observerOptions =
-          typeof observerIdOrToAction === "function"
-            ? (toActionOrOptions as IntersectionObserverInit | undefined)
-            : maybeOptions
-
-        return [
-          builder,
-          domObserveIntersection({
-            ...(observerId === undefined ? {} : { observerId }),
-            ...(observerOptions === undefined
-              ? {}
-              : { options: observerOptions }),
-            targetResourceId: options.resourceId,
-            toAction,
-          }),
-        ]
-      },
+      ) =>
+        appendEffect(
+          createObserveIntersectionEffect(
+            observerIdOrToAction,
+            toActionOrOptions,
+            maybeOptions,
+          ),
+        ),
       observeResize: (
         observerIdOrToAction:
           | string
@@ -1364,116 +1450,331 @@ const createTargetBuilder = <
             ) => AnyAction)
           | ResizeObserverOptions,
         maybeOptions?: ResizeObserverOptions,
-      ) => {
-        const toAction =
-          typeof observerIdOrToAction === "function"
-            ? observerIdOrToAction
-            : (toActionOrOptions as (
-                entries: ResizeObserverEntry[],
-                observer: ResizeObserver,
-              ) => AnyAction)
-        const observerId =
-          typeof observerIdOrToAction === "string"
-            ? observerIdOrToAction
-            : undefined
-        const observerOptions =
-          typeof observerIdOrToAction === "function"
-            ? (toActionOrOptions as ResizeObserverOptions | undefined)
-            : maybeOptions
-
-        return [
-          builder,
-          domObserveResize({
-            ...(observerId === undefined ? {} : { observerId }),
-            ...(observerOptions === undefined
-              ? {}
-              : { options: observerOptions }),
-            targetResourceId: options.resourceId,
-            toAction,
-          }),
-        ]
-      },
-      prependChildren: (...children: Node[]) => [
-        builder,
-        domMutate({
-          fn: element => prependChildrenOnTarget(element, children),
-          label: "prependChildren",
-          targetResourceId: options.resourceId,
-        }),
-      ],
-      replaceChildren: (...children: Node[]) => [
-        builder,
-        domMutate({
-          fn: element => replaceChildrenOnTarget(element, children),
-          label: "replaceChildren",
-          targetResourceId: options.resourceId,
-        }),
-      ],
+      ) =>
+        appendEffect(
+          createObserveResizeEffect(
+            observerIdOrToAction,
+            toActionOrOptions,
+            maybeOptions,
+          ),
+        ),
+      prependChildren: (...children: Node[]) =>
+        appendEffect(
+          createMutateEffect(
+            element => prependChildrenOnTarget(element, children),
+            "prependChildren",
+          ),
+        ),
+      replaceChildren: (...children: Node[]) =>
+        appendEffect(
+          createMutateEffect(
+            element => replaceChildrenOnTarget(element, children),
+            "replaceChildren",
+          ),
+        ),
       resource: () => builder,
-      setAttribute: (name: string, value: string) => [
-        builder,
-        domMutate({
-          fn: element => setAttributeOnTarget(element, name, value),
-          label: `setAttribute(${name})`,
-          targetResourceId: options.resourceId,
-        }),
-      ],
-      setChecked: (checked: boolean) => [
-        builder,
-        domMutate({
-          fn: element => setCheckedOnTarget(element, checked),
-          label: `setChecked(${checked ? "true" : "false"})`,
-          targetResourceId: options.resourceId,
-        }),
-      ],
-      setInnerHTML: (html: string) => [
-        builder,
-        domMutate({
-          fn: element => setInnerHTMLOnTarget(element, html),
-          label: "setInnerHTML",
-          targetResourceId: options.resourceId,
-        }),
-      ],
-      setProperty: (name: string, value: unknown) => [
-        builder,
-        domMutate({
-          fn: element => setPropertyOnTarget(element, name, value),
-          label: `setProperty(${name})`,
-          targetResourceId: options.resourceId,
-        }),
-      ],
+      setAttribute: (name: string, value: string) =>
+        appendEffect(
+          createMutateEffect(
+            element => setAttributeOnTarget(element, name, value),
+            `setAttribute(${name})`,
+          ),
+        ),
+      setChecked: (checked: boolean) =>
+        appendEffect(
+          createMutateEffect(
+            element => setCheckedOnTarget(element, checked),
+            `setChecked(${checked ? "true" : "false"})`,
+          ),
+        ),
+      setInnerHTML: (html: string) =>
+        appendEffect(
+          createMutateEffect(
+            element => setInnerHTMLOnTarget(element, html),
+            "setInnerHTML",
+          ),
+        ),
+      setProperty: (name: string, value: unknown) =>
+        appendEffect(
+          createMutateEffect(
+            element => setPropertyOnTarget(element, name, value),
+            `setProperty(${name})`,
+          ),
+        ),
       setSelectionRange: (
         start: number,
         end: number,
         direction?: TextSelectionDirection,
-      ) => [
-        builder,
-        domMutate({
-          fn: element =>
-            setSelectionRangeOnTarget(element, start, end, direction),
-          label:
+      ) =>
+        appendEffect(
+          createMutateEffect(
+            element =>
+              setSelectionRangeOnTarget(element, start, end, direction),
             direction === undefined
               ? `setSelectionRange(${start},${end})`
               : `setSelectionRange(${start},${end},${direction})`,
-          targetResourceId: options.resourceId,
+          ),
+        ),
+      setText: (text: string) =>
+        appendEffect(
+          createMutateEffect(
+            element => setTextOnTarget(element, text),
+            "setText",
+          ),
+        ),
+      setValue: (value: string) =>
+        appendEffect(
+          createMutateEffect(
+            element => setValueOnTarget(element, value),
+            "setValue",
+          ),
+        ),
+    })
+
+    for (const [type, helperName] of Object.entries(options.eventHelpers)) {
+      if (!helperName) {
+        continue
+      }
+
+      const target = chain as unknown as Record<string, unknown>
+      const helperKey = helperName as string
+
+      target[helperKey] = (
+        toActionOrOptions?: ((event: Event) => AnyAction) | DomListenOptions,
+        eventOptions?: DomListenOptions,
+      ) =>
+        typeof toActionOrOptions === "function"
+          ? listenOnChain(type, toActionOrOptions, eventOptions)
+          : listenOnChain(type, toActionOrOptions)
+    }
+
+    return chain
+  }
+
+  builder = Object.assign(
+    effect("domChain", {
+      acquire: domAcquire(options.acquire),
+      listeners: [] as Array<Effect<DomListenEffectData>>,
+    }),
+    {
+      appendChildren: (...children: Node[]) =>
+        createChainableTargetEffects([
+          builder,
+          createMutateEffect(
+            element => appendChildrenOnTarget(element, children),
+            "appendChildren",
+          ),
+        ]),
+      applyMethod: (name: string, args: readonly unknown[] = []) =>
+        createChainableTargetEffects([
+          builder,
+          createMutateEffect(
+            element => invokeMethod(element, name, args),
+            `applyMethod(${name})`,
+          ),
+        ]),
+      callMethod: (name: string, ...args: readonly unknown[]) =>
+        createChainableTargetEffects([
+          builder,
+          createMutateEffect(
+            element => invokeMethod(element, name, args),
+            `callMethod(${name})`,
+          ),
+        ]),
+      clearChildren: () =>
+        createChainableTargetEffects([
+          builder,
+          createMutateEffect(
+            element => replaceChildrenOnTarget(element, []),
+            "clearChildren",
+          ),
+        ]),
+      classList: (ops: ClassListOperations) =>
+        createChainableTargetEffects([
+          builder,
+          createMutateEffect(
+            element => applyClassListOps(element, ops),
+            formatClassListLabel(ops),
+          ),
+        ]),
+      classListSet: (classes: readonly string[]) =>
+        createChainableTargetEffects([
+          builder,
+          createMutateEffect(
+            element => applyClassListSet(element, classes),
+            `classListSet(${classes.join(" ")})`,
+          ),
+        ]),
+      dispatchEvent: (
+        typeOrEvent: string | Event,
+        init?: EventInit | CustomEventInit<unknown>,
+      ) =>
+        createChainableTargetEffects([
+          builder,
+          createMutateEffect(
+            element => dispatchEventOnTarget(element, typeOrEvent, init),
+            typeof typeOrEvent === "string"
+              ? `dispatchEvent(${typeOrEvent})`
+              : `dispatchEvent(${typeOrEvent.type})`,
+          ),
+        ]),
+      ownerDocument: () =>
+        createOwnerDocumentBuilder({
+          resourceId: autoQueryResourceId("ownerDocument", ""),
+          scopeResourceId: options.resourceId,
         }),
-      ],
-      setText: (text: string) => [
-        builder,
-        domMutate({
-          fn: element => setTextOnTarget(element, text),
-          label: "setText",
+      listen: (
+        type: string,
+        toActionOrOptions?: ((event: Event) => AnyAction) | DomListenOptions,
+        eventOptions?: DomListenOptions,
+      ) => {
+        if (typeof toActionOrOptions === "function") {
+          return appendListenerToBuilder(type, toActionOrOptions, eventOptions)
+        }
+
+        return createFluentListenBuilder({
+          appendListener: listener => {
+            const data = builder.data!
+
+            data.listeners = [...data.listeners, listener]
+            return builder
+          },
+          listenOptions: toActionOrOptions,
           targetResourceId: options.resourceId,
-        }),
-      ],
-      setValue: (value: string) => [
-        builder,
-        domMutate({
-          fn: element => setValueOnTarget(element, value),
-          label: "setValue",
-          targetResourceId: options.resourceId,
-        }),
-      ],
+          type,
+        })
+      },
+      mutate: (fn: (element: TElement) => void) =>
+        createChainableTargetEffects([
+          builder,
+          createMutateEffect(fn as (element: unknown) => void),
+        ]),
+      observeIntersection: (
+        observerIdOrToAction:
+          | string
+          | ((
+              entries: IntersectionObserverEntry[],
+              observer: IntersectionObserver,
+            ) => AnyAction),
+        toActionOrOptions?:
+          | ((
+              entries: IntersectionObserverEntry[],
+              observer: IntersectionObserver,
+            ) => AnyAction)
+          | IntersectionObserverInit,
+        maybeOptions?: IntersectionObserverInit,
+      ) =>
+        createChainableTargetEffects([
+          builder,
+          createObserveIntersectionEffect(
+            observerIdOrToAction,
+            toActionOrOptions,
+            maybeOptions,
+          ),
+        ]),
+      observeResize: (
+        observerIdOrToAction:
+          | string
+          | ((
+              entries: ResizeObserverEntry[],
+              observer: ResizeObserver,
+            ) => AnyAction),
+        toActionOrOptions?:
+          | ((
+              entries: ResizeObserverEntry[],
+              observer: ResizeObserver,
+            ) => AnyAction)
+          | ResizeObserverOptions,
+        maybeOptions?: ResizeObserverOptions,
+      ) =>
+        createChainableTargetEffects([
+          builder,
+          createObserveResizeEffect(
+            observerIdOrToAction,
+            toActionOrOptions,
+            maybeOptions,
+          ),
+        ]),
+      prependChildren: (...children: Node[]) =>
+        createChainableTargetEffects([
+          builder,
+          createMutateEffect(
+            element => prependChildrenOnTarget(element, children),
+            "prependChildren",
+          ),
+        ]),
+      replaceChildren: (...children: Node[]) =>
+        createChainableTargetEffects([
+          builder,
+          createMutateEffect(
+            element => replaceChildrenOnTarget(element, children),
+            "replaceChildren",
+          ),
+        ]),
+      resource: () => builder,
+      setAttribute: (name: string, value: string) =>
+        createChainableTargetEffects([
+          builder,
+          createMutateEffect(
+            element => setAttributeOnTarget(element, name, value),
+            `setAttribute(${name})`,
+          ),
+        ]),
+      setChecked: (checked: boolean) =>
+        createChainableTargetEffects([
+          builder,
+          createMutateEffect(
+            element => setCheckedOnTarget(element, checked),
+            `setChecked(${checked ? "true" : "false"})`,
+          ),
+        ]),
+      setInnerHTML: (html: string) =>
+        createChainableTargetEffects([
+          builder,
+          createMutateEffect(
+            element => setInnerHTMLOnTarget(element, html),
+            "setInnerHTML",
+          ),
+        ]),
+      setProperty: (name: string, value: unknown) =>
+        createChainableTargetEffects([
+          builder,
+          createMutateEffect(
+            element => setPropertyOnTarget(element, name, value),
+            `setProperty(${name})`,
+          ),
+        ]),
+      setSelectionRange: (
+        start: number,
+        end: number,
+        direction?: TextSelectionDirection,
+      ) =>
+        createChainableTargetEffects([
+          builder,
+          createMutateEffect(
+            element =>
+              setSelectionRangeOnTarget(element, start, end, direction),
+            direction === undefined
+              ? `setSelectionRange(${start},${end})`
+              : `setSelectionRange(${start},${end},${direction})`,
+          ),
+        ]),
+      setText: (text: string) =>
+        createChainableTargetEffects([
+          builder,
+          createMutateEffect(
+            element => setTextOnTarget(element, text),
+            "setText",
+          ),
+        ]),
+      setValue: (value: string) =>
+        createChainableTargetEffects([
+          builder,
+          createMutateEffect(
+            element => setValueOnTarget(element, value),
+            "setValue",
+          ),
+        ]),
     },
   ) as unknown as TargetBuilder<EventMap, TElement, EventHelpers>
 

@@ -20,7 +20,17 @@ This lifecycle guarantee is the main reason to use `dom.*` helpers instead of im
 
 ## Imperative DOM writes
 
-Every DOM resource builder exposes typed imperative-write helpers. Prefer `classList`, `classListSet`, `callMethod`, `applyMethod`, `setValue`, `setChecked`, `setSelectionRange`, `setProperty`, `setAttribute`, `setText`, and `dispatchEvent` when the intent fits, and reserve `.mutate(fn)` for one-off writes that none of them cover. These helpers return `[acquireEffect, mutateEffect]`, so the resource is acquired automatically.
+Every DOM resource builder exposes typed imperative-write helpers. Prefer `classList`, `classListSet`, `callMethod`, `applyMethod`, `setValue`, `setChecked`, `setSelectionRange`, `setProperty`, `setAttribute`, `setText`, and `dispatchEvent` when the intent fits, and reserve `.mutate(fn)` for one-off writes that none of them cover. Mutator returns remain array-compatible (`[acquireEffect, mutateEffect, ...]`) and are now chainable so multiple writes can be returned as one fluent value.
+
+```typescript
+dom
+  .fromElement(data.hiddenInput, "hidden")
+  .setValue(data.serialized)
+  .dispatchEvent("input")
+  .mutate(element => {
+    element.dataset.synced = "true"
+  })
+```
 
 ### `.classList(operations)`
 

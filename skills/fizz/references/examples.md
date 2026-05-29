@@ -173,6 +173,29 @@ const Loading = state({
 })
 ```
 
+## DOM mutator chaining on effect returns
+
+```typescript
+import { Enter, state } from "@tdreyno/fizz"
+import { dom } from "@tdreyno/fizz/browser"
+
+type Data = {
+  hiddenInput: HTMLInputElement
+  serializedLocation: string
+}
+
+const SyncHiddenInput = state<Enter, Data>({
+  Enter: ({ data }) =>
+    dom
+      .fromElement(data.hiddenInput, "locationHiddenInput")
+      .setValue(data.serializedLocation)
+      .dispatchEvent("input")
+      .mutate(element => {
+        element.setAttribute("data-synced", "true")
+      }),
+})
+```
+
 ## Parser and map pipeline
 
 ```typescript
