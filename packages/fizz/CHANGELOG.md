@@ -1,5 +1,56 @@
 # @tdreyno/fizz
 
+## 8.17.0
+
+### Minor Changes
+
+- 2613abe: Add support for using action creators directly as computed handler keys in state definitions. This reduces duplication and ties the dispatch API directly to handler maps.
+
+  **New capability:**
+
+  ```typescript
+  const save = action().withPayload<{ content: string }>()
+  const cancel = action("Cancel")
+
+  const Editing = state({
+    [save]: (data, payload, { update }) =>
+      update({ ...data, content: payload.content }),
+    [cancel]: () => Done(),
+  })
+  ```
+
+  **Key improvements:**
+  - **Reduced duplication:** Handler keys now come from the action creator itself, not a separate string literal
+  - **Better refactoring:** Renaming an action variable automatically updates the handler key
+  - **Optional naming:** Action creators can be unnamed with `action()` and use auto-generated IDs, or named with `action("Name")` for debugging
+  - **Full backward compatibility:** String-keyed handlers remain fully supported and unchanged
+
+  **Breaking changes:** None. This is strictly additive; existing string-keyed handlers and named actions continue to work unchanged.
+
+  **Type safety:** Payload inference for creator-keyed handlers is fully preserved. TypeScript correctly infers handler payload types from the action creator.
+
+  **Debugging:** Debug labels from `action("Name")` are retained and available in logs and error messages. Unnamed actions use generated stable IDs.
+
+  Also update architecture.md, api.md, and examples.md to showcase the new creator-key syntax alongside traditional string keys for backward-compatibility reference.
+
+- 1ef7bd6: Make DOM listener builders chain-first: `listen(...)` now accumulates listeners inside a `domChain` wrapper instead of exposing the legacy tuple-style listener payload.
+
+  Migration: update any code or tests that inspected the old listener array shape to read `data.acquire` and `data.listeners` on the returned `domChain` effect.
+
+- a5c562a: Add DOM convenience helpers `setInnerHTML(html)`, `clearChildren()`, `appendChildren(...children)`, `prependChildren(...children)`, `replaceChildren(...children)`, and `ownerDocument()` to reduce common `mutate(...)` boilerplate for content updates and document-scoped chaining.
+
+  `setInnerHTML(html)` is shorthand for property writes like `setProperty("innerHTML", html)`, while the children helpers are shorthands for `mutate(...)` calls around `append`, `prepend`, and `replaceChildren`.
+
+  Add `dispatchEvent(new Event(...))` sugar alongside `dispatchEvent(type, init?)` so prebuilt event instances can be dispatched without dropping to `mutate(...)`.
+
+  Also update browser DOM docs and browser-effects reference lists to include the new helpers.
+
+- 312bcff: Support plain-object single returns as same-state update shorthand in object-data handlers. This applies across core `state(...)` handlers and fluent callbacks, including common async, timer/interval, and browser DOM mapper patterns.
+
+  Guardrails remain explicit: array data states still require `update(...)`, and plain objects inside top-level returned handler arrays are not reinterpreted.
+
+  Docs, skill references, and proposal guidance now describe the shorthand and its boundaries.
+
 ## 8.16.0
 
 ### Minor Changes
