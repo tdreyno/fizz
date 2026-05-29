@@ -1,5 +1,11 @@
 # @tdreyno/fizz
 
+## 8.19.1
+
+### Patch Changes
+
+- cace856: Fix `TypeError: Illegal invocation` in outside-target helpers by calling `event.composedPath` with bound context (`composedPath.call(event)`) instead of as a detached function reference.
+
 ## 8.19.0
 
 ### Minor Changes
