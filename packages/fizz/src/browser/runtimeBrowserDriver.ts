@@ -90,10 +90,12 @@ export type RuntimeDomDriver = {
   createIntersectionObserver?: (
     callback: IntersectionObserverCallback,
     options?: IntersectionObserverInit,
+    target?: Element,
   ) => IntersectionObserver
   createResizeObserver?: (
     callback: ResizeObserverCallback,
     options?: ResizeObserverOptions,
+    target?: Element,
   ) => ResizeObserver
   document?: () => Document | null
   documentElement?: () => HTMLElement | null

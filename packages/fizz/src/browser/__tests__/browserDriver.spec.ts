@@ -141,6 +141,53 @@ describe("browserDriver", () => {
     })
   })
 
+  test("observer factories use the target element's realm constructors", () => {
+    const realmIntersection = jest.fn()
+    const realmResize = jest.fn()
+
+    class RealmIntersectionObserver {
+      constructor(callback: IntersectionObserverCallback) {
+        void callback
+        realmIntersection()
+      }
+
+      disconnect = jest.fn()
+      observe = jest.fn()
+      takeRecords = () => []
+      root = null
+      rootMargin = "0px"
+      thresholds = [0]
+      unobserve = jest.fn()
+    }
+
+    class RealmResizeObserver {
+      constructor(callback: ResizeObserverCallback) {
+        void callback
+        realmResize()
+      }
+
+      disconnect = jest.fn()
+      observe = jest.fn()
+      unobserve = jest.fn()
+    }
+
+    const realmWindow = {
+      IntersectionObserver: RealmIntersectionObserver,
+      ResizeObserver: RealmResizeObserver,
+    }
+
+    const target = {
+      nodeType: 1,
+      ownerDocument: { defaultView: realmWindow },
+    } as unknown as Element
+
+    browserDriver.createIntersectionObserver(() => undefined, undefined, target)
+    browserDriver.createResizeObserver(() => undefined, undefined, target)
+
+    expect(realmIntersection).toHaveBeenCalledTimes(1)
+    expect(realmResize).toHaveBeenCalledTimes(1)
+  })
+
   test("one-way methods delegate to global browser APIs", () => {
     const alertSpy = jest
       .spyOn(globalThis, "alert")

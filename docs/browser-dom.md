@@ -219,7 +219,7 @@ dom
   .replaceChildren(listHeader)
 ```
 
-`dispatchEvent(type, init?)` defaults to `{ bubbles: true, cancelable: true }` and supports `CustomEvent` payloads when `init.detail` is provided.
+`dispatchEvent(type, init?)` creates events in the target element's realm: events are synthesized from the element's `ownerDocument.defaultView` when available, falling back to `globalThis` if no realm exists. This ensures proper event behavior in jsdom and cross-realm DOM testing scenarios. Defaults to `{ bubbles: true, cancelable: true }` and supports `CustomEvent` payloads when `init.detail` is provided.
 
 You can pass options as the second parameter:
 
@@ -610,6 +610,8 @@ function onDocumentClick(event: MouseEvent) {
 ## Observers
 
 Fizz supports both `IntersectionObserver` and `ResizeObserver` with state-scoped lifecycle management.
+
+Observers are created in the observed element's realm: Fizz resolves the `IntersectionObserver` / `ResizeObserver` constructor from the target element's `ownerDocument.defaultView`, falling back to `globalThis` when no realm is available. This keeps observers working correctly in jsdom and cross-realm DOM setups (for example, elements that live inside an iframe document).
 
 ### Intersection Observer
 

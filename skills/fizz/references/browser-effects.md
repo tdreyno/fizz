@@ -104,6 +104,8 @@ Use these helpers instead of raw mutate blocks for common form writes:
 - `ownerDocument()`
 - `dispatchEvent(type, init?)`
 
+`dispatchEvent` creates events in the target element's realm. For element-based dispatch, events are created from the element's `ownerDocument.defaultView`, or fall back to `globalThis` if no realm is available. This ensures proper behavior in jsdom and cross-realm DOM scenarios.
+
 `dispatchEvent` also accepts a prebuilt event instance: `dispatchEvent(new Event("input"))`.
 
 `dispatchEvent` defaults to `bubbles: true` and `cancelable: true`; if `init.detail` is provided, Fizz dispatches a `CustomEvent`.
@@ -345,6 +347,8 @@ dom
 ---
 
 ## Intersection observer
+
+`observeIntersection` and `observeResize` create their observers in the observed element's realm. Fizz resolves the `IntersectionObserver` / `ResizeObserver` constructor from the target element's `ownerDocument.defaultView`, falling back to `globalThis` when no realm is available. This keeps observers working in jsdom and cross-realm DOM scenarios.
 
 ```typescript
 import { dom } from "@tdreyno/fizz/browser"

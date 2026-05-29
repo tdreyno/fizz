@@ -762,9 +762,13 @@ export const createRuntimeBrowserModule = (options: {
       driver?.createIntersectionObserver,
     )
 
-    const observer = createObserver((entries, currentObserver) => {
-      void options.runAction(data.toAction(entries, currentObserver))
-    }, data.options)
+    const observer = createObserver(
+      (entries, currentObserver) => {
+        void options.runAction(data.toAction(entries, currentObserver))
+      },
+      data.options,
+      target,
+    )
 
     observer.observe(target)
 
@@ -806,9 +810,13 @@ export const createRuntimeBrowserModule = (options: {
       driver?.createResizeObserver,
     )
 
-    const observer = createObserver((entries, currentObserver) => {
-      void options.runAction(data.toAction(entries, currentObserver))
-    }, data.options)
+    const observer = createObserver(
+      (entries, currentObserver) => {
+        void options.runAction(data.toAction(entries, currentObserver))
+      },
+      data.options,
+      target,
+    )
 
     observer.observe(target, data.options)
 

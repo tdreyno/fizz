@@ -10,6 +10,69 @@ import {
   WINDOW_EVENT_HELPERS,
 } from "./domEventHelpers.js"
 
+const resolveWindowFromTarget = (target: unknown): Window | undefined => {
+  // Check if target is a Window
+  if (
+    typeof target === "object" &&
+    target !== null &&
+    "document" in target &&
+    "dispatchEvent" in target
+  ) {
+    return target as Window
+  }
+
+  // Check if target is a Document
+  if (
+    typeof target === "object" &&
+    target !== null &&
+    "createElement" in target &&
+    "defaultView" in target
+  ) {
+    const doc = target as Document
+    return doc.defaultView ?? undefined
+  }
+
+  // Check if target has ownerDocument
+  if (
+    typeof target === "object" &&
+    target !== null &&
+    "ownerDocument" in target
+  ) {
+    const ownerDoc = (target as { ownerDocument?: unknown }).ownerDocument
+    if (ownerDoc && typeof ownerDoc === "object" && "defaultView" in ownerDoc) {
+      const doc = ownerDoc as Document
+      return doc.defaultView ?? undefined
+    }
+  }
+
+  return undefined
+}
+
+const getEventConstructor = (
+  target: unknown,
+  hasDetail: boolean,
+): typeof Event | typeof CustomEvent => {
+  const win = resolveWindowFromTarget(target)
+
+  if (win) {
+    if (
+      hasDetail &&
+      (win as unknown as Record<string, unknown>)["CustomEvent"]
+    ) {
+      return (win as unknown as Record<string, unknown>)[
+        "CustomEvent"
+      ] as typeof CustomEvent
+    }
+    if ((win as unknown as Record<string, unknown>)["Event"]) {
+      return (win as unknown as Record<string, unknown>)[
+        "Event"
+      ] as typeof Event
+    }
+  }
+
+  return hasDetail ? CustomEvent : Event
+}
+
 type AnyAction = Action<string, unknown>
 type EventMapLike = object
 type TextSelectionDirection = "backward" | "forward" | "none"
@@ -873,9 +936,8 @@ const dispatchEventOnTarget = (
       return
     }
 
-    const event = hasDetail
-      ? new CustomEvent(typeOrEvent, eventInit)
-      : new Event(typeOrEvent, eventInit)
+    const EventConstructor = getEventConstructor(node, hasDetail)
+    const event = new EventConstructor(typeOrEvent, eventInit)
 
     ;(dispatch as (event: Event) => boolean).call(node, event)
   })

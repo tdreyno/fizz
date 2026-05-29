@@ -627,16 +627,20 @@ const createDocumentBrowserDriver = (doc: Document): RuntimeBrowserDriver => {
     },
     body: () => doc.body,
     closest: (target, selector) => target.closest(selector),
-    createIntersectionObserver: callback => {
-      if (win?.IntersectionObserver) {
-        return new win.IntersectionObserver(callback)
+    createIntersectionObserver: (callback, _options, target) => {
+      const targetWin = target?.ownerDocument?.defaultView ?? win
+
+      if (targetWin?.IntersectionObserver) {
+        return new targetWin.IntersectionObserver(callback)
       }
 
       return createIntersectionObserverStub()
     },
-    createResizeObserver: callback => {
-      if (win?.ResizeObserver) {
-        return new win.ResizeObserver(callback)
+    createResizeObserver: (callback, _options, target) => {
+      const targetWin = target?.ownerDocument?.defaultView ?? win
+
+      if (targetWin?.ResizeObserver) {
+        return new targetWin.ResizeObserver(callback)
       }
 
       return createResizeObserverStub()

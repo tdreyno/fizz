@@ -184,4 +184,31 @@ describe("DOM resources", () => {
     expect(providedElement.value).toBe("serialized-location")
     expect(dispatchCount).toBe(1)
   })
+
+  test("should create events in the target element's realm", async () => {
+    const providedElement = new MockElementTarget()
+    let capturedEvent: Event | undefined
+
+    providedElement.addEventListener("custom", (event: Event) => {
+      capturedEvent = event
+    })
+
+    const Browsing = state<Enter>(
+      {
+        Enter: () =>
+          dom
+            .fromElement(providedElement as unknown as Element, "target")
+            .dispatchEvent("custom", { bubbles: true, detail: "test" }),
+      },
+      { name: "Browsing" },
+    )
+
+    const runtime = new Runtime(createInitialContext([Browsing()]), {}, {}, {})
+
+    await runtime.run(enter())
+
+    expect(capturedEvent).toBeDefined()
+    expect(capturedEvent?.type).toBe("custom")
+    expect((capturedEvent as CustomEvent).detail).toBe("test")
+  })
 })

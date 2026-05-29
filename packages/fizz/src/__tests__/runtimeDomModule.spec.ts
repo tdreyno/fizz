@@ -630,6 +630,68 @@ describe("runtimeDomModule", () => {
     expect(disconnectResize).toHaveBeenCalled()
   })
 
+  test("observer handlers forward the target element to observer factories", () => {
+    const state = createState("Ready")
+    const target = { nodeType: 1 } as Element
+    const createIntersectionObserver = jest.fn(
+      () =>
+        ({
+          disconnect: jest.fn(),
+          observe: jest.fn(),
+        }) as never,
+    )
+    const createResizeObserver = jest.fn(
+      () =>
+        ({
+          disconnect: jest.fn(),
+          observe: jest.fn(),
+        }) as never,
+    )
+
+    setStateResource({ key: "target", state: state as never, value: target })
+
+    const module = createRuntimeDomModule({
+      browserDriver: {
+        createIntersectionObserver,
+        createResizeObserver,
+      },
+      getCurrentState: () => state as never,
+      runAction: async () => undefined,
+    })
+
+    const intersectionOptions = { threshold: 0.5 }
+    const resizeOptions = { box: "border-box" as const }
+
+    module.effectHandlers.get("domObserveIntersection")!({
+      data: {
+        options: intersectionOptions,
+        targetResourceId: "target",
+        toAction: () => ({ payload: undefined, type: "Observed" }),
+      },
+      label: "domObserveIntersection",
+    } as never)
+
+    module.effectHandlers.get("domObserveResize")!({
+      data: {
+        options: resizeOptions,
+        targetResourceId: "target",
+        toAction: () => ({ payload: undefined, type: "Resized" }),
+      },
+      label: "domObserveResize",
+    } as never)
+
+    expect(createIntersectionObserver).toHaveBeenCalledWith(
+      expect.any(Function),
+      intersectionOptions,
+      target,
+    )
+    expect(createResizeObserver).toHaveBeenCalledWith(
+      expect.any(Function),
+      resizeOptions,
+      target,
+    )
+  })
+
   test("observer handlers throw when resource is not an element", () => {
     const state = createState("Ready")
 

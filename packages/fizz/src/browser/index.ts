@@ -51,6 +51,9 @@ const toQueryScope = (
   scope?: Document | Element,
 ): Document | Element | undefined => scope ?? globalThis.document
 
+const resolveWindowFromTarget = (target: Element | undefined) =>
+  target?.ownerDocument?.defaultView ?? undefined
+
 const baseDomDriver: RuntimeDomDriver = {
   activeElement: () => globalThis.document?.activeElement ?? null,
   addEventListener: (target, type, listener, options) => {
@@ -58,17 +61,19 @@ const baseDomDriver: RuntimeDomDriver = {
   },
   body: () => globalThis.document?.body ?? null,
   closest: (target, selector) => target.closest(selector),
-  createIntersectionObserver: (callback, options) => {
+  createIntersectionObserver: (callback, options, target) => {
     const Observer = requireGlobal(
-      globalThis.IntersectionObserver,
+      resolveWindowFromTarget(target)?.IntersectionObserver ??
+        globalThis.IntersectionObserver,
       "Fizz DOM driver expected globalThis.IntersectionObserver to exist in this environment.",
     )
 
     return new Observer(callback, options)
   },
-  createResizeObserver: callback => {
+  createResizeObserver: (callback, _options, target) => {
     const Observer = requireGlobal(
-      globalThis.ResizeObserver,
+      resolveWindowFromTarget(target)?.ResizeObserver ??
+        globalThis.ResizeObserver,
       "Fizz DOM driver expected globalThis.ResizeObserver to exist in this environment.",
     )
 
