@@ -1,4 +1,7 @@
-import type { RuntimeBrowserDriver } from "../browser/runtimeBrowserDriver.js"
+import type {
+  RuntimeBrowserDriver,
+  RuntimeDomQueryScope,
+} from "../browser/runtimeBrowserDriver.js"
 import type { Context } from "../context.js"
 import type { Runtime } from "../runtime.js"
 import type { RuntimeAsyncDriver } from "./asyncDriver.js"
@@ -29,6 +32,7 @@ type RuntimeModulesOptions<OutputAction> = {
   actionCommand: (action: RuntimeAction) => RuntimeDebugCommand
   asyncDriver: RuntimeAsyncDriver
   browserDriver?: RuntimeBrowserDriver
+  defaultDomQueryScope?: RuntimeDomQueryScope
   currentState: () => RuntimeState | undefined
   debugLabel?: string
   commandHandlers: RuntimeCommandHandlers
@@ -171,6 +175,9 @@ export const createRuntimeModules = <OutputAction>(
           ...(options.browserDriver === undefined
             ? {}
             : { browserDriver: options.browserDriver }),
+          ...(options.defaultDomQueryScope === undefined
+            ? {}
+            : { defaultDomQueryScope: options.defaultDomQueryScope }),
           getCurrentState: options.currentState,
           runAction: options.runAction,
           timerDriver: options.timerDriver,

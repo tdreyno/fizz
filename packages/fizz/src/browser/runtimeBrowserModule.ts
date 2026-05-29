@@ -47,7 +47,10 @@ import type {
   DomObserveResizeEffectData,
   ListenOrder,
 } from "./domEffects.js"
-import type { RuntimeBrowserDriver } from "./runtimeBrowserDriver.js"
+import type {
+  RuntimeBrowserDriver,
+  RuntimeDomQueryScope,
+} from "./runtimeBrowserDriver.js"
 
 export type RuntimeBrowserModule = {
   clear: () => void
@@ -67,6 +70,11 @@ const isEventTarget = (value: unknown): value is EventTarget =>
 
 const isElement = (value: unknown): value is Element =>
   !!value && typeof value === "object" && "nodeType" in value
+
+const isDomQueryScope = (value: unknown): value is RuntimeDomQueryScope =>
+  !!value &&
+  typeof value === "object" &&
+  ("querySelector" in value || "getElementById" in value)
 
 type OrderedListenerEntry = {
   invoke: EventListener
@@ -114,7 +122,7 @@ const removeOrderedListener = (options: {
   entry: OrderedListenerEntry
   handlers: OrderedListenerEntry[]
 }) => {
-  const index = options.handlers.findIndex(handler => handler === options.entry)
+  const index = options.handlers.indexOf(options.entry)
 
   if (index < 0) {
     return
@@ -166,6 +174,7 @@ const getListenGroupKey = (options: {
 
 export const createRuntimeBrowserModule = (options: {
   browserDriver?: RuntimeBrowserDriver
+  defaultDomQueryScope?: RuntimeDomQueryScope
   getCurrentState?: () => RuntimeState | undefined
   runAction: (action: RuntimeAction) => Promise<void>
   timerDriver: RuntimeTimerDriver
@@ -258,17 +267,14 @@ export const createRuntimeBrowserModule = (options: {
   ): unknown => {
     const scope =
       data.scopeResourceId === undefined
-        ? undefined
+        ? options.defaultDomQueryScope
         : resolveResource(state, data.scopeResourceId)
 
-    if (
-      data.scopeResourceId !== undefined &&
-      scope !== undefined &&
-      !isElement(scope) &&
-      !("querySelector" in (scope as object))
-    ) {
+    if (scope !== undefined && !isElement(scope) && !isDomQueryScope(scope)) {
       throw new Error(
-        `Resource \`${data.scopeResourceId}\` cannot be used as a DOM query scope.`,
+        data.scopeResourceId === undefined
+          ? "Configured defaultDomQueryScope cannot be used as a DOM query scope."
+          : `Resource \`${data.scopeResourceId}\` cannot be used as a DOM query scope.`,
       )
     }
 
@@ -278,7 +284,7 @@ export const createRuntimeBrowserModule = (options: {
         driver?.getElementById,
       )
 
-      return getElementById(data.args[0] ?? "", scope as Document | Element)
+      return getElementById(data.args[0] ?? "", scope)
     }
 
     if (data.method === "getElementsByClassName") {
@@ -287,10 +293,7 @@ export const createRuntimeBrowserModule = (options: {
         driver?.getElementsByClassName,
       )
 
-      return getElementsByClassName(
-        data.args[0] ?? "",
-        scope as Document | Element,
-      )
+      return getElementsByClassName(data.args[0] ?? "", scope)
     }
 
     if (data.method === "getElementsByName") {
@@ -299,7 +302,7 @@ export const createRuntimeBrowserModule = (options: {
         driver?.getElementsByName,
       )
 
-      return getElementsByName(data.args[0] ?? "", scope as Document | Element)
+      return getElementsByName(data.args[0] ?? "", scope)
     }
 
     if (data.method === "getElementsByTagName") {
@@ -308,10 +311,7 @@ export const createRuntimeBrowserModule = (options: {
         driver?.getElementsByTagName,
       )
 
-      return getElementsByTagName(
-        data.args[0] ?? "",
-        scope as Document | Element,
-      )
+      return getElementsByTagName(data.args[0] ?? "", scope)
     }
 
     if (data.method === "ownerDocument") {
@@ -329,7 +329,7 @@ export const createRuntimeBrowserModule = (options: {
         driver?.querySelector,
       )
 
-      return querySelector(data.args[0] ?? "", scope as Document | Element)
+      return querySelector(data.args[0] ?? "", scope)
     }
 
     if (data.method === "querySelectorAll") {
@@ -338,7 +338,7 @@ export const createRuntimeBrowserModule = (options: {
         driver?.querySelectorAll,
       )
 
-      return querySelectorAll(data.args[0] ?? "", scope as Document | Element)
+      return querySelectorAll(data.args[0] ?? "", scope)
     }
 
     const closest = assertDriverMethod("closest", driver?.closest)

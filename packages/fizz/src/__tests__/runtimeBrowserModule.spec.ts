@@ -1,6 +1,7 @@
 import { describe, expect, jest, test } from "@jest/globals"
 
 import { action } from "../action"
+import { createBrowserDriver } from "../browser/index"
 import type { RuntimeBrowserDriver } from "../browser/runtimeBrowserDriver"
 import { createRuntimeBrowserModule } from "../browser/runtimeBrowserModule"
 import { createControlledTimerDriver } from "../runtime/timerDriver"
@@ -65,6 +66,24 @@ const createDomDriver = (): RuntimeBrowserDriver => ({
     target.addEventListener(type, listener, options),
   removeEventListener: (target, type, listener, options) =>
     target.removeEventListener(type, listener, options),
+})
+
+test("createBrowserDriver can use defaultQueryScope for unscoped queries", () => {
+  const querySelector = jest.fn(() => ({ id: "scoped" }))
+  const scope = {
+    querySelector,
+  } as unknown as ShadowRoot
+  const driver = createBrowserDriver({
+    defaultQueryScope: scope,
+  })
+
+  const selected = driver.querySelector?.(".target")
+  const byId = driver.getElementById?.("profile")
+
+  expect(selected).toEqual({ id: "scoped" })
+  expect(byId).toEqual({ id: "scoped" })
+  expect(querySelector).toHaveBeenCalledWith(".target")
+  expect(querySelector).toHaveBeenCalledWith("#profile")
 })
 
 describe("runtime browser module — domListen coalescing", () => {
@@ -560,6 +579,37 @@ describe("runtime browser module — domListen coalescing", () => {
     expect(driver.ownerDocument).toHaveBeenCalledWith(ownerScope)
     expect(driver.querySelector).toHaveBeenCalledWith("", undefined)
     expect(driver.querySelectorAll).toHaveBeenCalledWith("", undefined)
+  })
+
+  test("domAcquire uses defaultDomQueryScope when query scope is omitted", () => {
+    const timerDriver = createControlledTimerDriver()
+    const state = createState("Scoped")
+    const queryScope = {
+      querySelector: () => null,
+    } as unknown as ShadowRoot
+    const driver = {
+      querySelector: jest.fn(() => ({ id: "scoped" })),
+    }
+
+    const module = createRuntimeBrowserModule({
+      browserDriver: driver as never,
+      defaultDomQueryScope: queryScope,
+      getCurrentState: () => state as never,
+      runAction: async () => undefined,
+      timerDriver,
+    })
+
+    module.effectHandlers.get("domAcquire")!({
+      data: {
+        args: [".root"],
+        kind: "query",
+        method: "querySelector",
+        resourceId: "selected",
+      },
+      label: "domAcquire",
+    } as never)
+
+    expect(driver.querySelector).toHaveBeenCalledWith(".root", queryScope)
   })
 
   test("domListen supports boolean options and ignores undefined actions", () => {

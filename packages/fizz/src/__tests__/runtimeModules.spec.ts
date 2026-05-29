@@ -2,6 +2,11 @@ import { describe, expect, jest, test } from "@jest/globals"
 
 import { createInitialContext } from "../context.js"
 import { createControlledAsyncDriver } from "../runtime/asyncDriver.js"
+import { createRuntimeBrowserGuardModule } from "../runtime/runtimeBrowserGuardModule.js"
+import {
+  getRuntimeBrowserModuleFactory,
+  registerRuntimeBrowserModuleFactory,
+} from "../runtime/runtimeBrowserModuleRegistry.js"
 import { createRuntimeModules } from "../runtime/runtimeModules.js"
 import { createControlledTimerDriver } from "../runtime/timerDriver.js"
 import { setStateResource } from "../stateResources.js"
@@ -144,5 +149,55 @@ describe("runtimeModules", () => {
 
     lastIndexOf.mockRestore()
     modules.disconnect()
+  })
+
+  test("forwards defaultDomQueryScope to the registered browser module factory", () => {
+    const state = createState("Ready")
+    const context = createInitialContext([state as never])
+    const capturedOptions: Array<Record<string, unknown>> = []
+    const previousFactory = getRuntimeBrowserModuleFactory()
+    const queryScope = {
+      querySelector: () => null,
+    } as unknown as ShadowRoot
+
+    registerRuntimeBrowserModuleFactory(options => {
+      capturedOptions.push(options as unknown as Record<string, unknown>)
+
+      return {
+        clear: () => undefined,
+        clearForGoBack: () => undefined,
+        clearForTransition: () => undefined,
+        effectHandlers: new Map(),
+      }
+    })
+
+    try {
+      const modules = createRuntimeModules({
+        actionCommand: action => action.type,
+        asyncDriver: createControlledAsyncDriver(),
+        commandHandlers: {} as never,
+        currentState: () => state as never,
+        defaultDomQueryScope: queryScope,
+        emitMonitor: () => undefined,
+        emitOutput: () => undefined,
+        getContext: () => context,
+        handleGoBack: () => [],
+        missingCommandHandlerPolicy: "warn",
+        runAction: async () => undefined,
+        runtime: {
+          currentState: () => state as never,
+        } as never,
+        timerDriver: createControlledTimerDriver(),
+      })
+
+      expect(capturedOptions).toHaveLength(1)
+      expect(capturedOptions[0]?.defaultDomQueryScope).toBe(queryScope)
+
+      modules.disconnect()
+    } finally {
+      registerRuntimeBrowserModuleFactory(
+        previousFactory ?? (() => createRuntimeBrowserGuardModule()),
+      )
+    }
   })
 })

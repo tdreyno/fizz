@@ -2,15 +2,12 @@ import { registerRuntimeBrowserModuleFactory } from "../runtime/runtimeBrowserMo
 import type {
   RuntimeBrowserDriver,
   RuntimeDomDriver,
+  RuntimeDomQueryScope,
 } from "./runtimeBrowserDriver.js"
 import { createRuntimeBrowserModule } from "./runtimeBrowserModule.js"
 
 export * from "./domEffects.js"
 export type { RuntimeDomDriver } from "./runtimeBrowserDriver.js"
-
-registerRuntimeBrowserModuleFactory(options =>
-  createRuntimeBrowserModule(options),
-)
 
 const assertBrowserMethod = <T>(
   methodName: string,
@@ -26,6 +23,9 @@ const assertBrowserMethod = <T>(
 }
 
 export type BrowserDriver = RuntimeBrowserDriver
+export type BrowserDriverOptions = {
+  defaultQueryScope?: RuntimeDomQueryScope
+}
 
 const requireGlobal = <T>(value: T | null | undefined, message: string): T => {
   if (value !== undefined && value !== null) {
@@ -35,9 +35,11 @@ const requireGlobal = <T>(value: T | null | undefined, message: string): T => {
   throw new Error(message)
 }
 
-const toScopeDocument = (scope?: Document | Element): Document | undefined => {
+const toScopeDocument = (
+  scope: RuntimeDomQueryScope | undefined,
+): Document | undefined => {
   if (!scope) {
-    return globalThis.document
+    return undefined
   }
 
   if ("getElementById" in scope) {
@@ -48,13 +50,25 @@ const toScopeDocument = (scope?: Document | Element): Document | undefined => {
 }
 
 const toQueryScope = (
-  scope?: Document | Element,
-): Document | Element | undefined => scope ?? globalThis.document
+  scope: RuntimeDomQueryScope | undefined,
+  defaultScope: RuntimeDomQueryScope | undefined,
+): RuntimeDomQueryScope | undefined =>
+  scope ?? defaultScope ?? globalThis.document ?? undefined
 
 const resolveWindowFromTarget = (target: Element | undefined) =>
   target?.ownerDocument?.defaultView ?? undefined
 
-const baseDomDriver: RuntimeDomDriver = {
+const hasGetElementsByClassName = (
+  scope: RuntimeDomQueryScope,
+): scope is Document | Element => "getElementsByClassName" in scope
+
+const hasGetElementsByTagName = (
+  scope: RuntimeDomQueryScope,
+): scope is Document | Element => "getElementsByTagName" in scope
+
+const createBaseDomDriver = (
+  options: BrowserDriverOptions = {},
+): RuntimeDomDriver => ({
   activeElement: () => globalThis.document?.activeElement ?? null,
   addEventListener: (target, type, listener, options) => {
     target.addEventListener(type, listener, options)
@@ -82,42 +96,42 @@ const baseDomDriver: RuntimeDomDriver = {
   document: () => globalThis.document ?? null,
   documentElement: () => globalThis.document?.documentElement ?? null,
   getElementById: (id, scope) => {
-    const documentScope = toScopeDocument(scope)
+    const queryScope = toQueryScope(scope, options.defaultQueryScope)
+    const documentScope = toScopeDocument(queryScope)
 
     if (documentScope) {
       return documentScope.getElementById(id)
     }
 
-    return toQueryScope(scope)?.querySelector(`#${id}`) ?? null
+    return queryScope?.querySelector(`#${id}`) ?? null
   },
   getElementsByClassName: (className, scope) => {
-    const queryScope = toQueryScope(scope)
+    const queryScope = toQueryScope(scope, options.defaultQueryScope)
 
-    if (!queryScope) {
+    if (!queryScope || !hasGetElementsByClassName(queryScope)) {
       return []
     }
 
-    return [...queryScope.getElementsByClassName(className)]
+    return Array.from(queryScope.getElementsByClassName(className))
   },
   getElementsByName: (name, scope) => {
-    const documentScope = toScopeDocument(scope)
+    const queryScope = toQueryScope(scope, options.defaultQueryScope)
+    const documentScope = toScopeDocument(queryScope)
 
     if (documentScope) {
       return [...documentScope.getElementsByName(name)]
     }
 
-    return [
-      ...(toQueryScope(scope)?.querySelectorAll(`[name="${name}"]`) ?? []),
-    ]
+    return [...(queryScope?.querySelectorAll(`[name="${name}"]`) ?? [])]
   },
   getElementsByTagName: (tagName, scope) => {
-    const queryScope = toQueryScope(scope)
+    const queryScope = toQueryScope(scope, options.defaultQueryScope)
 
-    if (!queryScope) {
+    if (!queryScope || !hasGetElementsByTagName(queryScope)) {
       return []
     }
 
-    return [...queryScope.getElementsByTagName(tagName)]
+    return Array.from(queryScope.getElementsByTagName(tagName))
   },
   history: () => {
     const win = globalThis.window
@@ -193,19 +207,24 @@ const baseDomDriver: RuntimeDomDriver = {
     return null
   },
   querySelector: (selector, scope) =>
-    toQueryScope(scope)?.querySelector(selector) ?? null,
+    toQueryScope(scope, options.defaultQueryScope)?.querySelector(selector) ??
+    null,
   querySelectorAll: (selector, scope) => [
-    ...(toQueryScope(scope)?.querySelectorAll(selector) ?? []),
+    ...(toQueryScope(scope, options.defaultQueryScope)?.querySelectorAll(
+      selector,
+    ) ?? []),
   ],
   removeEventListener: (target, type, listener, options) => {
     target.removeEventListener(type, listener, options)
   },
   visualViewport: () => globalThis.visualViewport ?? null,
   window: () => globalThis.window ?? null,
-}
+})
 
-export const browserDriver: BrowserDriver = {
-  ...baseDomDriver,
+export const createBrowserDriver = (
+  options: BrowserDriverOptions = {},
+): BrowserDriver => ({
+  ...createBaseDomDriver(options),
   alert: message => {
     const alertMethod = assertBrowserMethod("alert", globalThis.alert)
 
@@ -335,6 +354,19 @@ export const browserDriver: BrowserDriver = {
 
     return promptMethod(message)
   },
-}
+})
+
+registerRuntimeBrowserModuleFactory(options =>
+  createRuntimeBrowserModule({
+    ...options,
+    browserDriver:
+      options.browserDriver ??
+      createBrowserDriver({
+        defaultQueryScope: options.defaultDomQueryScope,
+      }),
+  }),
+)
+
+export const browserDriver: BrowserDriver = createBrowserDriver()
 
 export const domDriver: BrowserDriver = browserDriver

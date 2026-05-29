@@ -4,6 +4,7 @@ import type { Action } from "./action.js"
 import type {
   BrowserConfirmResult,
   RuntimeBrowserDriver,
+  RuntimeDomQueryScope,
   RuntimeHistoryTarget,
   RuntimeLocationTarget,
 } from "./browser/runtimeBrowserDriver.js"
@@ -599,7 +600,7 @@ const createLocationTarget = (win?: Window): RuntimeLocationTarget | null => {
 
 const toDocumentScope = (
   doc: Document,
-  scope?: Document | Element,
+  scope?: RuntimeDomQueryScope,
 ): Document | undefined => {
   if (!scope) {
     return doc
@@ -614,8 +615,16 @@ const toDocumentScope = (
 
 const toQueryScope = (
   doc: Document,
-  scope?: Document | Element,
-): Document | Element => scope ?? doc
+  scope?: RuntimeDomQueryScope,
+): RuntimeDomQueryScope => scope ?? doc
+
+const hasGetElementsByClassName = (
+  scope: RuntimeDomQueryScope,
+): scope is Document | Element => "getElementsByClassName" in scope
+
+const hasGetElementsByTagName = (
+  scope: RuntimeDomQueryScope,
+): scope is Document | Element => "getElementsByTagName" in scope
 
 const createDocumentBrowserDriver = (doc: Document): RuntimeBrowserDriver => {
   const win = doc.defaultView ?? undefined
@@ -656,9 +665,15 @@ const createDocumentBrowserDriver = (doc: Document): RuntimeBrowserDriver => {
 
       return toQueryScope(doc, scope).querySelector(`#${id}`)
     },
-    getElementsByClassName: (className, scope) => [
-      ...toQueryScope(doc, scope).getElementsByClassName(className),
-    ],
+    getElementsByClassName: (className, scope) => {
+      const queryScope = toQueryScope(doc, scope)
+
+      if (!hasGetElementsByClassName(queryScope)) {
+        return []
+      }
+
+      return Array.from(queryScope.getElementsByClassName(className))
+    },
     getElementsByName: (name, scope) => {
       const documentScope = toDocumentScope(doc, scope)
 
@@ -668,9 +683,15 @@ const createDocumentBrowserDriver = (doc: Document): RuntimeBrowserDriver => {
 
       return [...toQueryScope(doc, scope).querySelectorAll(`[name="${name}"]`)]
     },
-    getElementsByTagName: (tagName, scope) => [
-      ...toQueryScope(doc, scope).getElementsByTagName(tagName),
-    ],
+    getElementsByTagName: (tagName, scope) => {
+      const queryScope = toQueryScope(doc, scope)
+
+      if (!hasGetElementsByTagName(queryScope)) {
+        return []
+      }
+
+      return Array.from(queryScope.getElementsByTagName(tagName))
+    },
     history: () => createHistoryTarget(win),
     location: () => createLocationTarget(win),
     querySelector: (selector, scope) =>

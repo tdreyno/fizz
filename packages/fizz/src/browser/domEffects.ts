@@ -1077,24 +1077,54 @@ const containsTargetNode = (
   target: unknown,
 ): boolean => !!element && isDomNode(target) && element.contains(target)
 
+const containsPathNode = (
+  element: Element | null | undefined,
+  path: ReadonlyArray<EventTarget>,
+): boolean => !!element && path.some(item => item === element)
+
+const getComposedPath = (
+  event: Event,
+): ReadonlyArray<EventTarget> | undefined => {
+  if (!("composedPath" in event)) {
+    return undefined
+  }
+
+  const composedPath = (event as Event & { composedPath?: () => EventTarget[] })
+    .composedPath
+
+  if (typeof composedPath !== "function") {
+    return undefined
+  }
+
+  return composedPath()
+}
+
 const isOutsideTarget = (options: {
   event: Event
   includeTrigger?: Element | null | undefined
   inside: Array<Element | null | undefined>
 }): boolean => {
   const target = options.event.target
+  const path = getComposedPath(options.event)
 
   if (!isDomNode(target)) {
     return false
   }
 
-  if (containsTargetNode(options.includeTrigger, target)) {
+  if (
+    containsTargetNode(options.includeTrigger, target) ||
+    (path !== undefined && containsPathNode(options.includeTrigger, path))
+  ) {
     return false
   }
 
   return options.inside
     .filter(Boolean)
-    .every(element => !element?.contains(target))
+    .every(
+      element =>
+        !element?.contains(target) &&
+        (path === undefined || !containsPathNode(element, path)),
+    )
 }
 
 const createFluentListenBuilder = <

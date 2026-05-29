@@ -10,6 +10,8 @@ export type RuntimeDomAcquireQueryMethod =
   | "querySelector"
   | "querySelectorAll"
 
+export type RuntimeDomQueryScope = Document | Element | ShadowRoot
+
 export type RuntimeHistoryTarget = EventTarget & {
   readonly length: number
   readonly scrollRestoration: ScrollRestoration
@@ -99,22 +101,25 @@ export type RuntimeDomDriver = {
   ) => ResizeObserver
   document?: () => Document | null
   documentElement?: () => HTMLElement | null
-  getElementById?: (id: string, scope?: Document | Element) => Element | null
+  getElementById?: (id: string, scope?: RuntimeDomQueryScope) => Element | null
   getElementsByClassName?: (
     className: string,
-    scope?: Document | Element,
+    scope?: RuntimeDomQueryScope,
   ) => Element[]
-  getElementsByName?: (name: string, scope?: Document | Element) => Element[]
+  getElementsByName?: (name: string, scope?: RuntimeDomQueryScope) => Element[]
   getElementsByTagName?: (
     tagName: string,
-    scope?: Document | Element,
+    scope?: RuntimeDomQueryScope,
   ) => Element[]
   ownerDocument?: (scope?: unknown) => Document | null
   querySelector?: (
     selector: string,
-    scope?: Document | Element,
+    scope?: RuntimeDomQueryScope,
   ) => Element | null
-  querySelectorAll?: (selector: string, scope?: Document | Element) => Element[]
+  querySelectorAll?: (
+    selector: string,
+    scope?: RuntimeDomQueryScope,
+  ) => Element[]
   removeEventListener?: (
     target: EventTarget,
     type: string,

@@ -7,8 +7,42 @@ This API works with **core Fizz** directly—no React required. Use it with vani
 Browser and DOM effects are available through the `@tdreyno/fizz/browser` entrypoint:
 
 ```typescript
-import { browserDriver, dom } from "@tdreyno/fizz/browser"
+import { browserDriver, createBrowserDriver, dom } from "@tdreyno/fizz/browser"
 ```
+
+## Shadow DOM support
+
+Fizz supports Web Components and Shadow DOM as a first-class workflow.
+
+Use `defaultDomQueryScope` at runtime creation to make unscoped query effects (`dom.querySelector`, `dom.getElementById`, `dom.input`, etc.) resolve against a shadow root by default:
+
+```typescript
+import { createRuntime, enter } from "@tdreyno/fizz"
+import { browserDriver } from "@tdreyno/fizz/browser"
+
+const root = hostElement.shadowRoot
+
+const runtime = createRuntime(machine, machine.states.Ready(), {
+  browserDriver,
+  defaultDomQueryScope: root ?? undefined,
+})
+
+await runtime.run(enter())
+```
+
+For advanced setup, build a driver that bakes the default query scope in:
+
+```typescript
+import { createBrowserDriver } from "@tdreyno/fizz/browser"
+
+const browserDriver = createBrowserDriver({
+  defaultQueryScope: hostElement.shadowRoot ?? undefined,
+})
+```
+
+Both approaches are additive and opt-in. Existing runtime behavior remains unchanged when no default scope is provided.
+
+`dom.outsidePointerDown(...)` and `dom.outsideFocusIn(...)` now prefer `event.composedPath()` when available, which makes outside detection work correctly across shadow boundaries and retargeted events.
 
 ## Browser effects
 

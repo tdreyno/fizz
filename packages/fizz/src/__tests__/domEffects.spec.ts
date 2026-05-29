@@ -529,6 +529,45 @@ describe("dom effects", () => {
     ).toBeUndefined()
   })
 
+  test("outside helpers treat composedPath entries as inside targets", () => {
+    const outside = action("Outside")
+    const inside = action("Inside")
+    type OutsideMatchAction =
+      | ReturnType<typeof outside>
+      | ReturnType<typeof inside>
+    type OutsideToAction = (event: Event) => OutsideMatchAction | undefined
+
+    const root = nodeLike()
+    const trigger = nodeLike()
+    const external = nodeLike()
+
+    const pointerToAction = dom
+      .outsidePointerDown({ includeTrigger: trigger, inside: [root] })
+      .chainToAction(outside, inside).data.listeners[0]?.data?.toAction as
+      | OutsideToAction
+      | undefined
+
+    const focusToAction = dom
+      .outsideFocusIn({ includeTrigger: trigger, inside: [root] })
+      .chainToAction(outside, inside).data.listeners[0]?.data?.toAction as
+      | OutsideToAction
+      | undefined
+
+    const composedInside = {
+      composedPath: () => [external, root],
+      target: external,
+    } as unknown as Event
+    const composedTrigger = {
+      composedPath: () => [external, trigger],
+      target: external,
+    } as unknown as Event
+
+    expect(pointerToAction?.(composedInside)?.type).toBe("Inside")
+    expect(pointerToAction?.(composedTrigger)?.type).toBe("Inside")
+    expect(focusToAction?.(composedInside)?.type).toBe("Inside")
+    expect(focusToAction?.(composedTrigger)?.type).toBe("Inside")
+  })
+
   test("isBypassedLinkActivation matches common SPA bypass checks", () => {
     expect(
       isBypassedLinkActivation({

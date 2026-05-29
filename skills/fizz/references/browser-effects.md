@@ -4,6 +4,11 @@ Use this reference when the task involves browser DOM access, event listeners, i
 
 All browser effects are imported from `@tdreyno/fizz/browser` unless otherwise noted. They must be used with a runtime that includes the browser module (pass `browserDriver` / `domDriver` at runtime creation).
 
+For Web Components and Shadow DOM, you can opt into scoped defaults with either:
+
+- `defaultDomQueryScope` on runtime creation
+- `createBrowserDriver({ defaultQueryScope })`
+
 ---
 
 ## Why browser effects matter
@@ -523,6 +528,32 @@ const runtime = new Runtime(
 
 await runtime.run(enter())
 ```
+
+To make unscoped DOM query effects resolve inside a shadow root by default:
+
+```typescript
+const runtime = new Runtime(
+  createInitialContext([MyState(initialData)]),
+  actions,
+  {},
+  {
+    browserDriver,
+    defaultDomQueryScope: hostElement.shadowRoot ?? undefined,
+  },
+)
+```
+
+Or bake the default scope into the driver itself:
+
+```typescript
+import { createBrowserDriver } from "@tdreyno/fizz/browser"
+
+const browserDriver = createBrowserDriver({
+  defaultQueryScope: hostElement.shadowRoot ?? undefined,
+})
+```
+
+`dom.outsidePointerDown(...)` and `dom.outsideFocusIn(...)` prefer `event.composedPath()` when available, which keeps outside detection correct for shadow-boundary event retargeting.
 
 In tests, pass a mock driver:
 

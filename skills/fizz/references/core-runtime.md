@@ -225,7 +225,9 @@ Modeling guidance:
 Driver guidance:
 
 - runtime creation accepts `browserDriver`
+- runtime creation also accepts `defaultDomQueryScope` for unscoped DOM query effects
 - import browser runtime drivers from `@tdreyno/fizz/browser`
+- use `createBrowserDriver({ defaultQueryScope })` for Shadow DOM defaults
 - `browserDriver` and `domDriver` are not exported from root `@tdreyno/fizz`
 
 ## Runtime Boot Sequence

@@ -1,5 +1,8 @@
 import { beforeEnter, enter } from "./action.js"
-import type { RuntimeBrowserDriver } from "./browser/runtimeBrowserDriver.js"
+import type {
+  RuntimeBrowserDriver,
+  RuntimeDomQueryScope,
+} from "./browser/runtimeBrowserDriver.js"
 import type { Context } from "./context.js"
 import { createInitialContext } from "./context.js"
 import type { MachineDefinition } from "./createMachine.js"
@@ -91,6 +94,7 @@ export { createControlledTimerDriver } from "./runtime/timerDriver.js"
 export type RuntimeOptions = {
   asyncDriver?: RuntimeAsyncDriver
   browserDriver?: RuntimeBrowserDriver
+  defaultDomQueryScope?: RuntimeDomQueryScope
   commandHandlers?: RuntimeCommandHandlers
   commandMissingHandler?: "error" | "noop" | "warn"
   clients?: Record<string, unknown>
@@ -231,6 +235,9 @@ export class Runtime<
       ...(options.browserDriver === undefined
         ? {}
         : { browserDriver: options.browserDriver }),
+      ...(options.defaultDomQueryScope === undefined
+        ? {}
+        : { defaultDomQueryScope: options.defaultDomQueryScope }),
       currentState: () => this.context.currentState as RuntimeState | undefined,
       ...(options.debugLabel === undefined
         ? {}
@@ -724,6 +731,10 @@ const splitCreateRuntimeOptions = (options: CreateRuntimeOptions = {}) => {
 
   if (options.browserDriver) {
     runtime.browserDriver = options.browserDriver
+  }
+
+  if (options.defaultDomQueryScope) {
+    runtime.defaultDomQueryScope = options.defaultDomQueryScope
   }
 
   if (options.commandHandlers) {
