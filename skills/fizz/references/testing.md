@@ -67,6 +67,35 @@ expect(outcome).toEqual({ type: "succeeded", value: "persisted" })
 
 The two-argument `flushAsync(asyncId, options?)` returns a `FlushAsyncOutcome` (`nothing` | `succeeded` | `failed` | `aborted`). The zero-argument `flushAsync()` is the no-outcome driver flush shorthand.
 
+## Disconnect And Leak Checks
+
+For teardown-sensitive tests:
+
+- call `runtime.disconnect()`
+- call `runtime.assertCleanTeardown()`
+- when the test covers async teardown, assert both that the abort signal fired and that no follow-up actions ran after disconnect
+
+Expected clean buckets after disconnect:
+
+- `asyncOps`
+- `timers`
+- `listeners`
+- `resources`
+- `channelQueues`
+
+Minimal disconnect fixture:
+
+```typescript
+let aborted = false
+
+await runtime.run(enter())
+runtime.disconnect()
+await asyncDriver.flush()
+
+expect(aborted).toBe(true)
+expect(() => runtime.assertCleanTeardown()).not.toThrow()
+```
+
 ## Timer, Interval, And Frame Tests
 
 When a state uses timers or intervals:

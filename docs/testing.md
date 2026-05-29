@@ -42,16 +42,16 @@ const machine = createMachine({
 const runtime = createRuntime(machine, Editing({ events: [] }))
 
 await runtime.run(enter())
-
-For teardown-sensitive tests, also assert runtime diagnostics:
-
-- call `runtime.getDiagnosticsSnapshot()` to inspect active listeners/resources/timers/async/queues
-- call `runtime.assertCleanTeardown()` after `runtime.disconnect()` for leak checks
 await runtime.run(save())
 
 expect(runtime.currentState().is(machine.states.Editing)).toBeTruthy()
 expect(runtime.currentState().data.events).toEqual(["enter", "save"])
 ```
+
+For teardown-sensitive tests, also assert runtime diagnostics:
+
+- call `runtime.getDiagnosticsSnapshot()` to inspect active listeners/resources/timers/async/queues
+- call `runtime.assertCleanTeardown()` after `runtime.disconnect()` for leak checks
 
 Prefer asserting state identity and machine-visible data rather than internal scheduler details.
 
@@ -201,8 +201,6 @@ The exported shape is:
 - resource helpers such as `resources()`, `waitForResource(key, options?)`, and `waitForResourceRelease(key, options?)`
 - read-only inspection helpers such as recorded outputs and recorded state snapshots
 
-### Explicit Controlled Time In Harness Tests
-
 ### Async Introspection In Harness Tests
 
 The harness exposes three inspection helpers for checking pending async work and a `flushAsync` overload for asserting the outcome.
@@ -244,6 +242,52 @@ The two-argument form of `harness.flushAsync(asyncId, options?)` returns a `Flus
 - `{ type: "succeeded"; value: unknown }` — work resolved
 - `{ type: "failed"; error: unknown }` — work rejected
 - `{ type: "aborted" }` — timed out or cancelled before settling
+
+## Disconnect And Leak Checks
+
+When the test exercises teardown, assert the disconnect contract directly:
+
+1. call `runtime.disconnect()`
+2. call `runtime.assertCleanTeardown()`
+3. if the test is about cancellation, also assert that the async helper's abort signal fired and that no follow-up actions ran
+
+After a clean disconnect, these diagnostics buckets should usually be empty:
+
+- `asyncOps`
+- `timers`
+- `listeners`
+- `resources`
+- `channelQueues`
+
+Minimal abort-verification fixture:
+
+```typescript
+let aborted = false
+
+const Loading = state({
+  Enter: () =>
+    customJSONAsync(
+      signal =>
+        new Promise((_resolve, reject) => {
+          signal.addEventListener(
+            "abort",
+            () => {
+              aborted = true
+              reject(new DOMException("Aborted", "AbortError"))
+            },
+            { once: true },
+          )
+        }),
+    ).chainToAction(loaded, failed),
+})
+
+await runtime.run(enter())
+runtime.disconnect()
+await asyncDriver.flush()
+
+expect(aborted).toBe(true)
+expect(() => runtime.assertCleanTeardown()).not.toThrow()
+```
 
 ### Explicit Controlled Time In Harness Tests
 

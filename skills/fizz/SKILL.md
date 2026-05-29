@@ -67,7 +67,7 @@ Use `startAsync(...)` for generic promise-backed work. Use `requestJSONAsync(...
 
 ### 5. Treat cancellation and stale completions as part of the design
 
-If async work may outlive the current state instance, give it an explicit `asyncId` and decide whether the state should react to `AsyncCancelled`.
+If async work may outlive the current state instance, give it an explicit `asyncId` and decide whether the state should react to `AsyncCancelled`. `runtime.disconnect()` is full teardown: it clears pending debounces, aborts in-flight helper async work, and discards post-disconnect completions.
 
 ### 6. Keep React integration thin
 

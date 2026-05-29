@@ -17,6 +17,7 @@ The current hook implementation in `packages/fizz-react/src/useMachine.ts`:
 - binds actions through `runtime.bindActions(actions)`
 - subscribes to runtime context changes with `runtime.onContextChange(...)`
 - runs `enter()` in an effect after mount
+- calls `runtime.disconnect()` on unmount through the store lifecycle
 
 The hook options include a `driver` field, which is forwarded to `createRuntime(...)` as `browserDriver`.
 
@@ -112,6 +113,14 @@ const runUntil = useRunUntil(machine.runtime)
 
 await runUntil(save(), matchState(MyMachine.states.Saved))
 ```
+
+Unmount also applies the core runtime async teardown contract:
+
+- pending debounce timers are cleared
+- in-flight async helper work is aborted
+- settled results after unmount are discarded instead of dispatching back into the runtime
+
+In StrictMode development builds, mount and unmount may happen more than once. Keep teardown code idempotent and treat aborts during unmount as expected.
 
 ### Use `machine.selectors` for derived render values
 

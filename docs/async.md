@@ -198,6 +198,42 @@ When an active async operation is explicitly cancelled, Fizz dispatches `AsyncCa
 }
 ```
 
+## Async lifecycle on `disconnect()`
+
+`runtime.disconnect()` is full runtime teardown, not just state-exit cleanup.
+
+Current behavior is pinned by `packages/fizz/src/__tests__/runtimeDisconnectAsync.spec.ts`:
+
+- pending `debounceAsync(...)` timers are cleared before they start running
+- in-flight `startAsync(...)`, `debounceAsync(...)`, `customJSONAsync(...)`, and `requestJSONAsync(...)` work has its abort signal fired
+- post-disconnect completions are discarded, so chained `resolve` and `reject` handlers do not dispatch actions after teardown
+- pending `waitUntil(...)`, `waitUntilState(...)`, and `waitUntilOutput(...)` calls reject with `RuntimeDisconnectedError`
+
+State exit and runtime disconnect differ like this:
+
+- state exit cleans up work owned by the exiting state instance
+- `runtime.disconnect()` tears down the whole runtime and all module-owned async work
+
+For `requestJSONAsync(...)`, abort is still best-effort at the network layer. The browser-side `fetch` is aborted immediately, but the server may already have received the request.
+
+If teardown should try to finish the latest debounced request before disconnecting, flush it explicitly and then disconnect in `finally`:
+
+```typescript
+async function prepareForClose(runtime: Runtime<any, any>) {
+  try {
+    const outcome = await runtime.flushAsync("draft-autosave", {
+      timeoutMs: 10_000,
+    })
+
+    return outcome.type === "succeeded"
+  } finally {
+    runtime.disconnect()
+  }
+}
+```
+
+If some work must outlive the machine teardown, do not keep it inside a Fizz-managed async helper. Hand that work off to controller code or another lifecycle owner before calling `disconnect()`.
+
 ## JSON requests with `requestJSONAsync`
 
 `requestJSONAsync(input, init?)` is a convenience builder for the common `fetch(...).json()` flow.
@@ -737,8 +773,6 @@ Cancellation and stale completion behavior
         v
        completion is ignored
 ```
-
-## Related Docs
 
 ## Async introspection and flush
 

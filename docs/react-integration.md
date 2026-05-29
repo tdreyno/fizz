@@ -39,6 +39,7 @@ Under the hood, the hook:
 - binds the action creators through `runtime.bindActions(...)`
 - subscribes to `runtime.onContextChange(...)`
 - runs `enter()` in an effect after mount
+- calls `runtime.disconnect()` on unmount
 
 ```text
 Component / hook / runtime flow
@@ -59,6 +60,21 @@ useMachine(machine, initialState, ...)
   v
 returns { currentState, states, context, actions, runtime }
 ```
+
+## Unmount teardown semantics
+
+`useMachine(...)` and `createMachineContext(...)` both tear the runtime down with `runtime.disconnect()` on unmount.
+
+That means React unmount gets the same guarantees documented in [Async](./async.md):
+
+- pending debounced async timers are cleared
+- in-flight async helper work is aborted
+- post-unmount async completions do not dispatch actions back into the dead runtime
+- pending wait helpers reject instead of hanging
+
+In React StrictMode development builds, mount and unmount may happen more than once. Treat disconnect-side aborts as expected and keep controller cleanup idempotent.
+
+If a close path needs to finish the latest autosave before unmount-driven teardown, flush that `asyncId` from controller code first and then let unmount disconnect the runtime.
 
 ## Shared runtime context (scale-up)
 

@@ -227,6 +227,23 @@ Choose between the JSON helpers like this:
 - use `requestJSONAsync(...)` when Fizz should own fetch + response checks + json parsing
 - use `customJSONAsync(...)` when the client layer already owns transport and returns parsed payloads
 
+## `disconnect()` async teardown
+
+Treat `runtime.disconnect()` as full async teardown for the runtime.
+
+Current behavior pinned by `packages/fizz/src/__tests__/runtimeDisconnectAsync.spec.ts`:
+
+- pending `debounceAsync(...)` timers are cleared before they fire
+- in-flight `startAsync(...)`, `debounceAsync(...)`, `requestJSONAsync(...)`, and `customJSONAsync(...)` work has its abort signal fired
+- post-disconnect completions are discarded, so no further resolve or reject action dispatch happens
+- pending waits reject with `RuntimeDisconnectedError`
+
+Review guidance:
+
+- if a close path must finish the latest autosave first, call `runtime.flushAsync(asyncId, { timeoutMs })` before `runtime.disconnect()`
+- if work must outlive the runtime, do not keep it inside a Fizz-managed async helper
+- for `requestJSONAsync(...)`, document abort as browser-side best effort because the server may already have seen the request
+
 ## Bare async effects vs action chaining
 
 Use bare async effects when the request should happen but no follow-up action is needed.
@@ -334,8 +351,6 @@ const Editing = state<
   }, 1000),
 })
 ```
-
-## Review Heuristics
 
 ## Async Introspection and Flush
 
