@@ -11,6 +11,25 @@ metadata:
 
 Agent-oriented guidance for working with Fizz state machines and the React integration.
 
+## Skill File Index
+
+Use these links to discover all files that are part of this skill package:
+
+- [README.md](README.md)
+- [references/core-runtime.md](references/core-runtime.md)
+- [references/parallel-state-machines.md](references/parallel-state-machines.md)
+- [references/async-and-scheduling.md](references/async-and-scheduling.md)
+- [references/data-clients.md](references/data-clients.md)
+- [references/resources.md](references/resources.md)
+- [references/testing.md](references/testing.md)
+- [references/output-actions.md](references/output-actions.md)
+- [references/browser-effects.md](references/browser-effects.md)
+- [references/dom-listener-helper-mappings.md](references/dom-listener-helper-mappings.md)
+- [references/react-integration.md](references/react-integration.md)
+- [references/store-sync-adapter.md](references/store-sync-adapter.md)
+- [references/examples.md](references/examples.md)
+- [references/fluent-api.md](references/fluent-api.md)
+
 ## When to Use This Skill
 
 Use this skill when the task involves:
@@ -98,9 +117,9 @@ Follow this sequence when wiring a machine manually:
 3. Create the runtime with runtime actions and any output actions.
 4. Run `enter()`.
 
-If the task is about runtime behavior, read `references/core-runtime.md`.
+If the task is about runtime behavior, read [references/core-runtime.md](references/core-runtime.md).
 
-If the task is about adapter-facing output actions, read `references/output-actions.md`.
+If the task is about adapter-facing output actions, read [references/output-actions.md](references/output-actions.md).
 
 ### Async and scheduling
 
@@ -116,7 +135,7 @@ If the task is about adapter-facing output actions, read `references/output-acti
 - Use explicit ids for timers, intervals, and async work when later cancellation matters.
 - Design handlers for `AsyncCancelled`, `TimerCompleted`, `IntervalTriggered`, or related scheduled actions only when the machine needs to respond to them.
 
-If the task is about request flows, cancellation, or timing, read `references/async-and-scheduling.md`.
+If the task is about request flows, cancellation, or timing, read [references/async-and-scheduling.md](references/async-and-scheduling.md).
 
 ### Testing
 
@@ -127,7 +146,7 @@ If the task is about request flows, cancellation, or timing, read `references/as
 - Assert state identity, machine-visible data, and emitted outputs before reaching for lower-level runtime details.
 - Use the `@tdreyno/fizz/test` entrypoint when a task needs reusable Fizz testing helpers.
 
-If the task is about machine tests or consumer-facing test helpers, read `references/testing.md`.
+If the task is about machine tests or consumer-facing test helpers, read [references/testing.md](references/testing.md).
 
 ### React usage
 
@@ -142,7 +161,7 @@ If the task is about machine tests or consumer-facing test helpers, read `refere
 - Never compare states with string literals (`currentState.name === 'SomeName'` or `snapshot.currentStateName === 'SomeName'`). String checks have no TypeScript narrowing and break silently when states are renamed. Use `currentState.is(StateRef)` for one-off checks and `selectWhen(...)` for reusable derived reads.
 - Avoid shifting business logic from the machine into component-local React state unless the task explicitly requires it.
 
-If the task is about React integration, read `references/react-integration.md`.
+If the task is about React integration, read [references/react-integration.md](references/react-integration.md).
 
 ## Suggested Workflow
 
@@ -154,31 +173,32 @@ If the task is about React integration, read `references/react-integration.md`.
 
 ## Reference Files
 
-- `references/core-runtime.md` for states, actions, helper matchers, effects, runtime setup, and nested machines
-- `references/parallel-state-machines.md` for `createParallelMachine(...)`, branch broadcasting, lifecycle, and branch runtime inspection
-- `references/async-and-scheduling.md` for `startAsync(...)`, `requestJSONAsync(...)`, `customJSONAsync(...)`, `debounce(...)`, `throttle(...)`, cancellation, timers, intervals, and frames
-- `references/data-clients.md` for machine-scoped client typing, runtime injection, handler access, and test mocking
-- `references/resources.md` for state-scoped resources, lifecycle ownership, and fluent resource-event bridging
-- `references/testing.md` for deterministic machine testing, controlled drivers, and the `@tdreyno/fizz/test` subpath
-- `references/output-actions.md` for output maps, output command channels, and runtime output subscription helpers
-- `references/browser-effects.md` for DOM resource acquisition, mutate/listen chains, observers, and browser operations
-- `references/dom-listener-helper-mappings.md` for complete event name to onEvent convenience helper mappings
-- `references/react-integration.md` for `useMachine(...)`, `createMachineContext(...)`, and React-specific guidance
-- `references/examples.md` for short copyable usage patterns
-- `references/fluent-api.md` for the optional fluent state authoring entry point
+- [references/core-runtime.md](references/core-runtime.md) for states, actions, helper matchers, effects, runtime setup, and nested machines
+- [references/parallel-state-machines.md](references/parallel-state-machines.md) for `createParallelMachine(...)`, branch broadcasting, lifecycle, and branch runtime inspection
+- [references/async-and-scheduling.md](references/async-and-scheduling.md) for `startAsync(...)`, `requestJSONAsync(...)`, `customJSONAsync(...)`, `debounce(...)`, `throttle(...)`, cancellation, timers, intervals, and frames
+- [references/data-clients.md](references/data-clients.md) for machine-scoped client typing, runtime injection, handler access, and test mocking
+- [references/resources.md](references/resources.md) for state-scoped resources, lifecycle ownership, and fluent resource-event bridging
+- [references/testing.md](references/testing.md) for deterministic machine testing, controlled drivers, and the `@tdreyno/fizz/test` subpath
+- [references/output-actions.md](references/output-actions.md) for output maps, output command channels, and runtime output subscription helpers
+- [references/browser-effects.md](references/browser-effects.md) for DOM resource acquisition, mutate/listen chains, observers, and browser operations
+- [references/dom-listener-helper-mappings.md](references/dom-listener-helper-mappings.md) for complete event name to onEvent convenience helper mappings
+- [references/react-integration.md](references/react-integration.md) for `useMachine(...)`, `createMachineContext(...)`, and React-specific guidance
+- [references/store-sync-adapter.md](references/store-sync-adapter.md) for store synchronization patterns and adapter integration guidance
+- [references/examples.md](references/examples.md) for short copyable usage patterns
+- [references/fluent-api.md](references/fluent-api.md) for the optional fluent state authoring entry point
 
 ## Source Anchors
 
 Use these repository files as the source of truth when answering implementation questions:
 
-- `packages/fizz/src/index.ts`
-- `packages/fizz/src/createMachine.ts`
-- `packages/fizz/src/state.ts`
-- `packages/fizz/src/effect.ts`
-- `packages/fizz/src/runtime.ts`
-- `packages/fizz-react/src/index.ts`
-- `packages/fizz-react/src/createMachineContext.ts`
-- `packages/fizz-react/src/useMachine.ts`
-- `docs/testing.md`
-- `docs/async.md`
-- `packages/fizz/README.md`
+- [packages/fizz/src/index.ts](../../packages/fizz/src/index.ts)
+- [packages/fizz/src/createMachine.ts](../../packages/fizz/src/createMachine.ts)
+- [packages/fizz/src/state.ts](../../packages/fizz/src/state.ts)
+- [packages/fizz/src/effect.ts](../../packages/fizz/src/effect.ts)
+- [packages/fizz/src/runtime.ts](../../packages/fizz/src/runtime.ts)
+- [packages/fizz-react/src/index.ts](../../packages/fizz-react/src/index.ts)
+- [packages/fizz-react/src/createMachineContext.ts](../../packages/fizz-react/src/createMachineContext.ts)
+- [packages/fizz-react/src/useMachine.ts](../../packages/fizz-react/src/useMachine.ts)
+- [docs/testing.md](../../docs/testing.md)
+- [docs/async.md](../../docs/async.md)
+- [packages/fizz/README.md](../../packages/fizz/README.md)
