@@ -337,6 +337,43 @@ const Editing = state<
 
 ## Review Heuristics
 
+## Async Introspection and Flush
+
+Four runtime methods let you observe and control pending async work from outside the state machine.
+
+```typescript
+// Check if any work is pending for this asyncId (debouncing or in-flight)
+runtime.hasPendingAsync("save") // boolean
+
+// Get the current phase of pending work
+runtime.getPendingAsync("save")
+// { asyncId: "save", phase: "debouncing" | "in-flight" } | undefined
+
+// Count all pending operations
+runtime.getPendingAsyncCount() // number
+
+// Flush a pending debounce immediately (skip the delay) or await in-flight work
+const outcome = await runtime.flushAsync("save")
+// { type: "nothing" | "succeeded" | "failed" | "aborted" }
+```
+
+`flushAsync` use cases:
+
+- **Immediate commit on user action**: when a user presses a final Submit or navigates away, flush any pending autosave debounce and wait for the result before proceeding
+- **Programmatic drain in tests**: flush and assert the outcome without relying on timer advancement
+- **Timeout guard**: pass `timeoutMs` to resolve `{ type: "aborted" }` if the operation does not settle in time
+
+`FlushAsyncOutcome` discriminants:
+
+- `{ type: "nothing" }` — no pending work for the id
+- `{ type: "succeeded"; value: unknown }` — work resolved
+- `{ type: "failed"; error: unknown }` — work rejected
+- `{ type: "aborted" }` — timed out or cancelled before settling
+
+Harness equivalents (`@tdreyno/fizz/test`): `hasPendingAsync(asyncId)`, `getPendingAsync(asyncId)`, `getPendingAsyncCount()`, and `flushAsync(asyncId, options?)`. The zero-argument harness `flushAsync()` is the no-outcome driver flush shorthand.
+
+## Review Heuristics
+
 When reviewing async or scheduling code, check these first:
 
 - Is the task using Fizz helpers instead of ad-hoc external orchestration?

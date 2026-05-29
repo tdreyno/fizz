@@ -740,6 +740,98 @@ Cancellation and stale completion behavior
 
 ## Related Docs
 
+## Async introspection and flush
+
+Four runtime methods let you observe and control pending async work from outside the state machine.
+
+### `hasPendingAsync(asyncId)`
+
+Returns `true` when an operation is either debouncing (timer pending) or in-flight for the given `asyncId`.
+
+```ts
+const isPending = runtime.hasPendingAsync("save")
+```
+
+### `getPendingAsync(asyncId)`
+
+Returns a snapshot of the operation state for the given id, or `undefined` when nothing is pending.
+
+```ts
+type PendingAsyncSnapshot = {
+  asyncId: string
+  phase: "debouncing" | "in-flight"
+}
+
+const snapshot = runtime.getPendingAsync("save")
+// { asyncId: "save", phase: "debouncing" }
+```
+
+When a debounce timer is pending, `phase` is `"debouncing"`. When the async work has started, `phase` is `"in-flight"`.
+
+### `getPendingAsyncCount()`
+
+Returns the number of pending operations (debouncing or in-flight) across all ids.
+
+```ts
+const count = runtime.getPendingAsyncCount()
+```
+
+### `flushAsync(asyncId, options?)`
+
+Immediately fires a pending debounce (skipping the delay) or waits for an already in-flight operation to settle. Returns a `FlushAsyncOutcome` promise.
+
+```ts
+type FlushAsyncOutcome =
+  | { type: "nothing" }
+  | { type: "succeeded"; value: unknown }
+  | { type: "failed"; error: unknown }
+  | { type: "aborted" }
+```
+
+```ts
+// Flush a debounce immediately (e.g. on "Save" button press)
+const outcome = await runtime.flushAsync("save")
+
+if (outcome.type === "succeeded") {
+  console.log("Saved:", outcome.value)
+} else if (outcome.type === "failed") {
+  console.error("Save failed:", outcome.error)
+}
+```
+
+When the `asyncId` is not pending, `flushAsync` returns `{ type: "nothing" }` immediately.
+
+An optional `timeoutMs` causes `flushAsync` to resolve `{ type: "aborted" }` and cancel the operation if it has not settled within the timeout.
+
+```ts
+const outcome = await runtime.flushAsync("save", { timeoutMs: 3000 })
+```
+
+This is most useful in UI flows where a user action (such as a page navigation or submit button press) should commit any pending debounce work synchronously and wait for the result.
+
+```text
+flushAsync flow
+
+flushAsync("save")
+      |
+      v
+   debouncing?
+  /           \
+yes            no
+ |              \
+ v               in-flight?
+cancel timer    /          \
+  |           yes            no
+  v            |              |
+start now      v              v
+      wait for settle   { type: "nothing" }
+          |
+          v
+    { type: "succeeded" | "failed" | "aborted" }
+```
+
+## Related Docs
+
 - [Architecture](./architecture.md)
 - [Awaiting Conditions](./awaiting-conditions.md)
 - [Custom Effects](./custom-effects.md)

@@ -197,8 +197,53 @@ The exported shape is:
 - `createTestHarness(...)` to compose context creation, runtime creation, controlled drivers, and state/output recording
 - `deferred()` as a small utility for promise-controlled tests
 - helper methods such as `run(...)`, `respondToOutput(...)`, `currentState()`, `currentHistory()`, `flushAsync()`, `advanceTime(...)`, `advanceTimeTo(...)`, `advanceFrames()`, `runAllAsync()`, `settle(...)`, `waitForState(...)`, and `waitForOutput(...)`
+- helper methods such as `run(...)`, `respondToOutput(...)`, `currentState()`, `currentHistory()`, `flushAsync()`, `hasPendingAsync(asyncId)`, `getPendingAsync(asyncId)`, `getPendingAsyncCount()`, `advanceTime(...)`, `advanceTimeTo(...)`, `advanceFrames()`, `runAllAsync()`, `settle(...)`, `waitForState(...)`, and `waitForOutput(...)`
 - resource helpers such as `resources()`, `waitForResource(key, options?)`, and `waitForResourceRelease(key, options?)`
 - read-only inspection helpers such as recorded outputs and recorded state snapshots
+
+### Explicit Controlled Time In Harness Tests
+
+### Async Introspection In Harness Tests
+
+The harness exposes three inspection helpers for checking pending async work and a `flushAsync` overload for asserting the outcome.
+
+**Checking pending state:**
+
+```ts
+await harness.run(save())
+
+// Is work pending for this id?
+expect(harness.hasPendingAsync("save")).toBe(true)
+
+// Get the current phase
+expect(harness.getPendingAsync("save")).toEqual({
+  asyncId: "save",
+  phase: "debouncing",
+})
+
+// Count all pending operations
+expect(harness.getPendingAsyncCount()).toBe(1)
+```
+
+**Flushing a debounce and asserting the outcome:**
+
+```ts
+await harness.run(save())
+
+// Flush the pending debounce and get the outcome
+const outcome = await harness.flushAsync("save")
+
+expect(outcome).toEqual({ type: "succeeded", value: "persisted" })
+```
+
+The two-argument form of `harness.flushAsync(asyncId, options?)` returns a `FlushAsyncOutcome`. The zero-argument form `harness.flushAsync()` is a shorthand that drives the async driver through one flush cycle without returning an outcome.
+
+`FlushAsyncOutcome` discriminants:
+
+- `{ type: "nothing" }` — no pending work for the id
+- `{ type: "succeeded"; value: unknown }` — work resolved
+- `{ type: "failed"; error: unknown }` — work rejected
+- `{ type: "aborted" }` — timed out or cancelled before settling
 
 ### Explicit Controlled Time In Harness Tests
 

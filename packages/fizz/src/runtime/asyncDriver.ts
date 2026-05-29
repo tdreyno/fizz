@@ -68,8 +68,8 @@ export const createControlledAsyncDriver = (): ControlledAsyncDriver => {
         pending: [],
       })
 
-      void run()
-        .then(value => {
+      void run().then(
+        value => {
           const operation = operations.get(operationId)
 
           if (!operation?.active) {
@@ -77,8 +77,8 @@ export const createControlledAsyncDriver = (): ControlledAsyncDriver => {
           }
 
           operation.pending.push(() => onResolve(value))
-        })
-        .catch(error => {
+        },
+        error => {
           const operation = operations.get(operationId)
 
           if (!operation?.active) {
@@ -86,7 +86,8 @@ export const createControlledAsyncDriver = (): ControlledAsyncDriver => {
           }
 
           operation.pending.push(() => onReject(error))
-        })
+        },
+      )
 
       return operationId
     },

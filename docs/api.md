@@ -266,22 +266,11 @@ The `history` array must start with at least one state transition.
 
 Create a runtime that can execute actions, transitions, and effects.
 
-```ts
-const machine = createMachine({
-  actions,
-  outputActions,
-  states: { Initial },
-})
-const runtime = createRuntime(machine, Initial(), {
-  browserDriver,
-  maxHistory: 10,
-})
-
-await runtime.run(enter())
-```
-
-For low-level usage where you already have a `Context`, construct `new Runtime(...)` directly.
-
+````ts
+- `hasPendingAsync(asyncId)`
+- `getPendingAsync(asyncId)`
+- `getPendingAsyncCount()`
+- `flushAsync(asyncId, options?)`
 The returned `Runtime` is the main execution object. The most commonly used methods are:
 
 - `run(action)`
@@ -316,7 +305,7 @@ expect(snapshot).toEqual({
   resources: [],
   timers: [],
 })
-```
+````
 
 Snapshot groups:
 
@@ -355,6 +344,38 @@ Runtime creation options include:
 Use `browserDriver` when your machine returns browser-oriented built-in effects such as `confirm(...)`, `prompt(...)`, `alert(...)`, `copyToClipboard(...)`, or navigation helpers.
 
 Import browser runtime drivers from the browser entrypoint only: `@tdreyno/fizz/browser`.
+
+### `runAndSelect`
+
+Import browser runtime drivers from the browser entrypoint only: `@tdreyno/fizz/browser`.
+
+### `hasPendingAsync`, `getPendingAsync`, `getPendingAsyncCount`, `flushAsync`
+
+Observe and control pending async work from outside the state machine.
+
+```ts
+// Check if any work is pending for an asyncId
+runtime.hasPendingAsync("save") // boolean
+
+// Get a snapshot of the current phase
+runtime.getPendingAsync("save")
+// { asyncId: "save", phase: "debouncing" } | { asyncId: "save", phase: "in-flight" } | undefined
+
+// Count all pending operations (debouncing + in-flight)
+runtime.getPendingAsyncCount() // number
+
+// Flush a pending debounce immediately (or wait for in-flight work) and get the outcome
+const outcome = await runtime.flushAsync("save")
+// { type: "nothing" } | { type: "succeeded"; value: unknown } | { type: "failed"; error: unknown } | { type: "aborted" }
+```
+
+`flushAsync(asyncId, options?)` supports an optional `timeoutMs`:
+
+```ts
+const outcome = await runtime.flushAsync("save", { timeoutMs: 3000 })
+```
+
+See [Async](./async.md#async-introspection-and-flush) for full documentation and examples.
 
 ### `runAndSelect`
 

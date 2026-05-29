@@ -256,7 +256,7 @@ describe("asyncScheduler", () => {
         asyncOperations: state.asyncOperations,
         parallel: state.parallel,
       }),
-    ).toBe(false)
+    ).toEqual({ cancelled: false })
 
     startAsyncOperation({
       asyncDriver,
@@ -284,7 +284,7 @@ describe("asyncScheduler", () => {
         asyncOperations: state.asyncOperations,
         parallel: state.parallel,
       }),
-    ).toBe(true)
+    ).toEqual({ cancelled: true })
     expect(state.asyncOperations.has("load")).toBe(false)
   })
 

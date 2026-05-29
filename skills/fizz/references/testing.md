@@ -49,6 +49,24 @@ When a state uses `startAsync(...)` or `requestJSONAsync(...)`:
 
 Use `deferred()` from `@tdreyno/fizz/test` when you need explicit resolve/reject control in a test.
 
+To assert pending async state or flush a debounce and inspect the outcome, use the harness introspection helpers:
+
+```typescript
+await harness.run(save())
+
+expect(harness.hasPendingAsync("save")).toBe(true)
+expect(harness.getPendingAsync("save")).toEqual({
+  asyncId: "save",
+  phase: "debouncing",
+})
+
+// Flush the pending debounce immediately and assert the outcome
+const outcome = await harness.flushAsync("save")
+expect(outcome).toEqual({ type: "succeeded", value: "persisted" })
+```
+
+The two-argument `flushAsync(asyncId, options?)` returns a `FlushAsyncOutcome` (`nothing` | `succeeded` | `failed` | `aborted`). The zero-argument `flushAsync()` is the no-outcome driver flush shorthand.
+
 ## Timer, Interval, And Frame Tests
 
 When a state uses timers or intervals:
@@ -108,6 +126,11 @@ The intended direction is a dedicated test helper subpath:
 - `resources()`
 - `waitForResource(key, options?)`
 - `waitForResourceRelease(key, options?)`
+- `hasPendingAsync(asyncId)`
+- `getPendingAsync(asyncId)`
+- `getPendingAsyncCount()`
+- `flushAsync()` (no-arg: driver flush shorthand)
+- `flushAsync(asyncId, options?)` (returns `FlushAsyncOutcome`)
 
 This is current API surface for reusable Fizz testing helpers.
 

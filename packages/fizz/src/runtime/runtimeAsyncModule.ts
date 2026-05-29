@@ -16,6 +16,9 @@ import {
 } from "./asyncScheduler.js"
 import type { RuntimeEffectHandlerRegistry } from "./effectDispatcher.js"
 import type {
+  FlushAsyncOptions,
+  FlushAsyncOutcome,
+  PendingAsyncSnapshot,
   RuntimeDebugCommand,
   RuntimeDebugEvent,
   RuntimeState,
@@ -37,6 +40,13 @@ export type RuntimeAsyncModule = {
   }) => void
   effectHandlers: RuntimeEffectHandlerRegistry<RuntimeDebugCommand>
   getDiagnostics: () => Array<{ id: string; status: string }>
+  flushAsync: (
+    asyncId: string,
+    options?: FlushAsyncOptions,
+  ) => Promise<FlushAsyncOutcome>
+  getPendingAsync: (asyncId: string) => PendingAsyncSnapshot | undefined
+  getPendingAsyncCount: () => number
+  hasPendingAsync: (asyncId: string) => boolean
 }
 
 export const createRuntimeAsyncModule = (options: {
@@ -62,6 +72,26 @@ export const createRuntimeAsyncModule = (options: {
     >
   >()
 
+  const flushWaiters = new Map<
+    string,
+    Array<(outcome: FlushAsyncOutcome) => void>
+  >()
+
+  const notifyFlushWaiters = (asyncId: string, outcome: FlushAsyncOutcome) => {
+    const waiters = flushWaiters.get(asyncId)
+    if (waiters) {
+      flushWaiters.delete(asyncId)
+      waiters.forEach(notify => notify(outcome))
+    }
+  }
+
+  const clearFlushWaiters = (outcome: FlushAsyncOutcome) => {
+    flushWaiters.forEach(waiters => {
+      waiters.forEach(notify => notify(outcome))
+    })
+    flushWaiters.clear()
+  }
+
   const ignoreAsyncResult = () => undefined
 
   const clearDebouncedMetadataIfIdle = (asyncId: string) => {
@@ -78,6 +108,8 @@ export const createRuntimeAsyncModule = (options: {
     })
 
   const clearOperations = () => {
+    clearFlushWaiters({ type: "aborted" })
+
     clearAsyncOperations({
       asyncDriver: options.asyncDriver,
       asyncOperations,
@@ -122,6 +154,19 @@ export const createRuntimeAsyncModule = (options: {
   ): RuntimeDebugCommand[] => {
     const asyncId = data.asyncId ?? `__fizz_async__${asyncIdCounter++}`
 
+    // Enforce asyncId exclusivity: cancel any pending debounce for the same id
+    if (data.asyncId !== undefined) {
+      const cancelledDebounce = cancelPendingDebounce(data.asyncId)
+      if (cancelledDebounce) {
+        options.emitMonitor({
+          asyncId: data.asyncId,
+          reason: "restart",
+          type: "async-cancelled",
+        })
+        clearDebouncedMetadataIfIdle(data.asyncId)
+      }
+    }
+
     if (asyncOperations.has(asyncId)) {
       options.emitMonitor({
         asyncId,
@@ -149,6 +194,7 @@ export const createRuntimeAsyncModule = (options: {
           error,
           type: "async-rejected",
         })
+        notifyFlushWaiters(eventAsyncId, { type: "failed", error })
       },
       onResolve: (eventAsyncId: string, value: Resolved) => {
         options.emitMonitor({
@@ -156,6 +202,7 @@ export const createRuntimeAsyncModule = (options: {
           type: "async-resolved",
           value,
         })
+        notifyFlushWaiters(eventAsyncId, { type: "succeeded", value })
       },
       parallel,
       run: action => options.runAction(action),
@@ -252,6 +299,7 @@ export const createRuntimeAsyncModule = (options: {
               type: "async-rejected",
             })
             clearDebouncedMetadataIfIdle(eventAsyncId)
+            notifyFlushWaiters(eventAsyncId, { type: "failed", error })
           },
           onResolve: (eventAsyncId: string, value: unknown) => {
             options.emitMonitor({
@@ -260,6 +308,7 @@ export const createRuntimeAsyncModule = (options: {
               value,
             })
             clearDebouncedMetadataIfIdle(eventAsyncId)
+            notifyFlushWaiters(eventAsyncId, { type: "succeeded", value })
           },
           parallel,
           run: action => options.runAction(action),
@@ -301,6 +350,7 @@ export const createRuntimeAsyncModule = (options: {
     clearDebouncedMetadataIfIdle(data.asyncId)
 
     if (cancelled.cancelled || cancelledDebounce) {
+      notifyFlushWaiters(data.asyncId, { type: "aborted" })
       options.emitMonitor({
         asyncId: data.asyncId,
         reason: "effect",
@@ -367,14 +417,139 @@ export const createRuntimeAsyncModule = (options: {
         id,
         status: "running",
       }))
-      const debounced = [...debounceTimers.keys()]
-        .filter(id => !asyncOperations.has(id))
-        .map(id => ({
-          id,
-          status: "debouncing",
-        }))
+      const debounced = [...debounceTimers.keys()].map(id => ({
+        id,
+        status: "debouncing",
+      }))
 
       return [...operations, ...debounced]
     },
+    flushAsync: (asyncId, flushOptions) => {
+      if (!debounceTimers.has(asyncId) && !asyncOperations.has(asyncId)) {
+        return Promise.resolve({ type: "nothing" } as const)
+      }
+
+      return new Promise<FlushAsyncOutcome>(resolve => {
+        let settled = false
+        let timeoutHandle: ReturnType<typeof setTimeout> | undefined
+
+        const settle = (outcome: FlushAsyncOutcome) => {
+          if (settled) {
+            return
+          }
+          settled = true
+          if (timeoutHandle !== undefined) {
+            clearTimeout(timeoutHandle)
+          }
+          resolve(outcome)
+        }
+
+        if (flushOptions?.timeoutMs !== undefined) {
+          timeoutHandle = setTimeout(() => {
+            cancelPendingDebounce(asyncId)
+            cancelActiveAsyncOperation({
+              asyncDriver: options.asyncDriver,
+              asyncId,
+              asyncOperations,
+              parallel,
+            })
+            clearDebouncedMetadataIfIdle(asyncId)
+            options.emitMonitor({
+              asyncId,
+              reason: "effect",
+              type: "async-cancelled",
+            })
+            notifyFlushWaiters(asyncId, { type: "aborted" })
+          }, flushOptions.timeoutMs)
+        }
+
+        const existing = flushWaiters.get(asyncId) ?? []
+        existing.push(settle)
+        flushWaiters.set(asyncId, existing)
+
+        if (debounceTimers.has(asyncId)) {
+          const activeTimer = debounceTimers.get(asyncId)
+
+          if (activeTimer) {
+            options.timerDriver.cancel(activeTimer.handle)
+            debounceTimers.delete(asyncId)
+
+            const latestData = debouncedData.get(asyncId)
+
+            if (latestData) {
+              options.emitMonitor({
+                asyncId: latestData.asyncId,
+                type: "async-started",
+              })
+
+              const startData: StartAsyncEffectData<
+                unknown,
+                string,
+                Action<string, unknown> | void,
+                Action<string, unknown> | void
+              > = {
+                asyncId: latestData.asyncId,
+                handlers: {
+                  reject: latestData.handlers.reject ?? ignoreAsyncResult,
+                  resolve: latestData.handlers.resolve,
+                },
+                run: latestData.run,
+              }
+
+              startAsyncOperation({
+                asyncDriver: options.asyncDriver,
+                asyncId: latestData.asyncId,
+                asyncOperations,
+                createController: () => new AbortController(),
+                data: startData,
+                isAbortError: (error, signal) =>
+                  latestData.classifyAbort?.(error, signal) ??
+                  isAbortError(error, signal),
+                nextToken: () => asyncCounter++,
+                onReject: (eventAsyncId, error) => {
+                  options.emitMonitor({
+                    asyncId: eventAsyncId,
+                    error,
+                    type: "async-rejected",
+                  })
+                  clearDebouncedMetadataIfIdle(eventAsyncId)
+                  notifyFlushWaiters(eventAsyncId, { type: "failed", error })
+                },
+                onResolve: (eventAsyncId, value) => {
+                  options.emitMonitor({
+                    asyncId: eventAsyncId,
+                    type: "async-resolved",
+                    value,
+                  })
+                  clearDebouncedMetadataIfIdle(eventAsyncId)
+                  notifyFlushWaiters(eventAsyncId, {
+                    type: "succeeded",
+                    value,
+                  })
+                },
+                parallel,
+                run: action => options.runAction(action),
+                runAsyncOperation: (run, signal) =>
+                  runAsyncOperation(options.getContext(), run, signal),
+              })
+            } else {
+              notifyFlushWaiters(asyncId, { type: "nothing" })
+            }
+          }
+        }
+      })
+    },
+    getPendingAsync: asyncId => {
+      if (debounceTimers.has(asyncId)) {
+        return { asyncId, phase: "debouncing" }
+      }
+      if (asyncOperations.has(asyncId)) {
+        return { asyncId, phase: "in-flight" }
+      }
+      return undefined
+    },
+    getPendingAsyncCount: () => asyncOperations.size + debounceTimers.size,
+    hasPendingAsync: asyncId =>
+      debounceTimers.has(asyncId) || asyncOperations.has(asyncId),
   }
 }

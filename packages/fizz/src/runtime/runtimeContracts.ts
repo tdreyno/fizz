@@ -41,6 +41,21 @@ export type RuntimeAssertCleanTeardownOptions = {
   allow?: Partial<Record<keyof RuntimeDiagnosticsSnapshot, boolean>>
 }
 
+export type FlushAsyncOutcome =
+  | { type: "nothing" }
+  | { type: "succeeded"; value: unknown }
+  | { type: "failed"; error: unknown }
+  | { type: "aborted" }
+
+export type FlushAsyncOptions = {
+  timeoutMs?: number
+}
+
+export type PendingAsyncSnapshot = {
+  asyncId: string
+  phase: "debouncing" | "in-flight"
+}
+
 export type RuntimeDebugEvent =
   | {
       action: RuntimeAction

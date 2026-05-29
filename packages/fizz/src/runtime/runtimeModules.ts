@@ -11,6 +11,7 @@ import {
   createEffectHandlerRegistry,
   registerEffectHandlers,
 } from "./effectDispatcher.js"
+import type { RuntimeAsyncModule } from "./runtimeAsyncModule.js"
 import { createRuntimeAsyncModule } from "./runtimeAsyncModule.js"
 import { createRuntimeBrowserGuardModule } from "./runtimeBrowserGuardModule.js"
 import { getRuntimeBrowserModuleFactory } from "./runtimeBrowserModuleRegistry.js"
@@ -52,6 +53,10 @@ export type RuntimeModuleSet = {
   getDiagnostics: () => RuntimeDiagnosticsSnapshot
   prepareForGoBack: () => void
   prepareForTransition: (targetState: RuntimeState) => void
+  flushAsync: RuntimeAsyncModule["flushAsync"]
+  getPendingAsync: RuntimeAsyncModule["getPendingAsync"]
+  getPendingAsyncCount: RuntimeAsyncModule["getPendingAsyncCount"]
+  hasPendingAsync: RuntimeAsyncModule["hasPendingAsync"]
 }
 
 type RuntimeResourceDiagnosticsEntry = {
@@ -270,5 +275,10 @@ export const createRuntimeModules = <OutputAction>(
         targetState,
       })
     },
+    flushAsync: (asyncId, flushOptions) =>
+      asyncModule.flushAsync(asyncId, flushOptions),
+    getPendingAsync: asyncId => asyncModule.getPendingAsync(asyncId),
+    getPendingAsyncCount: () => asyncModule.getPendingAsyncCount(),
+    hasPendingAsync: asyncId => asyncModule.hasPendingAsync(asyncId),
   }
 }

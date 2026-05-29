@@ -289,6 +289,19 @@ runtime.assertCleanTeardown({
 
 `assertCleanTeardown()` throws when non-allowed diagnostics groups still contain active entries. Use `allow` for expected exceptions in tests/migrations.
 
+Runtime async introspection and flush:
+
+```typescript
+runtime.hasPendingAsync("save") // boolean
+runtime.getPendingAsync("save") // { asyncId, phase: "debouncing" | "in-flight" } | undefined
+runtime.getPendingAsyncCount() // number
+
+const outcome = await runtime.flushAsync("save")
+// { type: "nothing" | "succeeded" | "failed" | "aborted" }
+```
+
+`flushAsync(asyncId, options?)` fires a pending debounce immediately or awaits in-flight work, returning a `FlushAsyncOutcome`. Pass `timeoutMs` to resolve `{ type: "aborted" }` and cancel if the operation does not settle in time. See `docs/async.md` for the full surface.
+
 If you want a declarative machine container first, build it with `createMachine(...)` and then create the runtime from the machine.
 
 This matters because the first `enter()` automatically performs Fizz's pre-entry bootstrap before any `Enter` handlers run.

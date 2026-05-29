@@ -40,6 +40,9 @@ import {
   toRuntimeCommand,
 } from "./runtime/runtimeCommandFactory.js"
 import type {
+  FlushAsyncOptions,
+  FlushAsyncOutcome,
+  PendingAsyncSnapshot,
   RuntimeAction,
   RuntimeAssertCleanTeardownOptions,
   RuntimeDebugCommand,
@@ -76,6 +79,9 @@ export type {
 } from "./runtime/runtimeCommandModule.js"
 export { commandHandlersFromClients } from "./runtime/runtimeCommandModule.js"
 export type {
+  FlushAsyncOptions,
+  FlushAsyncOutcome,
+  PendingAsyncSnapshot,
   RuntimeAssertCleanTeardownOptions,
   RuntimeDebugCancellationReason,
   RuntimeDebugCommand,
@@ -464,6 +470,25 @@ export class Runtime<
 
   getDiagnosticsSnapshot(): RuntimeDiagnosticsSnapshot {
     return this.#modules.getDiagnostics()
+  }
+
+  flushAsync(
+    asyncId: string,
+    options?: FlushAsyncOptions,
+  ): Promise<FlushAsyncOutcome> {
+    return this.#modules.flushAsync(asyncId, options)
+  }
+
+  hasPendingAsync(asyncId: string): boolean {
+    return this.#modules.hasPendingAsync(asyncId)
+  }
+
+  getPendingAsyncCount(): number {
+    return this.#modules.getPendingAsyncCount()
+  }
+
+  getPendingAsync(asyncId: string): PendingAsyncSnapshot | undefined {
+    return this.#modules.getPendingAsync(asyncId)
   }
 
   assertCleanTeardown(options: RuntimeAssertCleanTeardownOptions = {}): void {

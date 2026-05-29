@@ -6,6 +6,9 @@ import { createInitialContext } from "./context.js"
 import type {
   ControlledAsyncDriver,
   ControlledTimerDriver,
+  FlushAsyncOptions,
+  FlushAsyncOutcome,
+  PendingAsyncSnapshot,
   Runtime,
   RuntimeCommandHandlers,
   RuntimeMissingCommandHandlerPolicy,
@@ -113,8 +116,14 @@ export type TestHarness<
   outputs: () => Array<HarnessOutputAction<OAM>>
   lastState: () => TestStateSnapshot<State> | undefined
   lastOutput: () => HarnessOutputAction<OAM> | undefined
-  flushAsync: () => Promise<void>
+  flushAsync: {
+    (): Promise<void>
+    (asyncId: string, options?: FlushAsyncOptions): Promise<FlushAsyncOutcome>
+  }
   runAllAsync: () => Promise<void>
+  hasPendingAsync: (asyncId: string) => boolean
+  getPendingAsyncCount: () => number
+  getPendingAsync: (asyncId: string) => PendingAsyncSnapshot | undefined
   advanceTime: (ms: number, options?: AdvanceTimeOptions) => Promise<void>
   advanceTimeTo: (
     targetMs: number,
@@ -481,8 +490,18 @@ export const createTestHarness = <
     outputs: () => recordedOutputs.slice(),
     lastState: () => lastItem(recordedStates),
     lastOutput: () => lastItem(recordedOutputs),
-    flushAsync: () => asyncDriver.flush(),
+    flushAsync: ((asyncId?: string, options?: FlushAsyncOptions) =>
+      asyncId === undefined
+        ? asyncDriver.flush()
+        : runtime.flushAsync(asyncId, options)) as TestHarness<
+      State,
+      AM,
+      OAM
+    >["flushAsync"],
     runAllAsync: () => asyncDriver.runAll(),
+    hasPendingAsync: asyncId => runtime.hasPendingAsync(asyncId),
+    getPendingAsyncCount: () => runtime.getPendingAsyncCount(),
+    getPendingAsync: asyncId => runtime.getPendingAsync(asyncId),
     advanceTime,
     advanceTimeTo,
     time: {

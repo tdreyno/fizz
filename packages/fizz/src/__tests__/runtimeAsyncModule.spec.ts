@@ -204,7 +204,7 @@ describe("runtimeAsyncModule", () => {
     expect(monitorEvents).toEqual([])
   })
 
-  test("keeps debounce metadata while a running async with same id resolves", async () => {
+  test("startAsync with explicit asyncId cancels a pending debounce for the same id", async () => {
     const DebouncedResolved = action("DebouncedResolved").withPayload<string>()
     const StartedResolved = action("StartedResolved").withPayload<string>()
     const asyncDriver = createControlledAsyncDriver()
@@ -237,6 +237,7 @@ describe("runtimeAsyncModule", () => {
       label: "debounceAsync",
     } as never)
 
+    // Phase 1: startAsync with same asyncId must cancel the pending debounce
     startHandler?.({
       data: {
         asyncId: "shared",
@@ -252,12 +253,15 @@ describe("runtimeAsyncModule", () => {
     await asyncDriver.flush()
     await asyncDriver.flush()
 
+    // Advance timer — debounce was cancelled so DebouncedResolved must NOT run
     await timerDriver.advanceBy(10)
     await asyncDriver.flush()
     await asyncDriver.flush()
 
+    // startAsync resolves normally
     expect(runActionCalls).toContain("StartedResolved")
-    expect(runActionCalls).toContain("DebouncedResolved")
+    // debounce was cancelled — must NOT fire
+    expect(runActionCalls).not.toContain("DebouncedResolved")
   })
 
   test("uses classifyAbort fallback and emits rejected monitor events", async () => {
@@ -473,5 +477,80 @@ describe("runtimeAsyncModule", () => {
     })
 
     expect(module.getDiagnostics()).toEqual([])
+  })
+
+  test("startAsync with explicit asyncId cancels a pending debounce for the same id", async () => {
+    const asyncDriver = createControlledAsyncDriver()
+    const timerDriver = createControlledTimerDriver()
+    const monitorEvents: RuntimeDebugEvent[] = []
+    const debounceRuns: string[] = []
+
+    const module = createRuntimeAsyncModule({
+      actionCommand: command => command.type,
+      asyncDriver,
+      emitMonitor: event => {
+        monitorEvents.push(event)
+      },
+      getContext: () => ({}) as never,
+      runAction: async () => undefined,
+      timerDriver,
+    })
+
+    const startHandler = module.effectHandlers.get("startAsync")
+    const debounceHandler = module.effectHandlers.get("debounceAsync")
+
+    debounceHandler?.({
+      data: {
+        asyncId: "overlap",
+        delayMs: 5000,
+        handlers: {
+          resolve: () => undefined,
+        },
+        run: async () => {
+          debounceRuns.push("ran")
+          return "debounced"
+        },
+      },
+      label: "debounceAsync",
+    } as never)
+
+    // At this point, debounce timer is active — debounce is "pending"
+    expect(module.hasPendingAsync("overlap")).toBe(true)
+    expect(module.getPendingAsync("overlap")).toEqual({
+      asyncId: "overlap",
+      phase: "debouncing",
+    })
+
+    // startAsync with the same asyncId should cancel the debounce
+    startHandler?.({
+      data: {
+        asyncId: "overlap",
+        handlers: {
+          reject: () => undefined,
+          resolve: () => undefined,
+        },
+        run: async () => "started",
+      },
+      label: "startAsync",
+    } as never)
+
+    // Debounce timer was cancelled — only startAsync op is in-flight
+    expect(module.getPendingAsync("overlap")).toEqual({
+      asyncId: "overlap",
+      phase: "in-flight",
+    })
+
+    await asyncDriver.flush()
+
+    // The debounce callback never ran
+    expect(debounceRuns).toEqual([])
+
+    // Monitor emitted async-cancelled for the debounce
+    expect(
+      monitorEvents.some(
+        event =>
+          event.type === "async-cancelled" && event.asyncId === "overlap",
+      ),
+    ).toBe(true)
   })
 })
