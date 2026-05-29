@@ -1087,6 +1087,42 @@ describe("dom effects", () => {
     expect(events).toEqual([readyEvent])
   })
 
+  test("dispatchEvent supports options as second parameter", () => {
+    const inputEffects = dom
+      .input("#search", "search-input")
+      .dispatchEvent("input", { bubbles: true })
+    const customEffects = dom
+      .input("#search", "search-input")
+      .dispatchEvent("change", { bubbles: false, cancelable: false })
+
+    const inputData = inputEffects[1]?.data as {
+      fn: (target: unknown) => void
+      label: string
+    }
+    const customData = customEffects[1]?.data as {
+      fn: (target: unknown) => void
+      label: string
+    }
+
+    const events: Event[] = []
+    const node = {
+      dispatchEvent(event: Event) {
+        events.push(event)
+        return true
+      },
+    }
+
+    inputData.fn(node)
+    customData.fn(node)
+
+    expect(events[0]?.type).toBe("input")
+    expect(events[0]?.bubbles).toBe(true)
+    expect(events[0]?.cancelable).toBe(true)
+    expect(events[1]?.type).toBe("change")
+    expect(events[1]?.bubbles).toBe(false)
+    expect(events[1]?.cancelable).toBe(false)
+  })
+
   test("callMethod silently ignores missing methods on the target", () => {
     const builder = dom.fromElement<Record<string, unknown>>({}, "body")
     const effects = builder.callMethod("missingMethod")

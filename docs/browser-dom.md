@@ -198,10 +198,18 @@ dom
 
 `dispatchEvent(type, init?)` defaults to `{ bubbles: true, cancelable: true }` and supports `CustomEvent` payloads when `init.detail` is provided.
 
-You can also pass a prebuilt event instance when you already have one:
+You can pass options as the second parameter:
 
 ```typescript
-dom.fromElement(input, "searchInput").dispatchEvent(new Event("input"))
+dom.input("#search", "searchInput").dispatchEvent("input", { bubbles: true })
+```
+
+Or pass a prebuilt event instance when you already have one:
+
+```typescript
+dom
+  .fromElement(input, "searchInput")
+  .dispatchEvent(new Event("input", { bubbles: true }))
 ```
 
 Autocomplete example:

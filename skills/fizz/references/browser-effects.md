@@ -101,6 +101,7 @@ Use these helpers instead of raw mutate blocks for common form writes:
 ```typescript
 dom.input("#search", "searchInput").setValue(data.query)
 dom.input("#search", "searchInput").dispatchEvent("input")
+dom.input("#search", "searchInput").dispatchEvent("input", { bubbles: true })
 dom.input("#search", "searchInput").setSelectionRange(0, data.query.length)
 ```
 
