@@ -77,6 +77,63 @@ const createResponse = <T>(options: {
 })
 
 describe("Async scheduled operations", () => {
+  test("should dispatch cancelled match handler when cancelling active startAsync work", async () => {
+    const cancelLoad = action("CancelLoad")
+    type CancelLoad = ActionCreatorType<typeof cancelLoad>
+
+    const cancelledByMatch = action("CancelledByMatch")
+    type CancelledByMatch = ActionCreatorType<typeof cancelledByMatch>
+
+    const loadProfile = deferred<{ id: string; name: string }>()
+
+    const Loading = state<
+      Enter | CancelLoad | CancelledByMatch,
+      Data,
+      string,
+      string,
+      AsyncId
+    >(
+      {
+        Enter: () =>
+          startAsync(() => loadProfile.promise, "profile").match({
+            cancelled: () => cancelledByMatch(),
+            ok: () => undefined,
+          }),
+
+        CancelLoad: (_, __, { cancelAsync }) => cancelAsync("profile"),
+
+        CancelledByMatch: (data, _, { update }) =>
+          update(appendEvent(data, "cancelled-by-match")),
+
+        AsyncCancelled: (data, payload, { update }) =>
+          update(appendEvent(data, `cancelled:${payload.asyncId}`)),
+      },
+      { name: "Loading" },
+    )
+
+    const context = createInitialContext([Loading({ events: [] })])
+    const asyncDriver = createControlledAsyncDriver()
+    const runtime = new Runtime(
+      context,
+      { cancelLoad, cancelledByMatch },
+      {},
+      { asyncDriver },
+    )
+
+    await runtime.run(enter())
+    await runtime.run(cancelLoad())
+    await asyncDriver.flush()
+
+    const currentState = runtime.currentState()
+
+    if (!currentState.is(Loading)) {
+      throw new Error("Expected Loading state")
+    }
+
+    expect(currentState.data.events).toContain("cancelled-by-match")
+    expect(currentState.data.events).toContain("cancelled:profile")
+  })
+
   test("should map resolved async work to a user action through the controlled async driver", async () => {
     const profileLoaded = action("ProfileLoaded").withPayload<{
       id: string

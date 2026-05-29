@@ -14,6 +14,7 @@ import {
 export type ActiveAsync = {
   controller: AbortController
   handle: unknown
+  onCancelled?: () => Action<string, unknown> | void
   token: number
 }
 
@@ -107,6 +108,12 @@ export const startAsyncOperation = <
       },
     })
 
+    const cancelledAction = previousAsync.onCancelled?.()
+
+    if (cancelledAction !== undefined) {
+      void run(cancelledAction)
+    }
+
     removeAsyncLane(parallel, asyncId)
     asyncOperations.delete(asyncId)
   }
@@ -138,10 +145,16 @@ export const startAsyncOperation = <
       onReject?.(asyncId, error)
 
       if (isAbortError(error, controller.signal)) {
+        const cancelledAction = data.handlers.cancelled?.()
+
+        if (cancelledAction !== undefined) {
+          await run(cancelledAction)
+        }
+
         return
       }
 
-      const action = data.handlers.reject(error)
+      const action = data.handlers.reject?.(error)
 
       if (action !== undefined) {
         await run(action)
@@ -179,6 +192,9 @@ export const startAsyncOperation = <
   asyncOperations.set(asyncId, {
     controller,
     handle,
+    ...(data.handlers.cancelled === undefined
+      ? {}
+      : { onCancelled: data.handlers.cancelled }),
     token,
   })
 }
@@ -188,11 +204,14 @@ export const cancelActiveAsyncOperation = ({
   asyncId,
   asyncOperations,
   parallel,
-}: CancelAsyncOperationOptions): boolean => {
+}: CancelAsyncOperationOptions): {
+  cancelled: boolean
+  cancelledAction?: Action<string, unknown> | void
+} => {
   const activeAsync = asyncOperations.get(asyncId)
 
   if (!activeAsync) {
-    return false
+    return { cancelled: false }
   }
 
   const cancelled = cancelAsyncLane(parallel, asyncId, activeAsync.token, {
@@ -203,13 +222,18 @@ export const cancelActiveAsyncOperation = ({
   })
 
   if (!cancelled.cancelled) {
-    return false
+    return { cancelled: false }
   }
+
+  const cancelledAction = activeAsync.onCancelled?.()
 
   removeAsyncLane(parallel, asyncId)
   asyncOperations.delete(asyncId)
 
-  return true
+  return {
+    cancelled: true,
+    ...(cancelledAction === undefined ? {} : { cancelledAction }),
+  }
 }
 
 export const clearAsyncOperations = ({

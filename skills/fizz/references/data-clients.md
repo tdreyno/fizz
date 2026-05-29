@@ -73,7 +73,13 @@ const Loading = state<
         signal,
         userId: data.userId,
       }),
-    ).chainToAction(profileLoaded, profileFailed),
+    ).chainToAction(
+      matchOn(result => result.kind, {
+        loaded: result => profileLoaded(result.profile),
+        skipped: () => profileSkipped(),
+      }),
+      profileFailed,
+    ),
 })
 ```
 

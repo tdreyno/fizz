@@ -10,6 +10,34 @@ Fizz already exposes the lifecycle primitives needed for async and scheduled wor
 
 When a helper needs to map success or failure back into actions, prefer fluent chaining such as `.chainToAction(...)` over inline `resolve`/`reject` config keys.
 
+`startAsync(...)`, `debounceAsync(...)`, `requestJSONAsync(...)`, and `customJSONAsync(...)` also support `.match({ ok, err?, cancelled? })` for named outcome handlers.
+
+```typescript
+startAsync(loadProfile, "profile").match({
+  cancelled: () => profileCancelled(),
+  err: profileFailed,
+  ok: profileLoaded,
+})
+```
+
+Use `cancelled` when the machine must react to explicit cancellation or aborts beyond the built-in `AsyncCancelled` scheduled action.
+
+When resolved payloads are discriminated unions, use `matchOn(...)` as the resolve handler. It keeps case mapping exhaustive and reusable while still using `.chainToAction(...)`.
+
+```typescript
+startAsync(loadSaveResult, "save").chainToAction(
+  matchOn(result => result.kind, {
+    aborted: () => saveAborted(),
+    invalid: result => saveInvalid(result.reason),
+    saved: result => saveSucceeded(result.revision),
+    skipped: () => undefined,
+  }),
+  saveFailed,
+)
+```
+
+`matchOn(...)` returns a normal `(value) => action | undefined` function, so it works with `startAsync(...)`, `debounceAsync(...)`, `requestJSONAsync(...)`, `customJSONAsync(...)`, and resource bridge chaining.
+
 For controller code that needs to "dispatch and await an outcome" (e.g., wait for a state to be reached or an output to be emitted), prefer `runtime.runUntil(action, matcher, options?)` over manually wiring `onOutput`, captured resolvers, and `AbortController`. Use the standalone `runtime.waitUntil(...)` family when the wait is independent from a dispatch. Matchers come from `matchState`, `matchOutput`, and `matchAny`. Options support `signal`, `timeout`, and `includeCurrent`. See `docs/awaiting-conditions.md` for the public surface.
 
 ## `startAsync(...)`

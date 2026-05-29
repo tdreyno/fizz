@@ -123,7 +123,42 @@ startAsync(loadProfile, "profile").chainToAction(
 )
 ```
 
+When resolved payloads are discriminated unions, use `matchOn(...)` to keep case handling exhaustive and reusable:
+
+```typescript
+import { matchOn, startAsync } from "@tdreyno/fizz"
+
+startAsync(loadSaveResult, "save").chainToAction(
+  matchOn(result => result.kind, {
+    aborted: () => saveAborted(),
+    invalid: result => saveInvalid(result.reason),
+    saved: result => saveSucceeded(result.revision),
+    skipped: () => undefined,
+  }),
+  error => saveFailed(error),
+)
+```
+
+`matchOn(...)` returns a standard resolve handler function, so it works anywhere `chainToAction(resolve, reject?)` is accepted.
+
 Both `resolve` and `reject` handlers are required when chaining.
+
+You can also use `.match({ ok, err?, cancelled? })` when you want explicit named handlers:
+
+```typescript
+startAsync(loadProfile, "profile").match({
+  cancelled: () => profileCancelled(),
+  err: reason => profileFailed(reason),
+  ok: value => profileLoaded(value),
+})
+```
+
+Notes:
+
+- `ok` is required
+- `err` is optional
+- `cancelled` is optional and runs when the async operation is cancelled or aborted
+- `.chainToAction(resolve, reject)` remains fully supported and unchanged
 
 If you return `startAsync(...)` directly without chaining, Fizz still starts the work and ignores the settled value.
 

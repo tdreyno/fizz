@@ -8,12 +8,101 @@ import {
   goBack,
   isEffect,
   log,
+  matchOn,
   noop,
   outputCommand,
+  startAsync,
   warn,
 } from "../effect.js"
 
 describe("effect", () => {
+  test("matchOn routes discriminated union variants with narrowed case handlers", () => {
+    type LoadResult =
+      | { kind: "saved"; revision: number }
+      | { kind: "skipped" }
+      | { kind: "invalid"; reason: string }
+
+    const resolve = matchOn<LoadResult, LoadResult["kind"], string>(
+      value => value.kind,
+      {
+        invalid: value => `invalid:${value.reason}`,
+        saved: value => `saved:${String(value.revision)}`,
+        skipped: () => "skipped",
+      },
+    )
+
+    expect(resolve({ kind: "saved", revision: 3 })).toBe("saved:3")
+    expect(resolve({ kind: "skipped" })).toBe("skipped")
+    expect(resolve({ kind: "invalid", reason: "schema" })).toBe(
+      "invalid:schema",
+    )
+  })
+
+  test("matchOn supports explicit no-dispatch cases with undefined", () => {
+    type SaveResult = { kind: "saved"; revision: number } | { kind: "skipped" }
+
+    const resolve = matchOn<SaveResult, SaveResult["kind"], string | undefined>(
+      value => value.kind,
+      {
+        saved: value => `saved:${String(value.revision)}`,
+        skipped: () => undefined,
+      },
+    )
+
+    expect(resolve({ kind: "saved", revision: 1 })).toBe("saved:1")
+    expect(resolve({ kind: "skipped" })).toBeUndefined()
+  })
+
+  test("matchOn can be passed directly to startAsync().chainToAction", () => {
+    const saved = action("Saved").withPayload<number>()
+    const skipped = action("Skipped")
+    const failed = action("Failed").withPayload<string>()
+
+    type SaveResult = { kind: "saved"; revision: number } | { kind: "skipped" }
+
+    const asyncEffect = startAsync(
+      Promise.resolve<SaveResult>({ kind: "skipped" }),
+    ).chainToAction(
+      matchOn<
+        SaveResult,
+        SaveResult["kind"],
+        ReturnType<typeof saved> | ReturnType<typeof skipped>
+      >(result => result.kind, {
+        saved: result => saved(result.revision),
+        skipped: () => skipped(),
+      }),
+      () => failed("request failed"),
+    )
+
+    expect(
+      asyncEffect.data?.handlers.resolve({ kind: "saved", revision: 4 }),
+    ).toEqual(saved(4))
+    expect(asyncEffect.data?.handlers.resolve({ kind: "skipped" })).toEqual(
+      skipped(),
+    )
+  })
+
+  test("startAsync().match maps ok, err, and cancelled handlers", () => {
+    const resolved = action("Resolved").withPayload<number>()
+    const rejected = action("Rejected").withPayload<string>()
+    const cancelled = action("Cancelled")
+
+    const asyncEffect = startAsync<number, string, Error>(
+      Promise.resolve(1),
+      "profile",
+    ).match({
+      cancelled: () => cancelled(),
+      err: reason => rejected(reason.message),
+      ok: value => resolved(value),
+    })
+
+    expect(asyncEffect.data?.handlers.resolve(4)).toEqual(resolved(4))
+    expect(asyncEffect.data?.handlers.reject?.(new Error("boom"))).toEqual(
+      rejected("boom"),
+    )
+    expect(asyncEffect.data?.handlers.cancelled?.()).toEqual(cancelled())
+  })
+
   test("creates typed output commands for map and string overloads", () => {
     const commandFromStrings = outputCommand("toast", "show", {
       message: "done",

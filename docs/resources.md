@@ -74,6 +74,20 @@ Bridge parameters:
 
 `bridge(options)` requires an options object. At least one of `filter`, `pace`, or `subscribe` must be provided.
 
+When bridge events are discriminated unions, you can reuse `matchOn(...)` as the `resolve` handler for `chainToAction(...)`:
+
+```typescript
+resource("stream", createStream())
+  .bridge({ pace: "latest" })
+  .chainToAction(
+    matchOn(event => event.kind, {
+      connected: event => streamConnected(event.id),
+      disconnected: () => streamDisconnected(),
+    }),
+    error => bridgeFailed({ message: String(error) }),
+  )
+```
+
 ```typescript
 import { action, resource, state } from "@tdreyno/fizz"
 

@@ -91,6 +91,21 @@ const Loading = state<{ userId: string }>("Loading")
   )
 ```
 
+When the success payload is a discriminated union, use `matchOn(...)` as the resolve function while keeping the same fluent chain:
+
+```ts
+customJSONAsync(signal =>
+  clients.apiClient.performSave({ signal }),
+).chainToAction(
+  matchOn(result => result.kind, {
+    invalid: result => saveInvalid(result.reason),
+    saved: result => saveSucceeded(result.revision),
+    skipped: () => undefined,
+  }),
+  saveFailed,
+)
+```
+
 Machine-level clients are injected when you create the runtime (or use `useMachine(...)` in React):
 
 ```ts

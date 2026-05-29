@@ -190,7 +190,7 @@ export const createRuntimeAsyncModule = (options: {
       parallel,
     })
 
-    if (cancelled) {
+    if (cancelled.cancelled) {
       options.emitMonitor({
         asyncId: data.asyncId,
         reason: "restart",
@@ -272,9 +272,19 @@ export const createRuntimeAsyncModule = (options: {
       timers: debounceTimers,
     })
 
-    return cancelled && previousData?.emitCancelled
-      ? [options.actionCommand(asyncCancelled({ asyncId: data.asyncId }))]
-      : []
+    const commands: RuntimeDebugCommand[] = []
+
+    if (cancelled.cancelledAction !== undefined) {
+      commands.push(options.actionCommand(cancelled.cancelledAction))
+    }
+
+    if (cancelled.cancelled && previousData?.emitCancelled) {
+      commands.push(
+        options.actionCommand(asyncCancelled({ asyncId: data.asyncId })),
+      )
+    }
+
+    return commands
   }
 
   const handleCancelAsync = <AsyncId extends string>(
@@ -290,7 +300,7 @@ export const createRuntimeAsyncModule = (options: {
 
     clearDebouncedMetadataIfIdle(data.asyncId)
 
-    if (cancelled || cancelledDebounce) {
+    if (cancelled.cancelled || cancelledDebounce) {
       options.emitMonitor({
         asyncId: data.asyncId,
         reason: "effect",
@@ -298,9 +308,19 @@ export const createRuntimeAsyncModule = (options: {
       })
     }
 
-    return cancelled || cancelledDebounce
-      ? [options.actionCommand(asyncCancelled({ asyncId: data.asyncId }))]
-      : []
+    const commands: RuntimeDebugCommand[] = []
+
+    if (cancelled.cancelledAction !== undefined) {
+      commands.push(options.actionCommand(cancelled.cancelledAction))
+    }
+
+    if (cancelled.cancelled || cancelledDebounce) {
+      commands.push(
+        options.actionCommand(asyncCancelled({ asyncId: data.asyncId })),
+      )
+    }
+
+    return commands
   }
 
   return {

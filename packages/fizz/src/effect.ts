@@ -553,7 +553,8 @@ export const commandChannel = <
 
 type RequestJSONRejectHandler<
   RejectedAction extends Action<string, unknown> | void,
-> = (reason: unknown) => RejectedAction
+  Rejected = unknown,
+> = (reason: Rejected) => RejectedAction
 
 type RequestJSONResolveHandler<
   Resolved,
@@ -600,19 +601,50 @@ export type CustomJSONInit<AsyncId extends string = string> = {
 type RequestJSONChainToActionBuilder<
   Resolved,
   AsyncId extends string = string,
+  Rejected = unknown,
 > = Effect<StartAsyncEffectData<Resolved, AsyncId>> & {
   map: <Mapped>(
     mapper: RequestJSONMapHandler<Resolved, Mapped>,
-  ) => RequestJSONChainToActionBuilder<Mapped, AsyncId>
+  ) => RequestJSONChainToActionBuilder<Mapped, AsyncId, Rejected>
 
   chainToAction: <
     ResolvedAction extends Action<string, unknown>,
     RejectedAction extends Action<string, unknown> | void,
   >(
     resolve: RequestJSONResolveHandler<Resolved, ResolvedAction>,
-    reject: RequestJSONRejectHandler<RejectedAction>,
+    reject: RequestJSONRejectHandler<RejectedAction, Rejected>,
   ) => Effect<
-    StartAsyncEffectData<Resolved, AsyncId, ResolvedAction, RejectedAction>
+    StartAsyncEffectData<
+      Resolved,
+      AsyncId,
+      ResolvedAction,
+      RejectedAction,
+      void,
+      Rejected
+    >
+  >
+
+  match: <
+    ResolvedAction extends Action<string, unknown> | void,
+    RejectedAction extends Action<string, unknown> | void = void,
+    CancelledAction extends Action<string, unknown> | void = void,
+  >(
+    handlers: AsyncMatchHandlers<
+      Resolved,
+      Rejected,
+      ResolvedAction,
+      RejectedAction,
+      CancelledAction
+    >,
+  ) => Effect<
+    StartAsyncEffectData<
+      Resolved,
+      AsyncId,
+      ResolvedAction,
+      RejectedAction,
+      CancelledAction,
+      Rejected
+    >
   >
 }
 
@@ -633,7 +665,8 @@ type RequestJSONValidateMethod<Resolved, AsyncId extends string = string> = {
 export type RequestJSONBuilder<
   Resolved = unknown,
   AsyncId extends string = string,
-> = RequestJSONChainToActionBuilder<Resolved, AsyncId> & {
+  Rejected = unknown,
+> = RequestJSONChainToActionBuilder<Resolved, AsyncId, Rejected> & {
   validate: RequestJSONValidateMethod<Resolved, AsyncId>
 }
 
@@ -878,10 +911,11 @@ const createCustomJSONRun = <Resolved>(options: {
 const createJSONChainToActionBuilder = <
   Resolved,
   AsyncId extends string = string,
+  Rejected = unknown,
 >(options: {
   asyncId?: AsyncId
   run: AsyncRun<Resolved>
-}): RequestJSONChainToActionBuilder<Resolved, AsyncId> => {
+}): RequestJSONChainToActionBuilder<Resolved, AsyncId, Rejected> => {
   const requestEffect = effect(
     "startAsync",
     createStartAsyncEffectData(
@@ -892,13 +926,25 @@ const createJSONChainToActionBuilder = <
       },
       options.asyncId,
     ),
-  ) as RequestJSONChainToActionBuilder<Resolved, AsyncId>
+  ) as RequestJSONChainToActionBuilder<Resolved, AsyncId, Rejected>
 
   requestEffect.chainToAction = (resolve, reject) =>
-    startAsync(options.run, options.asyncId).chainToAction(resolve, reject)
+    startAsync<Resolved, AsyncId, Rejected>(
+      options.run,
+      options.asyncId,
+    ).chainToAction(resolve, reject)
+
+  requestEffect.match = handlers =>
+    startAsync<Resolved, AsyncId, Rejected>(options.run, options.asyncId).match(
+      handlers,
+    )
 
   requestEffect.map = mapper =>
-    createJSONChainToActionBuilder<ReturnType<typeof mapper>, AsyncId>({
+    createJSONChainToActionBuilder<
+      ReturnType<typeof mapper>,
+      AsyncId,
+      Rejected
+    >({
       ...(options.asyncId === undefined ? {} : { asyncId: options.asyncId }),
       run: async (signal, context) => {
         const value = await runAsync(options.run, signal, context)
@@ -994,6 +1040,39 @@ export type AsyncRun<Resolved> =
   | Promise<Resolved>
   | ((signal: AbortSignal, context: Context) => Promise<Resolved>)
 
+export type AsyncMatchHandlers<
+  Resolved,
+  Rejected = unknown,
+  ResolvedAction extends Action<string, unknown> | void = Action<
+    string,
+    unknown
+  >,
+  RejectedAction extends Action<string, unknown> | void = void,
+  CancelledAction extends Action<string, unknown> | void = void,
+> = {
+  cancelled?: () => CancelledAction
+  err?: (reason: Rejected) => RejectedAction
+  ok: (value: Resolved) => ResolvedAction
+}
+
+type MatchOnCaseValue<T, Key extends string> =
+  Extract<T, { kind: Key }> extends never ? T : Extract<T, { kind: Key }>
+
+export type MatchOnCases<T, Key extends string, Mapped> = {
+  [CaseKey in Key]: (value: MatchOnCaseValue<T, CaseKey>) => Mapped | undefined
+}
+
+export const matchOn = <T, Key extends string, Mapped>(
+  classifier: (value: T) => Key,
+  cases: MatchOnCases<T, Key, Mapped>,
+): ((value: T) => Mapped | undefined) => {
+  return value => {
+    const caseKey = classifier(value)
+
+    return cases[caseKey](value as MatchOnCaseValue<T, typeof caseKey>)
+  }
+}
+
 export type DebounceAsyncRun<Resolved> = (
   signal: AbortSignal,
   context: Context,
@@ -1003,8 +1082,11 @@ export type AsyncHandlers<
   Resolved,
   ResolvedAction extends Action<string, unknown> | void,
   RejectedAction extends Action<string, unknown> | void = void,
+  CancelledAction extends Action<string, unknown> | void = void,
+  Rejected = unknown,
 > = {
-  reject: (reason: unknown) => RejectedAction
+  cancelled?: () => CancelledAction
+  reject?: (reason: Rejected) => RejectedAction
   resolve: (value: Resolved) => ResolvedAction
 }
 
@@ -1012,8 +1094,11 @@ export type DebounceAsyncHandlers<
   Resolved,
   ResolvedAction extends Action<string, unknown> | void,
   RejectedAction extends Action<string, unknown> | void = void,
+  CancelledAction extends Action<string, unknown> | void = void,
+  Rejected = unknown,
 > = {
-  reject?: (reason: unknown) => RejectedAction
+  cancelled?: () => CancelledAction
+  reject?: (reason: Rejected) => RejectedAction
   resolve: (value: Resolved) => ResolvedAction
 }
 
@@ -1030,12 +1115,20 @@ export type DebounceAsyncEffectData<
     unknown
   >,
   RejectedAction extends Action<string, unknown> | void = void,
+  CancelledAction extends Action<string, unknown> | void = void,
+  Rejected = unknown,
 > = {
   asyncId: AsyncId
   classifyAbort?: DebounceAsyncAbortClassifier
   delayMs: number
   emitCancelled?: boolean
-  handlers: DebounceAsyncHandlers<Resolved, ResolvedAction, RejectedAction>
+  handlers: DebounceAsyncHandlers<
+    Resolved,
+    ResolvedAction,
+    RejectedAction,
+    CancelledAction,
+    Rejected
+  >
   run: DebounceAsyncRun<Resolved>
 }
 
@@ -1047,9 +1140,17 @@ export type StartAsyncEffectData<
     unknown
   >,
   RejectedAction extends Action<string, unknown> | void = void,
+  CancelledAction extends Action<string, unknown> | void = void,
+  Rejected = unknown,
 > = {
   asyncId?: AsyncId
-  handlers: AsyncHandlers<Resolved, ResolvedAction, RejectedAction>
+  handlers: AsyncHandlers<
+    Resolved,
+    ResolvedAction,
+    RejectedAction,
+    CancelledAction,
+    Rejected
+  >
   run: AsyncRun<Resolved>
 }
 
@@ -1067,30 +1168,96 @@ export type DebounceAsyncOptions<AsyncId extends string = string> = {
 export type StartAsyncBuilder<
   Resolved,
   AsyncId extends string = string,
-> = Effect<StartAsyncEffectData<Resolved, AsyncId, void, void>> & {
+  Rejected = unknown,
+> = Effect<
+  StartAsyncEffectData<Resolved, AsyncId, void, void, void, Rejected>
+> & {
   chainToAction: <
     ResolvedAction extends Action<string, unknown> | void,
     RejectedAction extends Action<string, unknown> | void,
   >(
     resolve: (value: Resolved) => ResolvedAction,
-    reject: (reason: unknown) => RejectedAction,
+    reject: (reason: Rejected) => RejectedAction,
   ) => Effect<
-    StartAsyncEffectData<Resolved, AsyncId, ResolvedAction, RejectedAction>
+    StartAsyncEffectData<
+      Resolved,
+      AsyncId,
+      ResolvedAction,
+      RejectedAction,
+      void,
+      Rejected
+    >
+  >
+
+  match: <
+    ResolvedAction extends Action<string, unknown> | void,
+    RejectedAction extends Action<string, unknown> | void = void,
+    CancelledAction extends Action<string, unknown> | void = void,
+  >(
+    handlers: AsyncMatchHandlers<
+      Resolved,
+      Rejected,
+      ResolvedAction,
+      RejectedAction,
+      CancelledAction
+    >,
+  ) => Effect<
+    StartAsyncEffectData<
+      Resolved,
+      AsyncId,
+      ResolvedAction,
+      RejectedAction,
+      CancelledAction,
+      Rejected
+    >
   >
 }
 
 export type DebounceAsyncBuilder<
   Resolved,
   AsyncId extends string = string,
-> = Effect<DebounceAsyncEffectData<Resolved, AsyncId, void, void>> & {
+  Rejected = unknown,
+> = Effect<
+  DebounceAsyncEffectData<Resolved, AsyncId, void, void, void, Rejected>
+> & {
   chainToAction: <
     ResolvedAction extends Action<string, unknown> | void,
     RejectedAction extends Action<string, unknown> | void = void,
   >(
     resolve: (value: Resolved) => ResolvedAction,
-    reject?: (reason: unknown) => RejectedAction,
+    reject?: (reason: Rejected) => RejectedAction,
   ) => Effect<
-    DebounceAsyncEffectData<Resolved, AsyncId, ResolvedAction, RejectedAction>
+    DebounceAsyncEffectData<
+      Resolved,
+      AsyncId,
+      ResolvedAction,
+      RejectedAction,
+      void,
+      Rejected
+    >
+  >
+
+  match: <
+    ResolvedAction extends Action<string, unknown> | void,
+    RejectedAction extends Action<string, unknown> | void = void,
+    CancelledAction extends Action<string, unknown> | void = void,
+  >(
+    handlers: AsyncMatchHandlers<
+      Resolved,
+      Rejected,
+      ResolvedAction,
+      RejectedAction,
+      CancelledAction
+    >,
+  ) => Effect<
+    DebounceAsyncEffectData<
+      Resolved,
+      AsyncId,
+      ResolvedAction,
+      RejectedAction,
+      CancelledAction,
+      Rejected
+    >
   >
 }
 
@@ -1099,23 +1266,39 @@ const ignoreAsyncResult = () => undefined
 const createStartAsyncEffectData = <
   Resolved,
   AsyncId extends string = string,
+  Rejected = unknown,
   ResolvedAction extends Action<string, unknown> | void = void,
   RejectedAction extends Action<string, unknown> | void = void,
+  CancelledAction extends Action<string, unknown> | void = void,
 >(
   run: AsyncRun<Resolved>,
-  handlers: AsyncHandlers<Resolved, ResolvedAction, RejectedAction>,
+  handlers: AsyncHandlers<
+    Resolved,
+    ResolvedAction,
+    RejectedAction,
+    CancelledAction,
+    Rejected
+  >,
   asyncId?: AsyncId,
 ) => (asyncId === undefined ? { handlers, run } : { asyncId, handlers, run })
 
 const createDebounceAsyncEffectData = <
   Resolved,
   AsyncId extends string = string,
+  Rejected = unknown,
   ResolvedAction extends Action<string, unknown> | void = void,
   RejectedAction extends Action<string, unknown> | void = void,
+  CancelledAction extends Action<string, unknown> | void = void,
 >(
   run: DebounceAsyncRun<Resolved>,
   options: DebounceAsyncOptions<AsyncId>,
-  handlers: DebounceAsyncHandlers<Resolved, ResolvedAction, RejectedAction>,
+  handlers: DebounceAsyncHandlers<
+    Resolved,
+    ResolvedAction,
+    RejectedAction,
+    CancelledAction,
+    Rejected
+  >,
 ) => ({
   asyncId: options.asyncId,
   ...(options.classifyAbort === undefined
@@ -1129,10 +1312,14 @@ const createDebounceAsyncEffectData = <
   run,
 })
 
-const createStartAsyncBuilder = <Resolved, AsyncId extends string = string>(
+const createStartAsyncBuilder = <
+  Resolved,
+  AsyncId extends string = string,
+  Rejected = unknown,
+>(
   run: AsyncRun<Resolved>,
   asyncId?: AsyncId,
-): StartAsyncBuilder<Resolved, AsyncId> => {
+): StartAsyncBuilder<Resolved, AsyncId, Rejected> => {
   const startAsyncEffect = effect(
     "startAsync",
     createStartAsyncEffectData(
@@ -1143,61 +1330,99 @@ const createStartAsyncBuilder = <Resolved, AsyncId extends string = string>(
       },
       asyncId,
     ),
-  ) as StartAsyncBuilder<Resolved, AsyncId>
+  ) as StartAsyncBuilder<Resolved, AsyncId, Rejected>
 
-  startAsyncEffect.chainToAction = (resolve, reject) =>
+  startAsyncEffect.match = handlers =>
     effect(
       "startAsync",
-      createStartAsyncEffectData(run, { reject, resolve }, asyncId),
+      createStartAsyncEffectData(
+        run,
+        {
+          ...(handlers.cancelled === undefined
+            ? {}
+            : { cancelled: handlers.cancelled }),
+          ...(handlers.err === undefined ? {} : { reject: handlers.err }),
+          resolve: handlers.ok,
+        },
+        asyncId,
+      ),
     )
+
+  startAsyncEffect.chainToAction = (resolve, reject) =>
+    startAsyncEffect.match({
+      err: reject,
+      ok: resolve,
+    })
 
   return startAsyncEffect
 }
 
-const createDebounceAsyncBuilder = <Resolved, AsyncId extends string = string>(
+const createDebounceAsyncBuilder = <
+  Resolved,
+  AsyncId extends string = string,
+  Rejected = unknown,
+>(
   run: DebounceAsyncRun<Resolved>,
   options: DebounceAsyncOptions<AsyncId>,
-): DebounceAsyncBuilder<Resolved, AsyncId> => {
+): DebounceAsyncBuilder<Resolved, AsyncId, Rejected> => {
   const debounceEffect = effect(
     "debounceAsync",
     createDebounceAsyncEffectData(run, options, {
       resolve: ignoreAsyncResult,
     }),
-  ) as DebounceAsyncBuilder<Resolved, AsyncId>
+  ) as DebounceAsyncBuilder<Resolved, AsyncId, Rejected>
 
-  debounceEffect.chainToAction = (resolve, reject) =>
+  debounceEffect.match = handlers =>
     effect(
       "debounceAsync",
-      createDebounceAsyncEffectData(
-        run,
-        options,
-        reject === undefined ? { resolve } : { reject, resolve },
-      ),
+      createDebounceAsyncEffectData(run, options, {
+        ...(handlers.cancelled === undefined
+          ? {}
+          : { cancelled: handlers.cancelled }),
+        ...(handlers.err === undefined ? {} : { reject: handlers.err }),
+        resolve: handlers.ok,
+      }),
     )
+
+  debounceEffect.chainToAction = (resolve, reject) =>
+    debounceEffect.match({
+      ...(reject === undefined ? {} : { err: reject }),
+      ok: resolve,
+    })
 
   return debounceEffect
 }
 
 export type StartAsyncEffectCreator<AsyncId extends string = string> = <
   Resolved,
+  Rejected = unknown,
 >(
   run: AsyncRun<Resolved>,
   asyncId?: AsyncId,
-) => StartAsyncBuilder<Resolved, AsyncId>
+) => StartAsyncBuilder<Resolved, AsyncId, Rejected>
 
-export const startAsync = <Resolved, AsyncId extends string = string>(
+export const startAsync = <
+  Resolved,
+  AsyncId extends string = string,
+  Rejected = unknown,
+>(
   run: AsyncRun<Resolved>,
   asyncId?: AsyncId,
-): StartAsyncBuilder<Resolved, AsyncId> => createStartAsyncBuilder(run, asyncId)
+): StartAsyncBuilder<Resolved, AsyncId, Rejected> =>
+  createStartAsyncBuilder(run, asyncId)
 
 export const cancelAsync = <AsyncId extends string = string>(
   asyncId: AsyncId,
 ): Effect<CancelAsyncEffectData<AsyncId>> => effect("cancelAsync", { asyncId })
 
-export const debounceAsync = <Resolved, AsyncId extends string = string>(
+export const debounceAsync = <
+  Resolved,
+  AsyncId extends string = string,
+  Rejected = unknown,
+>(
   run: DebounceAsyncRun<Resolved>,
   options: DebounceAsyncOptions<AsyncId>,
-): DebounceAsyncBuilder<Resolved, AsyncId> =>
+): DebounceAsyncBuilder<Resolved, AsyncId, Rejected> =>
   createDebounceAsyncBuilder(run, options)
 
 export type StartTimerEffectData<TimeoutId extends string = string> = {

@@ -49,6 +49,8 @@ Bridge behavior:
 
 Use this when callback glue belongs in machine lifecycle, not controller adapters.
 
+When bridge events are discriminated unions, use `matchOn(...)` as the resolve function passed to `chainToAction(...)` so event variants are handled explicitly.
+
 ## Example
 
 ```typescript
