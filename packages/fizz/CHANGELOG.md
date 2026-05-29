@@ -1,5 +1,72 @@
 # @tdreyno/fizz
 
+## 8.18.0
+
+### Minor Changes
+
+- ae429f7: # First-Class Shadow DOM Support
+
+  Add first-class Shadow DOM support for browser DOM effects and query acquisition.
+
+  This release introduces an opt-in runtime default DOM query scope and a configurable browser driver factory so unscoped DOM queries can target a Web Component's shadow root by default.
+
+  **New APIs:**
+  - `defaultDomQueryScope` runtime option (for `createRuntime(...)` and `Runtime` constructor options)
+  - `createBrowserDriver({ defaultQueryScope })` from `@tdreyno/fizz/browser`
+  - `RuntimeDomQueryScope` driver type now includes `Document | Element | ShadowRoot`
+
+  **Behavior updates:**
+  - `dom.outsidePointerDown(...)` and `dom.outsideFocusIn(...)` now prefer `event.composedPath()` when available, with `contains(...)` fallback, so outside detection works across shadow boundaries and retargeted events.
+  - Runtime browser module query acquisition can use the configured default query scope when a query effect does not provide an explicit scope resource.
+
+  Existing behavior remains unchanged unless a default scope is explicitly configured.
+
+  **Example:**
+
+  ```typescript
+  import { createRuntime, enter } from "@tdreyno/fizz"
+  import { browserDriver, createBrowserDriver } from "@tdreyno/fizz/browser"
+
+  const runtime = createRuntime(machine, machine.states.Ready(), {
+    browserDriver,
+    defaultDomQueryScope: host.shadowRoot ?? undefined,
+  })
+
+  const scopedDriver = createBrowserDriver({
+    defaultQueryScope: host.shadowRoot ?? undefined,
+  })
+
+  await runtime.run(enter())
+  ```
+
+### Patch Changes
+
+- d71d019: Make DOM events and observers realm-aware so they work correctly in jsdom and cross-realm DOM setups (for example, elements inside an iframe document).
+
+  When dispatching events from a string type (e.g., `dispatchEvent("input")`), Fizz now resolves the `Event` or `CustomEvent` constructor from the target element's `ownerDocument.defaultView` instead of always using `globalThis`. Likewise, `observeIntersection` and `observeResize` now resolve the `IntersectionObserver` / `ResizeObserver` constructor from the observed element's realm. All cases fall back to `globalThis` constructors when no realm is available.
+
+  Consumers no longer need manual realm fallback workarounds; events and observers are created in the correct realm automatically.
+
+  **Example:**
+
+  ```typescript
+  // Before: consumer had to implement fallback
+  const EventCtor =
+    element.ownerDocument?.defaultView?.Event ?? globalThis.Event
+  element.dispatchEvent(new EventCtor("input", { bubbles: true }))
+
+  // After: realm-aware automatically
+  dom.fromElement(element, "target").dispatchEvent("input", { bubbles: true })
+  // Event is created in element's realm automatically
+  ```
+
+  **Details:**
+  - Adds realm resolution to `dispatchEvent` (`resolveWindowFromTarget()` / `getEventConstructor()` helpers)
+  - The `RuntimeDomDriver` observer factory methods (`createIntersectionObserver`, `createResizeObserver`) now receive the observed `target` element as an optional argument so the default driver can resolve the correct realm constructor
+  - The default browser driver and the test browser driver both resolve observers from the target element's realm
+  - Adds test coverage: realm-aware event creation, target forwarding to observer factories, and realm-scoped observer construction
+  - Updated documentation in `docs/browser-dom.md` and `skills/fizz/references/browser-effects.md`
+
 ## 8.17.1
 
 ### Patch Changes
