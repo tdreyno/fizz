@@ -1,5 +1,12 @@
 # @tdreyno/fizz
 
+## 8.17.1
+
+### Patch Changes
+
+- eb4ef62: Improve `dispatchEvent` documentation to highlight options parameter support. Added test coverage demonstrating both prebuilt event instances and options-based event dispatch.
+- 6abe2d1: Add chainable DOM mutator return documentation and skills guidance. Updated examples now show fluent effect-return composition like `setValue(...).dispatchEvent(...).mutate(...)` while preserving array-compatible behavior notes.
+
 ## 8.17.0
 
 ### Minor Changes
