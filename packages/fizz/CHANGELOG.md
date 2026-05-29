@@ -1,5 +1,69 @@
 # @tdreyno/fizz
 
+## 8.19.0
+
+### Minor Changes
+
+- a37d7d9: Add explicit controlled-time helpers to `@tdreyno/fizz/test` harnesses: `advanceTime(ms, options?)`, `advanceTimeTo(targetMs, options?)`, and `time.{advance,advanceTo,now,total}`.
+
+  `advanceBy(...)` and `runAllTimers()` are removed from the harness API in favor of the new time helpers.
+
+  Migration:
+  - Replace `harness.advanceBy(ms)` with `harness.advanceTime(ms)`
+  - Replace `harness.runAllTimers()` with `harness.settle()` or explicit `harness.advanceTime(...)` steps
+
+- f7dcaee: Add async introspection and flush APIs to the runtime and test harness.
+
+  New runtime methods:
+  - `hasPendingAsync(asyncId)` returns whether an operation is debouncing or in-flight for the id
+  - `getPendingAsync(asyncId)` returns a `{ asyncId, phase }` snapshot (`"debouncing"` or `"in-flight"`) or `undefined`
+  - `getPendingAsyncCount()` returns the number of pending operations across all ids
+  - `flushAsync(asyncId, options?)` fires a pending debounce immediately (or awaits in-flight work) and resolves a `FlushAsyncOutcome` (`nothing` | `succeeded` | `failed` | `aborted`); an optional `timeoutMs` resolves `{ type: "aborted" }` and cancels the operation if it does not settle in time
+
+  The `@tdreyno/fizz/test` harness exposes the same `hasPendingAsync`, `getPendingAsync`, and `getPendingAsyncCount` helpers, plus an overloaded `flushAsync(asyncId, options?)` that returns the outcome (the existing no-argument `flushAsync()` driver flush is unchanged).
+
+  Starting `startAsync(...)` with an explicit `asyncId` now cancels any pending debounce timer for that same id, enforcing single-owner exclusivity per `asyncId`.
+
+- 97b6796: Add a reusable `matchOn(...)` helper for mapping discriminated async outcomes to actions while keeping `chainToAction(...)` unchanged.
+
+  Add a new `.match({ ok, err?, cancelled? })` terminal to async builders:
+  - `startAsync(...)`
+  - `debounceAsync(...)`
+  - `requestJSONAsync(...)`
+  - `customJSONAsync(...)`
+
+  `ok` is required, while `err` and `cancelled` are optional.
+
+  Async builders now support typed error-channel generics so `err` and `chainToAction(..., reject)` can use a narrower error type when desired (default remains `unknown`).
+
+  Cancellation handlers from `.match({ cancelled })` now dispatch when active async work is cancelled or aborted (including explicit `cancelAsync(asyncId)` and replacement by a newer operation with the same id).
+
+  `matchOn(...)` returns a standard resolve handler function, so it can be passed directly into `startAsync(...)`, `debounceAsync(...)`, `requestJSONAsync(...)`, `customJSONAsync(...)`, and resource bridge chaining.
+
+  **Example:**
+
+  ```typescript
+  startAsync(loadSaveResult, "save").chainToAction(
+    matchOn(result => result.kind, {
+      aborted: () => saveAborted(),
+      invalid: result => saveInvalid(result.reason),
+      saved: result => saveSucceeded(result.revision),
+      skipped: () => undefined,
+    }),
+    saveFailed,
+  )
+  ```
+
+  This release also updates async/resource docs and Fizz skill references to document when to use `matchOn(...)` and `.match(...)` outcome mapping.
+
+- c2e92bb: # Runtime disconnect async contract
+
+  Document and verify the async teardown contract for `runtime.disconnect()`.
+
+  Fizz now ships explicit regression coverage for disconnect behavior across `startAsync(...)`, `debounceAsync(...)`, `requestJSONAsync(...)`, and `customJSONAsync(...)`, and the public docs now describe the supported close-path pattern of `flushAsync(...)` followed by `disconnect()`.
+
+  React integration and Fizz skill references were updated to clarify that component unmount uses the same runtime teardown guarantees.
+
 ## 8.18.0
 
 ### Minor Changes
