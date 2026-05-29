@@ -445,12 +445,10 @@ export const createRuntimeBrowserModule = (options: {
   }
 
   const handleChain = (data: DomChainEffectData): RuntimeDebugCommand[] => {
-    const commands = [
-      ...handleAcquire(data.acquire.data as DomAcquireEffectData),
-    ]
+    const commands = [...handleAcquire(data.acquire.data!)]
 
     for (const listener of data.listeners) {
-      commands.push(...handleListen(listener.data as DomListenEffectData))
+      commands.push(...handleListen(listener.data!))
     }
 
     return commands
@@ -609,6 +607,8 @@ export const createRuntimeBrowserModule = (options: {
         nativeOptions,
       }
 
+      const createdGroup = group
+
       targetGroups.set(groupKey, group)
       addEventListener(
         target,
@@ -628,8 +628,8 @@ export const createRuntimeBrowserModule = (options: {
           removeEventListener(
             target,
             data.type,
-            group.nativeCallback,
-            group.nativeOptions,
+            createdGroup.nativeCallback,
+            createdGroup.nativeOptions,
           )
           targetGroups.delete(groupKey)
 
@@ -637,20 +637,26 @@ export const createRuntimeBrowserModule = (options: {
             targetListenerGroups.delete(target)
           }
         },
-        value: group.nativeCallback,
+        value: createdGroup.nativeCallback,
       })
     }
 
+    const activeGroup = group
+
+    if (!activeGroup) {
+      return []
+    }
+
     const cleanupGroupIfEmpty = () => {
-      if (group.handlers.length > 0 || !targetGroups.has(groupKey)) {
+      if (activeGroup.handlers.length > 0 || !targetGroups.has(groupKey)) {
         return
       }
 
       removeEventListener(
         target,
         data.type,
-        group.nativeCallback,
-        group.nativeOptions,
+        activeGroup.nativeCallback,
+        activeGroup.nativeOptions,
       )
       targetGroups.delete(groupKey)
 
@@ -669,7 +675,7 @@ export const createRuntimeBrowserModule = (options: {
       isRemoved = true
       removeOrderedListener({
         entry,
-        handlers: group.handlers,
+        handlers: activeGroup.handlers,
       })
       cleanupGroupIfEmpty()
     }
@@ -696,7 +702,7 @@ export const createRuntimeBrowserModule = (options: {
 
     insertOrderedListener({
       entry,
-      handlers: group.handlers,
+      handlers: activeGroup.handlers,
     })
 
     const onAbort = () => {

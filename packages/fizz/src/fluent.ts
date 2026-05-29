@@ -838,23 +838,37 @@ const createFluentMachine = <
 
   const withOutputActions = <NextOutputActions>(
     outputActions: NextOutputActions,
-  ) =>
-    createFluentMachine<States, Actions, NextOutputActions, Selectors, Clients>(
-      {
-        ...config,
-        outputActions,
-        outputs: undefined,
-      },
-    )
+  ) => {
+    const { outputs: _outputs, ...nextConfig } = config
+    void _outputs
 
-  const withOutputs = <NextOutputActions>(outputs: NextOutputActions) =>
-    createFluentMachine<States, Actions, NextOutputActions, Selectors, Clients>(
-      {
-        ...config,
-        outputActions: undefined,
-        outputs,
-      },
-    )
+    return createFluentMachine<
+      States,
+      Actions,
+      NextOutputActions,
+      Selectors,
+      Clients
+    >({
+      ...nextConfig,
+      outputActions,
+    })
+  }
+
+  const withOutputs = <NextOutputActions>(outputs: NextOutputActions) => {
+    const { outputActions: _outputActions, ...nextConfig } = config
+    void _outputActions
+
+    return createFluentMachine<
+      States,
+      Actions,
+      NextOutputActions,
+      Selectors,
+      Clients
+    >({
+      ...nextConfig,
+      outputs,
+    })
+  }
 
   const withSelectors = <NextSelectors extends FluentMachineSelectors<States>>(
     selectors: NextSelectors,
@@ -922,19 +936,25 @@ const createFluentMachineBuilder = <
 
   const withOutputActions = <NextOutputActions>(
     outputActions: NextOutputActions,
-  ) =>
-    createFluentMachineBuilder<Actions, NextOutputActions, Clients>({
-      ...config,
-      outputActions,
-      outputs: undefined,
-    })
+  ) => {
+    const { outputs: _outputs, ...nextConfig } = config
+    void _outputs
 
-  const withOutputs = <NextOutputActions>(outputs: NextOutputActions) =>
-    createFluentMachineBuilder<Actions, NextOutputActions, Clients>({
-      ...config,
-      outputActions: undefined,
+    return createFluentMachineBuilder<Actions, NextOutputActions, Clients>({
+      ...nextConfig,
+      outputActions,
+    })
+  }
+
+  const withOutputs = <NextOutputActions>(outputs: NextOutputActions) => {
+    const { outputActions: _outputActions, ...nextConfig } = config
+    void _outputActions
+
+    return createFluentMachineBuilder<Actions, NextOutputActions, Clients>({
+      ...nextConfig,
       outputs,
     })
+  }
 
   const withClients = <NextClients extends Record<string, unknown>>() =>
     createFluentMachineBuilder<Actions, OutputActions, NextClients>(config)

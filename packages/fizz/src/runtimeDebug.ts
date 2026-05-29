@@ -259,6 +259,19 @@ const eventFormatters = {
     ],
     level: "log",
   }),
+  "imperative-command-replaced": (
+    event: RuntimeDebugEventByType<"imperative-command-replaced">,
+    prefix: string,
+  ): RuntimeDebugConsoleEntry => ({
+    args: [
+      withPrefix(
+        prefix,
+        `Imperative command replaced ${event.channel}.${event.commandType}`,
+      ),
+      { latestOnlyKey: event.latestOnlyKey },
+    ],
+    level: "log",
+  }),
   "interval-cancelled": (
     event: RuntimeDebugEventByType<"interval-cancelled">,
     prefix: string,
@@ -369,6 +382,40 @@ const eventFormatters = {
       { delay: event.delay },
     ],
     level: "log",
+  }),
+  "wait-until-registered": (
+    event: RuntimeDebugEventByType<"wait-until-registered">,
+    prefix: string,
+  ): RuntimeDebugConsoleEntry => ({
+    args: [
+      withPrefix(prefix, `WaitUntil registered ${event.waitUntilId}`),
+      {
+        channels: event.channels,
+        hasAbortSignal: event.hasAbortSignal,
+        hasTimeout: event.hasTimeout,
+      },
+    ],
+    level: "log",
+  }),
+  "wait-until-resolved": (
+    event: RuntimeDebugEventByType<"wait-until-resolved">,
+    prefix: string,
+  ): RuntimeDebugConsoleEntry => ({
+    args: [
+      withPrefix(prefix, `WaitUntil resolved ${event.waitUntilId}`),
+      { channel: event.channel, durationMs: event.durationMs },
+    ],
+    level: "log",
+  }),
+  "wait-until-rejected": (
+    event: RuntimeDebugEventByType<"wait-until-rejected">,
+    prefix: string,
+  ): RuntimeDebugConsoleEntry => ({
+    args: [
+      withPrefix(prefix, `WaitUntil rejected ${event.waitUntilId}`),
+      { durationMs: event.durationMs, reason: event.reason },
+    ],
+    level: "warn",
   }),
 } satisfies {
   [T in RuntimeDebugEvent["type"]]: (

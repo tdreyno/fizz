@@ -54,7 +54,7 @@ describe("browser test harness", () => {
     >(
       {
         Enter: (data, _, { update }) => [
-          ...dom
+          dom
             .document("doc")
             .listen(
               "pointerdown",
@@ -117,14 +117,12 @@ describe("browser test harness", () => {
     >(
       {
         Enter: (data, _, { update }) => [
-          ...dom.document("doc").listen("focusin", event => {
+          dom.document("doc").listen("focusin", event => {
             const nextTarget = event.target as HTMLInputElement | null
 
             return focused(nextTarget?.name ?? "unknown")
           }),
-          ...dom
-            .document("doc")
-            .listen("keydown", event => keyPressed(event.key)),
+          dom.document("doc").listen("keydown", event => keyPressed(event.key)),
           update(appendEvent(data, "enter")),
         ],
 
@@ -191,36 +189,36 @@ describe("browser test harness", () => {
     >(
       {
         Enter: (data, _, { update }) => [
-          ...dom
+          dom
             .document("doc")
             .onClick(event =>
               clicked(
                 (event.target as HTMLElement | null)?.tagName ?? "unknown",
               ),
             ),
-          ...dom
+          dom
             .document("doc")
             .onInput(event =>
               inputSeen((event.target as HTMLInputElement | null)?.value ?? ""),
             ),
-          ...dom
+          dom
             .document("doc")
             .onChange(event =>
               changed((event.target as HTMLInputElement | null)?.value ?? ""),
             ),
-          ...dom.document("doc").onKeyUp(event => keyReleased(event.key)),
-          ...dom
+          dom.document("doc").onKeyUp(event => keyReleased(event.key)),
+          dom
             .document("doc")
             .onFocusOut(event =>
               blurred((event.target as HTMLInputElement | null)?.name ?? ""),
             ),
-          ...dom
+          dom
             .document("doc")
             .onPointerMove(event => pointerMoved(event.clientX)),
-          ...dom
+          dom
             .document("doc")
             .onPointerUp(event => pointerReleased(event.clientX)),
-          ...dom
+          dom
             .document("doc")
             .onSubmit(event => submitted(submitterName(event.submitter))),
           update(appendEvent(data, "enter")),
@@ -350,36 +348,36 @@ describe("browser test harness", () => {
     >(
       {
         Enter: (data, _, { update }) => [
-          ...dom
+          dom
             .document("doc")
             .onPointerDown(event => pointerDown(event.clientX)),
-          ...dom
+          dom
             .document("doc")
             .onPointerMove(event => pointerMoved(event.clientX)),
-          ...dom.document("doc").onPointerUp(event => pointerUp(event.clientX)),
-          ...dom
+          dom.document("doc").onPointerUp(event => pointerUp(event.clientX)),
+          dom
             .document("doc")
             .onFocusIn(event =>
               focused((event.target as HTMLInputElement | null)?.name ?? ""),
             ),
-          ...dom.document("doc").onKeyDown(event => keyPressed(event.key)),
-          ...dom.document("doc").onKeyUp(event => keyReleased(event.key)),
-          ...dom
+          dom.document("doc").onKeyDown(event => keyPressed(event.key)),
+          dom.document("doc").onKeyUp(event => keyReleased(event.key)),
+          dom
             .document("doc")
             .onInput(event =>
               inputSeen((event.target as HTMLInputElement | null)?.value ?? ""),
             ),
-          ...dom
+          dom
             .document("doc")
             .onChange(event =>
               changed((event.target as HTMLInputElement | null)?.value ?? ""),
             ),
-          ...dom
+          dom
             .document("doc")
             .onClick(event =>
               clicked((event.target as HTMLButtonElement | null)?.name ?? ""),
             ),
-          ...dom
+          dom
             .document("doc")
             .onSubmit(event => submitted(submitterName(event.submitter))),
           update(appendEvent(data, "enter")),

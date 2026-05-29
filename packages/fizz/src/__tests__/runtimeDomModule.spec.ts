@@ -1,13 +1,18 @@
 import { describe, expect, jest, test } from "@jest/globals"
 
-import { action } from "../action"
-import { dom } from "../browser/domEffects"
-import { createRuntimeDomModule } from "../browser/runtimeDomModule"
+import { action } from "../action.js"
+import type {
+  DomAcquireEffectData,
+  DomChainEffectData,
+  DomListenEffectData,
+} from "../browser/domEffects.js"
+import { createRuntimeDomModule } from "../browser/runtimeDomModule.js"
+import { effect } from "../effect.js"
 import {
   disposeStateResources,
   getStateResources,
   setStateResource,
-} from "../stateResources"
+} from "../stateResources.js"
 
 type RuntimeStateStub = {
   data: unknown
@@ -417,13 +422,28 @@ describe("runtimeDomModule", () => {
       runAction: async () => undefined,
     })
 
-    const chain = dom
-      .fromElement(target, "target")
-      .onClick(() => action("Clicked")())
-      .onBlur(() => action("Blurred")())
+    const chainData: DomChainEffectData = {
+      acquire: effect<DomAcquireEffectData>("domAcquire", {
+        element: target,
+        kind: "external",
+        resourceId: "target",
+      }),
+      listeners: [
+        effect<DomListenEffectData>("domListen", {
+          targetResourceId: "target",
+          toAction: () => action("Clicked")(),
+          type: "click",
+        }),
+        effect<DomListenEffectData>("domListen", {
+          targetResourceId: "target",
+          toAction: () => action("Blurred")(),
+          type: "blur",
+        }),
+      ],
+    }
 
     module.effectHandlers.get("domChain")!({
-      data: chain.data,
+      data: chainData,
       label: "domChain",
     } as never)
 

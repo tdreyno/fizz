@@ -1,8 +1,7 @@
 type EventMapLike = object
 
-export type DomEventHelperMap<EventMap extends EventMapLike> = Record<
-  keyof EventMap & string,
-  `on${string}`
+export type DomEventHelperMap<EventMap extends EventMapLike> = Partial<
+  Record<keyof EventMap & string, `on${string}`>
 >
 
 export const WINDOW_EVENT_HELPERS = {

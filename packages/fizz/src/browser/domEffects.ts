@@ -12,6 +12,7 @@ import {
 
 type AnyAction = Action<string, unknown>
 type EventMapLike = object
+type TextSelectionDirection = "backward" | "forward" | "none"
 
 type EventFromMap<
   EventMap extends EventMapLike,
@@ -184,11 +185,9 @@ type TargetBuilderListenHelpers<
   TChain,
 > = {
   [EventType in keyof EventHelpers &
-    string as EventHelpers[EventType]]: DomEventHelperOverload<
-    EventType,
-    EventMap,
-    TChain
-  >
+    string as EventHelpers[EventType] extends string
+    ? EventHelpers[EventType]
+    : never]: DomEventHelperOverload<EventType, EventMap, TChain>
 }
 
 type MethodsOf<T> = T extends object
@@ -230,7 +229,7 @@ type SetPropertyHelper<TElement> = <
   value: TName extends keyof TElement ? TElement[TName] : unknown,
 ) => Effect<unknown>[]
 
-type TargetBuilder<
+type TargetBuilderBase<
   EventMap extends EventMapLike,
   TElement = unknown,
   EventHelpers extends DomEventHelperMap<EventMap> =
@@ -279,7 +278,7 @@ type TargetBuilder<
   setSelectionRange: (
     start: number,
     end: number,
-    direction?: SelectionDirection,
+    direction?: TextSelectionDirection,
   ) => Effect<unknown>[]
   setText: (text: string) => Effect<unknown>[]
   setValue: (value: string) => Effect<unknown>[]
@@ -318,10 +317,18 @@ type TargetBuilder<
     ): Effect<unknown>[]
   }
   resource: () => Effect<unknown>
-} & TargetBuilderListenHelpers<
+}
+
+type TargetBuilder<
+  EventMap extends EventMapLike,
+  TElement = unknown,
+  EventHelpers extends DomEventHelperMap<EventMap> =
+    DomEventHelperMap<EventMap>,
+> = TargetBuilderBase<EventMap, TElement, EventHelpers> &
+  TargetBuilderListenHelpers<
     EventMap,
     EventHelpers,
-    TargetBuilder<EventMap, TElement, EventHelpers>
+    TargetBuilderBase<EventMap, TElement, EventHelpers>
   >
 
 type HistoryEventMap = { popstate: PopStateEvent }
@@ -332,13 +339,33 @@ type HistoryBuilder = Effect<DomChainEffectData> &
     TargetBuilder<HistoryEventMap, History, typeof HISTORY_EVENT_HELPERS>,
     "listen" | "mutate" | "resource"
   > &
-  TargetBuilderListenHelpers<HistoryEventMap, typeof HISTORY_EVENT_HELPERS>
+  TargetBuilderListenHelpers<
+    HistoryEventMap,
+    typeof HISTORY_EVENT_HELPERS,
+    Effect<DomChainEffectData> &
+      Pick<
+        TargetBuilder<HistoryEventMap, History, typeof HISTORY_EVENT_HELPERS>,
+        "listen" | "mutate" | "resource"
+      >
+  >
 type LocationBuilder = Effect<DomChainEffectData> &
   Pick<
     TargetBuilder<LocationEventMap, Location, typeof LOCATION_EVENT_HELPERS>,
     "listen" | "mutate" | "resource"
   > &
-  TargetBuilderListenHelpers<LocationEventMap, typeof LOCATION_EVENT_HELPERS>
+  TargetBuilderListenHelpers<
+    LocationEventMap,
+    typeof LOCATION_EVENT_HELPERS,
+    Effect<DomChainEffectData> &
+      Pick<
+        TargetBuilder<
+          LocationEventMap,
+          Location,
+          typeof LOCATION_EVENT_HELPERS
+        >,
+        "listen" | "mutate" | "resource"
+      >
+  >
 
 type DomFromBuilder = {
   closest: <TElement extends Element = Element>(
@@ -729,7 +756,7 @@ const setSelectionRangeOnTarget = (
   target: unknown,
   start: number,
   end: number,
-  direction?: SelectionDirection,
+  direction?: TextSelectionDirection,
 ): void => {
   forEachTarget(target, node => {
     if (
@@ -759,7 +786,7 @@ const setSelectionRangeOnTarget = (
       setSelectionRange as (
         start: number,
         end: number,
-        direction: SelectionDirection,
+        direction: TextSelectionDirection,
       ) => void
     ).call(node, start, end, direction)
   })
@@ -958,7 +985,7 @@ const containsTargetNode = (
 
 const isOutsideTarget = (options: {
   event: Event
-  includeTrigger?: Element | null
+  includeTrigger?: Element | null | undefined
   inside: Array<Element | null | undefined>
 }): boolean => {
   const target = options.event.target
@@ -982,10 +1009,10 @@ const createFluentListenBuilder = <
   TChain = Effect<unknown>,
 >(options: {
   appendListener: (listener: Effect<DomListenEffectData>) => TChain
-  listenOptions?: DomListenOptions
+  listenOptions?: DomListenOptions | undefined
   mapFromEvent?: (event: TEvent) => TMapped
-  onNoMatch?: (event: TEvent) => AnyAction | undefined
-  predicates?: Array<(event: TEvent, value: TMapped) => boolean>
+  onNoMatch?: ((event: TEvent) => AnyAction | undefined) | undefined
+  predicates?: Array<(event: TEvent) => boolean>
   runOnce?: boolean
   runPreventDefault?: boolean
   runStopPropagation?: boolean
@@ -998,28 +1025,34 @@ const createFluentListenBuilder = <
 
   const createNext = <TNext>(next: {
     mapFromEvent?: (event: TEvent) => TNext
-    onNoMatch?: (event: TEvent) => AnyAction | undefined
-    predicates?: Array<(event: TEvent, value: TNext) => boolean>
+    onNoMatch?: ((event: TEvent) => AnyAction | undefined) | undefined
+    predicates?: Array<(event: TEvent) => boolean>
     runOnce?: boolean
     runPreventDefault?: boolean
     runStopPropagation?: boolean
-  }) =>
-    createFluentListenBuilder<TEvent, TNext, TChain>({
+  }) => {
+    const onNoMatch = next.onNoMatch ?? options.onNoMatch
+    const runOnce = next.runOnce ?? options.runOnce
+    const runPreventDefault =
+      next.runPreventDefault ?? options.runPreventDefault
+    const runStopPropagation =
+      next.runStopPropagation ?? options.runStopPropagation
+
+    return createFluentListenBuilder<TEvent, TNext, TChain>({
       appendListener: options.appendListener,
       listenOptions: options.listenOptions,
       mapFromEvent:
         next.mapFromEvent ??
         ((event: TEvent) => mapFromEvent(event) as unknown as TNext),
-      onNoMatch: next.onNoMatch ?? options.onNoMatch,
-      predicates:
-        next.predicates ??
-        (predicates as Array<(event: TEvent, value: TNext) => boolean>),
-      runOnce: next.runOnce ?? options.runOnce,
-      runPreventDefault: next.runPreventDefault ?? options.runPreventDefault,
-      runStopPropagation: next.runStopPropagation ?? options.runStopPropagation,
+      predicates: next.predicates ?? predicates,
+      ...(onNoMatch === undefined ? {} : { onNoMatch }),
+      ...(runOnce === undefined ? {} : { runOnce }),
+      ...(runPreventDefault === undefined ? {} : { runPreventDefault }),
+      ...(runStopPropagation === undefined ? {} : { runStopPropagation }),
       targetResourceId: options.targetResourceId,
       type: options.type,
     })
+  }
 
   return {
     chainToAction: (onMatch, onNoMatch) => {
@@ -1052,9 +1085,7 @@ const createFluentListenBuilder = <
             }
 
             const value = mapFromEvent(typedEvent)
-            const passed = predicates.every(predicate =>
-              predicate(typedEvent, value),
-            )
+            const passed = predicates.every(predicate => predicate(typedEvent))
 
             if (!passed) {
               if (onNoMatch) {
@@ -1110,7 +1141,10 @@ const createFluentListenBuilder = <
     stopPropagation: () => createNext({ runStopPropagation: true }),
     when: predicate =>
       createNext({
-        predicates: [...predicates, predicate],
+        predicates: [
+          ...predicates,
+          (event: TEvent) => predicate(event, mapFromEvent(event)),
+        ],
       }),
     withKeyRepeat: () =>
       createNext({
@@ -1229,11 +1263,12 @@ const createTargetBuilder = <
           toAction: (event: Event) => AnyAction | undefined,
           listenOptions?: DomListenOptions,
         ) => {
+          const data = builder.data!
           const { coalesce, listenerOptions, order } =
             parseListenOptions(listenOptions)
 
-          builder.data.listeners = [
-            ...builder.data.listeners,
+          data.listeners = [
+            ...data.listeners,
             domListen({
               ...(coalesce === undefined ? {} : { coalesce }),
               ...(order === undefined ? {} : { order }),
@@ -1255,7 +1290,9 @@ const createTargetBuilder = <
 
         return createFluentListenBuilder({
           appendListener: listener => {
-            builder.data.listeners = [...builder.data.listeners, listener]
+            const data = builder.data!
+
+            data.listeners = [...data.listeners, listener]
             return builder
           },
           listenOptions: toActionOrOptions,
@@ -1408,7 +1445,7 @@ const createTargetBuilder = <
       setSelectionRange: (
         start: number,
         end: number,
-        direction?: SelectionDirection,
+        direction?: TextSelectionDirection,
       ) => [
         builder,
         domMutate({
@@ -1441,9 +1478,14 @@ const createTargetBuilder = <
   ) as unknown as TargetBuilder<EventMap, TElement, EventHelpers>
 
   for (const [type, helperName] of Object.entries(options.eventHelpers)) {
-    const target = builder as unknown as Record<string, unknown>
+    if (!helperName) {
+      continue
+    }
 
-    target[helperName] = (
+    const target = builder as unknown as Record<string, unknown>
+    const helperKey = helperName as string
+
+    target[helperKey] = (
       toActionOrOptions?: ((event: Event) => AnyAction) | DomListenOptions,
       eventOptions?: DomListenOptions,
     ) =>
@@ -1515,14 +1557,14 @@ const createLocationBuilder = (resourceId: string): LocationBuilder => {
   return builder
 }
 
-const createQueryBuilder = (options: {
+const createQueryBuilder = <TElement extends Element = Element>(options: {
   args: string[]
   method: DomQueryMethod
   resourceId: string | undefined
   scopeResourceId?: string
 }): TargetBuilder<
   HTMLElementEventMap,
-  Element,
+  TElement,
   typeof HTML_ELEMENT_EVENT_HELPERS
 > => {
   const resourceId =
@@ -1531,7 +1573,7 @@ const createQueryBuilder = (options: {
 
   return createTargetBuilder<
     HTMLElementEventMap,
-    Element,
+    TElement,
     typeof HTML_ELEMENT_EVENT_HELPERS
   >({
     acquire: {
@@ -1569,12 +1611,12 @@ const createOwnerDocumentBuilder = (options: {
   })
 
 const createFromBuilder = (scopeResourceId: string): DomFromBuilder => {
-  const queryBuilder = (
+  const queryBuilder = <TElement extends Element = Element>(
     method: DomQueryMethod,
     args: string[],
     resourceId: string | undefined,
   ) =>
-    createQueryBuilder({
+    createQueryBuilder<TElement>({
       args,
       method,
       resourceId,
@@ -1582,54 +1624,30 @@ const createFromBuilder = (scopeResourceId: string): DomFromBuilder => {
     })
 
   return {
-    closest: ((selector, resourceId) =>
-      queryBuilder(
-        "closest",
-        [selector],
-        resourceId,
-      )) as DomFromBuilder["closest"],
-    getElementById: ((id, resourceId) =>
-      queryBuilder(
-        "getElementById",
-        [id],
-        resourceId,
-      )) as DomFromBuilder["getElementById"],
-    getElementsByClassName: ((className, resourceId) =>
-      queryBuilder(
-        "getElementsByClassName",
-        [className],
-        resourceId,
-      )) as DomFromBuilder["getElementsByClassName"],
-    getElementsByName: ((name, resourceId) =>
-      queryBuilder(
-        "getElementsByName",
-        [name],
-        resourceId,
-      )) as DomFromBuilder["getElementsByName"],
-    getElementsByTagName: ((tagName, resourceId) =>
-      queryBuilder(
-        "getElementsByTagName",
-        [tagName],
-        resourceId,
-      )) as DomFromBuilder["getElementsByTagName"],
-    querySelector: ((selector, resourceId) =>
-      queryBuilder(
+    closest: (selector, resourceId) =>
+      queryBuilder("closest", [selector], resourceId),
+    getElementById: (id, resourceId) =>
+      queryBuilder("getElementById", [id], resourceId),
+    getElementsByClassName: (className, resourceId) =>
+      queryBuilder("getElementsByClassName", [className], resourceId),
+    getElementsByName: (name, resourceId) =>
+      queryBuilder("getElementsByName", [name], resourceId),
+    getElementsByTagName: (tagName, resourceId) =>
+      queryBuilder("getElementsByTagName", [tagName], resourceId),
+    querySelector: (selector, resourceId) =>
+      queryBuilder("querySelector", [selector], resourceId),
+    querySelectorAll: (selector, resourceId) =>
+      queryBuilder("querySelectorAll", [selector], resourceId),
+    input: (selector, resourceId) =>
+      queryBuilder<HTMLInputElement>("querySelector", [selector], resourceId),
+    select: (selector, resourceId) =>
+      queryBuilder<HTMLSelectElement>("querySelector", [selector], resourceId),
+    textarea: (selector, resourceId) =>
+      queryBuilder<HTMLTextAreaElement>(
         "querySelector",
         [selector],
         resourceId,
-      )) as DomFromBuilder["querySelector"],
-    querySelectorAll: ((selector, resourceId) =>
-      queryBuilder(
-        "querySelectorAll",
-        [selector],
-        resourceId,
-      )) as DomFromBuilder["querySelectorAll"],
-    input: (selector: string, resourceId?: string) =>
-      queryBuilder("querySelector", [selector], resourceId),
-    select: (selector: string, resourceId?: string) =>
-      queryBuilder("querySelector", [selector], resourceId),
-    textarea: (selector: string, resourceId?: string) =>
-      queryBuilder("querySelector", [selector], resourceId),
+      ),
   }
 }
 

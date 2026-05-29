@@ -1,9 +1,25 @@
 import type { Action, Matcher, Runtime, WaitUntilOptions } from "@tdreyno/fizz"
+import { matchState } from "@tdreyno/fizz"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 type AnyRuntime = Runtime<any, any>
 
 type AnyMatcher<T> = Parameters<AnyRuntime["waitUntilState"]>[0] | Matcher<T>
+
+const isMatcher = <T>(value: AnyMatcher<T>): value is Matcher<T> =>
+  typeof value === "object" &&
+  value !== null &&
+  "channels" in value &&
+  "evalState" in value &&
+  "evalOutput" in value
+
+const toStateMatcher = <T>(matcher: AnyMatcher<T>): Matcher<T> => {
+  if (isMatcher(matcher)) {
+    return matcher
+  }
+
+  return matchState(matcher as never) as unknown as Matcher<T>
+}
 
 export type WaitUntilStatus = "pending" | "resolved" | "rejected"
 
@@ -79,10 +95,10 @@ export const useWaitUntilState = <T>(
   return useWaitUntilInternal<T>(
     runtime,
     signal =>
-      runtime.waitUntilState(matcherRef.current as never, {
+      runtime.waitUntil(toStateMatcher(matcherRef.current), {
         ...optionsRef.current,
         signal,
-      }) as Promise<T>,
+      }),
     options.deps ?? [],
   )
 }
@@ -102,7 +118,7 @@ export const useWaitUntilOutput = <T>(
   return useWaitUntilInternal<T>(
     runtime,
     signal =>
-      runtime.waitUntilOutput(matcherRef.current, {
+      runtime.waitUntilOutput<T>(matcherRef.current as never, {
         ...optionsRef.current,
         signal,
       }),
@@ -135,7 +151,7 @@ export const useRunUntil = (runtime: AnyRuntime): UseRunUntilCallback => {
       const controller = new AbortController()
       controllerRef.current = controller
 
-      return runtime.runUntil(action, matcher, {
+      return runtime.runUntil(action, toStateMatcher(matcher), {
         ...options,
         signal: controller.signal,
       })

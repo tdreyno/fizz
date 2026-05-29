@@ -305,6 +305,32 @@ describe("dom effects", () => {
     expect(toAction?.(keyboardEventLike("Escape"))?.type).toBe("Ignored")
   })
 
+  test("fluent mapEvent and when preserve mapped value inference", () => {
+    const matched = action("MappedMatch").withPayload<number>()
+    const ignored = action("MappedIgnored")
+
+    const effects = dom
+      .document()
+      .onKeyDown()
+      .mapEvent(event => event.key.length)
+      .when((_event, mappedLength) => mappedLength > 1)
+      .chainToAction(matched, ignored)
+
+    const toAction = effects.data.listeners[0]?.data?.toAction as
+      | ((event: Event) => ListenerAction)
+      | undefined
+
+    expect(toAction?.(keyboardEventLike("ok"))?.payload).toBe(2)
+    expect(toAction?.(keyboardEventLike("x"))?.type).toBe("MappedIgnored")
+
+    // @ts-expect-error mapped value is number after mapEvent
+    dom
+      .document()
+      .onKeyDown()
+      .mapEvent(event => event.key.length)
+      .chainToAction((value: string) => matched(value.length))
+  })
+
   test("fluent helpers cover once/repeat/preventDefault/stopPropagation branches", () => {
     const matched = action("Matched")
     const ignored = action("Ignored")
@@ -802,23 +828,30 @@ describe("dom effects", () => {
       .ownerDocument()
       .replaceChildren(child)
 
-    const acquire = effects[0]?.data.acquire.data as {
-      kind: string
-      method: string
-      resourceId: string
-      scopeResourceId: string
-    }
+    const chainData = effects[0]?.data as
+      | {
+          acquire: {
+            data: {
+              kind: string
+              method: string
+              resourceId: string
+              scopeResourceId: string
+            }
+          }
+        }
+      | undefined
+    const acquire = chainData?.acquire.data
     const mutate = effects[1]?.data as {
       fn: (target: unknown) => void
       label: string
       targetResourceId: string
     }
 
-    expect(acquire.kind).toBe("query")
-    expect(acquire.method).toBe("ownerDocument")
-    expect(acquire.scopeResourceId).toBe("node")
+    expect(acquire?.kind).toBe("query")
+    expect(acquire?.method).toBe("ownerDocument")
+    expect(acquire?.scopeResourceId).toBe("node")
     expect(mutate.label).toBe("replaceChildren")
-    expect(mutate.targetResourceId).toBe(acquire.resourceId)
+    expect(mutate.targetResourceId).toBe(acquire?.resourceId)
 
     const calls: unknown[][] = []
     mutate.fn({

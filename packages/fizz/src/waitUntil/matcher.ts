@@ -143,7 +143,7 @@ export const coerceOutputMatcher = <T>(
     | Matcher<T>,
 ): Matcher<T> => {
   if (isMatcher(matcher)) {
-    return matcher
+    return matcher as Matcher<T>
   }
 
   return matchOutput(matcher as never) as unknown as Matcher<T>

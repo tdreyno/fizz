@@ -523,16 +523,31 @@ export const commandChannel = <
     channel,
     batch: (commands, batchOptions) =>
       effectBatch(commands, { ...batchOptions, channel }),
-    command: (commandType, ...args) =>
-      commandEffect<Schema, Channel, typeof commandType>(
+    command: (commandType, ...args) => {
+      const latestOnlyKey = resolveLatestOnlyKey(commandType)
+      const schedulingMode = resolveSchedulingMode()
+      const commandOptions: {
+        latestOnlyKey?: string
+        schedulingMode?:
+          | "replace-pending"
+          | "replace-pending-and-cancel-running"
+      } = {}
+
+      if (latestOnlyKey !== undefined) {
+        commandOptions.latestOnlyKey = latestOnlyKey
+      }
+
+      if (schedulingMode !== undefined) {
+        commandOptions.schedulingMode = schedulingMode
+      }
+
+      return commandEffect<Schema, Channel, typeof commandType>(
         channel,
         commandType,
         args[0] as CommandPayload<Schema, Channel, typeof commandType>,
-        {
-          latestOnlyKey: resolveLatestOnlyKey(commandType),
-          schedulingMode: resolveSchedulingMode(),
-        },
-      ),
+        commandOptions,
+      )
+    },
   }
 }
 

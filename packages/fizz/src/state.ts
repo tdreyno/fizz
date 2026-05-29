@@ -200,8 +200,8 @@ type NormalizedWrappedHandlerOptions = {
 type InternalRuntime = Runtime<any, any>
 
 type LooseHandler = (
-  data: unknown,
-  payload: unknown,
+  data: any,
+  payload: any,
   utils: StateUtils<
     string,
     Action<string, unknown>,
@@ -660,7 +660,7 @@ const toStateReturns = <Data>(
       return [update(result)]
     }
 
-    return [result]
+    return [result as StateReturn]
   }
 
   return result.flat(1) as StateReturn[]
@@ -1011,7 +1011,7 @@ export const stateWrapper = <
         return testState === fn
       },
 
-      executor: (action: A, runtime?: InternalRuntime) => {
+      executor: (action: A, runtime?: InternalRuntime): HandlerReturn => {
         const parentRuntimeFromData: InternalRuntime | undefined =
           typeof data === "object" && data !== null && PARENT_RUNTIME in data
             ? ((data as { [PARENT_RUNTIME]?: ActionPayload<BeforeEnter> })[
@@ -1047,17 +1047,17 @@ export const stateWrapper = <
             cancelFrame: cancelFrameEffect,
             clients: (runtime?.clients ?? {}) as Clients,
             resources: getMergedResources({
-              parentRuntime,
               transition: transition as unknown as StateTransition<
                 string,
                 Action<string, unknown>,
                 unknown
               >,
+              ...(parentRuntime === undefined ? {} : { parentRuntime }),
             }) as Resources,
-            parentRuntime,
+            ...(parentRuntime === undefined ? {} : { parentRuntime }),
           },
           runtime,
-        )
+        ) as HandlerReturn
       },
 
       isNamed: (testName: string): boolean => testName === name,
@@ -1281,7 +1281,13 @@ const createTimeoutMatcher = <
       return undefined
     }
 
-    return runHandlerValue(handler, data, payload, utils, runtime)
+    return runHandlerValue(
+      handler as unknown as LooseHandler,
+      data,
+      payload,
+      utils as unknown as Parameters<LooseHandler>[2],
+      runtime,
+    )
   }) as TimeoutScheduledMatcher<
     Id,
     Name,
@@ -1340,7 +1346,13 @@ const createIntervalMatcher = <
       return undefined
     }
 
-    return runHandlerValue(handler, data, payload, utils, runtime)
+    return runHandlerValue(
+      handler as unknown as LooseHandler,
+      data,
+      payload,
+      utils as unknown as Parameters<LooseHandler>[2],
+      runtime,
+    )
   }) as IntervalScheduledMatcher<
     Id,
     Name,
@@ -1466,7 +1478,9 @@ export const waitState = <
         }
 
         if (options?.onTimeout) {
-          return options.onTimeout(data)
+          return options.onTimeout(data) as HandlerReturn<
+            [Data, ReqA["payload"]]
+          >
         }
 
         return noop()
@@ -1474,7 +1488,9 @@ export const waitState = <
 
       TimedOut: ([data]) => {
         if (options?.onTimeout) {
-          return options?.onTimeout(data)
+          return options.onTimeout(data) as HandlerReturn<
+            [Data, ReqA["payload"]]
+          >
         }
 
         return noop()
@@ -1484,7 +1500,9 @@ export const waitState = <
         [data]: [Data],
         payload: RespA["payload"],
       ) => {
-        return transition(data, payload)
+        return transition(data, payload) as HandlerReturn<
+          [Data, ReqA["payload"]]
+        >
       },
     },
     name ? { name } : {},

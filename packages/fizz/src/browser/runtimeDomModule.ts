@@ -238,12 +238,10 @@ export const createRuntimeDomModule = (options: {
   }
 
   const handleChain = (data: DomChainEffectData): RuntimeDebugCommand[] => {
-    const commands = [
-      ...handleAcquire(data.acquire.data as DomAcquireEffectData),
-    ]
+    const commands = [...handleAcquire(data.acquire.data!)]
 
     for (const listener of data.listeners) {
-      commands.push(...handleListen(listener.data as DomListenEffectData))
+      commands.push(...handleListen(listener.data!))
     }
 
     return commands
@@ -274,7 +272,13 @@ export const createRuntimeDomModule = (options: {
     )
 
     const callback: EventListener = event => {
-      void options.runAction(data.toAction(event))
+      const action = data.toAction(event)
+
+      if (!action) {
+        return
+      }
+
+      void options.runAction(action)
     }
 
     addEventListener(target, data.type, callback, data.options)

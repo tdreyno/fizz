@@ -12,7 +12,7 @@ import { dispatchEffect } from "./runtime/effectDispatcher.js"
 import type { RuntimeCommandHandlers } from "./runtime/runtimeCommandModule.js"
 import type { SelectorWhen, StateSelector } from "./selectors.js"
 import { runStateSelector } from "./selectors.js"
-import type { BoundStateFn } from "./state.js"
+import type { BoundStateFn, StateReturn } from "./state.js"
 export type {
   RuntimeChromeDebuggerRegistry,
   RuntimeChromeDebuggerRegistryEntry,
@@ -56,7 +56,6 @@ import {
   buildGoBackCommands,
   buildStateTransitionCommands,
 } from "./runtime/transitions.js"
-import { arraySingleton } from "./util.js"
 import type { Matcher } from "./waitUntil/matcher.js"
 import { coerceOutputMatcher, coerceStateMatcher } from "./waitUntil/matcher.js"
 import type { WaitUntilOptions } from "./waitUntil/waitUntil.js"
@@ -171,6 +170,20 @@ type RuntimeOutputChannelHandlers = Record<
   string,
   Record<string, (payload: unknown) => void | Promise<void>>
 >
+
+const toCommandStateReturns = (
+  value: unknown,
+): ReadonlyArray<StateReturn | ReadonlyArray<StateReturn>> => {
+  if (value === undefined || value === null) {
+    return []
+  }
+
+  if (Array.isArray(value)) {
+    return [value as ReadonlyArray<StateReturn>]
+  }
+
+  return [value as StateReturn]
+}
 
 export class Runtime<
   AM extends RuntimeActionMap,
@@ -659,11 +672,11 @@ export class Runtime<
       typeof (result as { then?: unknown }).then === "function"
     ) {
       return (result as Promise<unknown>).then(resolved =>
-        commandsFromStateReturns(arraySingleton(resolved)),
+        commandsFromStateReturns(toCommandStateReturns(resolved)),
       )
     }
 
-    return commandsFromStateReturns(arraySingleton(result))
+    return commandsFromStateReturns(toCommandStateReturns(result))
   }
 
   #handleState(targetState: RuntimeState): RuntimeDebugCommand[] {

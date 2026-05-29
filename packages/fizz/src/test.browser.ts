@@ -11,7 +11,7 @@ import type { StateTransition } from "./state.js"
 import type { TestHarness, TestHarnessOptions } from "./test.js"
 import { createTestHarness } from "./test.js"
 
-type AnyFunction = (...args: unknown[]) => unknown
+type AnyFunction = (...args: never[]) => unknown
 type BrowserHarnessState = StateTransition<string, any, any>
 type TestActionMap = {
   [key: string]: (...args: Array<any>) => Action<string, unknown>
@@ -145,7 +145,7 @@ export type BrowserTestHarnessOptions<
   document?: Document
 }
 
-type BrowserEventInit<T extends EventInit> = T & {
+type BrowserEventInit<T extends EventInit> = Omit<T, "target"> & {
   target?: EventTarget | null
 }
 
@@ -283,6 +283,17 @@ const createRecordedMethod = <T extends AnyFunction>(options: {
   return fn
 }
 
+const createRecordedDriverMethod = <T extends AnyFunction>(options: {
+  fallbackValue: ReturnType<T>
+  implementation: T | undefined
+}): RecordedDriverMethod<T> =>
+  createRecordedMethod<T>({
+    fallbackValue: options.fallbackValue,
+    ...(options.implementation === undefined
+      ? {}
+      : { implementation: options.implementation }),
+  })
+
 const isDocument = (value: EventTarget | null | undefined): value is Document =>
   typeof value === "object" &&
   value !== null &&
@@ -306,10 +317,30 @@ const isWindow = (value: EventTarget | null | undefined): value is Window =>
 const hasOwnerDocument = (
   value: EventTarget | null | undefined,
 ): value is EventTarget & { ownerDocument: Document | null } =>
-  typeof value === "object" &&
-  value !== null &&
-  "ownerDocument" in value &&
-  (value.ownerDocument === null || isDocument(value.ownerDocument))
+  (() => {
+    if (
+      typeof value !== "object" ||
+      value === null ||
+      !("ownerDocument" in value)
+    ) {
+      return false
+    }
+
+    const ownerDocument = (value as { ownerDocument?: unknown }).ownerDocument
+
+    if (
+      ownerDocument !== null &&
+      ownerDocument !== undefined &&
+      typeof ownerDocument !== "object"
+    ) {
+      return false
+    }
+
+    return (
+      ownerDocument === null ||
+      isDocument(ownerDocument as EventTarget | null | undefined)
+    )
+  })()
 
 const resolveWindow = (
   value: EventTarget | null | undefined,
@@ -434,7 +465,7 @@ const createEvent = <T extends EventInit>(options: {
 
   const eventInit = { ...((options.init ?? {}) as Record<string, unknown>) }
 
-  delete eventInit.target
+  delete eventInit["target"]
 
   const Constructor = resolveConstructor(
     dispatchTarget,
@@ -479,13 +510,13 @@ const withDefaultTarget = <T extends EventInit>(
   }
 
   if (init === undefined) {
-    return { target }
+    return { target } as BrowserEventInit<T>
   }
 
   return {
     ...init,
     target,
-  }
+  } as BrowserEventInit<T>
 }
 
 const createIntersectionObserverStub = (): IntersectionObserver =>
@@ -655,139 +686,147 @@ const createRecordedBrowserDriver = (
   driver: RuntimeBrowserDriver,
 ): RecordedBrowserDriver => ({
   ...driver,
-  alert: createRecordedMethod<NonNullable<RuntimeBrowserDriver["alert"]>>({
-    fallbackValue: undefined,
-    implementation: driver.alert,
-  }),
-  confirm: createRecordedMethod<NonNullable<RuntimeBrowserDriver["confirm"]>>({
+  alert: createRecordedDriverMethod<NonNullable<RuntimeBrowserDriver["alert"]>>(
+    {
+      fallbackValue: undefined,
+      implementation: driver.alert,
+    },
+  ),
+  confirm: createRecordedDriverMethod<
+    NonNullable<RuntimeBrowserDriver["confirm"]>
+  >({
     fallbackValue: false as BrowserConfirmResult,
     implementation: driver.confirm,
   }),
-  copyToClipboard: createRecordedMethod<
+  copyToClipboard: createRecordedDriverMethod<
     NonNullable<RuntimeBrowserDriver["copyToClipboard"]>
   >({
     fallbackValue: undefined,
     implementation: driver.copyToClipboard,
   }),
-  historyBack: createRecordedMethod<
+  historyBack: createRecordedDriverMethod<
     NonNullable<RuntimeBrowserDriver["historyBack"]>
   >({
     fallbackValue: undefined,
     implementation: driver.historyBack,
   }),
-  historyForward: createRecordedMethod<
+  historyForward: createRecordedDriverMethod<
     NonNullable<RuntimeBrowserDriver["historyForward"]>
   >({
     fallbackValue: undefined,
     implementation: driver.historyForward,
   }),
-  historyGo: createRecordedMethod<
+  historyGo: createRecordedDriverMethod<
     NonNullable<RuntimeBrowserDriver["historyGo"]>
   >({
     fallbackValue: undefined,
     implementation: driver.historyGo,
   }),
-  historyPushState: createRecordedMethod<
+  historyPushState: createRecordedDriverMethod<
     NonNullable<RuntimeBrowserDriver["historyPushState"]>
   >({
     fallbackValue: undefined,
     implementation: driver.historyPushState,
   }),
-  historyReplaceState: createRecordedMethod<
+  historyReplaceState: createRecordedDriverMethod<
     NonNullable<RuntimeBrowserDriver["historyReplaceState"]>
   >({
     fallbackValue: undefined,
     implementation: driver.historyReplaceState,
   }),
-  historySetScrollRestoration: createRecordedMethod<
+  historySetScrollRestoration: createRecordedDriverMethod<
     NonNullable<RuntimeBrowserDriver["historySetScrollRestoration"]>
   >({
     fallbackValue: undefined,
     implementation: driver.historySetScrollRestoration,
   }),
-  locationAssign: createRecordedMethod<
+  locationAssign: createRecordedDriverMethod<
     NonNullable<RuntimeBrowserDriver["locationAssign"]>
   >({
     fallbackValue: undefined,
     implementation: driver.locationAssign,
   }),
-  locationReload: createRecordedMethod<
+  locationReload: createRecordedDriverMethod<
     NonNullable<RuntimeBrowserDriver["locationReload"]>
   >({
     fallbackValue: undefined,
     implementation: driver.locationReload,
   }),
-  locationReplace: createRecordedMethod<
+  locationReplace: createRecordedDriverMethod<
     NonNullable<RuntimeBrowserDriver["locationReplace"]>
   >({
     fallbackValue: undefined,
     implementation: driver.locationReplace,
   }),
-  locationSetHash: createRecordedMethod<
+  locationSetHash: createRecordedDriverMethod<
     NonNullable<RuntimeBrowserDriver["locationSetHash"]>
   >({
     fallbackValue: undefined,
     implementation: driver.locationSetHash,
   }),
-  locationSetHost: createRecordedMethod<
+  locationSetHost: createRecordedDriverMethod<
     NonNullable<RuntimeBrowserDriver["locationSetHost"]>
   >({
     fallbackValue: undefined,
     implementation: driver.locationSetHost,
   }),
-  locationSetHostname: createRecordedMethod<
+  locationSetHostname: createRecordedDriverMethod<
     NonNullable<RuntimeBrowserDriver["locationSetHostname"]>
   >({
     fallbackValue: undefined,
     implementation: driver.locationSetHostname,
   }),
-  locationSetHref: createRecordedMethod<
+  locationSetHref: createRecordedDriverMethod<
     NonNullable<RuntimeBrowserDriver["locationSetHref"]>
   >({
     fallbackValue: undefined,
     implementation: driver.locationSetHref,
   }),
-  locationSetPathname: createRecordedMethod<
+  locationSetPathname: createRecordedDriverMethod<
     NonNullable<RuntimeBrowserDriver["locationSetPathname"]>
   >({
     fallbackValue: undefined,
     implementation: driver.locationSetPathname,
   }),
-  locationSetPort: createRecordedMethod<
+  locationSetPort: createRecordedDriverMethod<
     NonNullable<RuntimeBrowserDriver["locationSetPort"]>
   >({
     fallbackValue: undefined,
     implementation: driver.locationSetPort,
   }),
-  locationSetProtocol: createRecordedMethod<
+  locationSetProtocol: createRecordedDriverMethod<
     NonNullable<RuntimeBrowserDriver["locationSetProtocol"]>
   >({
     fallbackValue: undefined,
     implementation: driver.locationSetProtocol,
   }),
-  locationSetSearch: createRecordedMethod<
+  locationSetSearch: createRecordedDriverMethod<
     NonNullable<RuntimeBrowserDriver["locationSetSearch"]>
   >({
     fallbackValue: undefined,
     implementation: driver.locationSetSearch,
   }),
-  openUrl: createRecordedMethod<NonNullable<RuntimeBrowserDriver["openUrl"]>>({
+  openUrl: createRecordedDriverMethod<
+    NonNullable<RuntimeBrowserDriver["openUrl"]>
+  >({
     fallbackValue: undefined,
     implementation: driver.openUrl,
   }),
-  postMessage: createRecordedMethod<
+  postMessage: createRecordedDriverMethod<
     NonNullable<RuntimeBrowserDriver["postMessage"]>
   >({
     fallbackValue: undefined,
     implementation: driver.postMessage,
   }),
-  printPage: createRecordedMethod<
+  printPage: createRecordedDriverMethod<
     NonNullable<RuntimeBrowserDriver["printPage"]>
   >({
     fallbackValue: undefined,
     implementation: driver.printPage,
   }),
-  prompt: createRecordedMethod<NonNullable<RuntimeBrowserDriver["prompt"]>>({
+  prompt: createRecordedDriverMethod<
+    NonNullable<RuntimeBrowserDriver["prompt"]>
+  >({
     fallbackValue: null,
     implementation: driver.prompt,
   }),
@@ -864,7 +903,7 @@ export const fireEvent = <T extends EventInit>(
 ): void => {
   const { dispatchTarget, event } = createEvent({
     constructorNames: constructorNamesForEventType(type),
-    init,
+    ...(init === undefined ? {} : { init }),
     target,
     type,
   })
@@ -981,7 +1020,7 @@ export const fireTextInput = (
   }
 
   if (options.keydown !== false && key.length > 0) {
-    fireKeyDown(target, withDefaultTarget({ key }, target))
+    fireKeyDown(target, withDefaultTarget<KeyboardEventInit>({ key }, target))
   }
 
   if (!hasStringValue(target)) {
@@ -993,7 +1032,7 @@ export const fireTextInput = (
   target.value = nextValue
   fireInput(
     target,
-    withDefaultTarget(
+    withDefaultTarget<InputEventInit>(
       {
         data: nextValue,
         inputType: "insertText",
@@ -1003,7 +1042,7 @@ export const fireTextInput = (
   )
 
   if (options.keyup !== false && key.length > 0) {
-    fireKeyUp(target, withDefaultTarget({ key }, target))
+    fireKeyUp(target, withDefaultTarget<KeyboardEventInit>({ key }, target))
   }
 
   if (options.change !== false) {
@@ -1023,7 +1062,7 @@ export const fireFormSubmit = (
 
   fireSubmit(
     target,
-    withDefaultTarget(
+    withDefaultTarget<SubmitEventInit>(
       submitter === null
         ? undefined
         : {

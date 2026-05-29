@@ -550,7 +550,16 @@ export const createRuntimeCommandModule = (options: {
         Action<string, unknown> | void,
         Action<string, unknown> | void
       >
-    > =>
+    > & {
+      data: CommandEffectData<
+        string,
+        string,
+        unknown,
+        unknown,
+        Action<string, unknown> | void,
+        Action<string, unknown> | void
+      >
+    } =>
       effectItem.label === "commandEffect" &&
       isCommandEffectData(effectItem.data)
 
@@ -637,6 +646,7 @@ export const createRuntimeCommandModule = (options: {
     }
 
     enqueueChannelTask(data.channel, {
+      abortController: new AbortController(),
       commandType: "effectBatch",
       ...(data.latestOnlyKey === undefined
         ? {}

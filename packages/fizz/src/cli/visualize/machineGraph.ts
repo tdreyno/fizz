@@ -541,12 +541,14 @@ const getMachineEntriesForSourceFile = (
         return []
       }
 
+      const symbolName = getVariableDeclarationName(callExpression)
+
       return [
         {
           callExpression,
           definitionObject,
           sourceFilePath: sourceFile.getFilePath(),
-          symbolName: getVariableDeclarationName(callExpression),
+          ...(symbolName === undefined ? {} : { symbolName }),
         },
       ]
     })
@@ -877,9 +879,14 @@ const extractStateEntriesFromStateIndex = (
   const machineEntries = getMachineEntriesForSourceFile(sourceFile)
 
   if (machineEntries.length > 0) {
-    const machineStateEntries = getStateEntriesForMachineEntry(
-      machineEntries[0],
-    )
+    const firstMachineEntry = machineEntries[0]
+
+    if (!firstMachineEntry) {
+      return []
+    }
+
+    const machineStateEntries =
+      getStateEntriesForMachineEntry(firstMachineEntry)
 
     if (machineStateEntries.length > 0) {
       return machineStateEntries
@@ -1807,14 +1814,18 @@ export const buildMachineGraph = (
   } else {
     stateEntries = extractClassicStateFilePathsFromStateIndex(
       project.getSourceFileOrThrow(candidate.stateIndexPath),
-    ).map((filePath, index) => ({
-      callExpression: getStateCallForSourceFile(
+    ).map((filePath, index) => {
+      const callExpression = getStateCallForSourceFile(
         project.getSourceFileOrThrow(filePath),
-      ),
-      filePath,
-      id: `${filePath}:${index}`,
-      nameHint: fileStem(filePath),
-    }))
+      )
+
+      return {
+        ...(callExpression === undefined ? {} : { callExpression }),
+        filePath,
+        id: `${filePath}:${index}`,
+        nameHint: fileStem(filePath),
+      }
+    })
   }
   const knownStatesByReferenceKey = new Map<string, string>()
   const knownStatesByFilePath = new Map<string, string>(
@@ -1835,12 +1846,14 @@ export const buildMachineGraph = (
   stateEntries.forEach(entry => {
     getNestedStateEntriesForStateFile(project, entry.filePath).forEach(
       nestedEntry => {
+        const callExpression = getStateCallForSourceFile(
+          project.getSourceFileOrThrow(nestedEntry.filePath),
+        )
+
         knownStatesByFilePath.set(
           nestedEntry.filePath,
           getPreliminaryStateName(project, {
-            callExpression: getStateCallForSourceFile(
-              project.getSourceFileOrThrow(nestedEntry.filePath),
-            ),
+            ...(callExpression === undefined ? {} : { callExpression }),
             filePath: nestedEntry.filePath,
             id: `${nestedEntry.filePath}:nested`,
             nameHint: fileStem(nestedEntry.filePath),
@@ -1866,13 +1879,15 @@ export const buildMachineGraph = (
     const nestedStates = getNestedStateEntriesForStateFile(
       project,
       entry.filePath,
-    ).map(nestedEntry =>
-      analyzeStateFile(
+    ).map(nestedEntry => {
+      const callExpression = getStateCallForSourceFile(
+        project.getSourceFileOrThrow(nestedEntry.filePath),
+      )
+
+      return analyzeStateFile(
         context,
         {
-          callExpression: getStateCallForSourceFile(
-            project.getSourceFileOrThrow(nestedEntry.filePath),
-          ),
+          ...(callExpression === undefined ? {} : { callExpression }),
           filePath: nestedEntry.filePath,
           id: `${nestedEntry.filePath}:nested`,
           nameHint: fileStem(nestedEntry.filePath),
@@ -1881,8 +1896,8 @@ export const buildMachineGraph = (
         knownStatesByFilePath,
         "nested-state",
         analyzedState.name,
-      ),
-    )
+      )
+    })
 
     return [analyzedState, ...nestedStates]
   })
