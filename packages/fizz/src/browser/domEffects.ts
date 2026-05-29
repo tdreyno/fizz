@@ -1080,7 +1080,7 @@ const containsTargetNode = (
 const containsPathNode = (
   element: Element | null | undefined,
   path: ReadonlyArray<EventTarget>,
-): boolean => !!element && path.some(item => item === element)
+): boolean => !!element && path.includes(element)
 
 const getComposedPath = (
   event: Event,
@@ -1096,7 +1096,7 @@ const getComposedPath = (
     return undefined
   }
 
-  return composedPath()
+  return composedPath.call(event)
 }
 
 const isOutsideTarget = (options: {

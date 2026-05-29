@@ -568,6 +568,38 @@ describe("dom effects", () => {
     expect(focusToAction?.(composedTrigger)?.type).toBe("Inside")
   })
 
+  test("outside helpers invoke composedPath with bound context to avoid Illegal Invocation", () => {
+    const outside = action("Outside")
+    const inside = action("Inside")
+    type OutsideToAction = (
+      event: Event,
+    ) => ReturnType<typeof outside> | ReturnType<typeof inside> | undefined
+
+    const root = nodeLike()
+
+    const pointerToAction = dom
+      .outsidePointerDown({ inside: [root] })
+      .chainToAction(outside, inside).data.listeners[0]?.data?.toAction as
+      | OutsideToAction
+      | undefined
+
+    const composedPathResult = [root]
+
+    // Simulate a browser where composedPath throws TypeError when called without bound `this`
+    const event = {
+      composedPath() {
+        if (this !== event) {
+          throw new TypeError("Illegal invocation")
+        }
+        return composedPathResult
+      },
+      target: nodeLike(),
+    } as unknown as Event
+
+    expect(() => pointerToAction?.(event)).not.toThrow()
+    expect(pointerToAction?.(event)?.type).toBe("Inside")
+  })
+
   test("isBypassedLinkActivation matches common SPA bypass checks", () => {
     expect(
       isBypassedLinkActivation({

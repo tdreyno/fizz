@@ -42,7 +42,7 @@ const browserDriver = createBrowserDriver({
 
 Both approaches are additive and opt-in. Existing runtime behavior remains unchanged when no default scope is provided.
 
-`dom.outsidePointerDown(...)` and `dom.outsideFocusIn(...)` now prefer `event.composedPath()` when available, which makes outside detection work correctly across shadow boundaries and retargeted events.
+`dom.outsidePointerDown(...)` and `dom.outsideFocusIn(...)` use `event.composedPath()` when available, calling it with the original event as context to ensure correct behavior across all browsers and runtimes. This makes outside detection work correctly across shadow boundaries and retargeted events.
 
 ## Browser effects
 
