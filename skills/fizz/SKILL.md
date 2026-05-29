@@ -122,7 +122,8 @@ If the task is about request flows, cancellation, or timing, read `references/as
 
 - Prefer deterministic tests that drive the real runtime with controlled drivers.
 - Use `createControlledAsyncDriver()` for promise-backed work.
-- Use `createControlledTimerDriver()` for timers, intervals, and frames.
+- Use `createControlledTimerDriver()` for runtime-level timer, interval, and frame tests.
+- For harness tests, prefer `harness.advanceTime(...)`, `harness.advanceTimeTo(...)`, and `harness.time.*` helpers.
 - Assert state identity, machine-visible data, and emitted outputs before reaching for lower-level runtime details.
 - Use the `@tdreyno/fizz/test` entrypoint when a task needs reusable Fizz testing helpers.
 

@@ -258,7 +258,7 @@ describe("waitState", () => {
 
     expect(harness.currentState().is(WaitForThing)).toBeTruthy()
 
-    await harness.advanceBy(1000)
+    await harness.advanceTime(1000)
     await harness.settle()
 
     expect(harness.currentState().is(TimedOutState)).toBeTruthy()
@@ -307,7 +307,7 @@ describe("waitState", () => {
 
     expect(harness.currentState().is(AfterThing)).toBeTruthy()
 
-    await harness.advanceBy(1500)
+    await harness.advanceTime(1500)
     await harness.settle()
 
     expect(harness.currentState().is(AfterThing)).toBeTruthy()

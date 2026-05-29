@@ -196,9 +196,40 @@ The exported shape is:
 
 - `createTestHarness(...)` to compose context creation, runtime creation, controlled drivers, and state/output recording
 - `deferred()` as a small utility for promise-controlled tests
-- helper methods such as `run(...)`, `respondToOutput(...)`, `currentState()`, `currentHistory()`, `flushAsync()`, `advanceBy()`, `advanceFrames()`, `runAllAsync()`, `runAllTimers()`, `settle(...)`, `waitForState(...)`, and `waitForOutput(...)`
+- helper methods such as `run(...)`, `respondToOutput(...)`, `currentState()`, `currentHistory()`, `flushAsync()`, `advanceTime(...)`, `advanceTimeTo(...)`, `advanceFrames()`, `runAllAsync()`, `settle(...)`, `waitForState(...)`, and `waitForOutput(...)`
 - resource helpers such as `resources()`, `waitForResource(key, options?)`, and `waitForResourceRelease(key, options?)`
 - read-only inspection helpers such as recorded outputs and recorded state snapshots
+
+### Explicit Controlled Time In Harness Tests
+
+The harness exposes a dedicated controlled-time API so tests can assert intermediate state without framework-level fake timers.
+
+```ts
+const harness = createTestHarness({
+  history: [Editing({ events: [] })],
+  internalActions: { inputChanged, saveLoaded },
+})
+
+await harness.start()
+await harness.run(inputChanged({ text: "a" }))
+await harness.run(inputChanged({ text: "ab" }))
+await harness.run(inputChanged({ text: "abc" }))
+
+await harness.advanceTime(200, { settle: false })
+expect(harness.outputs()).toHaveLength(0)
+
+await harness.advanceTime(200)
+const output = await harness.waitForOutput("SaveSucceeded")
+expect(output.type).toBe("SaveSucceeded")
+```
+
+Available helpers:
+
+- `advanceTime(ms, options?)` advances by a delta.
+- `advanceTimeTo(targetMs, options?)` advances to an absolute target.
+- `time.now()` returns the current controlled time.
+- `time.total()` returns total advanced milliseconds since harness start.
+- `time.advance(...)` and `time.advanceTo(...)` mirror the flat methods.
 
 ### Command Handlers And Clients In Harness Tests
 
@@ -330,6 +361,7 @@ The returned harness extends `createTestHarness(...)` with:
 The harness waiting helpers remove the most common `onContextChange(...)` and `onOutput(...)` boilerplate:
 
 - `settle(options?)` drains async completions and due timer work until no new state/output activity is observed, or until `maxIterations` is reached.
+- `advanceTime(ms, { settle: false })` advances by a fixed amount without a full quiescence drain.
 - `waitForState(predicate, options?)` checks the predicate immediately, then retries with bounded settle cycles.
 - `waitForOutput(typeOrPredicate, options?)` waits by output type or custom predicate with the same bounded retry behavior.
 

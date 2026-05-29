@@ -59,6 +59,12 @@ When a state uses timers or intervals:
 4. Drive time with `advanceBy(...)`, `advanceFrames(...)`, or `runAll()`.
 5. Assert the resulting machine state.
 
+When using `createTestHarness(...)`, prefer harness-level time helpers over direct timer-driver calls:
+
+- `harness.advanceTime(ms, options?)`
+- `harness.advanceTimeTo(targetMs, options?)`
+- `harness.time.now()` and `harness.time.total()`
+
 ## Observing Output And Intermediate States
 
 Use `runtime.onOutput(...)` to record integration-facing actions.
@@ -89,6 +95,12 @@ The intended direction is a dedicated test helper subpath:
 - `@tdreyno/fizz/test`
 - `createTestHarness(...)`
 - `deferred()`
+- `advanceTime(ms, options?)`
+- `advanceTimeTo(targetMs, options?)`
+- `time.advance(ms, options?)`
+- `time.advanceTo(targetMs, options?)`
+- `time.now()`
+- `time.total()`
 - `settle(options?)`
 - `waitForState(predicate, options?)`
 - `waitForOutput(typeOrPredicate, options?)`
@@ -190,6 +202,8 @@ Recommended usage:
 Use the harness waiting helpers when a test should pause until machine activity settles, a state appears, or an output is emitted.
 
 - `settle({ maxIterations? })`: drains queued async and due timer work until no additional state or output activity is observed.
+- `advanceTime(ms, { settle?: boolean })`: advances controlled time by a fixed delta, with optional full settle.
+- `advanceTimeTo(targetMs, { settle?: boolean })`: advances to an absolute target time.
 - `waitForState(predicate, { maxIterations?, settleBetweenChecks? })`: checks immediately, then retries with bounded settle cycles.
 - `waitForOutput(typeOrPredicate, { maxIterations?, settleBetweenChecks? })`: waits by output type string or predicate with the same bounded retry behavior.
 
@@ -201,7 +215,7 @@ const harness = createTestHarness({
 })
 
 await harness.start()
-await harness.settle()
+await harness.advanceTime(300)
 await harness.waitForState(state => state.is(Done))
 
 const output = await harness.waitForOutput("FetchProfile")

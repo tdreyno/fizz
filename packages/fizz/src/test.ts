@@ -51,6 +51,10 @@ export type SettleOptions = {
   maxIterations?: number
 }
 
+export type AdvanceTimeOptions = {
+  settle?: boolean
+}
+
 export type WaitForStateOptions = SettleOptions & {
   settleBetweenChecks?: boolean
 }
@@ -111,9 +115,18 @@ export type TestHarness<
   lastOutput: () => HarnessOutputAction<OAM> | undefined
   flushAsync: () => Promise<void>
   runAllAsync: () => Promise<void>
-  advanceBy: (ms: number) => Promise<void>
+  advanceTime: (ms: number, options?: AdvanceTimeOptions) => Promise<void>
+  advanceTimeTo: (
+    targetMs: number,
+    options?: AdvanceTimeOptions,
+  ) => Promise<void>
+  time: {
+    advance: (ms: number, options?: AdvanceTimeOptions) => Promise<void>
+    advanceTo: (targetMs: number, options?: AdvanceTimeOptions) => Promise<void>
+    now: () => number
+    total: () => number
+  }
   advanceFrames: (count: number, frameMs?: number) => Promise<void>
-  runAllTimers: () => Promise<void>
   settle: (options?: SettleOptions) => Promise<void>
   waitForState: (
     predicate: (state: State) => boolean,
@@ -182,6 +195,16 @@ const resolveMaxIterations = (value?: number): number => {
   return value
 }
 
+const resolveMs = (value: number, name: string): number => {
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error(
+      `Expected ${name} to be a finite number >= 0, received ${String(value)}`,
+    )
+  }
+
+  return value
+}
+
 export const createTestHarness = <
   State extends HarnessState,
   AM extends TestActionMap = Record<string, never>,
@@ -222,6 +245,8 @@ export const createTestHarness = <
   const recordedStates: Array<TestStateSnapshot<State>> =
     options.recordStates === false ? [] : [createStateSnapshot<State>(context)]
   const recordedOutputs: Array<HarnessOutputAction<OAM>> = []
+  let timeNow = 0
+  let totalAdvanced = 0
   const unsubscribers = [
     options.recordStates === false
       ? undefined
@@ -409,6 +434,37 @@ export const createTestHarness = <
     })
   }
 
+  const advanceTime = async (
+    ms: number,
+    options?: AdvanceTimeOptions,
+  ): Promise<void> => {
+    const nextMs = resolveMs(ms, "ms")
+
+    await timerDriver.advanceBy(nextMs)
+    timeNow += nextMs
+    totalAdvanced += nextMs
+    await asyncDriver.flush()
+
+    if (options?.settle !== false) {
+      await settle()
+    }
+  }
+
+  const advanceTimeTo = async (
+    targetMs: number,
+    options?: AdvanceTimeOptions,
+  ): Promise<void> => {
+    const nextTargetMs = resolveMs(targetMs, "targetMs")
+
+    if (nextTargetMs < timeNow) {
+      throw new Error(
+        `Expected targetMs to be >= current time, received ${nextTargetMs} while now is ${timeNow}.`,
+      )
+    }
+
+    await advanceTime(nextTargetMs - timeNow, options)
+  }
+
   return {
     context,
     runtime,
@@ -427,10 +483,16 @@ export const createTestHarness = <
     lastOutput: () => lastItem(recordedOutputs),
     flushAsync: () => asyncDriver.flush(),
     runAllAsync: () => asyncDriver.runAll(),
-    advanceBy: ms => timerDriver.advanceBy(ms),
+    advanceTime,
+    advanceTimeTo,
+    time: {
+      advance: advanceTime,
+      advanceTo: advanceTimeTo,
+      now: () => timeNow,
+      total: () => totalAdvanced,
+    },
     advanceFrames: (count, frameMs) =>
       timerDriver.advanceFrames(count, frameMs),
-    runAllTimers: () => timerDriver.runAll(),
     settle,
     waitForState,
     waitForOutput,

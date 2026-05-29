@@ -63,6 +63,8 @@ const Editing = state<Enter, Data, TimeoutId, IntervalId>({
 
 With that shape, timer helpers only accept `TimeoutId` values and interval helpers only accept `IntervalId` values.
 
+For deterministic timer tests, including intermediate-time assertions, use the harness controlled-time helpers documented in [Testing](./testing.md): `advanceTime(...)`, `advanceTimeTo(...)`, and `time.*`.
+
 ## Basic example
 
 This example starts a timer when the state is entered and transitions once the timer completes.

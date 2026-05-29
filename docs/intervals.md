@@ -29,6 +29,8 @@ Each action carries the same payload shape:
 
 The important difference from timers is that intervals do not complete. A timer fires once and emits `TimerCompleted`, while an interval keeps emitting `IntervalTriggered` until it is cancelled or the state exits.
 
+For deterministic interval tests with explicit time control, use harness helpers from [Testing](./testing.md): `advanceTime(...)`, `advanceTimeTo(...)`, and `time.*`.
+
 ```text
 Interval lifecycle
 

@@ -98,6 +98,19 @@ Review guidance:
 - do not pass an already-created promise; the run must stay lazy
 - if a task needs queueing, leading-edge behavior, or last-success caching, note that those are not part of this helper yet
 
+For harness-based tests, pair debounced workflows with controlled-time helpers:
+
+```typescript
+await harness.advanceTime(200, { settle: false })
+expect(harness.outputs()).toHaveLength(0)
+
+await harness.advanceTime(200)
+const output = await harness.waitForOutput("SaveSucceeded")
+expect(output.type).toBe("SaveSucceeded")
+```
+
+This keeps debounce timing deterministic without mixing in framework fake-timer APIs.
+
 ## `requestJSONAsync(...)`
 
 Use `requestJSONAsync(...)` for JSON request flows handled by Fizz.

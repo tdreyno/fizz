@@ -187,8 +187,7 @@ describe("Test harness", () => {
     loadProfile.resolve("Ada")
 
     await harness.settle()
-    await harness.advanceBy(10)
-    await harness.settle()
+    await harness.advanceTime(10)
 
     const currentState = harness.currentState()
 
@@ -200,6 +199,130 @@ describe("Test harness", () => {
       events: ["enter", "loaded:Ada", "completed:autosave"],
       profileName: "Ada",
     })
+  })
+
+  test("should expose explicit controlled-time helpers", async () => {
+    type TimeoutId = "autosave"
+
+    const Loading = state<Enter, Data, TimeoutId>(
+      {
+        Enter: (data, _, { startTimer, update }) => [
+          update(appendEvent(data, "enter")),
+          startTimer("autosave", 10),
+        ],
+
+        TimerCompleted: (data, { timeoutId }, { update }) =>
+          update(appendEvent(data, `completed:${timeoutId}`)),
+      },
+      { name: "Loading" },
+    )
+
+    const harness = createTestHarness({
+      history: [Loading({ events: [] })],
+    })
+
+    await harness.start()
+
+    expect(harness.time.now()).toBe(0)
+    expect(harness.time.total()).toBe(0)
+
+    await harness.advanceTime(10)
+
+    expect(harness.time.now()).toBe(10)
+    expect(harness.time.total()).toBe(10)
+    expect(harness.currentState().data.events).toEqual([
+      "enter",
+      "completed:autosave",
+    ])
+
+    await harness.advanceTimeTo(25)
+
+    expect(harness.time.now()).toBe(25)
+    expect(harness.time.total()).toBe(25)
+  })
+
+  test("should support settle=false for intermediate timer-driven async assertions", async () => {
+    const profileLoaded = action("ProfileLoaded").withPayload<string>()
+    type ProfileLoaded = ActionCreatorType<typeof profileLoaded>
+
+    type TimeoutId = "autosave"
+    type AsyncId = "profile"
+
+    const loadProfile = deferred<string>()
+
+    const Loading = state<
+      Enter | ProfileLoaded,
+      Data,
+      TimeoutId,
+      string,
+      AsyncId
+    >(
+      {
+        Enter: (data, _, { startTimer, update }) => [
+          update(appendEvent(data, "enter")),
+          startTimer("autosave", 10),
+        ],
+
+        TimerCompleted: (data, _, { startAsync, update }) => [
+          update(appendEvent(data, "timer-fired")),
+          startAsync(loadProfile.promise, "profile").chainToAction(
+            profileLoaded,
+            ignoreAsync,
+          ),
+        ],
+
+        ProfileLoaded: (data, profile, { update }) =>
+          update({
+            ...appendEvent(data, `loaded:${profile}`),
+            profileName: profile,
+          }),
+      },
+      { name: "Loading" },
+    )
+
+    const harness = createTestHarness({
+      history: [Loading({ events: [] })],
+      internalActions: { profileLoaded },
+    })
+
+    await harness.start()
+    await harness.advanceTime(10, { settle: false })
+
+    expect(harness.currentState().data.events).toEqual(["enter", "timer-fired"])
+
+    loadProfile.resolve("Ada")
+    await harness.settle()
+
+    expect(harness.currentState().data.events).toEqual([
+      "enter",
+      "timer-fired",
+      "loaded:Ada",
+    ])
+  })
+
+  test("should reject reverse absolute-time advances", async () => {
+    type TimeoutId = "autosave"
+
+    const Loading = state<Enter, Data, TimeoutId>(
+      {
+        Enter: (data, _, { startTimer, update }) => [
+          update(appendEvent(data, "enter")),
+          startTimer("autosave", 10),
+        ],
+      },
+      { name: "Loading" },
+    )
+
+    const harness = createTestHarness({
+      history: [Loading({ events: [] })],
+    })
+
+    await harness.start()
+    await harness.advanceTime(5)
+
+    await expect(harness.advanceTimeTo(4)).rejects.toThrow(
+      "Expected targetMs to be >= current time, received 4 while now is 5.",
+    )
   })
 
   test("should wait for output by type and predicate", async () => {
