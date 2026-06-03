@@ -29,7 +29,7 @@
     "@repo/tsconfig": "*",
     "@types/chrome": "^0.1.29",
     "@types/jest": "^30.0.0",
-    "@types/node": "^24.11.2",
+    "@types/node": "^25.9.1",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
     "eslint": "^9.39.3",

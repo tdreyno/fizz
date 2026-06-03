@@ -99,7 +99,7 @@
     "@repo/tsconfig": "*",
     "@testing-library/jest-dom": "^6.9.1",
     "@types/jest": "^30.0.0",
-    "@types/node": "^24.11.2",
+    "@types/node": "^25.9.1",
     "@types/serialize-javascript": "^5.0.4",
     "eslint": "^9.39.3",
     "jest": "^30.3.0",
