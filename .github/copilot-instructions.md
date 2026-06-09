@@ -49,7 +49,15 @@
 - Lint all packages: `npm run lint`
 - Run tests: `npm run test`
 - CI-style tests: `npm run test:ci`
-- Run one package test suite from repo root: `npm run test --workspace @tdreyno/fizz`
+- Run one package test suite from repo root:
+  - `npm run test --workspace @tdreyno/fizz`
+  - `npm run test --workspace @tdreyno/fizz-react`
+- Run a specific spec in a package workspace:
+  - `npm run test --workspace @tdreyno/fizz -- <spec-file-pattern>`
+  - `npm run test --workspace @tdreyno/fizz-react -- <spec-file-pattern>`
+- Prefer workspace-scoped validation while iterating:
+  - lint: `npm run lint --workspace <workspace-name> -- <changed-path-or-glob>`
+  - typecheck: `npm run typecheck --workspace <workspace-name>`
 
 ## Validation Workflow (Required)
 
@@ -58,8 +66,18 @@
   - Prettier: `npm exec -- prettier -- --write <changed-files>`
   - ESLint (from touched package): `npm run lint -- <changed-files-or-folder>`
   - Tests (from touched package): `npm run test` or `npm run test -- <spec-file-pattern>`
+- Sonar workflow commands (from repo root):
+  - `npm run coverage:sonar`
+  - `npm run sonar`
+  - `npm run sonar:quality-gate`
 - For SonarQube scope and fallback rules, and `.github` Prettier exceptions, follow `preferences.md`.
 - Report the exact validation commands run and outcomes in the final response.
+
+## Architecture Anchors
+
+- Use `docs/architecture.md` as the canonical reference for runtime transition semantics (handler returns, effects vs outputs, lifecycle ordering).
+- When working in `packages/fizz-react/**`, align behavior with `docs/react-integration.md`.
+- When working in debugger surfaces (`packages/fizz-chrome-debugger/**`), align behavior with `docs/chrome-debugger.md`.
 
 ## Change Hygiene
 
