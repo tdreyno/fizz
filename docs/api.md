@@ -320,6 +320,7 @@ The returned `Runtime` is the main execution object. The most commonly used meth
 - `waitUntilOutput(matcher, options?)`
 - `currentState()`
 - `currentHistory()`
+- `currentStatePath(options?)`
 - `onContextChange(handler)`
 - `onOutput(handler)`
 - `respondToOutput(type, handler)`
@@ -1008,10 +1009,27 @@ const Parent = stateWithNested(
 
 Use this when nested composition makes the machine easier to reason about, not just to avoid a few repeated handlers.
 
+The second argument (the child's initial state) may be a `StateTransition` or a resolver function `(data) => StateTransition`. Fizz calls the resolver with the parent's data when the parent enters, so the child region can start at a different leaf depending on the parent's data.
+
 Nested child handlers receive `utils.resources` with automatic fallback to resources owned by the parent `stateWithNested(...)` state. Child resources take precedence when keys overlap.
 
 See [Nested State Machines](./nested-state-machines.md) for a practical walkthrough of parent and child communication.
 If the problem is several active child workflows instead of one parent-owned child workflow, use [Parallel State Machines](./parallel-state-machines.md) instead.
+
+### `getStatePath`
+
+Build a composed, hierarchical path string for a state and any nested child regions it owns. Exported from both `@tdreyno/fizz` and `@tdreyno/fizz/nested`.
+
+```ts
+import { getStatePath } from "@tdreyno/fizz"
+
+getStatePath(runtime.currentState()) // "Parent/Child"
+getStatePath(runtime) // "Parent/Child"
+getStatePath(runtime.currentState(), { separator: "." }) // "Parent.Child"
+getStatePath(FlatState()) // "FlatState"
+```
+
+Accepts either a state transition or anything exposing a `currentState()` accessor (such as a runtime). It walks the nested child runtime stored under the `NESTED` symbol on each level's `data`, joining the state names with `options.separator` (default `"/"`). A flat state returns just its name; a non-state value returns `""`. This mirrors XState's `state.toStrings()` for logging and analytics.
 
 ### `debounce`
 

@@ -46,6 +46,20 @@ const Entry = stateWithNested(
 
 When the parent state enters, Fizz creates the child runtime and enters the child's initial state automatically.
 
+The second argument can also be a resolver function `(data) => StateTransition` instead of a fixed transition. Fizz calls it with the parent's data when the parent enters, so a parent can start the child region at a different leaf depending on its own data — without any deep path targeting.
+
+```typescript
+const Connected = stateWithNested(
+  { Tick: data => Connected(data) },
+  // Resolve the child's starting state from the parent's data.
+  data => (data.resumed ? Stale({ since: 0 }) : Live({ since: 0 })),
+  { Tick: tick },
+  { name: "Connected" },
+)
+```
+
+Passing a bare `StateTransition` (as in the form example above) continues to work unchanged.
+
 ```text
 Top-level machine
 
@@ -267,6 +281,35 @@ parent [Entry] handles CompletedForm
   v
 transition to [Complete]
 ```
+
+## Reading the composed state path
+
+A nested machine has a current state at every level: the parent state and the active child state. For logging, analytics, or debugging it is often useful to capture that whole stack as a single string instead of reaching into `data[NESTED]` by hand.
+
+`getStatePath(...)` builds that composed path. It accepts either a state transition or anything exposing a `currentState()` accessor (such as a runtime), walks the nested child runtimes, and joins the state names. The default separator is `/`.
+
+```typescript
+import { getStatePath } from "@tdreyno/fizz"
+
+getStatePath(runtime.currentState()) // "Entry/FormInvalid"
+getStatePath(runtime) // "Entry/FormInvalid"
+getStatePath(runtime.currentState(), { separator: "." }) // "Entry.FormInvalid"
+```
+
+A flat (non-nested) state returns just its name with no separator, so the same call works regardless of whether a state happens to own a child region.
+
+```typescript
+getStatePath(Complete()) // "Complete"
+```
+
+The runtime exposes the same value through a convenience accessor, which is handy in observers or logging middleware that already hold the runtime:
+
+```typescript
+runtime.currentStatePath() // "Entry/FormInvalid"
+runtime.currentStatePath({ separator: "." }) // "Entry.FormInvalid"
+```
+
+This is a derived, read-only view. It does not change the shape of `currentState()` — it only walks the existing nested runtimes to compose the path.
 
 ## Practical tradeoffs
 

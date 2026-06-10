@@ -69,6 +69,16 @@ Nested state composition should make the machine easier to reason about, not har
 
 Nested child handlers can read parent `stateWithNested(...)` resources via `utils.resources` fallback. If a child and parent define the same resource key, the child value wins for that handler execution.
 
+The child's initial state (second argument) may be a `StateTransition` or a resolver `(data) => StateTransition`. Fizz calls the resolver with the parent's data when the parent enters, letting the child region start at a different leaf based on parent data instead of deep path targeting.
+
+### `getStatePath(...)`
+
+Use `getStatePath(...)` to compose a hierarchical path string for a state and any nested child regions it owns (for logging, analytics, or debugging). Exported from both `@tdreyno/fizz` and `@tdreyno/fizz/nested`.
+
+It accepts either a state transition or anything exposing a `currentState()` accessor (such as a runtime), walks the nested child runtimes stored under the `NESTED` symbol, and joins the state names with `options.separator` (default `"/"`). A flat state returns just its name; a non-state value returns `""`.
+
+The runtime also exposes `runtime.currentStatePath(options?)` as a convenience for the runtime's own current state. This is a derived read-only view and does not change the shape of `currentState()`.
+
 ### `createParallelMachine(...)`
 
 Use `createParallelMachine(...)` when several child workflows should stay active together and the parent should broadcast shared actions to every branch that can handle them.

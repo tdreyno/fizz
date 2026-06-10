@@ -939,6 +939,8 @@ export type GetStateData<
 
 export const PARENT_RUNTIME = Symbol("Parent runtime")
 
+export const NESTED = Symbol("Nested runtime")
+
 const getMergedResources = (options: {
   parentRuntime?: InternalRuntime
   transition: StateTransition<string, Action<string, unknown>, unknown>

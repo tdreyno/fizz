@@ -90,6 +90,8 @@ export {
   whichInterval,
   whichTimeout,
 } from "./state.js"
+export type { StatePathOptions } from "./statePath.js"
+export { getStatePath } from "./statePath.js"
 export {
   RuntimeDisconnectedError,
   WaitUntilAbortError,

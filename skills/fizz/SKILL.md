@@ -42,7 +42,7 @@ Use this skill when the task involves:
 - Adding timers, intervals, or frame-driven behavior from a state handler
 - Designing output maps and adapter command channels with `outputs`, `defineOutputMap(...)`, `outputCommand(...)`, `commandChannel(...)`, or runtime output subscriptions
 - Debouncing or throttling high-frequency handlers with `debounce(...)` and `throttle(...)`
-- Using state helper APIs like `switch_(...)`, `route()`, `whichTimeout(...)`, `whichInterval(...)`, `waitState(...)`, or `isStateTransition(...)`
+- Using state helper APIs like `switch_(...)`, `route()`, `whichTimeout(...)`, `whichInterval(...)`, `waitState(...)`, `getStatePath(...)`, or `isStateTransition(...)`
 - Defining colocated machine selectors with `selectWhen(...)` for derived read-only checks
 - Evaluating selectors outside React with core runtime helpers when needed
 - Using the optional fluent entry point `@tdreyno/fizz/fluent` for chain-first state authoring
@@ -96,7 +96,8 @@ If async work may outlive the current state instance, give it an explicit `async
 
 ### Core modeling
 
-- Use `state(...)` for flat state definitions and `stateWithNested(...)` when the machine genuinely needs nested state composition.
+- Use `state(...)` for flat state definitions and `stateWithNested(...)` when the machine genuinely needs nested state composition. `stateWithNested(...)`'s initial child state may be a `StateTransition` or a resolver `(data) => StateTransition` to start the child region from a different leaf based on parent data.
+- Use `getStatePath(...)` (also re-exported from `@tdreyno/fizz/nested`) or `runtime.currentStatePath(options?)` to compose a hierarchical path string (e.g. `"Parent/Child"`) across nested regions for logging, analytics, or debugging.
 - Use `createParallelMachine(...)` when several child workflows should stay active together and shared actions should fan out across branches.
 - Use `@tdreyno/fizz/fluent` when a task explicitly prefers creator-first chained responder registration.
 - Use `switch_(...)`, `whichTimeout(...)`, and `whichInterval(...)` to keep state branching explicit. Branch maps in `whichTimeout(...)` and `whichInterval(...)` are not required to be exhaustive; missing ids resolve to `undefined` (a no-op), matching how `state(...)` handles actions without a registered handler.

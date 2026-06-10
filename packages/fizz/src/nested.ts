@@ -11,7 +11,7 @@ import { createInitialContext } from "./context.js"
 import { noop } from "./effect.js"
 import { Runtime } from "./runtime.js"
 import type { HandlerReturn, StateTransition } from "./state.js"
-import { PARENT_RUNTIME, state } from "./state.js"
+import { NESTED, PARENT_RUNTIME, state } from "./state.js"
 
 type NestedActionMap = {
   [key: string]: ActionCreator<string, unknown>
@@ -47,7 +47,9 @@ type NestedForwarders<
   [K in keyof NAM]?: NestedForwarder<Actions, Data, ActionCreatorType<NAM[K]>>
 }
 
-export const NESTED = Symbol("Nested runtime")
+export { NESTED } from "./state.js"
+export type { StatePathOptions } from "./statePath.js"
+export { getStatePath } from "./statePath.js"
 
 export const stateWithNested = <
   Actions extends Action<string, unknown>,
@@ -63,7 +65,11 @@ export const stateWithNested = <
       },
     ) => HandlerReturn<Data>
   },
-  initialNestedState: StateTransition<string, Action<string, unknown>, unknown>,
+  initialNestedState:
+    | StateTransition<string, Action<string, unknown>, unknown>
+    | ((
+        data: Data,
+      ) => StateTransition<string, Action<string, unknown>, unknown>),
   nestedActions: NAM,
   options?: { name?: string },
 ) => {
@@ -76,19 +82,24 @@ export const stateWithNested = <
       return noop()
     }
 
+    const resolvedNestedState =
+      typeof initialNestedState === "function"
+        ? initialNestedState(data)
+        : initialNestedState
+
     if (
-      typeof initialNestedState.data === "object" &&
-      initialNestedState.data !== null
+      typeof resolvedNestedState.data === "object" &&
+      resolvedNestedState.data !== null
     ) {
       ;(
-        initialNestedState.data as {
+        resolvedNestedState.data as {
           [PARENT_RUNTIME]?: ActionPayload<BeforeEnter>
         }
       )[PARENT_RUNTIME] = parentRuntime
     }
 
     const runtime = new Runtime(
-      createInitialContext([initialNestedState]),
+      createInitialContext([resolvedNestedState]),
       nestedActions,
     )
 

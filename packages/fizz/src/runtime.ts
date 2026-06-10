@@ -16,6 +16,8 @@ import type { RuntimeCommandHandlers } from "./runtime/runtimeCommandModule.js"
 import type { SelectorWhen, StateSelector } from "./selectors.js"
 import { runStateSelector } from "./selectors.js"
 import type { BoundStateFn, StateReturn } from "./state.js"
+import type { StatePathOptions } from "./statePath.js"
+import { getStatePath } from "./statePath.js"
 export type {
   RuntimeChromeDebuggerRegistry,
   RuntimeChromeDebuggerRegistryEntry,
@@ -320,6 +322,10 @@ export class Runtime<
 
   currentHistory() {
     return this.context.history
+  }
+
+  currentStatePath(options?: StatePathOptions): string {
+    return getStatePath(this.currentState(), options)
   }
 
   onContextChange(fn: ContextChangeSubscriber): () => void {
