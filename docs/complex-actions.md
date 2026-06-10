@@ -173,6 +173,52 @@ const Editing = state<Submit, Data>({
 
 That keeps the state machine responsible for coordination while adapters decide how to respond to the emitted output.
 
+## Guarded routing with route()
+
+A common cause of a hard-to-read handler is one that does nothing but pick the next state. An `Enter` handler that walks through a sequence of `if` checks — empty cart, has a coupon, otherwise ready — is really a decision node hiding inside imperative code. The `route()` builder makes that decision explicit and ordered.
+
+`route()` returns a value that is itself a state handler, so it drops straight into any handler slot. Branches are evaluated top to bottom and the first matching predicate wins; if nothing matches and there is no `otherwise`, the machine stays put.
+
+```typescript
+import { log, route, state } from "@tdreyno/fizz"
+
+type CartData = { items: number; coupon?: string }
+
+const Cart = state<typeof enter, CartData>({
+  Enter: route<CartData>()
+    .when(data => data.items === 0, EmptyCart)
+    .when(
+      data => data.coupon != null,
+      data => [log("coupon applied"), Discounted(data)],
+    )
+    .otherwise(ReadyToPay),
+})
+```
+
+```text
+Enter(Cart)
+   │
+   ├─ items === 0 ───────────► EmptyCart
+   ├─ coupon != null ───────► log + Discounted
+   └─ otherwise ─────────────► ReadyToPay
+```
+
+Each branch's target receives `(data, payload, utils)`, so a target can return a plain transition, a bare `BoundStateFn`, an effect/action array, a bare data value (an implicit update), or a promise. A predicate can also be a TypeScript type guard, which narrows the target's `data` for that branch only.
+
+The same handler shape works for guarded transitions on a real event, reading the action payload:
+
+```typescript
+const Editing = state<Submit, FormData>({
+  Submit: route<FormData, { force: boolean }>()
+    .when((data, payload) => !payload.force && data.dirty, ConfirmDiscard)
+    .otherwise(Saved),
+})
+```
+
+This is distinct from two nearby tools. The fluent state `.when(...)` guard (see [Fluent API](./fluent-api.md)) attaches a guard to a single state definition, while `switch_(...)` keys on which state you are in and returns a value. `route()` keys on predicates over `data`/`payload` and produces the next transition. Reach for `route()` when a single handler's only job is to choose where to go next.
+
+For tooling, `getRouteMetadata(routeValue)` returns the ordered branch descriptors (each with a `label` and an `otherwise` flag).
+
 ## When to split the state
 
 Not every large handler map is a problem. The problem is when one state no longer describes one coherent mode.
@@ -192,6 +238,7 @@ If one parent mode still needs a smaller internal workflow, see [Nested State Ma
 
 - [Getting Started](./getting-started.md)
 - [Architecture](./architecture.md)
+- [Fluent API](./fluent-api.md)
 - [Output Actions](./output-actions.md)
 - [Nested State Machines](./nested-state-machines.md)
 - [Custom Effects](./custom-effects.md)

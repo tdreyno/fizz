@@ -287,6 +287,39 @@ const onInterval = whichInterval<"presence" | "sync">({
 })
 ```
 
+## Declarative routing with `route(...)`
+
+```typescript
+import { action, getRouteMetadata, log, route, state } from "@tdreyno/fizz"
+
+type CartData = { items: number; coupon?: string }
+
+const enter = action("Enter")
+const submit = action("Submit").withPayload<{ force: boolean }>()
+
+// Transient Enter routing: a pure decision node.
+const Cart = state<ReturnType<typeof enter>, CartData>({
+  Enter: route<CartData>()
+    .when(data => data.items === 0, EmptyCart)
+    .when(
+      data => data.coupon != null,
+      data => [log("coupon applied"), Discounted(data)],
+    )
+    .otherwise(ReadyToPay),
+})
+
+// Guarded transition on a real event, reading the payload.
+const Editing = state<ReturnType<typeof submit>, CartData>({
+  Submit: route<CartData, { force: boolean }>()
+    .when((data, payload) => !payload.force && data.items === 0, EmptyCart)
+    .otherwise(ReadyToPay),
+})
+
+// Introspection for tooling.
+const cartRoute = route<CartData>().when(data => data.items === 0, EmptyCart)
+const { branches } = getRouteMetadata(cartRoute) ?? { branches: [] }
+```
+
 ## React integration with `useMachine(...)`
 
 ```typescript

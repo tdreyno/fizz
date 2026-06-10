@@ -10,6 +10,7 @@ The main Fizz package exports its public surface from `packages/fizz/src/index.t
 - machine definition helpers from `createMachine.ts`
 - context helpers from `context.ts`
 - effect helpers from `effect.ts`
+- routing helpers (`route`, `getRouteMetadata`) from `routing.ts`
 - runtime helpers from `runtime.ts`
 - state helpers from `state.ts`
 - selector helpers from `selectors.ts`
@@ -94,12 +95,25 @@ This is the preferred public helper for integrations that need branch inspection
 Fizz also exports helpers that keep state logic explicit and testable:
 
 - `switch_(...)` to branch on the current state transition
+- `route()` to build a declarative, ordered-guard handler (see below)
 - `whichTimeout(...)` to dispatch by timeout id (missing branches resolve to a no-op)
 - `whichInterval(...)` to dispatch by interval id (missing branches resolve to a no-op)
 - `waitState(...)` to model request-on-enter and response-driven transitions
 - `isStateTransition(...)` as a type guard when handling mixed values
 
 Prefer these helpers when they make branching clearer than ad-hoc conditionals.
+
+### `route(...)`
+
+`route<Data, Payload>()` builds an ordered-guard handler whose value is itself a state handler `(data, payload, utils) => HandlerReturn<Data>`. Use it in an `Enter` slot for a transient/eventless transition, or in any action slot for a guarded transition on an event.
+
+- `.when(predicate, target, options?)`: `predicate` is a synchronous, pure `(data, payload) => boolean` (or a TS type guard `(data, payload) => data is Narrowed` that narrows `target`'s `data` locally). `target` receives `(data, payload, utils)` and may return a transition, effect/action array, bare data (implicit update), or a promise. A bare `BoundStateFn` is accepted directly and called with the current data.
+- `.otherwise(target, options?)`: optional final unconditional branch.
+- Branches evaluate top to bottom, first match wins (short-circuit). No match and no `otherwise` returns `undefined` (stay put); an empty `route()` always stays. No dev warning.
+- The builder is immutable: each `.when`/`.otherwise` returns a new builder.
+- `getRouteMetadata(handler)` returns `{ branches }` (ordered `{ predicate?, label, otherwise }`) for tooling, or `undefined` for non-route handlers. Labels resolve from explicit `{ label }`, else `target.name`, else a positional fallback (`branch N`/`otherwise`).
+
+`route()` keys on predicates and produces a transition handler — distinct from the fluent state `.when(...)` guard (gates one state definition) and `switch_(...)` (keys on state identity and returns a value).
 
 ### Selectors
 

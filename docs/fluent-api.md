@@ -124,6 +124,8 @@ const Counting = state<{ count: number; enabled: boolean }>("Counting")
   .when(data => data.enabled)
 ```
 
+This `when(...)` gates whether a single responder runs. For a handler whose only job is to choose the next state from an ordered list of predicates, use the `route()` builder instead — see [Guarded routing with route()](./complex-actions.md#guarded-routing-with-route).
+
 ## Introspection
 
 Use `describe()` to inspect registration metadata for debugging and docs tooling:

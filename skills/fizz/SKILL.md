@@ -42,7 +42,7 @@ Use this skill when the task involves:
 - Adding timers, intervals, or frame-driven behavior from a state handler
 - Designing output maps and adapter command channels with `outputs`, `defineOutputMap(...)`, `outputCommand(...)`, `commandChannel(...)`, or runtime output subscriptions
 - Debouncing or throttling high-frequency handlers with `debounce(...)` and `throttle(...)`
-- Using state helper APIs like `switch_(...)`, `whichTimeout(...)`, `whichInterval(...)`, `waitState(...)`, or `isStateTransition(...)`
+- Using state helper APIs like `switch_(...)`, `route()`, `whichTimeout(...)`, `whichInterval(...)`, `waitState(...)`, or `isStateTransition(...)`
 - Defining colocated machine selectors with `selectWhen(...)` for derived read-only checks
 - Evaluating selectors outside React with core runtime helpers when needed
 - Using the optional fluent entry point `@tdreyno/fizz/fluent` for chain-first state authoring
@@ -100,6 +100,7 @@ If async work may outlive the current state instance, give it an explicit `async
 - Use `createParallelMachine(...)` when several child workflows should stay active together and shared actions should fan out across branches.
 - Use `@tdreyno/fizz/fluent` when a task explicitly prefers creator-first chained responder registration.
 - Use `switch_(...)`, `whichTimeout(...)`, and `whichInterval(...)` to keep state branching explicit. Branch maps in `whichTimeout(...)` and `whichInterval(...)` are not required to be exhaustive; missing ids resolve to `undefined` (a no-op), matching how `state(...)` handles actions without a registered handler.
+- Use `route()` to build a declarative, ordered-guard handler when a handler's only job is to choose the next state. It is itself a `(data, payload, utils) => HandlerReturn<Data>` handler, so it drops into an `Enter` slot (transient transition) or any action slot (guarded transition). First matching `.when(predicate, target)` wins; `.otherwise(target)` is an optional default; no match (and no `otherwise`) stays put with no dev warning. Inspect branches with `getRouteMetadata(...)`.
 - Use `selectWhen(...)` to colocate derived read-only checks directly on `createMachine(...)` definitions and keep selector state filters explicit.
 - For complex selector matching (nested objects, discriminated unions, arrays, primitives), prefer `ts-pattern` and pass `isMatching(...)` directly to `selectWhen(...)`.
 - Use `waitState(...)` for request-on-enter and response-driven transition flows.

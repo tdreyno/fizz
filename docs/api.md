@@ -169,6 +169,45 @@ const branches = getParallelRuntimes(runtime.currentState().data)
 
 This is the main helper for integrations that need keyed access to child branch runtimes without reaching into `PARALLEL_RUNTIMES` directly.
 
+## Routing
+
+### `route`
+
+Build a declarative, ordered-guard handler. The builder value is itself a state handler `(data, payload, utils) => HandlerReturn<Data>`, so you can drop it straight into an `Enter` slot (a transient, eventless transition) or any action handler slot (a guarded transition on an event). Branches are evaluated top to bottom and the first matching predicate wins; later predicates are not evaluated.
+
+```ts
+import { log, route, state } from "@tdreyno/fizz"
+
+const cartRoute = route<CartData>()
+  .when(data => data.items === 0, EmptyCart)
+  .when(
+    data => data.coupon != null,
+    data => [log("coupon applied"), Discounted(data)],
+  )
+  .otherwise(ReadyToPay)
+
+const Cart = state<typeof enter, CartData>({ Enter: cartRoute })
+```
+
+`route<Data, Payload>()` takes the handler's data and payload types as explicit generics. `.when(predicate, target, options?)` accepts a synchronous, pure predicate `(data, payload) => boolean` (or a TypeScript type guard `(data, payload) => data is Narrowed` that narrows the target's `data` locally). The target receives `(data, payload, utils)` and may return anything a handler can — a transition, effect, action, array, or a bare data value (implicit update) — and may be async. A bare `BoundStateFn` is accepted directly and is called with the current data.
+
+`.otherwise(target, options?)` is an optional final unconditional branch. When no branch matches and there is no `otherwise`, the handler returns `undefined`, which keeps the machine in its current state. An empty `route()` always stays.
+
+Each `.when`/`.otherwise` call returns a new builder, so partial chains can be shared safely.
+
+This differs from the fluent state `.when(...)` guard (which guards a single state definition) and from `switch_(...)` (which keys on state identity and returns a value): `route()` keys on predicates and produces a transition handler.
+
+### `getRouteMetadata`
+
+Read the ordered branch metadata from a route handler for tooling and introspection. Returns `undefined` for any value that is not a route handler.
+
+```ts
+const metadata = getRouteMetadata(cartRoute)
+// metadata?.branches => [{ label, otherwise }, ...] in declaration order
+```
+
+Each branch carries a `label` (resolved from an explicit `{ label }`, else the target's function name, else a positional fallback such as `"branch 2"` or `"otherwise"`), an `otherwise` flag, and a `predicate` for non-default branches.
+
 ## Actions
 
 ### `action`

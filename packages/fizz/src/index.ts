@@ -53,6 +53,14 @@ export type {
 export { createMachine } from "./createMachine.js"
 export * from "./effect.js"
 export * from "./errors.js"
+export type {
+  RouteBranch,
+  RouteBranchOptions,
+  RouteBuilder,
+  RouteMetadata,
+  RouteTarget,
+} from "./routing.js"
+export { getRouteMetadata, route } from "./routing.js"
 export * from "./runtime.js"
 export type { StateSelector, StateSelectorOptions } from "./selectors.js"
 export {
