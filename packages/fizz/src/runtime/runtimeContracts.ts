@@ -11,6 +11,20 @@ export type RuntimeState = StateTransition<
   unknown
 >
 
+/**
+ * Information about a state transition delivered to {@link RuntimeTransitionInfo}
+ * subscribers registered through `Runtime#onTransition(...)`.
+ *
+ * `action` is the action that caused the transition (XState `state.event` parity).
+ * `previousState` is the state the machine was in before the transition, or
+ * `undefined` for the first transition.
+ */
+export type RuntimeTransitionInfo = {
+  state: RuntimeState
+  previousState: RuntimeState | undefined
+  action: RuntimeAction | undefined
+}
+
 export type RuntimeDebugCommand =
   | {
       kind: "action"

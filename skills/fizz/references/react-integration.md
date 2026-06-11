@@ -9,6 +9,7 @@ Use this reference when the task involves `@tdreyno/fizz-react`, React component
 - `useMachine(...)`
 - `createMachineContext(...)`
 - `useMachineSubscription(...)`
+- `useTransition(...)`
 
 The current hook implementation in `packages/fizz-react/src/useMachine.ts`:
 
@@ -95,6 +96,24 @@ useMachineSubscription(
   },
   { emitCurrent: true },
 )
+```
+
+### Use `useTransition(...)` to observe the transition and its triggering action
+
+When the observation needs the transition itself — the new state, the previous state, and the action that caused it — prefer `useTransition(...)` over `useMachineSubscription(...)`.
+
+- `useTransition(machine, listener)`
+- listener receives `{ state, previousState, action, context }`
+- fires only when the state name changes (not on same-state data updates), wired to `runtime.onTransition(...)`
+
+```typescript
+useTransition(machine, ({ state, previousState, action }) => {
+  analytics.track("transition", {
+    from: previousState?.name,
+    to: state.name,
+    via: action?.type,
+  })
+})
 ```
 
 ### Use `useWaitUntilState`, `useWaitUntilOutput`, and `useRunUntil` for awaitable conditions

@@ -13,6 +13,7 @@ import {
   useMachineSubscription,
   useOnStateExit,
   useStateMatch,
+  useTransition,
 } from "../useMachineSubscription"
 import { Machine, States } from "./machine"
 
@@ -216,6 +217,73 @@ describe("useMachineSubscription", () => {
         },
         { emitCurrent: true },
       )
+
+      return machine
+    })
+
+    await act(async () => {
+      await result.current.actions.world().asPromise()
+    })
+
+    await waitFor(() => {
+      expect(listener).toHaveBeenCalledWith("Ready")
+    })
+  })
+})
+
+describe("useTransition", () => {
+  test("delivers state, previousState, and triggering action", async () => {
+    const listener =
+      jest.fn<
+        (info: {
+          state: string
+          previousState: string | undefined
+          action: string | undefined
+        }) => void
+      >()
+
+    const { result } = renderHook(() => {
+      const machine = useMachine(
+        Machine,
+        Machine.states.Initializing({ didWorld: false }),
+      )
+
+      useTransition(machine, ({ state, previousState, action }) => {
+        listener({
+          action: action?.type,
+          previousState: previousState?.name,
+          state: state.name,
+        })
+      })
+
+      return machine
+    })
+
+    await act(async () => {
+      await result.current.actions.world().asPromise()
+    })
+
+    await waitFor(() => {
+      expect(listener).toHaveBeenCalledWith({
+        action: "World",
+        previousState: "Initializing",
+        state: "Ready",
+      })
+    })
+  })
+
+  test("provides the current context to the listener", async () => {
+    const listener = jest.fn<(currentStateName: string) => void>()
+
+    const { result } = renderHook(() => {
+      const machine = useMachine(
+        Machine,
+        Machine.states.Initializing({ didWorld: false }),
+      )
+
+      useTransition(machine, ({ context }) => {
+        listener(context.currentState.name)
+      })
 
       return machine
     })

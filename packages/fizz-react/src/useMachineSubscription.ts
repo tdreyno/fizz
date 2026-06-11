@@ -29,6 +29,17 @@ export type StateExitListener<
   context: ContextValue<SM, AM, OAM>["context"],
 ) => void
 
+export type MachineTransitionListener<
+  SM extends { [key: string]: AnyBoundState },
+  AM extends ActionMap,
+  OAM extends ActionMap,
+> = (info: {
+  state: ReturnType<SM[keyof SM]>
+  previousState: ReturnType<SM[keyof SM]> | undefined
+  action: ReturnType<AM[keyof AM]> | undefined
+  context: ContextValue<SM, AM, OAM>["context"]
+}) => void
+
 export const useStateMatch = <
   SM extends { [key: string]: AnyBoundState },
   AM extends ActionMap,
@@ -77,6 +88,40 @@ export const useMachineSubscription = <
       notify(context)
     })
   }, [machine.runtime, emitCurrent])
+}
+
+export const useTransition = <
+  SM extends { [key: string]: AnyBoundState },
+  AM extends ActionMap,
+  OAM extends ActionMap,
+>(
+  machine: ContextValue<SM, AM, OAM>,
+  listener: MachineTransitionListener<SM, AM, OAM>,
+): void => {
+  const listenerRef = useRef(listener)
+
+  useEffect(() => {
+    listenerRef.current = listener
+  }, [listener])
+
+  useEffect(() => {
+    const runtime = machine.runtime
+
+    if (!runtime) {
+      return
+    }
+
+    return runtime.onTransition(info => {
+      listenerRef.current({
+        action: info.action as ReturnType<AM[keyof AM]> | undefined,
+        context: runtime.context,
+        previousState: info.previousState as
+          | ReturnType<SM[keyof SM]>
+          | undefined,
+        state: info.state as ReturnType<SM[keyof SM]>,
+      })
+    })
+  }, [machine.runtime])
 }
 
 export const useOnStateExit = <

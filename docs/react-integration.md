@@ -489,6 +489,26 @@ const Observer = () => {
 
 If you need full access to raw context objects, subscribe directly with `runtime.onContextChange(...)`.
 
+### Observing transitions with `useTransition`
+
+When you care about the transition itself — the new state, where it came from, and the action that caused it — use `useTransition(...)`. The listener receives `{ state, previousState, action, context }` and fires only when the state name changes (not on same-state data updates), wired to the runtime's `onTransition(...)` subscription.
+
+```tsx
+import { useMachine, useTransition } from "@tdreyno/fizz-react"
+
+const machine = useMachine(FormMachine, FormMachine.states.Editing(initialData))
+
+useTransition(machine, ({ state, previousState, action }) => {
+  analytics.track("machine_transition", {
+    from: previousState?.name,
+    to: state.name,
+    via: action?.type,
+  })
+})
+```
+
+This pairs with the runtime's `getFlow(...)` / `getVisitedStateNames(...)` when you want to capture the full path a session took, not just individual transitions.
+
 ## Options and current caveats
 
 The hook currently accepts an `options` object with these fields in its type:

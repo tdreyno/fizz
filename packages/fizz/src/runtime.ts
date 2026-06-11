@@ -1,4 +1,4 @@
-import { beforeEnter, enter } from "./action.js"
+import { beforeEnter, enter, exit } from "./action.js"
 import type {
   RuntimeBrowserDriver,
   RuntimeDomQueryScope,
@@ -52,6 +52,7 @@ import type {
   RuntimeDiagnosticsSnapshot,
   RuntimeMonitor,
   RuntimeState,
+  RuntimeTransitionInfo,
 } from "./runtime/runtimeContracts.js"
 import type { RuntimeModuleSet } from "./runtime/runtimeModules.js"
 import { createRuntimeModules } from "./runtime/runtimeModules.js"
@@ -92,6 +93,7 @@ export type {
   RuntimeDiagnosticsSnapshot,
   RuntimeMissingCommandHandlerPolicy,
   RuntimeMonitor,
+  RuntimeTransitionInfo,
 } from "./runtime/runtimeContracts.js"
 export type {
   ControlledTimerDriver,
@@ -123,6 +125,13 @@ export type RuntimeContextOptions = {
 export type CreateRuntimeOptions = RuntimeContextOptions & RuntimeOptions
 
 type ContextChangeSubscriber = (context: Context) => void
+type TransitionSubscriber = (info: RuntimeTransitionInfo) => void
+
+const LIFECYCLE_ACTION_TYPES = new Set<string>([
+  beforeEnter.type,
+  enter.type,
+  exit.type,
+])
 type RuntimeActionMap = {
   [key: string]: (...args: Array<any>) => RuntimeAction
 }
@@ -204,9 +213,13 @@ export class Runtime<
   readonly #asyncDriver: RuntimeAsyncDriver
   readonly clients: Record<string, unknown>
   readonly #contextChangeSubscribers = new Set<ContextChangeSubscriber>()
+  readonly #transitionSubscribers = new Set<TransitionSubscriber>()
   readonly #disconnectSubscribers = new Set<() => void>()
   readonly #effectHandlers: RuntimeEffectHandlerRegistry<RuntimeDebugCommand>
   #lastContextState: RuntimeState | undefined
+  #lastAction: RuntimeAction | undefined
+  #actionInFlight: RuntimeAction | undefined
+  #lastTransitionState: RuntimeState | undefined
   readonly #modules: RuntimeModuleSet
   readonly #monitors = new Set<RuntimeMonitor>()
   readonly #outputSubscribers = new Set<OutputSubscriber<OAM>>()
@@ -231,6 +244,7 @@ export class Runtime<
     this.#asyncDriver = options.asyncDriver ?? createDefaultAsyncDriver()
     this.clients = options.clients ?? {}
     this.#lastContextState = context.currentState as RuntimeState | undefined
+    this.#lastTransitionState = context.currentState as RuntimeState | undefined
     this.#timerDriver = options.timerDriver ?? createDefaultTimerDriver()
 
     if (options.monitor) {
@@ -276,6 +290,8 @@ export class Runtime<
     this.#queueRunnerOptions = {
       executeCommand: item => this.#executeCommand(item),
       onCommandCompleted: (command, generatedCommands) => {
+        this.#detectTransition()
+
         if (this.#monitors.size > 0) {
           this.#emitMonitor({
             command,
@@ -286,6 +302,13 @@ export class Runtime<
       },
       onCommandStarted: (command, queueSize) => {
         this.#validateCurrentState()
+
+        if (
+          command.kind === "action" &&
+          !LIFECYCLE_ACTION_TYPES.has(command.action.type)
+        ) {
+          this.#actionInFlight = command.action
+        }
 
         if (this.#monitors.size > 0) {
           this.#emitMonitor({
@@ -326,6 +349,27 @@ export class Runtime<
 
   currentStatePath(options?: StatePathOptions): string {
     return getStatePath(this.currentState(), options)
+  }
+
+  lastAction(): RuntimeAction | undefined {
+    return this.#lastAction
+  }
+
+  getVisitedStateNames(options?: StatePathOptions): string[] {
+    return this.context.history
+      .toArray()
+      .reverse()
+      .map(state => getStatePath(state, options))
+  }
+
+  getFlow(separator = ","): string {
+    return this.getVisitedStateNames().join(separator)
+  }
+
+  onTransition(fn: TransitionSubscriber): () => void {
+    this.#transitionSubscribers.add(fn)
+
+    return () => this.#transitionSubscribers.delete(fn)
   }
 
   onContextChange(fn: ContextChangeSubscriber): () => void {
@@ -466,6 +510,7 @@ export class Runtime<
   disconnect(): void {
     this.#modules.disconnect()
     this.#contextChangeSubscribers.clear()
+    this.#transitionSubscribers.clear()
     this.#outputSubscribers.clear()
 
     this.#disconnectSubscribers.forEach(disconnect => {
@@ -572,7 +617,7 @@ export class Runtime<
 
     await promise
 
-    this.#contextDidChange()
+    this.#contextDidChange(action)
   }
 
   async runAndSelect<W extends SelectorWhen, R>(
@@ -638,14 +683,40 @@ export class Runtime<
     return queueItemsFromCommands(commands)
   }
 
-  #contextDidChange() {
+  #detectTransition() {
     const currentState = this.currentState()
+    const previousState = this.#lastTransitionState
+
+    if (previousState?.name === currentState.name) {
+      return
+    }
+
+    this.#lastTransitionState = currentState
+
+    if (this.#transitionSubscribers.size === 0) {
+      return
+    }
+
+    const action = this.#actionInFlight
+
+    this.#transitionSubscribers.forEach(sub =>
+      sub({ action, previousState, state: currentState }),
+    )
+  }
+
+  #contextDidChange(action?: RuntimeAction) {
+    const currentState = this.currentState()
+    const previousState = this.#lastContextState
+
+    if (action) {
+      this.#lastAction = action
+    }
 
     if (this.#monitors.size > 0) {
       this.#emitMonitor({
         context: this.context,
         currentState,
-        previousState: this.#lastContextState,
+        previousState,
         type: "context-changed",
       })
     }

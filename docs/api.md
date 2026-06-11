@@ -321,7 +321,11 @@ The returned `Runtime` is the main execution object. The most commonly used meth
 - `currentState()`
 - `currentHistory()`
 - `currentStatePath(options?)`
+- `getVisitedStateNames(options?)`
+- `getFlow(separator?)`
+- `lastAction()`
 - `onContextChange(handler)`
+- `onTransition(handler)`
 - `onOutput(handler)`
 - `respondToOutput(type, handler)`
 - `bindActions(actions)`
@@ -330,6 +334,39 @@ The returned `Runtime` is the main execution object. The most commonly used meth
 - `assertCleanTeardown(options?)`
 
 Typed output subscription helpers such as `onOutputType(...)` and channel wiring through `connectOutputChannel(...)` are documented in [Output Actions](./output-actions.md).
+
+### `onTransition`
+
+Subscribe to state transitions. The handler fires whenever the machine's state name changes and receives `{ state, previousState, action }`, where `action` is the action that caused the transition (XState `state.event` parity). It returns an unsubscribe function. Unlike `onContextChange(...)` (which fires on every context change, including same-state data updates), `onTransition(...)` fires only when the state name changes.
+
+```ts
+const unsubscribe = runtime.onTransition(({ state, previousState, action }) => {
+  console.log(`${previousState?.name} -> ${state.name} via ${action?.type}`)
+})
+
+// later
+unsubscribe()
+```
+
+The `RuntimeTransitionInfo` type describes the handler argument and is exported from the package root.
+
+### `lastAction`
+
+Read the most recent triggering action, or `undefined` before the first action runs.
+
+```ts
+runtime.lastAction()?.type
+```
+
+### `getVisitedStateNames` / `getFlow`
+
+Read the ordered (oldest → newest) state-path names from history, or a single joined flow string, for telemetry and debugging. Nested regions use the composed `getStatePath(...)` form per visited state.
+
+```ts
+runtime.getVisitedStateNames() // ["Idle", "Loading", "Ready"]
+runtime.getFlow() // "Idle,Loading,Ready"
+runtime.getFlow(" -> ") // "Idle -> Loading -> Ready"
+```
 
 ### `getDiagnosticsSnapshot`
 

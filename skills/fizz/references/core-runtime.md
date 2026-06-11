@@ -326,6 +326,22 @@ const outcome = await runtime.flushAsync("save")
 
 `flushAsync(asyncId, options?)` fires a pending debounce immediately or awaits in-flight work, returning a `FlushAsyncOutcome`. Pass `timeoutMs` to resolve `{ type: "aborted" }` and cancel if the operation does not settle in time. See `docs/async.md` for the full surface.
 
+Runtime transition observation and flow history:
+
+```typescript
+const unsubscribe = runtime.onTransition(({ state, previousState, action }) => {
+  // fires only when the state name changes; action is the cause
+  log(`${previousState?.name} -> ${state.name} via ${action?.type}`)
+})
+
+runtime.lastAction()?.type // most recent triggering action, or undefined
+runtime.getVisitedStateNames() // ordered oldest -> newest, composed nested paths
+runtime.getFlow() // "Idle,Loading,Ready"
+runtime.getFlow(" -> ") // custom separator
+```
+
+Use `onTransition(...)` (returns an unsubscribe) when you need the triggering `action` or the `previousState`; it fires only on state-name changes. Use `onContextChange(...)` when you need every context change including same-state data updates. `getFlow(...)`/`getVisitedStateNames(...)` derive from history for telemetry and debugging. The `RuntimeTransitionInfo` type describes the `onTransition` argument.
+
 If you want a declarative machine container first, build it with `createMachine(...)` and then create the runtime from the machine.
 
 This matters because the first `enter()` automatically performs Fizz's pre-entry bootstrap before any `Enter` handlers run.
