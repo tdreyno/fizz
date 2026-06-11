@@ -108,7 +108,7 @@
     "ts-jest": "^29.4.6",
     "tsdown": "^0.21.0",
     "typescript": "^5.9.3",
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
   },
   "dependencies": {
     "ts-morph": "^28.0.0"
