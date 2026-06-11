@@ -621,6 +621,46 @@ import { createMachineContext } from "@tdreyno/fizz-react"
 const { Provider, useMachineContext } = createMachineContext(FlowMachine)
 ```
 
+## Imperative run-to-completion with flow capture
+
+```typescript
+import { createRuntime, enter, matchAny } from "@tdreyno/fizz"
+
+const runtime = createRuntime(
+  SubscribeMachine,
+  SubscribeMachine.states.Subscribing(),
+)
+
+// Optional: stream transitions and their triggering action for telemetry.
+const unsubscribe = runtime.onTransition(({ state, previousState, action }) => {
+  analytics.track("transition", {
+    from: previousState?.name,
+    to: state.name,
+    via: action?.type,
+  })
+})
+
+await runtime.run(enter())
+
+// Settle at one of several terminal states.
+await runtime.waitUntil(
+  matchAny(event =>
+    event.kind === "state" &&
+    (event.state.is(SubscribeMachine.states.Subscribed) ||
+      event.state.is(SubscribeMachine.states.Failed))
+      ? "settled"
+      : undefined,
+  ),
+)
+
+// Derive the path the run took.
+const flow = runtime.getFlow() // "Subscribing,Registering,Subscribed"
+const visited = runtime.getVisitedStateNames() // oldest -> newest
+const last = runtime.lastAction()?.type
+
+unsubscribe()
+```
+
 ## Practical reminders
 
 - Prefer explicit action names.

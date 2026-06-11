@@ -8,6 +8,10 @@
 - [DOM Listener Helper Mappings](docs/dom-listener-helper-mappings.md)
 - [React Integration](docs/react-integration.md)
 
+## Migrating
+
+- [Migrating from XState](docs/migrating-from-xstate.md)
+
 ## Scheduling
 
 - [Async](docs/async.md)
