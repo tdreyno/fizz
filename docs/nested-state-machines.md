@@ -2,9 +2,9 @@
 
 Nested state machines let one state own a smaller workflow without flattening every transition into the top-level machine.
 
-Use `stateWithNested(...)` when a parent state is still one coherent mode, but that mode contains its own step-by-step interaction. A common example is a form, wizard, or setup flow that only exists while the parent state is active.
+Use `stateWithNested(...)` when a parent state remains one coherent mode but includes its own step-by-step interaction. Common examples are forms, wizards, and setup flows that only exist while the parent state is active.
 
-If nesting only hides a state that should really be split into separate top-level states, prefer another plain `state(...)` instead.
+If nesting only hides logic that should be split into separate top-level states, prefer another plain `state(...)`.
 If you actually need multiple child workflows active together, prefer [Parallel State Machines](./parallel-state-machines.md) instead of forcing them through one nested child runtime.
 
 ## When nesting helps
@@ -16,7 +16,7 @@ Reach for a nested machine when:
 - the parent still needs to react when the child reaches a milestone
 - forwarding a small, explicit set of actions is clearer than duplicating handlers across top-level states
 
-This keeps the parent focused on the larger workflow while the child handles the local details.
+This keeps the parent focused on the larger workflow while the child handles local details.
 
 ## The shape of `stateWithNested(...)`
 
@@ -46,7 +46,7 @@ const Entry = stateWithNested(
 
 When the parent state enters, Fizz creates the child runtime and enters the child's initial state automatically.
 
-The second argument can also be a resolver function `(data) => StateTransition` instead of a fixed transition. Fizz calls it with the parent's data when the parent enters, so a parent can start the child region at a different leaf depending on its own data — without any deep path targeting.
+The second argument can also be a resolver function `(data) => StateTransition` instead of a fixed transition. Fizz calls it with the parent's data when the parent enters, so the parent can start the child region at a different leaf based on its own data, without deep path targeting.
 
 ```typescript
 const Connected = stateWithNested(
@@ -222,7 +222,7 @@ child:  [FormInvalid] -- SetName(correct name) --> [FormValid]
 
 ## Parent and child communication
 
-Nested machines stay predictable when the communication rules are explicit.
+Nested machines stay predictable when communication rules are explicit.
 
 ### Shared resources across substates
 
@@ -241,7 +241,7 @@ That means a child resource key intentionally overrides a parent key with the sa
 
 Only the action creators listed in the `nestedActions` object are forwarded to the child runtime.
 
-That is useful because the parent still controls the boundary. If an action should not affect the child workflow, do not forward it.
+This keeps boundary control in the parent. If an action should not affect the child workflow, do not forward it.
 
 ```text
 Parent-to-child forwarding
@@ -309,7 +309,7 @@ runtime.currentStatePath() // "Entry/FormInvalid"
 runtime.currentStatePath({ separator: "." }) // "Entry.FormInvalid"
 ```
 
-This is a derived, read-only view. It does not change the shape of `currentState()` — it only walks the existing nested runtimes to compose the path.
+This is a derived, read-only view. It does not change the shape of `currentState()`; it only walks the existing nested runtimes to compose the path.
 
 ## Practical tradeoffs
 

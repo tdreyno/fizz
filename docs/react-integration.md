@@ -2,12 +2,12 @@
 
 `@tdreyno/fizz-react` is local-first. Most React usage starts with one machine per component via `useMachine(...)`, then scales to shared runtime context when needed.
 
-It provides two React integration surfaces:
+It provides two integration surfaces:
 
 - `useMachine(...)` hosts one Fizz runtime inside one component instance
 - `createMachineContext(...)` creates a typed Provider plus hook pair so a subtree can share one runtime
 
-The main rule is the same as the rest of Fizz: keep the workflow in states and actions, and keep the React component focused on rendering and dispatching.
+The main rule is the same as the rest of Fizz: keep workflow in states and actions, and keep React components focused on rendering and dispatching.
 
 ## Install
 
@@ -182,11 +182,11 @@ const CounterScreen = () => {
 }
 ```
 
-That pattern gives the subtree a single runtime:
+That pattern gives the subtree one runtime:
 
-- one child can dispatch through `actions`
+- a child can dispatch through `actions`
 - sibling and nested children re-render from the same `currentState`
-- all consumers see the same `context` and `runtime`
+- all consumers read the same `context` and `runtime`
 
 ## What it returns
 
@@ -204,7 +204,7 @@ In practice:
 - use `currentState` and `currentState.data` to render state labels and data
 - use `actions` to dispatch events from the component
 - use `context` when you need runtime history or lower-level inspection
-- use `runtime` only for advanced cases such as output subscriptions or manual inspection
+- use `runtime` for advanced cases such as output subscriptions or manual inspection
 
 ## Selectors
 
@@ -275,7 +275,7 @@ Because `selectWhen(...)` is a positive check, function-based selectors return `
 
 ### Simple default vs optimized opt-out
 
-`useMachine(...)` defaults to the simple DX mode shown above. In that mode, selector values are ready to read directly from `machine.selectors` and all machine selectors are subscribed internally.
+`useMachine(...)` defaults to the simple DX mode shown above. In that mode, selector values are ready to read directly from `machine.selectors`, and all machine selectors are subscribed internally.
 
 For render-critical screens, set `disableAutoSelectors: true` and use `useSelector(...)`.
 
@@ -491,7 +491,7 @@ If you need full access to raw context objects, subscribe directly with `runtime
 
 ### Observing transitions with `useTransition`
 
-When you care about the transition itself — the new state, where it came from, and the action that caused it — use `useTransition(...)`. The listener receives `{ state, previousState, action, context }` and fires only when the state name changes (not on same-state data updates), wired to the runtime's `onTransition(...)` subscription.
+When you care about the transition itself, including the new state, where it came from, and the action that caused it, use `useTransition(...)`. The listener receives `{ state, previousState, action, context }` and fires only when the state name changes (not on same-state data updates), wired to the runtime's `onTransition(...)` subscription.
 
 ```tsx
 import { useMachine, useTransition } from "@tdreyno/fizz-react"
@@ -507,7 +507,7 @@ useTransition(machine, ({ state, previousState, action }) => {
 })
 ```
 
-This pairs with the runtime's `getFlow(...)` / `getVisitedStateNames(...)` when you want to capture the full path a session took, not just individual transitions.
+This pairs with the runtime's `getFlow(...)` / `getVisitedStateNames(...)` when you want to capture the full session path, not only individual transitions.
 
 ## Options and current caveats
 

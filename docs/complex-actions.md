@@ -175,7 +175,7 @@ That keeps the state machine responsible for coordination while adapters decide 
 
 ## Guarded routing with route()
 
-A common cause of a hard-to-read handler is one that does nothing but pick the next state. An `Enter` handler that walks through a sequence of `if` checks — empty cart, has a coupon, otherwise ready — is really a decision node hiding inside imperative code. The `route()` builder makes that decision explicit and ordered.
+A common cause of a hard-to-read handler is one that does nothing but pick the next state. An `Enter` handler that walks through a sequence of `if` checks, such as empty cart, has a coupon, otherwise ready, is really a decision node hiding inside imperative code. The `route()` builder makes that decision explicit and ordered.
 
 `route()` returns a value that is itself a state handler, so it drops straight into any handler slot. Branches are evaluated top to bottom and the first matching predicate wins; if nothing matches and there is no `otherwise`, the machine stays put.
 

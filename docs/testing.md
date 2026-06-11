@@ -238,10 +238,10 @@ The two-argument form of `harness.flushAsync(asyncId, options?)` returns a `Flus
 
 `FlushAsyncOutcome` discriminants:
 
-- `{ type: "nothing" }` — no pending work for the id
-- `{ type: "succeeded"; value: unknown }` — work resolved
-- `{ type: "failed"; error: unknown }` — work rejected
-- `{ type: "aborted" }` — timed out or cancelled before settling
+- `{ type: "nothing" }`: no pending work for the id
+- `{ type: "succeeded"; value: unknown }`: work resolved
+- `{ type: "failed"; error: unknown }`: work rejected
+- `{ type: "aborted" }`: timed out or cancelled before settling
 
 ## Disconnect And Leak Checks
 

@@ -358,8 +358,8 @@ Intervals are based on elapsed time. Frame loops are based on the browser render
 
 Fizz exposes frame helpers through zero-argument helpers:
 
-- `startFrame()` — fires `OnFrame` **once**, then stops
-- `startFrameLoop()` — fires `OnFrame` on every animation frame until `cancelFrame()` is called
+- `startFrame()`: fires `OnFrame` **once**, then stops
+- `startFrameLoop()`: fires `OnFrame` on every animation frame until `cancelFrame()` is called
 - `cancelFrame()`
 
 Unlike intervals, frame loops do not use timeout ids. A state either has an active frame loop or it does not. Each animation frame dispatches the existing `OnFrame` action with the browser timestamp.
@@ -392,7 +392,7 @@ const Spinning = state<Enter | OnFrame, Data>({
 })
 ```
 
-Use `startFrame()` instead of `startFrameLoop()` when you only need a single frame — for example, to schedule a one-time read or write at the next paint:
+Use `startFrame()` instead of `startFrameLoop()` when you only need a single frame, for example, to schedule a one-time read or write at the next paint:
 
 ```typescript
 import { Enter, OnFrame, state } from "@tdreyno/fizz"

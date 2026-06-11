@@ -1,7 +1,7 @@
 # Awaiting Conditions
 
 Sometimes a controller dispatches an action and needs to wait until the
-machine reaches a meaningful resting point — a particular state, an output
+machine reaches a meaningful resting point: a particular state, an output
 action, or some predicate over either.
 
 ## When to use it
@@ -56,7 +56,7 @@ by action `type`, a predicate function, or a `matchOutput` result.
 
 Handler-map entries can be either a function `(action) => value | undefined`
 or a direct value. Direct values are returned as the wait result whenever
-the action `type` matches — handy for predicate-style mappings like
+the action `type` matches, which is handy for predicate-style mappings like
 `{ Saved: true, Failed: false }`. Function entries that return
 `undefined` are treated as "no match" and let the wait keep listening.
 
@@ -117,7 +117,7 @@ type WaitUntilOptions = {
 
 - `signal` rejects the wait with `WaitUntilAbortError` when aborted.
 - `timeout` (milliseconds) rejects with `WaitUntilTimeoutError`.
-- `includeCurrent` defaults to `true` for state matchers — the wait
+- `includeCurrent` defaults to `true` for state matchers; the wait
   resolves immediately (via microtask) if the current state already
   matches. Set to `false` to require an explicit transition.
 - If the runtime disconnects while a wait is pending, the Promise
@@ -173,9 +173,9 @@ and on unmount.
 
 ## Related docs
 
-- [Async](./async.md) — for the underlying scheduling model.
-- [Testing](./testing.md) — `runUntil` is a good fit for tests that need
+- [Async](./async.md): for the underlying scheduling model.
+- [Testing](./testing.md): `runUntil` is a good fit for tests that need
   a single Promise for a round-trip.
-- [Dispatch And Read](./dispatch-and-read.md) — for read-after-dispatch
+- [Dispatch And Read](./dispatch-and-read.md): for read-after-dispatch
   patterns that don't need awaiting.
-- [React Integration](./react-integration.md) — for the hook surface.
+- [React Integration](./react-integration.md): for the hook surface.

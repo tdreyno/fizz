@@ -21,12 +21,12 @@ import { state } from "@tdreyno/fizz/fluent"
 
 Optional browser, debugging, and utility subpaths:
 
-- `@tdreyno/fizz/browser` — DOM/browser drivers
-- `@tdreyno/fizz/debug` — Runtime debugging utilities (tree-shakable)
-- `@tdreyno/fizz/registry` — Registry lifecycle APIs (tree-shakable)
-- `@tdreyno/fizz/nested` — Nested machine helpers
-- `@tdreyno/fizz/parallel` — Parallel machine API
-- `@tdreyno/fizz/test` — Testing utilities
+- `@tdreyno/fizz/browser`: DOM/browser drivers
+- `@tdreyno/fizz/debug`: Runtime debugging utilities (tree-shakable)
+- `@tdreyno/fizz/registry`: Registry lifecycle APIs (tree-shakable)
+- `@tdreyno/fizz/nested`: Nested machine helpers
+- `@tdreyno/fizz/parallel`: Parallel machine API
+- `@tdreyno/fizz/test`: Testing utilities
 
 The root `@tdreyno/fizz` object-style APIs remain fully supported.
 
@@ -189,7 +189,7 @@ const cartRoute = route<CartData>()
 const Cart = state<typeof enter, CartData>({ Enter: cartRoute })
 ```
 
-`route<Data, Payload>()` takes the handler's data and payload types as explicit generics. `.when(predicate, target, options?)` accepts a synchronous, pure predicate `(data, payload) => boolean` (or a TypeScript type guard `(data, payload) => data is Narrowed` that narrows the target's `data` locally). The target receives `(data, payload, utils)` and may return anything a handler can — a transition, effect, action, array, or a bare data value (implicit update) — and may be async. A bare `BoundStateFn` is accepted directly and is called with the current data.
+`route<Data, Payload>()` takes the handler's data and payload types as explicit generics. `.when(predicate, target, options?)` accepts a synchronous, pure predicate `(data, payload) => boolean` (or a TypeScript type guard `(data, payload) => data is Narrowed` that narrows the target's `data` locally). The target receives `(data, payload, utils)` and may return anything a handler can, including a transition, effect, action, array, or a bare data value (implicit update). It may also be async. A bare `BoundStateFn` is accepted directly and is called with the current data.
 
 `.otherwise(target, options?)` is an optional final unconditional branch. When no branch matches and there is no `otherwise`, the handler returns `undefined`, which keeps the machine in its current state. An empty `route()` always stays.
 
@@ -526,9 +526,9 @@ const result = await runtime.runUntil(
 
 All four accept the same options object:
 
-- `signal` — `AbortSignal`; rejects with `WaitUntilAbortError`.
-- `timeout` — milliseconds; rejects with `WaitUntilTimeoutError`.
-- `includeCurrent` — defaults to `true` for state matchers; resolves via
+- `signal`: `AbortSignal`; rejects with `WaitUntilAbortError`.
+- `timeout`: milliseconds; rejects with `WaitUntilTimeoutError`.
+- `includeCurrent`: defaults to `true` for state matchers; resolves via
   microtask if the current state already matches.
 
 Pending waits reject with `RuntimeDisconnectedError` if the runtime
@@ -690,7 +690,7 @@ Bind a command channel once, then create channel-scoped commands and batches wit
 `commandChannel(...)` accepts an optional scheduling policy that controls how queued commands behave when multiple arrive for the same key.
 
 ```ts
-// FIFO — default when no options are passed
+// FIFO: default when no options are passed
 const sessionCommands = commandChannel<Commands, "session">("session")
 
 // Replace pending: new command supersedes a queued-but-not-yet-running command
@@ -1044,7 +1044,7 @@ const Parent = stateWithNested(
 )
 ```
 
-Use this when nested composition makes the machine easier to reason about, not just to avoid a few repeated handlers.
+Use this when nested composition makes the machine easier to reason about, rather than only avoiding a few repeated handlers.
 
 The second argument (the child's initial state) may be a `StateTransition` or a resolver function `(data) => StateTransition`. Fizz calls the resolver with the parent's data when the parent enters, so the child region can start at a different leaf depending on the parent's data.
 

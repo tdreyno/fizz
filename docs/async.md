@@ -1,8 +1,8 @@
 # Async
 
-Fizz async operations let a state start promise-backed work without leaving the state machine model. You can use the low-level async helpers directly, use `debounceAsync(...)` for latest-wins save and search flows, use `requestJSONAsync(...)` for the common JSON request flow, or use `customJSONAsync(...)` when an app client already returns parsed JSON.
+Fizz async operations let a state start promise-backed work without leaving the state machine model. Use the low-level helpers directly, `debounceAsync(...)` for latest-wins save and search flows, `requestJSONAsync(...)` for common fetch JSON flows, or `customJSONAsync(...)` when an app client already returns parsed JSON.
 
-Async operations are a good fit for `fetch`, form submission, loading related resources, and other request-shaped work where stale completions should be ignored automatically.
+Async operations fit `fetch`, form submission, loading related resources, and other request-shaped work where stale completions should be ignored automatically.
 
 If the workflow uses app SDKs or service modules, see [Data Clients](data-clients.md) for machine-scoped client injection and test mocking patterns.
 
@@ -200,7 +200,7 @@ When an active async operation is explicitly cancelled, Fizz dispatches `AsyncCa
 
 ## Async lifecycle on `disconnect()`
 
-`runtime.disconnect()` is full runtime teardown, not just state-exit cleanup.
+`runtime.disconnect()` tears down the full runtime, not only state-exit cleanup.
 
 Current behavior is pinned by `packages/fizz/src/__tests__/runtimeDisconnectAsync.spec.ts`:
 
@@ -316,7 +316,7 @@ requestJSONAsync(input, init?)
 
 customJSONAsync(run, init?)
 - best for app client functions returning parsed payloads
-- lets the client call own transport and error behavior
+- lets the client control transport and error behavior
 ```
 
 ## Retry and backoff

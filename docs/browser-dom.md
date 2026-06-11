@@ -2,7 +2,7 @@
 
 Fizz provides a comprehensive API for DOM queries, event listeners, observers, and browser operations. All DOM effects are state-scoped resources that are automatically cleaned up when a state exits, ensuring no memory leaks or orphaned event listeners.
 
-This API works with **core Fizz** directly—no React required. Use it with vanilla JavaScript, any frontend framework, or the `@tdreyno/fizz-react` hook integration.
+This API works with **core Fizz** directly, with no React required. Use it with vanilla JavaScript, any frontend framework, or the `@tdreyno/fizz-react` hook integration.
 
 Browser and DOM effects are available through the `@tdreyno/fizz/browser` entrypoint:
 
@@ -199,15 +199,15 @@ dom.fromElement(data.row, "row").classListSet(["row", "selected"])
 
 ### `.callMethod(name, ...args)` and `.applyMethod(name, args)`
 
-Invoke a method on the acquired element. `callMethod` mirrors `Function.prototype.call` (variadic args); `applyMethod` mirrors `Function.prototype.apply` (a single args array — handy when args already live in state or in a tuple):
+Invoke a method on the acquired element. `callMethod` mirrors `Function.prototype.call` (variadic args); `applyMethod` mirrors `Function.prototype.apply` (a single args array, which is handy when args already live in state or in a tuple):
 
 ```typescript
-// Web component popover — no args
+// Web component popover: no args
 dom
   .querySelectorAll<EmojiPickerField>("emoji-picker-field", "emojiPickers")
   .callMethod("closePopover")
 
-// Smooth scroll — args literal
+// Smooth scroll: args literal
 dom
   .querySelector<HTMLDivElement>(".checkout", "checkout")
   .callMethod("scrollTo", { top: 0, behavior: "smooth" })
@@ -291,7 +291,7 @@ const Autocomplete = state({
 })
 ```
 
-### `.mutate(fn)` — escape hatch
+### `.mutate(fn)`: escape hatch
 
 For DOM writes that none of the helpers above cover, use `.mutate(fn)`. The callback receives the acquired element and runs synchronously when the effect is dispatched:
 
@@ -304,7 +304,7 @@ const Scrolling = state<Enter>({
 })
 ```
 
-The callback is typed to the element the builder targets — `Document` for `dom.document()`, `HTMLBodyElement` for `dom.body()`, `Element` for query builders, and so on.
+The callback is typed to the element the builder targets: `Document` for `dom.document()`, `HTMLBodyElement` for `dom.body()`, `Element` for query builders, and so on.
 
 ## DOM queries
 
@@ -360,16 +360,16 @@ const Routing = state({
 
 All query methods support an optional scope argument to query within a specific element or document:
 
-- `dom.getElementById(id, resourceId?)` — Returns a single element
-- `dom.querySelector(selector, resourceId?)` — Returns a single element
-- `dom.querySelectorAll(selector, resourceId?)` — Returns all matching elements
-- `dom.input(selector, resourceId?)` — Returns a single `HTMLInputElement`
-- `dom.textarea(selector, resourceId?)` — Returns a single `HTMLTextAreaElement`
-- `dom.select(selector, resourceId?)` — Returns a single `HTMLSelectElement`
-- `dom.getElementsByClassName(className, resourceId?)` — Returns live HTMLCollection as array
-- `dom.getElementsByName(name, resourceId?)` — Returns all elements with that name
-- `dom.getElementsByTagName(tagName, resourceId?)` — Returns live HTMLCollection as array
-- `dom.closest(scopeResourceId, selector, resourceId?)` — Returns closest ancestor matching selector
+- `dom.getElementById(id, resourceId?)`: Returns a single element
+- `dom.querySelector(selector, resourceId?)`: Returns a single element
+- `dom.querySelectorAll(selector, resourceId?)`: Returns all matching elements
+- `dom.input(selector, resourceId?)`: Returns a single `HTMLInputElement`
+- `dom.textarea(selector, resourceId?)`: Returns a single `HTMLTextAreaElement`
+- `dom.select(selector, resourceId?)`: Returns a single `HTMLSelectElement`
+- `dom.getElementsByClassName(className, resourceId?)`: Returns live HTMLCollection as array
+- `dom.getElementsByName(name, resourceId?)`: Returns all elements with that name
+- `dom.getElementsByTagName(tagName, resourceId?)`: Returns live HTMLCollection as array
+- `dom.closest(scopeResourceId, selector, resourceId?)`: Returns closest ancestor matching selector
 
 The trailing `resourceId` is optional. When omitted, Fizz generates a stable id for internal bookkeeping. Pass an explicit id when you need to reference the resource by name (for example from `dom.listen("itemId", ...)`).
 
@@ -381,7 +381,7 @@ dom.querySelectorAll<EmojiPickerField>("emoji-picker-field", "pickers")
 dom.getElementById<HTMLDialogElement>("modal", "modal")
 ```
 
-The generic only narrows the TypeScript type — runtime behavior is unchanged.
+The generic only narrows the TypeScript type; runtime behavior is unchanged.
 
 ### Choosing input, textarea, or select
 

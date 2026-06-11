@@ -1,43 +1,57 @@
-# Migrating from XState
+# Switching from XState
 
-If you have an XState v4 codebase, most of what you already know transfers directly to Fizz: you still model explicit states, guarded transitions, async services, and hierarchical "mode with sub-steps" flows. What changes is the _shape_ of the code. XState leans on a declarative config object plus generated types; Fizz leans on plain TypeScript functions with native inference, explicit effects, and built-in async cancellation.
+If you have an XState v4 codebase, the switch to Fizz is usually straightforward: you still model explicit states, guarded transitions, async services, and hierarchical "mode with sub-steps" flows. The upgrade is in the _shape_ of the code. XState leans on a declarative config object plus generated types; Fizz leans on plain TypeScript functions with native inference, explicit effects, and built-in async cancellation.
 
-This guide names the XState pattern you are migrating, shows the Fizz equivalent, and walks through one worked example per concept. It is intentionally generic — every example is small and self-contained, so you can map your own machines a piece at a time.
+This guide names the XState pattern you are switching from, shows the stronger Fizz equivalent, and walks through one worked example per concept. The examples are intentionally small and self-contained, so you can switch one machine at a time and see immediate gains.
 
-## Why migrate
+This guide goes beyond parity. Fizz gives you clearer control flow, safer async behavior, and a better day-to-day developer experience with less ceremony.
 
-Three differences tend to motivate the move:
+## Why switch
 
-- **No typegen build step.** XState v4 machines usually carry a hand-maintained `*.typegen.ts` file plus `tsTypes` wiring, and often `as`-casts on the `context`/`events`/`services` schemas. Fizz infers handler data and action payloads from ordinary TypeScript, so that entire category of file and ceremony disappears.
-- **Effects are explicit.** A side effect hidden inside an XState `entry` action (for example a Redux dispatch) becomes an explicit `effect(...)` or `output(...)` return in Fizz. Effects are values you return from handlers, which makes them easy to test and observe.
-- **Async is first-class.** Promise `invoke` plus `onDone`/`onError` maps onto Fizz's async builders with `.chainToAction(...)`, and you get built-in cancellation, stale-completion handling, and full teardown through `disconnect()` — none of which XState v4 gives you for free.
+Fizz is a clear upgrade for most XState v4 teams for three concrete reasons:
+
+- **No typegen build step.** XState v4 machines usually carry a hand-maintained `*.typegen.ts` file plus `tsTypes` wiring, and often `as`-casts on the `context`/`events`/`services` schemas. Fizz infers handler data and action payloads from ordinary TypeScript, so this entire class of boilerplate and drift disappears.
+- **Effects are explicit and testable.** A side effect hidden inside an XState `entry` action (for example a Redux dispatch) becomes an explicit `effect(...)` or `output(...)` return in Fizz. Effects are values you return from handlers, so behavior is easier to reason about, observe, and test.
+- **Async is first-class and safer by default.** Promise `invoke` plus `onDone`/`onError` maps onto Fizz async builders with `.chainToAction(...)`, and you get built-in cancellation, stale-completion handling, and full teardown through `disconnect()`.
+
+## Where Fizz Pulls Ahead
+
+- **Clarity: handlers are just functions.** You read transition logic as TypeScript control flow, not as a layered config object plus options maps.
+- **Clarity: effects are visible return values.** Side effects are not buried in action registries or string indirection.
+- **Clarity: nested paths are explicit.** `stateWithNested(...)` plus `getStatePath(...)` gives readable hierarchy without brittle deep target strings.
+- **Safety: async is cancellation-aware by default.** In-flight work is aborted on `disconnect()`, and stale completions are ignored.
+- **Safety: outcome handling is explicit.** `matchOn(...)` has no implicit fallback, pushing you toward exhaustive branch handling.
+- **Safety: transition intent is easier to verify.** `onTransition(...)`, `lastAction()`, and flow history make runtime behavior auditable.
+- **DX: no typegen tax.** Fewer generated files, less wiring, fewer "why did inference break" moments.
+- **DX: easier testing.** Returned effects and outputs are values you can assert directly.
+- **DX: better incremental switching.** You can move one machine at a time and still get immediate wins in readability and reliability.
 
 ## Concept mapping
 
-| XState concept                                                 | Fizz equivalent                                                                                   | Notes                                                 |
+| XState concept                                                 | Fizz equivalent                                                                                   | Why Fizz is better                                    |
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| `createMachine(config, options)` declarative config            | `createMachine({ states, actions })` handler-map builder                                          | Different shape; states are functions                 |
-| `tsTypes` + generated `*.typegen.ts`                           | native TypeScript inference                                                                       | no codegen step                                       |
-| `assign(...)` actions                                          | `update(...)` or returning a data object                                                          | implicit update from a handler                        |
-| `entry` / `exit` actions                                       | `Enter` handler / state exit handler                                                              | see [Architecture](./architecture.md)                 |
-| `final` state                                                  | terminal state with no handlers                                                                   | nothing to transition to                              |
-| Promise `invoke` + `onDone`/`onError`                          | `customJSONAsync(...)`/`startAsync(...)` + `.chainToAction(resolve, reject)`, or `waitState(...)` | built-in cancel/stale handling                        |
-| `onError` branch by error code                                 | `reject` handler + `matchOn(...)`                                                                 | classifier must return a present key (no default)     |
-| `cond` guards                                                  | functions in handlers, `switch_(...)`, or `route()`                                               | explicit, not config                                  |
-| eventless transient (`always`) with ordered `cond` fallthrough | `route().when(...).otherwise(...)` in an `Enter` slot                                             | first match wins                                      |
-| side-effecting actions                                         | explicit `effect(...)` / `output(...)`                                                            | returned from handlers                                |
-| compound nesting with deep `#id.a.b` targets                   | `stateWithNested(...)` + child-entry resolver                                                     | no deep string targets; use mode + sub-step           |
-| `state.toStrings()` dotted path                                | `getStatePath(...)` / `runtime.currentStatePath(...)`                                             | composes nested regions                               |
-| `interpret(...)` imperative driver                             | `createRuntime(...)` + `run(enter())`                                                             | see [Architecture](./architecture.md)                 |
-| `interpreter.onTransition(...)`                                | `runtime.onTransition(...)`                                                                       | fires on state-name change with the triggering action |
-| `state.event` from an observer                                 | `onTransition(...)` `action` field / `runtime.lastAction()`                                       | the action that caused the transition                 |
-| transition history / flow string                               | `runtime.getVisitedStateNames()` / `getFlow()`                                                    | derived from history                                  |
-| await reaching a final state                                   | `runtime.runUntil(...)` / `waitUntilState(...)` + `matchState`/`matchAny`                         | see [Awaiting Conditions](./awaiting-conditions.md)   |
-| `createActorContext` + `useActor`/`useSelector`                | `createMachineContext(...)` + `machine.selectors` / `useSelector`                                 | see [React Integration](./react-integration.md)       |
-| `EmittedFrom<typeof machine>` selector typing                  | inferred selector signatures                                                                      | no helper type needed                                 |
-| parallel / history / `spawn` / `after` / activities            | `createParallelMachine(...)` (parallel only); others differ                                       | see "What Fizz models differently" below              |
+| `createMachine(config, options)` declarative config            | `createMachine({ states, actions })` handler-map builder                                          | transition logic is readable TypeScript               |
+| `tsTypes` + generated `*.typegen.ts`                           | native TypeScript inference                                                                       | no typegen drift, less maintenance                    |
+| `assign(...)` actions                                          | `update(...)` or returning a data object                                                          | state updates stay local to handler logic             |
+| `entry` / `exit` actions                                       | `Enter` handler / state exit handler                                                              | lifecycle behavior is explicit and testable           |
+| `final` state                                                  | terminal state with no handlers                                                                   | terminal behavior is obvious from state shape         |
+| Promise `invoke` + `onDone`/`onError`                          | `customJSONAsync(...)`/`startAsync(...)` + `.chainToAction(resolve, reject)`, or `waitState(...)` | cancellation and stale-result handling are built in   |
+| `onError` branch by error code                                 | `reject` handler + `matchOn(...)`                                                                 | explicit outcome handling, no silent fallback         |
+| `cond` guards                                                  | functions in handlers, `switch_(...)`, or `route()`                                               | no extra guard registry indirection                   |
+| eventless transient (`always`) with ordered `cond` fallthrough | `route().when(...).otherwise(...)` in an `Enter` slot                                             | decision flow is direct and easy to audit             |
+| side-effecting actions                                         | explicit `effect(...)` / `output(...)`                                                            | effects are values, not hidden behavior               |
+| compound nesting with deep `#id.a.b` targets                   | `stateWithNested(...)` + child-entry resolver                                                     | avoids brittle string targets                         |
+| `state.toStrings()` dotted path                                | `getStatePath(...)` / `runtime.currentStatePath(...)`                                             | composable paths with explicit formatting control     |
+| `interpret(...)` imperative driver                             | `createRuntime(...)` + `run(enter())`                                                             | simpler runtime API with run-to-completion primitives |
+| `interpreter.onTransition(...)`                                | `runtime.onTransition(...)`                                                                       | transition telemetry is first-class                   |
+| `state.event` from an observer                                 | `onTransition(...)` `action` field / `runtime.lastAction()`                                       | clear access to the triggering action                 |
+| transition history / flow string                               | `runtime.getVisitedStateNames()` / `getFlow()`                                                    | built-in flow introspection                           |
+| await reaching a final state                                   | `runtime.runUntil(...)` / `waitUntilState(...)` + `matchState`/`matchAny`                         | deterministic await patterns without custom plumbing  |
+| `createActorContext` + `useActor`/`useSelector`                | `createMachineContext(...)` + `machine.selectors` / `useSelector`                                 | strongly typed React integration with less ceremony   |
+| `EmittedFrom<typeof machine>` selector typing                  | inferred selector signatures                                                                      | no helper types needed                                |
+| parallel / history / `spawn` / `after` / activities            | `createParallelMachine(...)` (parallel only); others differ                                       | clear feature boundaries and explicit alternatives    |
 
-## Worked recipes
+## High-Impact Recipes
 
 ### Transient `always` transitions become `route()`
 
@@ -69,7 +83,7 @@ const bootRoute = route<BootData>()
 const Boot = state<Enter, BootData>({ Enter: bootRoute })
 ```
 
-Because the route value is itself a handler, you can also use it in an action slot for a guarded transition on an event, not just on entry. Tooling can inspect the ordered branches with `getRouteMetadata(...)`. See [`route`](./api.md#route) for the full surface.
+Because the route value is itself a handler, you can also use it in an action slot for a guarded transition on an event, not only on entry. Tooling can inspect the ordered branches with `getRouteMetadata(...)`. See [`route`](./api.md#route) for the full surface.
 
 ### Promise `invoke` becomes an async builder with `.chainToAction(...)`
 
@@ -100,7 +114,7 @@ const Loading = state<Enter, LoadingData>({
 })
 ```
 
-Fizz fires the abort signal for in-flight async work on `disconnect()` and discards stale completions automatically. See [Async](./async.md) for cancellation, debouncing, and the full builder surface.
+Fizz fires the abort signal for in-flight async work on `disconnect()` and discards stale completions automatically. In practice, this removes an entire class of race-condition cleanup code many teams maintain by hand. See [Async](./async.md) for cancellation, debouncing, and the full builder surface.
 
 If you prefer a request-on-enter / response-driven shape, `waitState(...)` models the same flow declaratively. See [`waitState`](./api.md#waitstate) in the API reference.
 
@@ -124,7 +138,7 @@ const Subscribing = state<Enter, SubscribeData>({
 })
 ```
 
-`matchOn(...)` has **no** default/fallback case — the classifier must return a key that exists in the cases map. This is intentional: it forces you to enumerate every outcome rather than silently falling through. `matchOn(...)` returns a standard resolve handler, so it works anywhere `chainToAction(resolve, reject)` is accepted.
+`matchOn(...)` has **no** default/fallback case: the classifier must return a key that exists in the cases map. This is intentional: it forces you to enumerate every outcome rather than silently falling through. That strictness pays off fast in production paths. `matchOn(...)` returns a standard resolve handler, so it works anywhere `chainToAction(resolve, reject)` is accepted.
 
 ### Side-effecting actions become explicit effects
 
@@ -187,7 +201,7 @@ const done = await runtime.runUntil(
 )
 ```
 
-When a run can settle at one of several terminal states, use `matchAny(...)` with a predicate over the event:
+When a run can settle in one of several terminal states, use `matchAny(...)` with a predicate over the event:
 
 ```ts
 import { matchAny } from "@tdreyno/fizz"
@@ -226,7 +240,7 @@ const unsubscribe = runtime.onTransition(({ state, previousState, action }) => {
 After (or during) a run, read the path the machine took:
 
 ```ts
-runtime.getVisitedStateNames() // ["Idle", "Subscribing", "Subscribed"] — oldest first
+runtime.getVisitedStateNames() // ["Idle", "Subscribing", "Subscribed"], oldest first
 runtime.getFlow() // "Idle,Subscribing,Subscribed"
 runtime.getFlow(" -> ") // custom separator
 runtime.lastAction()?.type // the most recent triggering action
@@ -267,21 +281,23 @@ useTransition(machine, ({ state, previousState, action }) => {
 
 `connectExternalSnapshot(...)` and `selectWhen(...)` live in `@tdreyno/fizz` (the core package), not in `@tdreyno/fizz-react`. See [React Integration](./react-integration.md) for the full hook surface and the store-bridge pattern.
 
-## What Fizz models differently
+## What Changes In Fizz
 
-A few XState capabilities do not map one-to-one. None of these block a typical product migration, but it helps to know the boundaries up front:
+A few XState capabilities do not map one-to-one. None of these block a typical product switch, but you should know the boundaries up front:
 
 - **Parallel regions** use `createParallelMachine(...)`, which keeps several child branches alive together and fans shared actions across them. See [Parallel State Machines](./parallel-state-machines.md).
-- **No `spawn` / actor model.** Fizz has no child-actor spawning with bidirectional `send`/`receive`. Model long-lived concurrent work with parallel machines or explicit async, not actors.
+- **No `spawn` / actor model.** Fizz has no child-actor spawning with bidirectional `send`/`receive`. Model long-lived concurrent work with parallel machines or explicit async instead.
 - **No deep `#id.a.b` targeting.** Instead of targeting an arbitrary nested leaf by path, model the parent as a mode and pick the child's starting leaf with a `stateWithNested(...)` resolver. Compose human-readable paths with `getStatePath(...)`.
 - **Guards are explicit.** There is no separate `guards` config map. A guard is a function you call in a handler, a `switch_(...)`, or a `route()` predicate.
 - **History states / `after` delayed transitions** differ. For time-based transitions, use Fizz timers and intervals; see [Timers](./timers.md) and [Intervals](./intervals.md).
 
+Even where APIs differ, the result is usually simpler: fewer hidden runtime features, more explicit modeling choices, and clearer behavior under load.
+
 ## What to read next
 
-- [Getting Started](./getting-started.md) — build your first Fizz machine end to end.
-- [Architecture](./architecture.md) — handler returns, effects vs. outputs, and lifecycle ordering.
-- [Async](./async.md) — promise services, cancellation, and `matchOn(...)`.
-- [Nested State Machines](./nested-state-machines.md) — the mode + sub-step pattern in depth.
-- [React Integration](./react-integration.md) — `useMachine`, `createMachineContext`, selectors, and `useTransition`.
-- [Awaiting Conditions](./awaiting-conditions.md) — run-to-completion and matchers.
+- [Getting Started](./getting-started.md): build your first Fizz machine end to end.
+- [Architecture](./architecture.md): handler returns, effects vs. outputs, and lifecycle ordering.
+- [Async](./async.md): promise services, cancellation, and `matchOn(...)`.
+- [Nested State Machines](./nested-state-machines.md): the mode + sub-step pattern in depth.
+- [React Integration](./react-integration.md): `useMachine`, `createMachineContext`, selectors, and `useTransition`.
+- [Awaiting Conditions](./awaiting-conditions.md): run-to-completion and matchers.

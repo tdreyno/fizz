@@ -2,7 +2,7 @@
 
 Fizz models a workflow as explicit state transitions. Instead of spreading logic across callbacks, component effects, timers, and request handlers, you describe how a current state responds to an action and what work should happen next.
 
-At a high level, a single transition step looks like this:
+At a high level, one transition step looks like this:
 
 1. the runtime receives an action
 2. the current state chooses a handler by action type
@@ -257,7 +257,7 @@ Nothing about that step requires hidden callbacks or external mutable bookkeepin
 
 ## How complexity stays manageable
 
-When a machine grows, the main tools are structural rather than magical:
+When a machine grows, keep the structure explicit:
 
 - split different modes into separate states
 - use a nested state machine when one parent mode owns a smaller workflow with a clear boundary
@@ -293,7 +293,7 @@ See [React Integration](./react-integration.md) for the hook parameters, return 
 
 ## Dispatch semantics
 
-When you call `runtime.run(action)`, the runtime processes the resulting work as a single drain. Any actions triggered _during_ that drain — including triggers from nested or parallel machines and actions chained from resolved async results — are processed in the same drain before `run()` resolves.
+When you call `runtime.run(action)`, the runtime processes the resulting work as a single drain. Any actions triggered _during_ that drain, including triggers from nested or parallel machines and actions chained from resolved async results, are processed in the same drain before `run()` resolves.
 
 ```text
 await runtime.run(action)
@@ -308,9 +308,9 @@ await runtime.run(action)
 [drain finishes -- await resolves with the settled state]
 ```
 
-Two consequences worth keeping in mind:
+Two practical consequences:
 
-- `await runtime.run(...)` resolves only after all transitively-triggered work in the same drain has settled. If you need to assert on an intermediate state (for example, the `Loading` state before an async request completes), use a controlled driver such as `createControlledAsyncDriver()` so the in-flight work can be paused.
+- `await runtime.run(...)` resolves only after all transitively triggered work in the same drain has settled. If you need to assert an intermediate state, such as `Loading` before an async request completes, use a controlled driver such as `createControlledAsyncDriver()` so you can pause in-flight work.
 - `runtime.onContextChange(...)` subscribers are coalesced per drain. They fire once with the final state at the end of the drain, not once per intermediate `update(...)` inside the drain. Monitors (`runtime.addMonitor`) still receive per-command events when you need finer granularity for debugging.
 
 ## Related Docs

@@ -108,6 +108,6 @@ runtime.disconnect()
 
 ## Related Docs
 
-- [Output Actions](output-actions.md) — for dispatching Fizz actions back out to the external world
-- [State Resources](resources.md) — for managing subscriptions inside a state lifecycle
-- [Dispatch and Read](dispatch-and-read.md) — for dispatching actions and reading state from outside a machine
+- [Output Actions](output-actions.md): for dispatching Fizz actions back out to the external world
+- [State Resources](resources.md): for managing subscriptions inside a state lifecycle
+- [Dispatch and Read](dispatch-and-read.md): for dispatching actions and reading state from outside a machine

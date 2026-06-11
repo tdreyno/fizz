@@ -10,7 +10,7 @@
 
 ## Migrating
 
-- [Migrating from XState](docs/migrating-from-xstate.md)
+- [Switching from XState](docs/switching-from-xstate.md)
 
 ## Scheduling
 

@@ -107,7 +107,7 @@ State resources and fluent resource-event bridging now have their own guide:
 
 Use that page for helper signatures, lifecycle rules, and bridging examples.
 
-That means the label should be descriptive and stable. It is not just documentation. It is the machine-readable name of the effect.
+That means the label should be descriptive and stable. It is more than documentation. It is the machine-readable name of the effect.
 
 ## What the executor receives
 
