@@ -1,5 +1,20 @@
 # @tdreyno/fizz-react
 
+## 7.9.0
+
+### Minor Changes
+
+- acd6247: Add the `useTransition(machine, listener)` hook for observing state transitions.
+
+  The listener receives `{ state, previousState, action, context }`, where `action` is the action that caused the transition (XState `state.event` parity). It is wired to the runtime's new `onTransition` subscription and fires only when the state name changes. The existing `useMachineSubscription(...)` hook is unchanged.
+
+### Patch Changes
+
+- Updated dependencies [5a99ffc]
+- Updated dependencies [46464ec]
+- Updated dependencies [acd6247]
+  - @tdreyno/fizz@8.20.0
+
 ## 7.8.0
 
 ### Minor Changes
