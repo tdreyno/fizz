@@ -71,11 +71,12 @@ export const getStatePath = (
 ): string => {
   const separator = options?.separator ?? "/"
 
-  const transition = isStateTransition(stateOrRuntime)
-    ? asStateTransition(stateOrRuntime)
-    : hasCurrentState(stateOrRuntime)
-      ? asStateTransition(stateOrRuntime.currentState())
-      : undefined
+  let transition: AnyStateTransition | undefined
+  if (isStateTransition(stateOrRuntime)) {
+    transition = asStateTransition(stateOrRuntime)
+  } else if (hasCurrentState(stateOrRuntime)) {
+    transition = asStateTransition(stateOrRuntime.currentState())
+  }
 
   if (!transition) {
     return ""

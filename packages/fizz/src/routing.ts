@@ -174,7 +174,7 @@ const createRouteBuilder = <Data, Payload>(
     branches: branches.map(branch => toPublicBranch(branch)),
   }
 
-  return builder as unknown as RouteBuilder<Data, Payload>
+  return builder as RouteBuilder<Data, Payload>
 }
 
 /**
