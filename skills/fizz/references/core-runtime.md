@@ -71,6 +71,12 @@ Nested child handlers can read parent `stateWithNested(...)` resources via `util
 
 The child's initial state (second argument) may be a `StateTransition` or a resolver `(data) => StateTransition`. Fizz calls the resolver with the parent's data when the parent enters, letting the child region start at a different leaf based on parent data instead of deep path targeting.
 
+The optional fourth argument controls forwarding alongside `name`:
+
+- `forward?: "all" | "none" | Array<keyof NestedActions>` — `"all"` (default) forwards every nested action, `"none"` forwards none, an array is an allowlist. Excluded actions can still be served by an explicit parent handler or fall through as a no-op.
+- `mapPayload?: { [K]?: (payload, data) => payload }` — rewrite a forwarded action's payload before the child runtime receives it.
+- `beforeForward?` / `afterForward?: (info: { action, payload, data }) => void` — side-effecting observers around the child `run(...)`; `payload` is the mapped payload. Observation only; they do not alter the transition.
+
 ### `getStatePath(...)`
 
 Use `getStatePath(...)` to compose a hierarchical path string for a state and any nested child regions it owns (for logging, analytics, or debugging). Exported from both `@tdreyno/fizz` and `@tdreyno/fizz/nested`.
@@ -115,13 +121,14 @@ Prefer these helpers when they make branching clearer than ad-hoc conditionals.
 
 ### `route(...)`
 
-`route<Data, Payload>()` builds an ordered-guard handler whose value is itself a state handler `(data, payload, utils) => HandlerReturn<Data>`. Use it in an `Enter` slot for a transient/eventless transition, or in any action slot for a guarded transition on an event.
+`route<Data, Payload>(options?)` builds an ordered-guard handler whose value is itself a state handler `(data, payload, utils) => HandlerReturn<Data>`. Use it in an `Enter` slot for a transient/eventless transition, or in any action slot for a guarded transition on an event.
 
-- `.when(predicate, target, options?)`: `predicate` is a synchronous, pure `(data, payload) => boolean` (or a TS type guard `(data, payload) => data is Narrowed` that narrows `target`'s `data` locally). `target` receives `(data, payload, utils)` and may return a transition, effect/action array, bare data (implicit update), or a promise. A bare `BoundStateFn` is accepted directly and called with the current data.
+- `.when(predicate, target, options?)`: `predicate` is a synchronous, pure `(data, payload) => boolean` (or a TS type guard `(data, payload) => data is Narrowed` that narrows `target`'s `data` locally). `target` receives `(data, payload, utils)` and may return a transition, effect/action array, bare data (implicit update), or a promise. A bare `BoundStateFn` is accepted directly and called with the current data. Branch `options?` is `{ id?, label? }`.
 - `.otherwise(target, options?)`: optional final unconditional branch.
-- Branches evaluate top to bottom, first match wins (short-circuit). No match and no `otherwise` returns `undefined` (stay put); an empty `route()` always stays. No dev warning.
+- Branches evaluate top to bottom, first match wins (short-circuit). No match and no `otherwise` returns `undefined` (stay put) by default; an empty `route()` always stays.
+- Strict/unmatched handling via `route(options)`: `RouteOptions<Data, Payload>` is `{ strict?, onUnmatched? }`. `onUnmatched: RouteUnmatchedBehavior` is `"throw"` (throws `RouteUnmatchedError`), `"warn"` (`console.warn`, returns `undefined`), or `(context: RouteUnmatchedContext) => void`. `strict: true` ⇒ `onUnmatched: "throw"`; explicit `onUnmatched` wins. A matching `otherwise()` short-circuits before unmatched behavior. `RouteUnmatchedContext<Data, Payload>` is `{ data, payload, branches }`; `RouteUnmatchedError.context` exposes it.
 - The builder is immutable: each `.when`/`.otherwise` returns a new builder.
-- `getRouteMetadata(handler)` returns `{ branches }` (ordered `{ predicate?, label, otherwise }`) for tooling, or `undefined` for non-route handlers. Labels resolve from explicit `{ label }`, else `target.name`, else a positional fallback (`branch N`/`otherwise`).
+- `getRouteMetadata(handler)` returns `{ branches }` (ordered `{ predicate?, id, label, index, otherwise }`) for tooling, or `undefined` for non-route handlers. Labels resolve from explicit `{ label }`, else `target.name`, else a positional fallback (`branch N`/`otherwise`); `id` defaults to `label`; `index` is zero-based declaration order.
 
 `route()` keys on predicates and produces a transition handler — distinct from the fluent state `.when(...)` guard (gates one state definition) and `switch_(...)` (keys on state identity and returns a value).
 
@@ -133,15 +140,16 @@ Selector inputs and behavior:
 
 - `when`: a state creator or readonly list of state creators
 - second argument: either a selector function with shape `(data, state, context) => result` or a matcher object shorthand
-- optional final `options` object: `{ equalityFn? }`
+- optional final `options` object: `{ equalityFn?, defaultValue? }`
 - function selectors return `undefined` when non-matching
 - matcher-object selectors return `true` when all matcher keys equal `state.data` values, otherwise `false`
+- `defaultValue` (when provided) is returned on a non-match instead of `undefined`/`false`, normalizing the otherwise-mixed non-match shape
 
 Selectors keep repeated `currentState.is(...)` branches out of component render code and make derivations discoverable on machine roots.
 
 For complex nested matching, discriminated unions, or array/primitive matching, prefer `ts-pattern` and pass `isMatching(...)` directly to `selectWhen(...)`.
 
-For non-React usage, evaluate selector definitions directly with `runStateSelector(selector, currentState, context)`.
+For non-React usage, evaluate selector definitions directly with `runStateSelector(selector, currentState, context)`. To react to selection changes over time, use `runtime.subscribeSelector(selector, listener, options?)`: the selection is re-evaluated on each context change and the `(next, previous)` listener fires only when the value changes by the equality function (resolved from `options.equalityFn`, then the selector's `equalityFn`, then `Object.is`). Pass `{ emitInitial: true }` to fire once with the current selection at subscribe time. This replaces manual `onContextChange(...)` + `runStateSelector(...)` plumbing.
 
 ### State identity checks
 
@@ -334,13 +342,20 @@ const unsubscribe = runtime.onTransition(({ state, previousState, action }) => {
   log(`${previousState?.name} -> ${state.name} via ${action?.type}`)
 })
 
+// fires when the composed state path changes, including nested child paths
+// where the top-level name is unchanged (onTransition would not fire here)
+const unsubscribePath = runtime.onPathTransition(
+  ({ path, previousPath }) => log(`${previousPath} -> ${path}`),
+  { separator: "/" },
+)
+
 runtime.lastAction()?.type // most recent triggering action, or undefined
 runtime.getVisitedStateNames() // ordered oldest -> newest, composed nested paths
 runtime.getFlow() // "Idle,Loading,Ready"
 runtime.getFlow(" -> ") // custom separator
 ```
 
-Use `onTransition(...)` (returns an unsubscribe) when you need the triggering `action` or the `previousState`; it fires only on state-name changes. Use `onContextChange(...)` when you need every context change including same-state data updates. `getFlow(...)`/`getVisitedStateNames(...)` derive from history for telemetry and debugging. The `RuntimeTransitionInfo` type describes the `onTransition` argument.
+Use `onTransition(...)` (returns an unsubscribe) when you need the triggering `action` or the `previousState`; it fires only on state-name changes. Use `onPathTransition(...)` (returns an unsubscribe; accepts `StatePathOptions`) when you need to observe nested path changes that do not change the top-level name; it emits `{ state, previousState, action, path, previousPath }`. Use `onContextChange(...)` when you need every context change including same-state data updates. `getFlow(...)`/`getVisitedStateNames(...)` derive from history for telemetry and debugging. The `RuntimeTransitionInfo` and `RuntimePathTransitionInfo` types describe the `onTransition`/`onPathTransition` arguments.
 
 If you want a declarative machine container first, build it with `createMachine(...)` and then create the runtime from the machine.
 

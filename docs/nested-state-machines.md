@@ -60,6 +60,32 @@ const Connected = stateWithNested(
 
 Passing a bare `StateTransition` (as in the form example above) continues to work unchanged.
 
+### Controlling which actions forward
+
+By default every action creator in the third argument is forwarded to the child runtime. The optional fourth argument accepts forwarding controls alongside `name`:
+
+```typescript
+const Connected = stateWithNested(
+  {},
+  () => Live({ since: 0 }),
+  { Tick: tick, Reset: reset },
+  {
+    name: "Connected",
+    // "all" (default) | "none" | an allowlist of action names
+    forward: ["Tick"],
+    // Transform a payload before it reaches the child runtime
+    mapPayload: { Tick: (payload, data) => ({ ...payload, at: data.since }) },
+    // Observe forwarding without changing it (logging, metrics)
+    beforeForward: ({ action, payload }) => log(action, payload),
+    afterForward: ({ action }) => metrics.increment(action),
+  },
+)
+```
+
+- `forward: "all"` (the default) forwards every action in the map; `"none"` forwards nothing; an array forwards only the listed action names. Actions you exclude can still be handled by an explicit parent handler in the first argument, or otherwise fall through as a no-op.
+- `mapPayload` lets you rewrite a forwarded action's payload using the original payload and the parent's data. The mapped payload is what the child runtime receives.
+- `beforeForward` and `afterForward` are side-effecting observers invoked around the child `run(...)`. Each receives `{ action, payload, data }`, where `payload` is the mapped payload. They are for observation only and do not change the transition.
+
 ```text
 Top-level machine
 

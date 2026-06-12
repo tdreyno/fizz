@@ -25,6 +25,23 @@ export type RuntimeTransitionInfo = {
   action: RuntimeAction | undefined
 }
 
+/**
+ * Information about a state-path transition delivered to subscribers registered
+ * through `Runtime#onPathTransition(...)`.
+ *
+ * Extends {@link RuntimeTransitionInfo} with the composed hierarchical state
+ * paths (for example `"Connected/Live"`). Unlike `onTransition(...)`, which
+ * fires only when the top-level state name changes, path transitions also fire
+ * when a nested child path changes while the top-level name stays the same.
+ *
+ * `previousPath` is the path before the transition, or `undefined` for the
+ * first path transition.
+ */
+export type RuntimePathTransitionInfo = RuntimeTransitionInfo & {
+  path: string
+  previousPath: string | undefined
+}
+
 export type RuntimeDebugCommand =
   | {
       kind: "action"

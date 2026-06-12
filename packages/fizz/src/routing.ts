@@ -17,23 +17,30 @@ export type RouteTarget<TData, Data, Payload> = (
 ) => HandlerReturn<Data>
 
 /**
- * Optional per-branch configuration. Currently only carries an explicit
- * `label` used for introspection/tooling; it is always optional.
+ * Optional per-branch configuration.
+ *
+ * `label` is used for introspection/tooling. `id` is a stable branch identifier
+ * for resilient tests and route visualizers; when omitted it defaults to the
+ * resolved `label`. Both are always optional.
  */
 export interface RouteBranchOptions {
+  id?: string
   label?: string
 }
 
 /**
  * Introspection metadata for a single routing branch.
  *
- * `predicate` is omitted for the `otherwise` branch. `label` is always present
- * (resolved from an explicit label, the target's function name, or a
- * positional fallback). `otherwise` flags the unconditional default branch.
+ * `predicate` is omitted for the `otherwise` branch. `id` and `label` are always
+ * present (resolved from explicit options, the target's function name, or a
+ * positional fallback). `index` is the 0-based declaration order. `otherwise`
+ * flags the unconditional default branch.
  */
 export interface RouteBranch<Data = unknown, Payload = unknown> {
   predicate?: (data: Data, payload: Payload) => boolean
+  id: string
   label: string
+  index: number
   otherwise: boolean
 }
 
@@ -42,6 +49,56 @@ export interface RouteBranch<Data = unknown, Payload = unknown> {
  */
 export interface RouteMetadata<Data = unknown, Payload = unknown> {
   branches: ReadonlyArray<RouteBranch<Data, Payload>>
+}
+
+/**
+ * Context passed to a custom `onUnmatched` handler (and carried by
+ * {@link RouteUnmatchedError}) when a strict route finds no matching branch.
+ */
+export interface RouteUnmatchedContext<Data = unknown, Payload = unknown> {
+  data: Data
+  payload: Payload
+  branches: ReadonlyArray<RouteBranch<Data, Payload>>
+}
+
+/**
+ * Behavior to run when a strict route finds no matching branch and has no
+ * `otherwise(...)`. `"throw"` raises a {@link RouteUnmatchedError}, `"warn"`
+ * emits a `console.warn`, and a function receives the {@link RouteUnmatchedContext}.
+ */
+export type RouteUnmatchedBehavior<Data = unknown, Payload = unknown> =
+  | "throw"
+  | "warn"
+  | ((context: RouteUnmatchedContext<Data, Payload>) => void)
+
+/**
+ * Optional configuration for {@link route}.
+ *
+ * By default an unmatched route is a silent no-op (the machine stays put).
+ * Set `strict: true` (which defaults to `"throw"`) or provide an explicit
+ * `onUnmatched` to opt into unmatched diagnostics.
+ */
+export interface RouteOptions<Data = unknown, Payload = unknown> {
+  strict?: boolean
+  onUnmatched?: RouteUnmatchedBehavior<Data, Payload>
+}
+
+/**
+ * Error thrown when a strict route finds no matching branch and has no
+ * `otherwise(...)`. Carries the {@link RouteUnmatchedContext} for debugging.
+ */
+export class RouteUnmatchedError extends Error {
+  readonly context: RouteUnmatchedContext
+
+  constructor(context: RouteUnmatchedContext) {
+    super(
+      `route() found no matching branch and no otherwise() for payload ${JSON.stringify(
+        context.payload,
+      )} with data ${JSON.stringify(context.data)}`,
+    )
+    this.name = "RouteUnmatchedError"
+    this.context = context
+  }
 }
 
 /**
@@ -88,6 +145,7 @@ type LooseTarget<Data, Payload> = (
 interface InternalBranch<Data, Payload> {
   predicate?: (data: Data, payload: Payload) => boolean
   target: LooseTarget<Data, Payload>
+  id: string
   label: string
   otherwise: boolean
 }
@@ -123,19 +181,43 @@ const resolveLabel = (
   return otherwise ? "otherwise" : `branch ${position}`
 }
 
-const toPublicBranch = <Data, Payload>({
-  predicate,
-  label,
-  otherwise,
-}: InternalBranch<Data, Payload>): RouteBranch<Data, Payload> => ({
+const resolveId = (explicit: string | undefined, label: string): string =>
+  explicit ?? label
+
+const toPublicBranch = <Data, Payload>(
+  { predicate, id, label, otherwise }: InternalBranch<Data, Payload>,
+  index: number,
+): RouteBranch<Data, Payload> => ({
   ...(predicate === undefined ? {} : { predicate }),
+  id,
   label,
+  index,
   otherwise,
 })
 
+const resolveUnmatchedBehavior = <Data, Payload>(
+  options: RouteOptions<Data, Payload> | undefined,
+): RouteUnmatchedBehavior<Data, Payload> | undefined => {
+  if (options?.onUnmatched !== undefined) {
+    return options.onUnmatched
+  }
+
+  if (options?.strict === true) {
+    return "throw"
+  }
+
+  return undefined
+}
+
 const createRouteBuilder = <Data, Payload>(
   branches: ReadonlyArray<InternalBranch<Data, Payload>>,
+  options?: RouteOptions<Data, Payload>,
 ): RouteBuilder<Data, Payload> => {
+  const publicBranches = branches.map((branch, index) =>
+    toPublicBranch(branch, index),
+  )
+  const unmatchedBehavior = resolveUnmatchedBehavior(options)
+
   const handler = (
     data: Data,
     payload: Payload,
@@ -147,31 +229,72 @@ const createRouteBuilder = <Data, Payload>(
       }
     }
 
+    if (unmatchedBehavior !== undefined) {
+      const context: RouteUnmatchedContext<Data, Payload> = {
+        branches: publicBranches,
+        data,
+        payload,
+      }
+
+      if (unmatchedBehavior === "throw") {
+        throw new RouteUnmatchedError(
+          context as RouteUnmatchedContext<unknown, unknown>,
+        )
+      }
+
+      if (unmatchedBehavior === "warn") {
+        console.warn(
+          "route() found no matching branch and no otherwise()",
+          context,
+        )
+      } else {
+        unmatchedBehavior(context)
+      }
+    }
+
     return undefined
   }
 
   const addBranch = (branch: InternalBranch<Data, Payload>) =>
-    createRouteBuilder<Data, Payload>([...branches, branch])
+    createRouteBuilder<Data, Payload>([...branches, branch], options)
 
   const builder = handler as unknown as RouteBuilderMutable<Data, Payload>
 
-  builder.when = (predicate, target, options) =>
-    addBranch({
+  builder.when = (predicate, target, branchOptions) => {
+    const label = resolveLabel(
+      branchOptions?.label,
+      target,
+      false,
+      branches.length + 1,
+    )
+
+    return addBranch({
       predicate,
       target,
       otherwise: false,
-      label: resolveLabel(options?.label, target, false, branches.length + 1),
+      id: resolveId(branchOptions?.id, label),
+      label,
     })
+  }
 
-  builder.otherwise = (target, options) =>
-    addBranch({
+  builder.otherwise = (target, branchOptions) => {
+    const label = resolveLabel(
+      branchOptions?.label,
+      target,
+      true,
+      branches.length + 1,
+    )
+
+    return addBranch({
       target,
       otherwise: true,
-      label: resolveLabel(options?.label, target, true, branches.length + 1),
+      id: resolveId(branchOptions?.id, label),
+      label,
     })
+  }
 
   builder[routeMetadataSymbol] = {
-    branches: branches.map(branch => toPublicBranch(branch)),
+    branches: publicBranches,
   }
 
   return builder as RouteBuilder<Data, Payload>
@@ -192,11 +315,14 @@ const createRouteBuilder = <Data, Payload>(
  *
  * `Data` and `Payload` are supplied explicitly; predicates receive
  * `(data, payload)` and must be synchronous and pure.
+ *
+ * By default an unmatched route is a silent no-op. Pass `{ strict: true }`
+ * (which defaults to throwing a {@link RouteUnmatchedError}) or an explicit
+ * `{ onUnmatched }` to opt into unmatched diagnostics.
  */
-export const route = <Data = undefined, Payload = undefined>(): RouteBuilder<
-  Data,
-  Payload
-> => createRouteBuilder<Data, Payload>([])
+export const route = <Data = undefined, Payload = undefined>(
+  options?: RouteOptions<Data, Payload>,
+): RouteBuilder<Data, Payload> => createRouteBuilder<Data, Payload>([], options)
 
 /**
  * Read the introspection metadata from a route handler produced by

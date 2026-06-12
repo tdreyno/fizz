@@ -177,7 +177,7 @@ That keeps the state machine responsible for coordination while adapters decide 
 
 A common cause of a hard-to-read handler is one that does nothing but pick the next state. An `Enter` handler that walks through a sequence of `if` checks, such as empty cart, has a coupon, otherwise ready, is really a decision node hiding inside imperative code. The `route()` builder makes that decision explicit and ordered.
 
-`route()` returns a value that is itself a state handler, so it drops straight into any handler slot. Branches are evaluated top to bottom and the first matching predicate wins; if nothing matches and there is no `otherwise`, the machine stays put.
+`route()` returns a value that is itself a state handler, so it drops straight into any handler slot. Branches are evaluated top to bottom and the first matching predicate wins; if nothing matches and there is no `otherwise`, the machine stays put by default. To surface unmatched inputs instead of silently staying, pass `route({ strict: true })` (throws a `RouteUnmatchedError`) or `route({ onUnmatched })` (see below).
 
 ```typescript
 import { log, route, state } from "@tdreyno/fizz"
@@ -217,7 +217,32 @@ const Editing = state<Submit, FormData>({
 
 This is distinct from two nearby tools. The fluent state `.when(...)` guard (see [Fluent API](./fluent-api.md)) attaches a guard to a single state definition, while `switch_(...)` keys on which state you are in and returns a value. `route()` keys on predicates over `data`/`payload` and produces the next transition. Reach for `route()` when a single handler's only job is to choose where to go next.
 
-For tooling, `getRouteMetadata(routeValue)` returns the ordered branch descriptors (each with a `label` and an `otherwise` flag).
+### Failing loudly when nothing matches
+
+Silently staying put is convenient but can hide a missing branch. Pass options to `route()` to make an unmatched input observable:
+
+```typescript
+import { route, RouteUnmatchedError } from "@tdreyno/fizz"
+
+// Throw RouteUnmatchedError when no branch and no otherwise() match
+route<CartData>({ strict: true }).when(data => data.items === 0, EmptyCart)
+
+// Log a console.warn but keep the machine in place
+route<CartData>({ onUnmatched: "warn" }).when(
+  data => data.items === 0,
+  EmptyCart,
+)
+
+// Run a custom callback with the unmatched context
+route<CartData>({
+  onUnmatched: ({ data, payload, branches }) =>
+    reportMissingRoute(data, branches),
+}).when(data => data.items === 0, EmptyCart)
+```
+
+`strict: true` is shorthand for `onUnmatched: "throw"`; an explicit `onUnmatched` always wins. A matching `otherwise()` short-circuits before any unmatched behavior runs. The `RouteUnmatchedContext` passed to a custom callback (and exposed as `RouteUnmatchedError.context`) carries `{ data, payload, branches }`.
+
+For tooling, `getRouteMetadata(routeValue)` returns the ordered branch descriptors (each with an `id`, a `label`, a zero-based `index`, and an `otherwise` flag).
 
 ## When to split the state
 

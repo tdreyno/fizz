@@ -4,7 +4,8 @@ import type { Enter } from "../action"
 import { action, enter } from "../action"
 import { createMachine } from "../createMachine"
 import { log, noop } from "../effect"
-import { getRouteMetadata, route } from "../routing"
+import type { RouteUnmatchedContext } from "../routing"
+import { getRouteMetadata, route, RouteUnmatchedError } from "../routing"
 import { createRuntime } from "../runtime"
 import type { StateTransition } from "../state"
 import { isStateTransition, state } from "../state"
@@ -231,6 +232,131 @@ describe("route()", () => {
     test("returns undefined for handlers that are not routes", () => {
       expect(getRouteMetadata(noop)).toBeUndefined()
       expect(getRouteMetadata(undefined)).toBeUndefined()
+    })
+
+    test("exposes a 0-based index per branch in declaration order", () => {
+      const handler = route<Data>()
+        .when(d => d.count === 0, Normal)
+        .when(d => d.count < 0, Negative)
+        .otherwise(TooHigh)
+
+      expect(getRouteMetadata(handler)?.branches.map(b => b.index)).toEqual([
+        0, 1, 2,
+      ])
+    })
+
+    test("uses an explicit id when provided", () => {
+      const handler = route<Data>()
+        .when(d => d.count === 0, Normal, {
+          id: "zero",
+          label: "Zero count",
+        })
+        .otherwise(TooHigh, { id: "fallback" })
+
+      expect(getRouteMetadata(handler)?.branches.map(b => b.id)).toEqual([
+        "zero",
+        "fallback",
+      ])
+    })
+
+    test("defaults id to the resolved label when not provided", () => {
+      const handler = route<Data>()
+        .when(d => d.count === 0, Normal)
+        .otherwise(TooHigh)
+
+      expect(getRouteMetadata(handler)?.branches.map(b => b.id)).toEqual([
+        "Normal",
+        "TooHigh",
+      ])
+    })
+  })
+
+  describe("strict mode", () => {
+    test("default route() stays silent on unmatched (no throw, no warn)", () => {
+      const warn = jest
+        .spyOn(console, "warn")
+        .mockImplementation(() => undefined)
+
+      try {
+        const handler = route<Data>().when(d => d.count > 100, TooHigh)
+
+        expect(handler({ count: 1 }, undefined)).toBeUndefined()
+        expect(warn).not.toHaveBeenCalled()
+      } finally {
+        warn.mockRestore()
+      }
+    })
+
+    test("throws on unmatched when onUnmatched is 'throw'", () => {
+      const handler = route<Data>({ onUnmatched: "throw" }).when(
+        d => d.count > 100,
+        TooHigh,
+      )
+
+      expect(() => handler({ count: 1 }, undefined)).toThrow(
+        RouteUnmatchedError,
+      )
+    })
+
+    test("does not throw when an otherwise branch matches in throw mode", () => {
+      const handler = route<Data>({ onUnmatched: "throw" })
+        .when(d => d.count > 100, TooHigh)
+        .otherwise(Normal)
+
+      const result = asTransition(handler({ count: 1 }, undefined))
+
+      expect(result.name).toBe("Normal")
+    })
+
+    test("strict: true defaults to throwing on unmatched", () => {
+      const handler = route<Data>({ strict: true }).when(
+        d => d.count > 100,
+        TooHigh,
+      )
+
+      expect(() => handler({ count: 1 }, undefined)).toThrow(
+        RouteUnmatchedError,
+      )
+    })
+
+    test("warns via console.warn when onUnmatched is 'warn'", () => {
+      const warn = jest
+        .spyOn(console, "warn")
+        .mockImplementation(() => undefined)
+
+      try {
+        const handler = route<Data>({ onUnmatched: "warn" }).when(
+          d => d.count > 100,
+          TooHigh,
+        )
+
+        expect(handler({ count: 1 }, undefined)).toBeUndefined()
+        expect(warn).toHaveBeenCalledTimes(1)
+      } finally {
+        warn.mockRestore()
+      }
+    })
+
+    test("calls a custom onUnmatched function with route context on unmatched", () => {
+      const onUnmatched =
+        jest.fn<(context: RouteUnmatchedContext<Data, undefined>) => void>()
+
+      const handler = route<Data>({ onUnmatched }).when(
+        d => d.count > 100,
+        TooHigh,
+        { id: "too-high" },
+      )
+
+      const result = handler({ count: 1 }, undefined)
+
+      expect(result).toBeUndefined()
+      expect(onUnmatched).toHaveBeenCalledTimes(1)
+
+      const context = onUnmatched.mock.calls[0]![0]
+
+      expect(context.data).toEqual({ count: 1 })
+      expect(context.payload).toBeUndefined()
+      expect(context.branches.map(b => b.id)).toEqual(["too-high"])
     })
   })
 

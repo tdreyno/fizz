@@ -271,7 +271,7 @@ npm install ts-pattern
 
 With matcher shorthand objects, selectors return booleans: `true` when matched and `false` otherwise.
 
-Because `selectWhen(...)` is a positive check, function-based selectors return `undefined` when non-matching.
+Because `selectWhen(...)` is a positive check, function-based selectors return `undefined` when non-matching. Pass `{ defaultValue }` to `selectWhen(...)` when you want a stable non-match value (for example `false` or `0`) instead.
 
 ### Simple default vs optimized opt-out
 

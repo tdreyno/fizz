@@ -85,11 +85,20 @@ const EditorMachine = createMachine({
 
 - `when`: one state creator or a readonly array of state creators
 - second argument: either a `select` function with shape `(data, state, context) => result` (runs only when `currentState` matches `when`) or a matcher object shorthand
-- optional final `options` object: `{ equalityFn? }`
+- optional final `options` object: `{ equalityFn?, defaultValue? }`
 - function selectors return `undefined` when `currentState` does not match `when`
 - matcher-object selectors return `true` when all matcher keys equal `state.data` values, otherwise `false`
+- when `defaultValue` is provided, the selector returns it on a non-match instead of `undefined`/`false`, which normalizes the otherwise-mixed non-match shape
 
 Prefer matcher-object shorthand when you want a boolean predicate over `state.data` keys.
+
+A `defaultValue` is useful when a consumer wants a single stable shape regardless of state:
+
+```ts
+const reviewerCount = selectWhen(Reviewing, data => data.reviewers.length, {
+  defaultValue: 0,
+})
+```
 
 Matcher-object shorthand example:
 
@@ -189,11 +198,39 @@ const cartRoute = route<CartData>()
 const Cart = state<typeof enter, CartData>({ Enter: cartRoute })
 ```
 
-`route<Data, Payload>()` takes the handler's data and payload types as explicit generics. `.when(predicate, target, options?)` accepts a synchronous, pure predicate `(data, payload) => boolean` (or a TypeScript type guard `(data, payload) => data is Narrowed` that narrows the target's `data` locally). The target receives `(data, payload, utils)` and may return anything a handler can, including a transition, effect, action, array, or a bare data value (implicit update). It may also be async. A bare `BoundStateFn` is accepted directly and is called with the current data.
+`route<Data, Payload>(options?)` takes the handler's data and payload types as explicit generics. `.when(predicate, target, options?)` accepts a synchronous, pure predicate `(data, payload) => boolean` (or a TypeScript type guard `(data, payload) => data is Narrowed` that narrows the target's `data` locally). The target receives `(data, payload, utils)` and may return anything a handler can, including a transition, effect, action, array, or a bare data value (implicit update). It may also be async. A bare `BoundStateFn` is accepted directly and is called with the current data. The branch `options?` accepts `{ id?, label? }` for tooling (see `getRouteMetadata`).
 
 `.otherwise(target, options?)` is an optional final unconditional branch. When no branch matches and there is no `otherwise`, the handler returns `undefined`, which keeps the machine in its current state. An empty `route()` always stays.
 
 Each `.when`/`.otherwise` call returns a new builder, so partial chains can be shared safely.
+
+#### Strict (unmatched) handling
+
+By default a route with no matching branch and no `otherwise` silently returns `undefined`. Pass `route({ strict })` or `route({ onUnmatched })` to surface unmatched inputs instead:
+
+```ts
+import { route, RouteUnmatchedError } from "@tdreyno/fizz"
+
+// Throw a RouteUnmatchedError when nothing matches
+const strictRoute = route<CartData>({ strict: true })
+  .when(data => data.items === 0, EmptyCart)
+  .when(data => data.coupon != null, Discounted)
+
+// Or react without throwing
+const warnRoute = route<CartData>({ onUnmatched: "warn" }).when(
+  data => data.items === 0,
+  EmptyCart,
+)
+
+// Or provide a custom callback
+const customRoute = route<CartData>({
+  onUnmatched: ({ data, payload, branches }) => {
+    reportMissingRoute(data, branches)
+  },
+}).when(data => data.items === 0, EmptyCart)
+```
+
+`RouteOptions<Data, Payload>` is `{ strict?, onUnmatched? }`. `onUnmatched` is a `RouteUnmatchedBehavior`: the string `"throw"`, the string `"warn"` (logs via `console.warn` and returns `undefined`), or a function `(context: RouteUnmatchedContext) => void`. `RouteUnmatchedContext<Data, Payload>` carries `{ data, payload, branches }` where `branches` is the same metadata array returned by `getRouteMetadata`. `strict: true` is shorthand for `onUnmatched: "throw"`; an explicit `onUnmatched` always takes precedence. A matching `otherwise()` short-circuits before any unmatched behavior runs. `RouteUnmatchedError.context` exposes the same `RouteUnmatchedContext`.
 
 This differs from the fluent state `.when(...)` guard (which guards a single state definition) and from `switch_(...)` (which keys on state identity and returns a value): `route()` keys on predicates and produces a transition handler.
 
@@ -203,10 +240,10 @@ Read the ordered branch metadata from a route handler for tooling and introspect
 
 ```ts
 const metadata = getRouteMetadata(cartRoute)
-// metadata?.branches => [{ label, otherwise }, ...] in declaration order
+// metadata?.branches => [{ id, label, index, otherwise }, ...] in declaration order
 ```
 
-Each branch carries a `label` (resolved from an explicit `{ label }`, else the target's function name, else a positional fallback such as `"branch 2"` or `"otherwise"`), an `otherwise` flag, and a `predicate` for non-default branches.
+Each branch carries a `label` (resolved from an explicit `{ label }`, else the target's function name, else a positional fallback such as `"branch 2"` or `"otherwise"`), an `id` (resolved from an explicit `{ id }`, else defaulting to the `label`), a zero-based `index` reflecting declaration order, an `otherwise` flag, and a `predicate` for non-default branches.
 
 ## Actions
 
@@ -326,6 +363,8 @@ The returned `Runtime` is the main execution object. The most commonly used meth
 - `lastAction()`
 - `onContextChange(handler)`
 - `onTransition(handler)`
+- `onPathTransition(handler, options?)`
+- `subscribeSelector(selector, listener, options?)`
 - `onOutput(handler)`
 - `respondToOutput(type, handler)`
 - `bindActions(actions)`
@@ -350,7 +389,47 @@ unsubscribe()
 
 The `RuntimeTransitionInfo` type describes the handler argument and is exported from the package root.
 
-### `lastAction`
+### `onPathTransition`
+
+Subscribe to changes in the composed hierarchical state path (for example `"Connected/Live"`). Unlike `onTransition(...)`, which fires only when the top-level state name changes, `onPathTransition(...)` also fires when a nested child path changes while the top-level name stays the same. The handler receives `{ state, previousState, action, path, previousPath }` and returns an unsubscribe function. An optional second argument forwards `StatePathOptions` (for example a custom `separator`).
+
+```ts
+const unsubscribe = runtime.onPathTransition(
+  ({ path, previousPath }) => {
+    console.log(`${previousPath} -> ${path}`)
+    // "Modal/Opening" -> "Modal/Open"
+  },
+  { separator: "/" },
+)
+
+// later
+unsubscribe()
+```
+
+The `RuntimePathTransitionInfo` type describes the handler argument and is exported from the package root.
+
+### `subscribeSelector`
+
+Subscribe to a `selectWhen(...)` selector and run a listener only when the selected value changes. The selection is re-evaluated on every context change; the listener fires with `(next, previous)` when the new value differs from the previous one by the equality function. Equality resolves from `options.equalityFn`, then the selector's own `equalityFn`, then `Object.is`. Pass `emitInitial: true` to fire once with the current selection at subscribe time. It returns an unsubscribe function.
+
+```ts
+const isOpen = selectWhen(Modal, data => data.open, { defaultValue: false })
+
+const unsubscribe = runtime.subscribeSelector(
+  isOpen,
+  (next, previous) => {
+    console.log(`open: ${previous} -> ${next}`)
+  },
+  { emitInitial: true },
+)
+
+// later
+unsubscribe()
+```
+
+This removes the manual `onContextChange(...)` + `runStateSelector(...)` plumbing that derived-value subscriptions previously required.
+
+
 
 Read the most recent triggering action, or `undefined` before the first action runs.
 
@@ -1047,6 +1126,12 @@ const Parent = stateWithNested(
 Use this when nested composition makes the machine easier to reason about, rather than only avoiding a few repeated handlers.
 
 The second argument (the child's initial state) may be a `StateTransition` or a resolver function `(data) => StateTransition`. Fizz calls the resolver with the parent's data when the parent enters, so the child region can start at a different leaf depending on the parent's data.
+
+The optional fourth argument controls forwarding in addition to `name`:
+
+- `forward?: "all" | "none" | Array<keyof NestedActions>` — `"all"` (default) forwards every action in the map, `"none"` forwards none, and an array forwards only the listed names. Excluded actions may still be handled by an explicit parent handler.
+- `mapPayload?: { [K]?: (payload, data) => payload }` — rewrite a forwarded action's payload before the child runtime receives it.
+- `beforeForward?` / `afterForward?: (info: { action, payload, data }) => void` — side-effecting observers invoked around the child `run(...)`; `payload` is the mapped payload. For observation only.
 
 Nested child handlers receive `utils.resources` with automatic fallback to resources owned by the parent `stateWithNested(...)` state. Child resources take precedence when keys overlap.
 

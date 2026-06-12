@@ -58,9 +58,12 @@ export type {
   RouteBranchOptions,
   RouteBuilder,
   RouteMetadata,
+  RouteOptions,
   RouteTarget,
+  RouteUnmatchedBehavior,
+  RouteUnmatchedContext,
 } from "./routing.js"
-export { getRouteMetadata, route } from "./routing.js"
+export { getRouteMetadata, route, RouteUnmatchedError } from "./routing.js"
 export * from "./runtime.js"
 export type { StateSelector, StateSelectorOptions } from "./selectors.js"
 export {

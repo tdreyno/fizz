@@ -197,4 +197,90 @@ describe("selectors", () => {
       ),
     ).toBe(true)
   })
+
+  test("returns defaultValue for non-matching function selector", () => {
+    const Editing = state<Enter, { readOnly: boolean }>(
+      {
+        Enter: noop,
+      },
+      { name: "Editing" },
+    )
+
+    const Viewing = state<Enter, { archived: boolean }>(
+      {
+        Enter: noop,
+      },
+      { name: "Viewing" },
+    )
+
+    const selector = selectWhen(Editing, data => !data.readOnly, {
+      defaultValue: false,
+    })
+
+    const viewingContext = createInitialContext([Viewing({ archived: true })])
+
+    const selectedValue = runStateSelector(
+      selector,
+      viewingContext.currentState,
+      viewingContext,
+    )
+
+    expect(selectedValue).toBe(false)
+  })
+
+  test("returns defaultValue for non-matching matcher selector", () => {
+    const Editing = state<Enter, { readOnly: boolean }>(
+      {
+        Enter: noop,
+      },
+      { name: "Editing" },
+    )
+
+    const Viewing = state<Enter, { archived: boolean }>(
+      {
+        Enter: noop,
+      },
+      { name: "Viewing" },
+    )
+
+    const selector = selectWhen(
+      Editing,
+      { readOnly: false },
+      { defaultValue: true },
+    )
+
+    const viewingContext = createInitialContext([Viewing({ archived: true })])
+
+    const selectedValue = runStateSelector(
+      selector,
+      viewingContext.currentState,
+      viewingContext,
+    )
+
+    expect(selectedValue).toBe(true)
+  })
+
+  test("preserves undefined non-match default when no defaultValue is given", () => {
+    const Editing = state<Enter, { readOnly: boolean }>(
+      {
+        Enter: noop,
+      },
+      { name: "Editing" },
+    )
+
+    const Viewing = state<Enter, { archived: boolean }>(
+      {
+        Enter: noop,
+      },
+      { name: "Viewing" },
+    )
+
+    const selector = selectWhen(Editing, data => !data.readOnly)
+
+    const viewingContext = createInitialContext([Viewing({ archived: true })])
+
+    expect(
+      runStateSelector(selector, viewingContext.currentState, viewingContext),
+    ).toBeUndefined()
+  })
 })

@@ -312,6 +312,7 @@ Two practical consequences:
 
 - `await runtime.run(...)` resolves only after all transitively triggered work in the same drain has settled. If you need to assert an intermediate state, such as `Loading` before an async request completes, use a controlled driver such as `createControlledAsyncDriver()` so you can pause in-flight work.
 - `runtime.onContextChange(...)` subscribers are coalesced per drain. They fire once with the final state at the end of the drain, not once per intermediate `update(...)` inside the drain. Monitors (`runtime.addMonitor`) still receive per-command events when you need finer granularity for debugging.
+- `runtime.onPathTransition(...)` and `runtime.subscribeSelector(...)` are derived from the same end-of-drain context change. `onPathTransition(...)` fires when the composed `currentStatePath(...)` changes (including nested child paths, where the top-level name is unchanged and `onTransition(...)` would not fire), and `subscribeSelector(...)` fires only when its selected value changes by the equality function.
 
 ## Related Docs
 

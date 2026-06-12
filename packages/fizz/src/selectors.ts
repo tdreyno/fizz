@@ -31,6 +31,7 @@ type SelectorMatcher<W extends SelectorWhen> = Partial<
 
 export interface StateSelectorOptions<R> {
   equalityFn?: (previous: R | undefined, next: R | undefined) => boolean
+  defaultValue?: R
 }
 
 export interface StateSelector<W extends SelectorWhen, R> {
@@ -41,6 +42,8 @@ export interface StateSelector<W extends SelectorWhen, R> {
     context: Context,
   ) => R
   equalityFn?: (previous: R | undefined, next: R | undefined) => boolean
+  defaultValue?: R
+  hasDefaultValue?: boolean
   isMatcher?: boolean
 }
 
@@ -70,26 +73,36 @@ export function selectWhen<W extends SelectorWhen, R>(
         Object.is(stateData[key], expectedValue),
       )
     }
-    const equalityFn = (options as StateSelectorOptions<boolean> | undefined)
-      ?.equalityFn
+    const matcherOptions = options as StateSelectorOptions<boolean> | undefined
+    const equalityFn = matcherOptions?.equalityFn
+    const hasDefaultValue =
+      matcherOptions !== undefined && "defaultValue" in matcherOptions
 
     return {
       when,
       select,
       isMatcher: true,
       ...(equalityFn === undefined ? {} : { equalityFn }),
+      ...(hasDefaultValue
+        ? { defaultValue: matcherOptions?.defaultValue, hasDefaultValue: true }
+        : {}),
     }
   }
 
   const select = selectOrMatcher
-  const equalityFn = (options as StateSelectorOptions<R> | undefined)
-    ?.equalityFn
+  const functionOptions = options as StateSelectorOptions<R> | undefined
+  const equalityFn = functionOptions?.equalityFn
+  const hasDefaultValue =
+    functionOptions !== undefined && "defaultValue" in functionOptions
 
   return {
     when,
     select,
     isMatcher: false,
     ...(equalityFn === undefined ? {} : { equalityFn }),
+    ...(hasDefaultValue
+      ? { defaultValue: functionOptions?.defaultValue, hasDefaultValue: true }
+      : {}),
   }
 }
 
@@ -115,6 +128,10 @@ export const runStateSelector = <W extends SelectorWhen, R>(
       state,
       context,
     )
+  }
+
+  if (selector.hasDefaultValue === true) {
+    return selector.defaultValue
   }
 
   if (selector.isMatcher === true) {

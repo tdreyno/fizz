@@ -47,6 +47,27 @@ type NestedForwarders<
   [K in keyof NAM]?: NestedForwarder<Actions, Data, ActionCreatorType<NAM[K]>>
 }
 
+type NestedForwardHookInfo<NAM extends NestedActionMap, Data> = {
+  action: keyof NAM & string
+  payload: ActionPayload<ActionCreatorType<NAM[keyof NAM]>>
+  data: Data
+}
+
+type NestedPayloadMappers<NAM extends NestedActionMap, Data> = {
+  [K in keyof NAM]?: (
+    payload: ActionPayload<ActionCreatorType<NAM[K]>>,
+    data: Data,
+  ) => ActionPayload<ActionCreatorType<NAM[K]>>
+}
+
+type StateWithNestedOptions<NAM extends NestedActionMap, Data> = {
+  name?: string
+  forward?: "all" | "none" | Array<keyof NAM>
+  mapPayload?: NestedPayloadMappers<NAM, Data>
+  beforeForward?: (info: NestedForwardHookInfo<NAM, Data>) => void
+  afterForward?: (info: NestedForwardHookInfo<NAM, Data>) => void
+}
+
 export { NESTED } from "./state.js"
 export type { StatePathOptions } from "./statePath.js"
 export { getStatePath } from "./statePath.js"
@@ -71,7 +92,7 @@ export const stateWithNested = <
         data: Data,
       ) => StateTransition<string, Action<string, unknown>, unknown>),
   nestedActions: NAM,
-  options?: { name?: string },
+  options?: StateWithNestedOptions<NAM, Data>,
 ) => {
   const beforeEnter = async (
     data: Data,
@@ -115,10 +136,29 @@ export const stateWithNested = <
     })
   }
 
+  const forward = options?.forward ?? "all"
+  const shouldForward = (key: keyof NAM): boolean => {
+    if (forward === "none") {
+      return false
+    }
+
+    if (forward === "all") {
+      return true
+    }
+
+    return forward.includes(key)
+  }
+
   const forwarders = Object.entries(nestedActions).reduce(
     (acc, [key, action]) => {
       const typedKey = key as keyof NAM
+
+      if (!shouldForward(typedKey)) {
+        return acc
+      }
+
       const typedAction = action as NAM[typeof typedKey]
+      const mapPayload = options?.mapPayload?.[typedKey]
 
       acc[typedKey] = (async (data, payload, { update }) => {
         const nestedRuntime =
@@ -126,13 +166,32 @@ export const stateWithNested = <
             ? (data as NestedRuntimeData<Actions>)[NESTED]
             : undefined
 
+        const forwardedPayload = mapPayload
+          ? mapPayload(
+              payload as ActionPayload<ActionCreatorType<NAM[typeof typedKey]>>,
+              data,
+            )
+          : (payload as ActionPayload<ActionCreatorType<NAM[typeof typedKey]>>)
+
+        const hookInfo: NestedForwardHookInfo<NAM, Data> = {
+          action: typedKey as keyof NAM & string,
+          payload: forwardedPayload as ActionPayload<
+            ActionCreatorType<NAM[keyof NAM]>
+          >,
+          data,
+        }
+
+        options?.beforeForward?.(hookInfo)
+
         if (nestedRuntime) {
           await nestedRuntime.run(
-            typedAction(payload) as ActionCreatorType<
+            typedAction(forwardedPayload) as ActionCreatorType<
               NAM[typeof typedKey]
             > as Actions,
           )
         }
+
+        options?.afterForward?.(hookInfo)
 
         return update({ ...data })
       }) as NestedForwarders<Actions, Data, NAM>[typeof typedKey]

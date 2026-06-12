@@ -88,6 +88,7 @@ const disconnect = connectExternalSnapshot({
 | ------------------------------------------------ | ------------------------------------------------------------------ |
 | Wiring an external store to a machine            | `connectExternalSnapshot`                                          |
 | Subscribing to Fizz context changes from outside | `runtime.onContextChange(fn)`                                      |
+| Subscribing to a derived value from outside      | `runtime.subscribeSelector(selector, listener, options?)`          |
 | Feeding machine output back to an external store | `runtime.onOutput(fn)` or `runtime.connectOutputChannel(handlers)` |
 | Runtime-scoped subscription with auto-teardown   | `subscription(key, subscribe)` resource inside a state             |
 

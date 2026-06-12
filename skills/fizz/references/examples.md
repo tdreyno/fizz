@@ -318,6 +318,24 @@ const Editing = state<ReturnType<typeof submit>, CartData>({
 // Introspection for tooling.
 const cartRoute = route<CartData>().when(data => data.items === 0, EmptyCart)
 const { branches } = getRouteMetadata(cartRoute) ?? { branches: [] }
+// branches => [{ id: "EmptyCart", label: "EmptyCart", index: 0, otherwise: false, predicate }]
+
+// Strict routing: throw RouteUnmatchedError when nothing matches.
+import { RouteUnmatchedError } from "@tdreyno/fizz"
+
+const StrictCart = state<ReturnType<typeof enter>, CartData>({
+  Enter: route<CartData>({ strict: true }).when(
+    data => data.items === 0,
+    EmptyCart,
+  ),
+})
+
+// Or react without throwing via a callback / "warn".
+const ObservedCart = state<ReturnType<typeof enter>, CartData>({
+  Enter: route<CartData>({
+    onUnmatched: ({ data, branches }) => reportMissingRoute(data, branches),
+  }).when(data => data.items === 0, EmptyCart),
+})
 ```
 
 ## React integration with `useMachine(...)`
@@ -556,6 +574,56 @@ const isEditable = runStateSelector(
   runtime.currentState(),
   runtime.context,
 )
+```
+
+## Selector with a non-match default
+
+```typescript
+import { selectWhen } from "@tdreyno/fizz"
+
+// returns 0 instead of undefined when not in the Reviewing state
+const reviewerCount = selectWhen(Reviewing, data => data.reviewers.length, {
+  defaultValue: 0,
+})
+```
+
+## Subscribing to a derived value with `subscribeSelector(...)`
+
+```typescript
+import { createRuntime, selectWhen } from "@tdreyno/fizz"
+
+const isOpen = selectWhen(Modal, data => data.open, { defaultValue: false })
+
+const runtime = createRuntime(machine, machine.states.Closed())
+
+const unsubscribe = runtime.subscribeSelector(
+  isOpen,
+  (next, previous) => {
+    // fires only when the selected value changes by the equality function
+    console.log(`open: ${previous} -> ${next}`)
+  },
+  { emitInitial: true },
+)
+
+// later
+unsubscribe()
+```
+
+## Observing nested path changes with `onPathTransition(...)`
+
+```typescript
+// fires when the composed path changes, including nested child paths where the
+// top-level state name is unchanged (onTransition would not fire here)
+const unsubscribe = runtime.onPathTransition(
+  ({ path, previousPath }) => {
+    console.log(`${previousPath} -> ${path}`)
+    // "Modal/Opening" -> "Modal/Open"
+  },
+  { separator: "/" },
+)
+
+// later
+unsubscribe()
 ```
 
 ## Parallel machine composition

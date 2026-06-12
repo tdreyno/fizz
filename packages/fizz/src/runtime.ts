@@ -51,6 +51,7 @@ import type {
   RuntimeDebugEvent,
   RuntimeDiagnosticsSnapshot,
   RuntimeMonitor,
+  RuntimePathTransitionInfo,
   RuntimeState,
   RuntimeTransitionInfo,
 } from "./runtime/runtimeContracts.js"
@@ -93,6 +94,7 @@ export type {
   RuntimeDiagnosticsSnapshot,
   RuntimeMissingCommandHandlerPolicy,
   RuntimeMonitor,
+  RuntimePathTransitionInfo,
   RuntimeTransitionInfo,
 } from "./runtime/runtimeContracts.js"
 export type {
@@ -126,6 +128,19 @@ export type CreateRuntimeOptions = RuntimeContextOptions & RuntimeOptions
 
 type ContextChangeSubscriber = (context: Context) => void
 type TransitionSubscriber = (info: RuntimeTransitionInfo) => void
+type PathTransitionSubscriber = (info: RuntimePathTransitionInfo) => void
+
+type PathTransitionRegistration = {
+  listener: PathTransitionSubscriber
+  separator: string | undefined
+  previousPath: string | undefined
+  previousState: RuntimeState | undefined
+}
+
+export type SubscribeSelectorOptions<R> = {
+  equalityFn?: (previous: R | undefined, next: R | undefined) => boolean
+  emitInitial?: boolean
+}
 
 const LIFECYCLE_ACTION_TYPES = new Set<string>([
   beforeEnter.type,
@@ -214,6 +229,7 @@ export class Runtime<
   readonly clients: Record<string, unknown>
   readonly #contextChangeSubscribers = new Set<ContextChangeSubscriber>()
   readonly #transitionSubscribers = new Set<TransitionSubscriber>()
+  readonly #pathTransitionSubscribers = new Set<PathTransitionRegistration>()
   readonly #disconnectSubscribers = new Set<() => void>()
   readonly #effectHandlers: RuntimeEffectHandlerRegistry<RuntimeDebugCommand>
   #lastContextState: RuntimeState | undefined
@@ -372,10 +388,55 @@ export class Runtime<
     return () => this.#transitionSubscribers.delete(fn)
   }
 
+  onPathTransition(
+    fn: PathTransitionSubscriber,
+    options?: StatePathOptions,
+  ): () => void {
+    const registration: PathTransitionRegistration = {
+      listener: fn,
+      separator: options?.separator,
+      previousPath: this.currentStatePath(options),
+      previousState: this.currentState(),
+    }
+
+    this.#pathTransitionSubscribers.add(registration)
+
+    return () => this.#pathTransitionSubscribers.delete(registration)
+  }
+
   onContextChange(fn: ContextChangeSubscriber): () => void {
     this.#contextChangeSubscribers.add(fn)
 
     return () => this.#contextChangeSubscribers.delete(fn)
+  }
+
+  subscribeSelector<W extends SelectorWhen, R>(
+    selector: StateSelector<W, R>,
+    listener: (next: R | undefined, previous: R | undefined) => void,
+    options?: SubscribeSelectorOptions<R>,
+  ): () => void {
+    const equalityFn = options?.equalityFn ?? selector.equalityFn ?? Object.is
+
+    const evaluate = (): R | undefined =>
+      runStateSelector(selector, this.currentState(), this.context)
+
+    let previous = evaluate()
+
+    if (options?.emitInitial === true) {
+      listener(previous, undefined)
+    }
+
+    return this.onContextChange(() => {
+      const next = evaluate()
+
+      if (equalityFn(previous, next)) {
+        return
+      }
+
+      const prior = previous
+      previous = next
+      listener(next, prior)
+    })
   }
 
   onOutput(fn: OutputSubscriber<OAM>): () => void {
@@ -511,6 +572,7 @@ export class Runtime<
     this.#modules.disconnect()
     this.#contextChangeSubscribers.clear()
     this.#transitionSubscribers.clear()
+    this.#pathTransitionSubscribers.clear()
     this.#outputSubscribers.clear()
 
     this.#disconnectSubscribers.forEach(disconnect => {
@@ -724,6 +786,44 @@ export class Runtime<
     this.#lastContextState = currentState
 
     this.#contextChangeSubscribers.forEach(sub => sub(this.context))
+
+    this.#detectPathTransitions(currentState, action)
+  }
+
+  #detectPathTransitions(
+    currentState: RuntimeState,
+    action: RuntimeAction | undefined,
+  ) {
+    if (this.#pathTransitionSubscribers.size === 0) {
+      return
+    }
+
+    this.#pathTransitionSubscribers.forEach(registration => {
+      const path = getStatePath(
+        currentState,
+        registration.separator === undefined
+          ? undefined
+          : { separator: registration.separator },
+      )
+
+      if (path === registration.previousPath) {
+        return
+      }
+
+      const previousPath = registration.previousPath
+      const previousState = registration.previousState
+
+      registration.previousPath = path
+      registration.previousState = currentState
+
+      registration.listener({
+        action,
+        path,
+        previousPath,
+        previousState,
+        state: currentState,
+      })
+    })
   }
 
   #emitMonitor(event: RuntimeDebugEvent) {
