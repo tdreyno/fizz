@@ -622,4 +622,5 @@ matchers, and cancellation semantics.
 - [Debugging](./debugging.md)
 - [Complex Actions](./complex-actions.md)
 - [Async](./async.md)
+- [Persistence](./persistence.md) — snapshot on unmount, rehydrate the machine on mount
 - [Testing](./testing.md)

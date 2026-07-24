@@ -35,6 +35,8 @@ For output map aliases, command-channel emission APIs, and runtime output channe
 
 For wiring an external store (Redux, Zustand, custom observable) into the runtime action stream with built-in distinct-until-changed and loop guard, use `connectExternalSnapshot` — continue with `store-sync-adapter.md`.
 
+For saving a runtime's state and restoring it later (page reload, SSR handoff, offline storage), use `getSnapshot(...)` / `restoreRuntime(...)` — continue with `persistence.md`.
+
 ## State Design
 
 ### `state(...)`

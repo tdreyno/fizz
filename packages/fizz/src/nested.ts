@@ -9,8 +9,10 @@ import type {
 import { enter } from "./action.js"
 import { createInitialContext } from "./context.js"
 import { noop } from "./effect.js"
+import { SnapshotRestoreError } from "./errors.js"
 import { Runtime } from "./runtime.js"
-import type { HandlerReturn, StateTransition } from "./state.js"
+import { consumeRestoreSnapshot, rebuildSnapshotHistory } from "./snapshot.js"
+import type { BoundStateFn, HandlerReturn, StateTransition } from "./state.js"
 import { NESTED, PARENT_RUNTIME, state } from "./state.js"
 
 type NestedActionMap = {
@@ -66,6 +68,12 @@ type StateWithNestedOptions<NAM extends NestedActionMap, Data> = {
   mapPayload?: NestedPayloadMappers<NAM, Data>
   beforeForward?: (info: NestedForwardHookInfo<NAM, Data>) => void
   afterForward?: (info: NestedForwardHookInfo<NAM, Data>) => void
+
+  /**
+   * Name-to-state lookup for the nested machine's states. Required to
+   * restore this state from a snapshot via restoreRuntime.
+   */
+  states?: Record<string, BoundStateFn<string, any, any>>
 }
 
 export { NESTED } from "./state.js"
@@ -94,6 +102,32 @@ export const stateWithNested = <
   nestedActions: NAM,
   options?: StateWithNestedOptions<NAM, Data>,
 ) => {
+  const resolveInitialHistory = (
+    data: Data,
+  ): Array<StateTransition<string, Action<string, unknown>, unknown>> => {
+    const restoreSnapshot = consumeRestoreSnapshot(data)
+
+    if (restoreSnapshot) {
+      if (!options?.states) {
+        throw new SnapshotRestoreError(
+          `State "${options?.name ?? "nested"}" was restored with a nested ` +
+            "snapshot but has no states lookup. Pass the nested machine's " +
+            "states via stateWithNested options to enable restore.",
+        )
+      }
+
+      return rebuildSnapshotHistory(options.states, restoreSnapshot) as Array<
+        StateTransition<string, Action<string, unknown>, unknown>
+      >
+    }
+
+    return [
+      typeof initialNestedState === "function"
+        ? initialNestedState(data)
+        : initialNestedState,
+    ]
+  }
+
   const beforeEnter = async (
     data: Data,
     parentRuntime: ActionPayload<BeforeEnter>,
@@ -103,24 +137,22 @@ export const stateWithNested = <
       return noop()
     }
 
-    const resolvedNestedState =
-      typeof initialNestedState === "function"
-        ? initialNestedState(data)
-        : initialNestedState
+    const initialHistory = resolveInitialHistory(data)
+    const currentNestedState = initialHistory[0]!
 
     if (
-      typeof resolvedNestedState.data === "object" &&
-      resolvedNestedState.data !== null
+      typeof currentNestedState.data === "object" &&
+      currentNestedState.data !== null
     ) {
       ;(
-        resolvedNestedState.data as {
+        currentNestedState.data as {
           [PARENT_RUNTIME]?: ActionPayload<BeforeEnter>
         }
       )[PARENT_RUNTIME] = parentRuntime
     }
 
     const runtime = new Runtime(
-      createInitialContext([resolvedNestedState]),
+      createInitialContext(initialHistory),
       nestedActions,
     )
 

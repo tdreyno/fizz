@@ -322,6 +322,7 @@ Two practical consequences:
 - [Complex Actions](./complex-actions.md)
 - [Nested State Machines](./nested-state-machines.md)
 - [Parallel State Machines](./parallel-state-machines.md)
+- [Persistence](./persistence.md)
 - [Async](./async.md)
 - [Timers](./timers.md)
 - [Intervals](./intervals.md)

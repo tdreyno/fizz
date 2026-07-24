@@ -349,5 +349,6 @@ If the child starts looking like a separate mode in the main app workflow, it is
 
 - [Architecture](./architecture.md)
 - [Complex Actions](./complex-actions.md)
+- [Persistence](./persistence.md)
 - [API](./api.md)
 - [Testing](./testing.md)

@@ -72,6 +72,20 @@ export {
   selectWhen,
 } from "./selectors.js"
 export type {
+  GetSnapshotOptions,
+  ParseSnapshotOptions,
+  RestoreRuntimeOptions,
+  RuntimeSnapshot,
+  SerializeSnapshotOptions,
+  StateSnapshot,
+} from "./snapshot.js"
+export {
+  getSnapshot,
+  parseSnapshot,
+  restoreRuntime,
+  serializeSnapshot,
+} from "./snapshot.js"
+export type {
   BoundStateFn,
   GetStateData,
   HandlerReturn,

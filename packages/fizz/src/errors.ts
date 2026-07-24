@@ -37,6 +37,8 @@
 
 export class MissingCurrentState extends Error {}
 
+export class SnapshotRestoreError extends Error {}
+
 export class UnknownStateReturnType<
   T extends { toString(): string },
 > extends Error {

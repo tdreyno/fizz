@@ -194,3 +194,4 @@ When reviewing parallel-machine code, check these first:
 - `examples.md` for a shorter copyable example
 - `async-and-scheduling.md` when a branch manages async work, timers, or intervals
 - `react-integration.md` when a parallel machine is hosted through `useMachine(...)`
+- `persistence.md` for snapshotting and restoring parallel branches (`getSnapshot` captures each branch; restore rebuilds branches by state name automatically)

@@ -501,9 +501,38 @@ Use `browserDriver` when your machine returns browser-oriented built-in effects 
 
 Import browser runtime drivers from the browser entrypoint only: `@tdreyno/fizz/browser`.
 
-### `runAndSelect`
+### `getSnapshot`
 
-Import browser runtime drivers from the browser entrypoint only: `@tdreyno/fizz/browser`.
+Capture a serializable snapshot of a runtime's current state and bounded history (newest first). Live handles (nested/parallel runtimes, resources) are recursively captured as child snapshots, never serialized directly.
+
+```ts
+const snapshot = getSnapshot(runtime, {
+  maxHistory: 10, // optional cap on captured entries
+  machineName: "Cart", // optional label stored on the snapshot
+})
+```
+
+### `restoreRuntime`
+
+Rebuild a live runtime from a snapshot. Looks up each history entry's state by name (named states required), preserves append/update modes, and by default re-runs the restored state's `enter()` lifecycle so timers, subscriptions, and nested/parallel children re-establish. Throws `SnapshotRestoreError` on unknown state names or version mismatch.
+
+```ts
+const runtime = await restoreRuntime(CartMachine, snapshot, {
+  runLifecycle: true, // default; false skips enter()
+  maxHistory: 10, // plus any other createRuntime option
+})
+```
+
+### `serializeSnapshot` / `parseSnapshot`
+
+JSON round-trip helpers with shape and version validation. Pass `replacer`/`reviver` for non-JSON-safe state data.
+
+```ts
+const json = serializeSnapshot(snapshot, { space: 2 })
+const roundTripped = parseSnapshot(json)
+```
+
+See [Persistence](./persistence.md) for the full guide.
 
 ### `hasPendingAsync`, `getPendingAsync`, `getPendingAsyncCount`, `flushAsync`
 
@@ -1132,6 +1161,7 @@ The optional fourth argument controls forwarding in addition to `name`:
 - `forward?: "all" | "none" | Array<keyof NestedActions>` — `"all"` (default) forwards every action in the map, `"none"` forwards none, and an array forwards only the listed names. Excluded actions may still be handled by an explicit parent handler.
 - `mapPayload?: { [K]?: (payload, data) => payload }` — rewrite a forwarded action's payload before the child runtime receives it.
 - `beforeForward?` / `afterForward?: (info: { action, payload, data }) => void` — side-effecting observers invoked around the child `run(...)`; `payload` is the mapped payload. For observation only.
+- `states?: Record<string, BoundStateFn>` — child-state lookup by name, required to restore a [persistence snapshot](./persistence.md) into the nested region.
 
 Nested child handlers receive `utils.resources` with automatic fallback to resources owned by the parent `stateWithNested(...)` state. Child resources take precedence when keys overlap.
 

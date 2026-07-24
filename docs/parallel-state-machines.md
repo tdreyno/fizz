@@ -138,4 +138,5 @@ Use `createParallelMachine(...)` when:
 
 - [Architecture](./architecture.md)
 - [Nested State Machines](./nested-state-machines.md)
+- [Persistence](./persistence.md)
 - [API Documentation](./api.md)

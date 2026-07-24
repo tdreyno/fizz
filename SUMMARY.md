@@ -34,6 +34,7 @@
 - [Fluent API](docs/fluent-api.md)
 - [Nested State Machines](docs/nested-state-machines.md)
 - [Parallel State Machines](docs/parallel-state-machines.md)
+- [Persistence](docs/persistence.md)
 - [Runtime Registry](docs/runtime-registry.md)
 
 ## Utilities

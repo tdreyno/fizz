@@ -998,10 +998,34 @@ export function createRuntime<
     )
   }
 
+  return createRuntimeFromHistory(machine, [initialState], options)
+}
+
+/**
+ * Create a runtime seeded with a full state history (newest-first) instead
+ * of a single initial state. Used by snapshot restore.
+ */
+export function createRuntimeFromHistory<
+  SM extends RuntimeStateMap,
+  AM extends RuntimeActionMap,
+  OAM extends RuntimeActionMap,
+  Selectors extends RuntimeMachineSelectors<SM> = Record<string, never>,
+  Clients extends Record<string, unknown> = Record<string, unknown>,
+>(
+  machine: MachineDefinition<SM, AM, OAM, unknown, Selectors, Clients>,
+  history: Array<ReturnType<SM[keyof SM]>>,
+  options?: CreateRuntimeOptions & { clients?: Clients },
+): Runtime<AM, OAM> {
+  if (history.length === 0) {
+    throw new Error(
+      "createRuntimeFromHistory(machine, history) requires at least one state",
+    )
+  }
+
   const { context, runtime } = splitCreateRuntimeOptions(options)
 
   return new Runtime(
-    createInitialContext([initialState], context),
+    createInitialContext(history, context),
     (machine.actions ?? {}) as AM,
     (machine.outputActions ?? machine.outputs ?? {}) as OAM,
     machine.name === undefined

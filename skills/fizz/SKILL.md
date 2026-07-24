@@ -27,6 +27,7 @@ Use these links to discover all files that are part of this skill package:
 - [references/dom-listener-helper-mappings.md](references/dom-listener-helper-mappings.md)
 - [references/react-integration.md](references/react-integration.md)
 - [references/store-sync-adapter.md](references/store-sync-adapter.md)
+- [references/persistence.md](references/persistence.md)
 - [references/examples.md](references/examples.md)
 - [references/fluent-api.md](references/fluent-api.md)
 
@@ -123,6 +124,8 @@ Follow this sequence when wiring a machine manually:
 
 If the task is about runtime behavior, read [references/core-runtime.md](references/core-runtime.md).
 
+If the task is about saving a runtime's state and restoring it later (reload, SSR handoff, offline), read [references/persistence.md](references/persistence.md).
+
 If the task is about adapter-facing output actions, read [references/output-actions.md](references/output-actions.md).
 
 ### Async and scheduling
@@ -188,6 +191,7 @@ If the task is about React integration, read [references/react-integration.md](r
 - [references/dom-listener-helper-mappings.md](references/dom-listener-helper-mappings.md) for complete event name to onEvent convenience helper mappings
 - [references/react-integration.md](references/react-integration.md) for `useMachine(...)`, `createMachineContext(...)`, and React-specific guidance
 - [references/store-sync-adapter.md](references/store-sync-adapter.md) for store synchronization patterns and adapter integration guidance
+- [references/persistence.md](references/persistence.md) for `getSnapshot(...)`, `restoreRuntime(...)`, JSON snapshot helpers, and nested/parallel restore rules
 - [references/examples.md](references/examples.md) for short copyable usage patterns
 - [references/fluent-api.md](references/fluent-api.md) for the optional fluent state authoring entry point
 

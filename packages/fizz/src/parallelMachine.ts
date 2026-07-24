@@ -4,9 +4,14 @@ import type { CreatedMachineDefinition } from "./createMachine.js"
 import { createMachine } from "./createMachine.js"
 import { noop } from "./effect.js"
 import type { Runtime } from "./runtime.js"
-import { createRuntime } from "./runtime.js"
+import { createRuntime, createRuntimeFromHistory } from "./runtime.js"
+import type { RuntimeSnapshot } from "./snapshot.js"
+import {
+  consumeRestoreParallelSnapshots,
+  rebuildSnapshotHistory,
+} from "./snapshot.js"
 import type { StateTransition } from "./state.js"
-import { state } from "./state.js"
+import { PARALLEL_RUNTIMES, state } from "./state.js"
 
 type RuntimeActionMap = {
   [key: string]: (...args: Array<unknown>) => Action<string, unknown>
@@ -40,7 +45,7 @@ export type ParallelRuntimeMap = Record<
   Runtime<RuntimeActionMap, RuntimeActionMap>
 >
 
-export const PARALLEL_RUNTIMES = Symbol("PARALLEL_RUNTIMES")
+export { PARALLEL_RUNTIMES } from "./state.js"
 
 type ParallelStateData = {
   [PARALLEL_RUNTIMES]?: ParallelRuntimeMap
@@ -107,10 +112,21 @@ const mergeParallelActions = (branches: ParallelBranchMap): ParallelActions =>
 
 const createParallelRuntimes = async (
   branches: ParallelBranchMap,
+  snapshots?: Record<string, RuntimeSnapshot>,
 ): Promise<ParallelRuntimeMap> => {
   const entries = await Promise.all(
     Object.entries(branches).map(async ([key, machine]) => {
-      const runtime = createRuntime(machine, machine.initialState)
+      const snapshot = snapshots?.[key]
+
+      const runtime = snapshot
+        ? createRuntimeFromHistory(
+            machine,
+            rebuildSnapshotHistory(
+              machine.states,
+              snapshot,
+            ) as Array<RuntimeInitialState>,
+          )
+        : createRuntime(machine, machine.initialState)
 
       await runtime.run(enter())
 
@@ -253,7 +269,8 @@ export const createParallelMachine = (
   const Running = state<Action<string, unknown>, ParallelStateData>(
     {
       Enter: async (data, _, { update }) => {
-        const runtimes = await createParallelRuntimes(branches)
+        const snapshots = consumeRestoreParallelSnapshots(data)
+        const runtimes = await createParallelRuntimes(branches, snapshots)
 
         return update({
           ...data,

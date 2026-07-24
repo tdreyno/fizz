@@ -941,6 +941,8 @@ export const PARENT_RUNTIME = Symbol("Parent runtime")
 
 export const NESTED = Symbol("Nested runtime")
 
+export const PARALLEL_RUNTIMES = Symbol("PARALLEL_RUNTIMES")
+
 const getMergedResources = (options: {
   parentRuntime?: InternalRuntime
   transition: StateTransition<string, Action<string, unknown>, unknown>
