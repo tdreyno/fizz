@@ -27,7 +27,7 @@
   "devDependencies": {
     "@repo/eslint-config": "*",
     "@repo/tsconfig": "*",
-    "@types/chrome": "^0.1.29",
+    "@types/chrome": "^0.2.2",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.11.2",
     "@types/react": "^19.2.5",
